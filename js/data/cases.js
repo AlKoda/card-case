@@ -127,6 +127,19 @@
     ],
   };
 
+  // What a witness stands to gain or lose by talking [Fingerpost]. Two
+  // witnesses who agree for different reasons establish a fact; two who
+  // want the same thing establish nothing; one who speaks against their
+  // own interest counts double.
+  CF.STAKES = {
+    self: { label: 'Protects themselves', desc: 'has something of their own to hide', against: false },
+    kin: { label: 'Protects kin', desc: 'is kin to somebody in the case', against: true },
+    reward: { label: 'Wants the reward', desc: 'has heard there is a reward', against: false },
+    hates: { label: 'Hates the accused', desc: 'has an old grudge in the quarter', against: false },
+    loves: { label: 'Loves the accused', desc: 'is fond of somebody in the case', against: true },
+    none: { label: 'No stake', desc: 'has no stake in it that you can see', against: false },
+  };
+
   // Generic scene items used by every template (on top of template items).
   CF.GENERIC_SCENE = [
     { type: 'evidence', label: 'Marks on the Sill', text: 'The print of a hand on the whitewash. Faint, but there.', needs: 'prints',
@@ -136,7 +149,7 @@
 
   CF.CASE_TEMPLATES = {
     burglary: {
-      label: 'Burglary', title: 'Burglary at {scene}', lifetime: 250, difficulty: 5,
+      label: 'Burglary', title: 'Burglary at {scene}', lesser: 'theft, not burglary', lifetime: 250, difficulty: 5,
       keyAspects: ['forensic', 'opportunity', 'financial'], districts: ['market', 'uptown', 'canal'],
       charge: { forensic: 2, opportunity: 2, financial: 2 },
       scenes: ['{last}\'s Pawnshop', 'the {last} House', '{last} the Goldsmith\'s'],
@@ -210,7 +223,7 @@
       ],
     },
     missing: {
-      label: 'The Vanished', title: 'The Vanishing of {victim}', lifetime: 280, difficulty: 6,
+      label: 'The Vanished', title: 'The Vanishing of {victim}', lesser: 'abduction, not murder', lifetime: 280, difficulty: 6,
       keyAspects: ['testimony', 'motive', 'digital'], districts: ['warrens', 'neon', 'uptown'],
       charge: { testimony: 2, motive: 2, digital: 2 },
       scenes: ['{victim}\'s Lodging', 'the Last Known Door', 'the Ferry Steps by {last} Wharf'],
@@ -234,7 +247,7 @@
       hints: ['They quarrelled with someone on the stair. A man or a woman, I couldn\'t say. They sounded like they knew each other.', 'They were frightened. They kept looking at the door.', 'They told me they were coming into money. Then they said they were leaving the city.'],
     },
     harbor: {
-      label: 'A Death', title: 'The Body at the Crane', lifetime: 240, difficulty: 7, highProfile: true,
+      label: 'A Death', title: 'The Body at the Crane', lesser: 'manslaughter, not murder', lifetime: 240, difficulty: 7, highProfile: true,
       keyAspects: ['forensic', 'motive', 'opportunity'], districts: ['docks', 'canal'],
       charge: { forensic: 3, motive: 2, opportunity: 2 },
       scenes: ['Berth {n}', 'the {last} Warehouse', 'the Harbour Steps'],
@@ -258,7 +271,7 @@
       hints: ['Two of them were arguing by the bollards, past compline. Then just one.', 'I heard a splash. I thought it was a bale. Nobody drops bales at midnight.', 'Somebody walked off the quay in a hurry. Big coat. They didn\'t look back.'],
     },
     arson: {
-      label: 'Fire', title: 'Fire at {scene}', lifetime: 230, difficulty: 6,
+      label: 'Fire', title: 'Fire at {scene}', lesser: 'a careless fire, not arson', lifetime: 230, difficulty: 6,
       keyAspects: ['forensic', 'financial', 'testimony'], districts: ['canal', 'warrens', 'market'],
       charge: { forensic: 2, financial: 2, testimony: 2 },
       scenes: ['the {last} Warehouse', 'the {last} Print-shop', 'a Tenement in {last} Row'],
@@ -282,7 +295,7 @@
       hints: ['Someone came out the side door just before the smoke. They weren\'t running. They were walking.', 'There was a smell, like a lamp, but strong. An hour before.', 'I saw a light in the upper room at matins. There\'s never anyone there at matins.'],
     },
     fraud: {
-      label: 'False Dealing', title: 'The {last} Affair', lifetime: 300, difficulty: 7,
+      label: 'False Dealing', title: 'The {last} Affair', lesser: 'sharp dealing, not fraud', lifetime: 300, difficulty: 7,
       keyAspects: ['financial', 'digital', 'motive'], districts: ['uptown', 'neon'],
       charge: { financial: 3, digital: 2, motive: 2 },
       scenes: ['the {last} Counting-house', '{last} & Company', 'the {last} Venture'],
@@ -305,7 +318,7 @@
       hints: ['There were always suppers. The same people, telling the same stories about the venture.', 'I wrote the letters fair. I was told what to write. I didn\'t ask.', 'They came in every Friday with a strongbox. Left without it.'],
     },
     extortion: {
-      label: 'Protection', title: 'Protection in {scene}', lifetime: 260, difficulty: 6,
+      label: 'Protection', title: 'Protection in {scene}', lesser: 'menaces, not extortion', lifetime: 260, difficulty: 6,
       keyAspects: ['testimony', 'financial', 'opportunity'], districts: ['market', 'neon', 'warrens'],
       charge: { testimony: 2, financial: 2, opportunity: 2 },
       scenes: ['{last} Lane', 'the {last} Arcade', 'the Night Market'],
@@ -327,7 +340,7 @@
       hints: ['He comes on market day. Always market day. He talks like a sergeant.', 'They count the money on the corner, bold as brass.', 'There are two of them. One talks, one watches.'],
     },
     poison: {
-      label: 'Poisoning', title: 'The Death of {victim}', lifetime: 260, difficulty: 7,
+      label: 'Poisoning', title: 'The Death of {victim}', lesser: 'unlawful physic, not murder', lifetime: 260, difficulty: 7,
       keyAspects: ['forensic', 'motive', 'financial'], districts: ['uptown', 'canal', 'market'],
       charge: { forensic: 3, motive: 2, financial: 1 },
       scenes: ['the {last} House', 'the Sign of the Pestle', 'a Cell in the Abbey Hospital'],
@@ -351,7 +364,7 @@
       hints: ['They sent the eels back and asked for the other dish. The one nobody else had.', 'Someone came for a paper of powder for the rats. We have no rats.', 'They laughed all through supper. At the end they said they felt cold.'],
     },
     coining: {
-      label: 'Coining', title: 'False Coin in {scene}', lifetime: 240, difficulty: 6,
+      label: 'Coining', title: 'False Coin in {scene}', lesser: 'uttering, not coining', lifetime: 240, difficulty: 6,
       keyAspects: ['forensic', 'financial', 'opportunity'], districts: ['market', 'warrens', 'docks'],
       charge: { forensic: 2, financial: 2, opportunity: 2 },
       scenes: ['the Weigh-house', '{last}\'s Tavern', 'the Cattle Market'],

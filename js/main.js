@@ -50,7 +50,7 @@
 
   var CALLING_ART = { commissioner: 'back-sun', master: 'back-eye', crusader: 'back-scales' };
   var ENDING_ART = { dismissed: 'back-moon', burnout: 'back-moon', collapse: 'back-moon', consumed: 'back-eye', corruption: 'back-key',
-    death: 'back-snake', commissioner: 'back-sun', master: 'back-eye', crusader: 'back-scales' };
+    death: 'back-snake', riot: 'back-snake', commissioner: 'back-sun', master: 'back-eye', crusader: 'back-scales' };
 
   function save() {
     if (inGame && UI.e && !UI.e.s.over) store(SAVE_KEY, UI.e.save());
