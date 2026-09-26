@@ -6,6 +6,14 @@ A detective card game in the style of *Cultist Simulator*. You are a newly assig
 
 Open `index.html` in a browser. There's no build step and nothing to install. The game autosaves to your browser's local storage.
 
+### Host it on GitHub Pages
+
+The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the game to GitHub Pages on every push to `main`.
+
+1. In the repository, go to **Settings → Pages** and set **Source** to **GitHub Actions**. You only need to do this once.
+2. Push to `main`, or open the **Actions** tab, pick **Deploy to GitHub Pages**, and click **Run workflow**.
+3. When it finishes, the game is at `https://<your-username>.github.io/<repo-name>/`. The link also appears on the workflow run.
+
 - **Drag** cards onto a verb, or into a verb's slots. **Begin** runs it.
 - **Hover or click** a card to read it. **Double-click** a card to send it to the open verb.
 - **Space** pauses, **1/2/3** set the speed, **J** opens the journal, and **Esc** closes the verb window.
