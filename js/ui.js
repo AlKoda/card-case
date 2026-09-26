@@ -161,12 +161,25 @@
     requestAnimationFrame(frame);
   };
 
+  var STORY_SOUNDS = { case: 'case', danger: 'danger', week: 'week', major: 'complete', victory: 'complete' };
+  function shake() {
+    if (!CF.Settings.get('shake')) return;
+    var app = $('#app');
+    app.classList.remove('shake');
+    void app.offsetWidth;
+    app.classList.add('shake');
+  }
+
   function onEvent(type, payload) {
+    if (type === 'resolved' && UI.onResolved) UI.onResolved(payload);
     if (type === 'story') {
       if (UI.tab !== 'journal') UI.unreadJournal = true;
       var k = payload.kind;
+      if (!UI.modal && STORY_SOUNDS[k]) CF.Audio.play(STORY_SOUNDS[k]);
+      if (!UI.modal && k === 'danger') shake();
       if (k === 'case' || k === 'danger' || k === 'major' || k === 'victory' || k === 'week') toast(payload);
     }
+    if (type === 'complete') CF.Audio.play('complete');
     if (type === 'complete' && payload.verb !== UI.openVerb) {
       var v = UI.e.verb(payload.verb);
       if (v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
@@ -348,6 +361,7 @@
 
   function updateLive() {
     var e = UI.e;
+    advanceTyping();
     updateVerbBars();
     document.querySelectorAll('.card[data-uid]').forEach(function (n) {
       if (n.classList.contains('ghost')) return;
@@ -415,10 +429,32 @@
     pane.scrollTop = keep;
   }
 
+  // Story text types itself out at the player's chosen text speed.
+  var typed = typeof WeakSet !== 'undefined' ? new WeakSet() : { has: function () { return true; }, add: function () {} };
+  UI.typing = null;
   function storyBox(story) {
     var d = h('div', 'story');
-    d.innerHTML = '<h5>' + esc(story.title) + '</h5><p>' + esc(story.text) + '</p>';
+    d.innerHTML = '<h5>' + esc(story.title) + '</h5>';
+    var p = h('p');
+    d.appendChild(p);
+    if (typed.has(story) || CF.Settings.typeRate() === Infinity || !story.text) {
+      p.textContent = story.text;
+      typed.add(story);
+    } else {
+      if (!UI.typing || UI.typing.story !== story) UI.typing = { story: story, t0: performance.now() };
+      UI.typing.el = p;
+      d.title = 'Click to show all';
+      d.addEventListener('click', function () { typed.add(story); p.textContent = story.text; UI.typing = null; });
+      advanceTyping();
+    }
     return d;
+  }
+  function advanceTyping() {
+    var t = UI.typing;
+    if (!t || !t.el) return;
+    var n = Math.floor(((performance.now() - t.t0) / 1000) * CF.Settings.typeRate());
+    if (n >= t.story.text.length) { t.el.textContent = t.story.text; typed.add(t.story); UI.typing = null; return; }
+    t.el.textContent = t.story.text.slice(0, n);
   }
 
   function renderVerbWindow(pane, vid) {
@@ -511,7 +547,7 @@
     var act2 = h('div', 'actions');
     var go = h('button', 'btn', pv ? 'Begin (' + Math.round(pv.duration) + 's)' : 'Begin');
     go.disabled = !pv || !!pv.blocked;
-    go.addEventListener('click', function () { if (e.start(vid)) e.dirty = true; });
+    go.addEventListener('click', function () { if (e.start(vid)) { CF.Audio.play('start'); e.dirty = true; } });
     act2.appendChild(go);
     if (Object.keys(v.slots).length) {
       var clr = h('button', 'btn ghost', 'Clear');
@@ -655,6 +691,7 @@
       d.ghost.classList.remove('fresh', 'selected');
       document.body.appendChild(d.ghost);
       d.src.classList.add('dragging-src');
+      CF.Audio.play('pick');
       markDropTargets(card);
     }
     d.ghost.style.left = ev.clientX - CW / 2 + 'px';
@@ -717,11 +754,11 @@
     if (!card || !t) { e.dirty = true; return; }
     var loc = card.loc;
     if (t.slot) {
-      if (e.slotCard(t.verb, t.slot, card.uid)) UI.openVerb = t.verb;
+      if (e.slotCard(t.verb, t.slot, card.uid)) { UI.openVerb = t.verb; CF.Audio.play('drop'); }
     } else if (t.token) {
       if (loc.t === 'out') {
         // Dragging an output back onto its own verb: just leave it.
-      } else if (e.autoSlot(t.verb, card.uid)) { UI.openVerb = t.verb; UI.tab = 'desk'; }
+      } else if (e.autoSlot(t.verb, card.uid)) { UI.openVerb = t.verb; UI.tab = 'desk'; CF.Audio.play('drop'); }
     } else if (t.table) {
       var inner = $('#table-inner').getBoundingClientRect();
       var x = (ev.clientX - inner.left) / UI.scale, y = (ev.clientY - inner.top) / UI.scale;

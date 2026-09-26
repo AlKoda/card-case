@@ -1,4 +1,5 @@
-// Boot: start screen, saving/loading, menus and endings.
+// Boot and navigation: title screen, new game, settings, archive, pause menu,
+// endings, and saving.
 (function () {
   var CF = window.CF;
   var UI = CF.UI;
@@ -9,29 +10,50 @@
   function store(key, val) { try { if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val); } catch (err) { /* storage unavailable */ } }
   function load(key) { try { return localStorage.getItem(key); } catch (err) { return null; } }
   function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); }
+  function only(id) {
+    document.querySelectorAll('.modal').forEach(function (m) { m.classList.toggle('hidden', m.id !== id); });
+    UI.modal = !!id;
+  }
+  function click(id, fn) { $(id).addEventListener('click', function (ev) { CF.Audio.play('click'); fn(ev); }); }
 
   var chosen = 'master';
+  var inGame = false;     // a real game (not the demo table behind the title)
+  var returnTo = 'title'; // where Back goes from Settings / Archive
+
+  var CALLING_ART = { commissioner: 'officer', master: 'eye', crusader: 'smoker' };
+  var ENDING_ART = { dismissed: 'mirror', burnout: 'hourglass', collapse: 'hourglass', consumed: 'tangled', corruption: 'letter',
+    death: 'crow', commissioner: 'officer', master: 'eye', crusader: 'smoker' };
 
   function save() {
-    if (UI.e && !UI.e.s.over) store(SAVE_KEY, UI.e.save());
+    if (inGame && UI.e && !UI.e.s.over) store(SAVE_KEY, UI.e.save());
   }
   UI.onSave = save;
+  UI.onResolved = function (rec) { if (inGame) CF.Archive.add(rec); };
 
   UI.onGameOver = function (over) {
     var e = UI.e;
     store(SAVE_KEY, null);
     store(LEGACY_KEY, JSON.stringify(e.s.legacy));
     var st = e.s.stats;
-    $('end').querySelector('.modal-box').className = 'modal-box ' + (over.win ? 'end-win' : 'end-lose');
-    $('end-deck').style.backgroundImage = over.win ? 'var(--art-card-back)' : 'var(--art-card-back-red)';
+    $('end').querySelector('.modal-box').className = 'modal-box end-box ' + (over.win ? 'end-win' : 'end-lose');
+    $('end-card').style.backgroundImage = 'var(--art-pcard-' + (ENDING_ART[over.id] || 'hourglass') + ')';
+    $('end-card-top').textContent = over.title;
+    $('end-card-bottom').textContent = e.s.detective;
     $('end-title').textContent = over.title;
     $('end-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ', week ' + over.week;
     $('end-text').textContent = over.text;
     $('end-stats').innerHTML = [
       ['Convictions', st.convictions], ['Acquittals', st.acquittals], ['Gone cold', st.cold], ['Wrongful', st.wrongful],
     ].map(function (x) { return '<div><b>' + x[1] + '</b><span>' + x[0] + '</span></div>'; }).join('');
-    show('end', true);
+    CF.Audio.play(over.win ? 'victory' : 'defeat');
+    only('end');
   };
+
+  // ---------------------------------------------------------------- Title
+  function openTitle() {
+    $('t-continue').classList.toggle('hidden', !load(SAVE_KEY));
+    only('title');
+  }
 
   function buildCallings() {
     var box = $('callings');
@@ -40,16 +62,18 @@
       var c = CF.CALLINGS[k];
       var b = document.createElement('button');
       b.className = 'calling' + (k === chosen ? ' on' : '');
-      b.innerHTML = '<div class="theme">' + c.theme + '</div><h3>' + c.label + '</h3><p>' + c.blurb + '</p><div class="bonus">' + c.bonus + '</div>';
-      b.addEventListener('click', function () { chosen = k; buildCallings(); });
+      b.innerHTML = '<div class="pcard" style="background-image:var(--art-pcard-' + CALLING_ART[k] + ')"><span class="pc-top">' + c.label.replace('The ', '') +
+        '</span><span class="pc-bottom">' + c.theme + '</span></div><div class="calling-text"><h3>' + c.label + '</h3><p>' + c.blurb + '</p><div class="bonus">' + c.bonus + '</div></div>';
+      b.addEventListener('click', function () { chosen = k; CF.Audio.play('pick'); buildCallings(); });
       box.appendChild(b);
     });
   }
 
-  function openStart() {
+  function openStart(withLegacy) {
     buildCallings();
     var legacy = load(LEGACY_KEY);
     $('legacy-row').classList.toggle('hidden', !legacy);
+    $('legacy').checked = !!(legacy && withLegacy);
     if (legacy) {
       try {
         var L = JSON.parse(legacy);
@@ -57,8 +81,7 @@
           ((L.atlarge || []).length + (L.gangs || []).length) + ' enemies';
       } catch (err) { $('legacy-row').classList.add('hidden'); }
     }
-    $('btn-continue').classList.toggle('hidden', !load(SAVE_KEY));
-    show('start', true);
+    only('start');
   }
 
   function newGame(useLegacy) {
@@ -68,42 +91,61 @@
     var e = CF.Engine.newGame({ calling: chosen, name: name, legacy: legacy });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);
+    inGame = true;
     UI.paused = false;
     UI.speed = 1;
     save();
-    show('start', false);
-    show('end', false);
+    only(null);
   }
 
-  $('btn-new').addEventListener('click', function () { newGame($('legacy').checked); });
-  $('btn-continue').addEventListener('click', function () {
+  function continueGame() {
     try {
       UI.attach(CF.Engine.load(load(SAVE_KEY)));
-      show('start', false);
+      inGame = true;
+      only(null);
     } catch (err) {
       store(SAVE_KEY, null);
-      $('btn-continue').classList.add('hidden');
+      openTitle();
     }
-  });
-  $('btn-help').addEventListener('click', function () { show('help', true); });
-  $('btn-help2').addEventListener('click', function () { show('help', true); });
-  $('help-close').addEventListener('click', function () { show('help', false); });
-  $('btn-menu').addEventListener('click', function () { show('menu', true); });
-  $('m-resume').addEventListener('click', function () { show('menu', false); });
-  $('m-save').addEventListener('click', function () { save(); show('menu', false); });
-  $('m-new').addEventListener('click', function () {
+  }
+
+  function openSettings(from) { returnTo = from; CF.SettingsUI.open(); only('settings'); }
+  function openArchive(from) { returnTo = from; CF.Archive.open(); only('archive'); }
+  function goBack() { if (returnTo === 'menu') only('menu'); else if (returnTo === 'end') only('end'); else openTitle(); }
+
+  click('t-new', function () { openStart(false); });
+  click('t-continue', continueGame);
+  click('t-archive', function () { openArchive('title'); });
+  click('t-settings', function () { openSettings('title'); });
+  click('t-help', function () { returnTo = 'title'; only('help'); });
+  click('start-back', openTitle);
+  click('btn-new', function () { newGame($('legacy').checked); });
+  click('set-back', function () { CF.SettingsUI.cancel(); goBack(); });
+  click('set-apply', function () { CF.SettingsUI.apply(); goBack(); });
+  click('arc-back', goBack);
+
+  click('btn-help', function () { returnTo = 'game'; only('help'); });
+  click('help-close', function () { if (returnTo === 'title') openTitle(); else only(null); });
+  click('btn-menu', function () { only('menu'); });
+  click('m-resume', function () { only(null); });
+  click('m-save', function () { save(); only(null); });
+  click('m-settings', function () { openSettings('menu'); });
+  click('m-archive', function () { openArchive('menu'); });
+  click('m-title', function () { save(); openTitle(); });
+  click('m-new', function () {
     if (!confirm('Abandon this case file? Your progress will be lost.')) return;
     store(SAVE_KEY, null);
-    show('menu', false);
-    openStart();
+    inGame = false;
+    openStart(false);
   });
-  $('end-successor').addEventListener('click', function () { show('end', false); openStart(); $('legacy').checked = true; });
-  $('end-new').addEventListener('click', function () { show('end', false); openStart(); $('legacy').checked = false; });
-  $('end-look').addEventListener('click', function () { show('end', false); });
+  click('end-successor', function () { inGame = false; openStart(true); });
+  click('end-new', function () { inGame = false; openStart(false); });
+  click('end-archive', function () { openArchive('end'); });
+  click('end-look', function () { only(null); });
   window.addEventListener('beforeunload', save);
 
   UI.init();
-  // A table is always showing behind the start screen.
+  // A table is always showing behind the title screen.
   UI.attach(CF.Engine.newGame({ calling: chosen, seed: 1 }));
-  openStart();
+  openTitle();
 })();
