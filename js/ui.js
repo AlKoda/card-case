@@ -365,7 +365,7 @@
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
     $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
       meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
-    $('#rank').textContent = s.detective + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
+    $('#rank').textContent = s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
     $('#rank-badge').style.backgroundImage = art(['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'medal-sun');
     $('#rank-badge').title = CF.RANKS[s.rank];
     if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
@@ -1173,6 +1173,7 @@
       lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0) + (cnt.debt ? ' · Debt ' + cnt.debt : ''));
       lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
       if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
+      if (e.s.who && CF.ORIGINS[e.s.who]) lines.push('Once ' + CF.ORIGINS[e.s.who].label.toLowerCase());
     } else if (card.def === 'condemned') {
       lines.push(card.data.role ? card.data.role.charAt(0).toUpperCase() + card.data.role.slice(1) : 'Convicted');
       lines.push('Custom: ' + CF.Sentence.rungLabel(card.data.template, card.data.custom));

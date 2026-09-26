@@ -77,7 +77,7 @@
   CF.imageOf = function (card) { return card.image || CF.CARDS[card.def].image || null; };
   CF.costOf = function (card) {
     if (!card || !card.data) return 0;
-    if (card.data.order) return CF.ORDERS[card.data.order].cost;
+    if (card.data.order) return Math.max(1, CF.ORDERS[card.data.order].cost - (card.data.discount || 0));
     if (card.data.personnel) return CF.PERSONNEL[card.data.personnel].cost;
     return 0;
   };
@@ -101,7 +101,7 @@
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
-      rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', detective: opts.name || 'Examiner',
+      rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', who: opts.who || null, detective: opts.name || 'Examiner',
       over: null,
       stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0 },
     };
@@ -132,6 +132,7 @@
       e.create('informant', e.informantSpec('market'));
     }
 
+    if (e.applyOrigin) e.applyOrigin();
     if (opts.legacy) e.applyLegacy(opts.legacy);
 
     e.spawnCase('burglary', { lifetime: 300, quiet: !!opts.guided });
@@ -150,6 +151,7 @@
     s.criminals = s.criminals || {}; // older saves had no criminal records
     s.network = s.network || { fronts: {} };
     s.origin = s.origin || s.calling;
+    s.who = s.who || null;
     s.rooms = s.rooms || {};
     s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
     s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
@@ -547,6 +549,7 @@
   P.lockReason = function (verbId) {
     var def = CF.VERBS[verbId];
     if (def.lockedBy === 'burnout' && this.countOf('burnout') > 0) return 'The fever has you. Rest in Contemplate first.';
+    if (this.originLock) return this.originLock(verbId);
     return null;
   };
 
@@ -697,7 +700,7 @@
   };
   P.durationOf = function (rec, ctx) {
     var d = typeof rec.duration === 'function' ? rec.duration(ctx) : rec.duration;
-    return Math.max(3, Math.round((d || 10) * this.strainFactor(ctx.verb)));
+    return Math.max(3, Math.round((d || 10) * this.strainFactor(ctx.verb) * (this.originFactor ? this.originFactor(ctx.verb) : 1)));
   };
 
   P.start = function (verbId) {
@@ -1105,7 +1108,8 @@
     var hp = this.cardsOf('health', true);
     if (hp.length) {
       this.remove(hp[0]);
-      this.create('wound');
+      var w = this.create('wound');
+      if (this.woundFactor && this.woundFactor() !== 1) { w.life *= this.woundFactor(); w.maxLife = w.life; }
       this.story('Wounded', text, 'danger');
     } else {
       this.story('In the Council\'s Service', text, 'danger');
@@ -1143,7 +1147,7 @@
     if (s.meters.scrutiny >= this.meterMax('scrutiny')) { this.gameOver('corruption'); return; }
 
     // Promotion boards.
-    if (s.rank < CF.TOP_RANK && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
+    if (s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
       var next = CF.RANK_DEFS[s.rank + 1];
       this.create('promotion', { label: 'The Council\'s Letter: ' + next.label, desc: next.text + ' Attend on the Council.', data: { rank: s.rank + 1 } });
       this.story('The Council Takes Notice', 'A letter, on heavy paper, under the city\'s seal: the Council will see you. Your attendance is expected.', 'major');
@@ -1271,7 +1275,8 @@
       var o = CF.ORDERS[k];
       if (o.rank !== rank || bought[k]) return;
       var what = o.room ? CF.ROOMS[o.room].desc : CF.CARDS[o.give].desc;
-      self.create('order', { label: 'Petition: ' + o.label, desc: what + ' Costs ' + o.cost + ' Coin.', data: { order: k } });
+      var disc = self.s.who === 'clerk' ? 1 : 0;
+      self.create('order', { label: 'Petition: ' + o.label, desc: what + ' Costs ' + Math.max(1, o.cost - disc) + ' Coin.', data: { order: k, discount: disc } });
     });
   };
   P.removeOrder = function (key) {
