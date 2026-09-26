@@ -3,8 +3,38 @@
 (function () {
   var CF = window.CF;
   var U = CF.util;
-  var CW = 96, CH = 132, GAP = 10;
-  var DARK_KINDS = { threat: 1, criminal: 1, case: 0, coldcase: 1, room: 1, calling: 0 };
+  var CW = 116, CH = 158, GAP = 10;
+
+  // Art lives in css/art.css as --art-* custom properties.
+  function art(name) { return 'var(--art-' + name + ')'; }
+  // Which frame each card kind is drawn in.
+  var FRAMES = {
+    case: 'case', coldcase: 'case', court: 'case',
+    clue: 'evidence', evidence: 'evidence', paper: 'evidence',
+    witness: 'character', suspect: 'character', informant: 'character', teammate: 'character',
+    personnel: 'character', hospital: 'character', criminal: 'character',
+    district: 'location', room: 'location',
+  };
+  // Cards that get a big icon in the paper area.
+  var CARD_ICONS = {
+    health: 'icon-health', wound: 'icon-health', focus: 'icon-focus', instinct: 'icon-instinct', funds: 'icon-funds',
+    fatigue: 'icon-fatigue', burnout: 'icon-burnout', obsession: 'icon-obsession', tunnel: 'icon-obsession',
+    bribe: 'icon-funds', atlarge: 'icon-retaliation', gang: 'icon-retaliation', syndicate: 'icon-retaliation',
+    promo_inspector: 'icon-reputation', promo_chief: 'icon-reputation', chair: 'icon-reputation',
+    looseend: 'aspect-motive', ledger: 'aspect-financial', trial: 'icon-scrutiny', paperwork: 'aspect-testimony',
+    camera: 'aspect-opportunity', prints: 'aspect-forensic', kit: 'aspect-forensic', surveillance: 'icon-focus', labpass: 'aspect-digital',
+  };
+  // Verb art: the illustrated tokens, or a ring around one of the icons.
+  var VERB_ART = {
+    duty: { token: 'token-duty' }, patrol: { token: 'token-patrol' }, investigate: { token: 'token-investigate' },
+    analyze: { token: 'token-analyze' }, interrogate: { token: 'token-interrogate' }, reflect: { token: 'token-reflect' },
+    time: { token: 'token-time' },
+    arrest: { icon: 'icon-reputation', ring: '#d9b24a' }, requisition: { icon: 'icon-funds', ring: '#e2c14f' },
+    warrant: { icon: 'aspect-forensic', ring: '#56c7c0' }, stakeout: { icon: 'icon-focus', ring: '#5aa9e6' },
+    undercover: { icon: 'icon-instinct', ring: '#e8773a' }, taskforce: { icon: 'icon-pressure', ring: '#9aa3ad' },
+  };
+  var METER_ICONS = { pressure: 'icon-pressure', scrutiny: 'icon-scrutiny', retaliation: 'icon-retaliation', reputation: 'icon-reputation' };
+  var RING_R = 112, RING_LEN = 2 * Math.PI * RING_R;
 
   var UI = (CF.UI = {
     e: null, openVerb: null, selected: null, hover: null, tab: 'desk',
@@ -133,22 +163,20 @@
     });
   }
 
-  function meter(label, val, max, cls) {
+  function meter(key, label, val, max, shown) {
     var pct = Math.min(100, (val / max) * 100);
-    var state = max < 50 ? (val >= max * 0.8 ? ' crit' : val >= max * 0.6 ? ' warn' : '') : '';
-    return '<div class="meter' + state + ' ' + (cls || '') + '" title="' + esc(label) + '"><div class="m-label"><span>' + label + '</span><span>' +
-      (max < 50 ? val + '/' + max : val) + '</span></div><div class="m-bar"><div class="m-fill" style="width:' + pct + '%"></div></div></div>';
+    var state = key === 'reputation' ? ' rep' : val >= max * 0.8 ? ' crit' : val >= max * 0.6 ? ' warn' : '';
+    return '<div class="meter' + state + '" title="' + esc(label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
+      '<div class="m-main"><div class="m-label"><span>' + label + '</span><span>' + shown +
+      '</span></div><div class="m-bar"><div class="m-fill" style="width:' + pct + '%"></div></div></div></div>';
   }
 
   function renderTop() {
     var e = UI.e, s = e.s, m = s.meters;
     var nextRep = s.rank < 2 ? CF.RANK_REP[s.rank + 1] : (s.calling === 'commissioner' ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
-    $('#meters').innerHTML =
-      meter('Public Pressure', m.pressure, e.meterMax('pressure')) +
-      meter('Scrutiny', m.scrutiny, e.meterMax('scrutiny')) +
-      meter('Retaliation', m.retaliation, e.meterMax('retaliation')) +
-      '<div class="meter rep" title="Reputation"><div class="m-label"><span>Reputation</span><span>' + m.reputation + (s.rank < 2 || s.calling === 'commissioner' ? ' / ' + nextRep : '') +
-      '</span></div><div class="m-bar"><div class="m-fill" style="width:' + Math.min(100, (m.reputation / nextRep) * 100) + '%"></div></div></div>';
+    var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
+    $('#meters').innerHTML = mm('pressure', 'Public Pressure') + mm('scrutiny', 'Scrutiny') + mm('retaliation', 'Retaliation') +
+      meter('reputation', 'Reputation', m.reputation, nextRep, m.reputation + (s.rank < 2 || s.calling === 'commissioner' ? '/' + nextRep : ''));
     $('#rank').textContent = CF.RANKS[s.rank] + ' ' + s.detective + ' · ' + CF.CALLINGS[s.calling].label;
   }
 
@@ -173,11 +201,20 @@
       var n = h('div', 'verb ' + vid + ' ' + v.status + (UI.openVerb === vid ? ' open' : '') + (e.lockReason(vid) && v.status === 'idle' ? ' locked' : '') + (def.auto ? ' time' : ''));
       n.dataset.verb = vid;
       n.title = def.desc;
+      var va = VERB_ART[vid] || { icon: 'icon-alert', ring: '#888' };
+      var tok = h('div', 'v-token' + (va.token ? '' : ' generic'));
+      if (va.token) tok.style.backgroundImage = art(va.token);
+      else {
+        tok.style.setProperty('--ring', va.ring);
+        var ic = h('div', 'v-icon');
+        ic.style.backgroundImage = art(va.icon);
+        tok.appendChild(ic);
+      }
+      tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 238 256"><circle cx="119" cy="139" r="' + RING_R + '" /></svg>');
+      if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
+      n.appendChild(tok);
       n.appendChild(h('div', 'v-name', def.label));
       n.appendChild(h('div', 'v-status', verbStatus(vid)));
-      var bar = h('div', 'v-bar');
-      bar.appendChild(h('div'));
-      n.appendChild(bar);
       if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; UI.newVerbs[vid] = true; }
       if (UI.newVerbs[vid]) n.classList.add('new');
       box.appendChild(n);
@@ -190,10 +227,12 @@
     document.querySelectorAll('#verbs .verb').forEach(function (n) {
       var vid = n.dataset.verb;
       var v = e.verb(vid);
-      var fill = n.querySelector('.v-bar > div');
+      var ring = n.querySelector('.v-ring circle');
       var pct = vid === 'time' ? e.s.weekT / CF.WEEK : v.status === 'running' ? v.elapsed / v.duration : v.status === 'done' ? 1 : 0;
-      fill.style.width = Math.min(100, pct * 100) + '%';
-      n.querySelector('.v-status').textContent = verbStatus(vid);
+      ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
+      n.querySelector('.v-status').textContent = vid === 'time' ? '' : verbStatus(vid);
+      var wk = n.querySelector('.v-week');
+      if (wk) wk.textContent = 'Wk ' + e.s.week;
     });
   }
 
@@ -203,42 +242,55 @@
   }
 
   // Build a card element. opts: {count, mini}
+  function aspectChip(k, v) {
+    var b = h('span', 'chip');
+    b.title = CF.ASPECTS[k].label;
+    var i = h('span', 'chip-icon');
+    i.style.backgroundImage = art('aspect-' + k);
+    b.appendChild(i);
+    b.appendChild(h('span', null, String(v)));
+    return b;
+  }
+
+  // Build a card element. opts: {count, mini}
   function cardEl(card, opts) {
     opts = opts || {};
     var e = UI.e;
     var def = CF.CARDS[card.def];
     var kind = CF.KINDS[def.kind] || { label: def.kind, color: '#777' };
-    var n = h('div', 'card kind-' + def.kind + (DARK_KINDS[def.kind] ? ' dark' : '') + (opts.mini ? ' mini' : '') + (card.fresh ? ' fresh' : '') + (UI.selected === card.uid ? ' selected' : ''));
+    var frame = FRAMES[def.kind] || 'status';
+    var n = h('div', 'card frame-' + frame + ' kind-' + def.kind + (opts.mini ? ' mini' : '') + (card.fresh ? ' fresh' : '') + (UI.selected === card.uid ? ' selected' : ''));
     n.dataset.uid = card.uid;
-    var head = h('div', 'c-kind', kind.label);
-    head.style.background = kind.color;
-    if (def.kind === 'clue' || def.kind === 'calling') head.style.color = '#2a2620';
-    n.appendChild(head);
-    n.appendChild(h('div', 'c-title', e.labelOf(card)));
+    n.style.backgroundImage = art('frame-' + frame);
+    var body = h('div', 'c-body');
+    body.appendChild(h('div', 'c-kind', kind.label));
+    var iconName = CARD_ICONS[card.def];
+    if (iconName) {
+      var ic = h('div', 'c-icon' + (card.def === 'wound' ? ' hurt' : ''));
+      ic.style.backgroundImage = art(iconName);
+      body.appendChild(ic);
+    }
+    body.appendChild(h('div', 'c-title', e.labelOf(card)));
     var sub = '';
     if (card.caseId && def.kind !== 'case') sub = 're: ' + caseTitle(card);
     else if (def.kind === 'case') { var r = e.caseRec(card.caseId); sub = r ? CF.DISTRICTS[r.district].label : ''; }
-    if (sub) n.appendChild(h('div', 'c-sub', sub));
+    if (sub) body.appendChild(h('div', 'c-sub', sub));
     var asp = h('div', 'c-aspects');
     var a = CF.aspectsOf(card);
-    CF.CLUE_ASPECTS.forEach(function (k) {
-      if (!a[k]) return;
-      var b = h('span', 'badge', CF.ASPECTS[k].short + ' ' + a[k]);
-      b.style.background = CF.ASPECTS[k].color;
-      asp.appendChild(b);
-    });
-    if (asp.children.length) n.appendChild(asp);
+    CF.CLUE_ASPECTS.forEach(function (k) { if (a[k]) asp.appendChild(aspectChip(k, a[k])); });
+    if (asp.children.length) body.appendChild(asp);
     if (card.maxLife) {
       if (def.kind === 'case' || def.kind === 'court' || def.kind === 'threat' || card.def === 'witness' || card.def === 'bribe') {
-        n.appendChild(h('div', 'c-timer', U.fmtTime(card.life)));
+        body.appendChild(h('div', 'c-timer', U.fmtTime(card.life)));
       }
       var life = h('div', 'c-life');
       var lf = h('div');
       lf.style.width = Math.max(0, (card.life / card.maxLife) * 100) + '%';
       life.appendChild(lf);
-      n.appendChild(life);
+      body.appendChild(life);
       if (def.kind === 'case' && card.life < 45) n.classList.add('urgent');
     }
+    n.appendChild(body);
     if (opts.count > 1) n.appendChild(h('div', 'c-count', '×' + opts.count));
     return n;
   }
@@ -292,7 +344,7 @@
     inner.style.width = w + 'px';
     inner.style.height = (maxRow + 2) * (CH + GAP) + 'px';
     var avail = $('#table').clientWidth - 32;
-    UI.scale = Math.max(0.6, Math.min(1, avail / w));
+    UI.scale = Math.max(0.45, Math.min(1, avail / w));
     inner.style.transform = 'scale(' + UI.scale + ')';
     // Fresh highlight only plays once.
     e.tableCards().forEach(function (c) { c.fresh = false; });
@@ -338,6 +390,7 @@
     close.addEventListener('click', function () { UI.openVerb = null; e.dirty = true; });
     head.appendChild(close);
     pane.appendChild(head);
+    pane.appendChild(h('div', 'divider'));
 
     if (def.auto) {
       pane.appendChild(h('p', 'vw-desc', def.desc));
@@ -457,7 +510,7 @@
     var html = '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
-      return '<span class="badge" style="background:' + CF.ASPECTS[k].color + '">' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
+      return '<span class="chip big"><span class="chip-icon" style="background-image:' + art('aspect-' + k) + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
     }).join('');
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
