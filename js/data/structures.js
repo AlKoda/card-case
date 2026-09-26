@@ -169,6 +169,89 @@
           { type: 'clue', label: 'The Boy\'s Errand', text: '{detail}. Somebody wanted the shop empty for a quarter of an hour.', aspects: { opportunity: 2 } },
         ] },
     ],
+    scriptorium: [
+      { id: 'painted', vars: { time: ['after compline', 'during the night office', 'while the brothers were at chapter'], detail: ['the lamp was still warm', 'the press was chained and the chain was new', 'a page had been cut from the register of readers'], item: ['a leaf painted at the corner', 'a pot of gall with something else in it', 'a brush that was not a scribe\'s'] },
+        brief: 'A brother died in the scriptorium {time}, the door locked from within. {detail}. On the desk, {item}.',
+        items: [
+          { type: 'clue', label: 'The Register of Readers', text: '{detail}. Somebody did not want it known who read what.', aspects: { digital: 2 } },
+          { type: 'evidence', label: '{item}', text: 'It should not be in a scriptorium.', needs: 'bio',
+            result: { label: 'The Poison on the Page', text: 'The needle blackens at the corner of the leaf. A reader who wets his finger dies by the third page.', aspects: { forensic: 3 } } },
+        ] },
+      { id: 'window', vars: { time: ['before matins', 'in the fog', 'on the night of the visitor'], detail: ['a bar of the window loose in its socket', 'the garden trodden under the window', 'a novice\'s sandal in the bed below'], item: ['a torn cowl', 'a knotted rope', 'a scholar\'s glove'] },
+        brief: 'A brother was found under the scriptorium window {time}, and the room above was locked. But {detail}. Caught on the sill, {item}.',
+        items: [
+          { type: 'clue', label: 'The Way Out', text: '{detail}. A locked door means nothing when the window opens.', aspects: { opportunity: 2, forensic: 1 } },
+          { type: 'clue', label: '{item}', text: 'Left on the sill by somebody who went out that way in a hurry.', aspects: { forensic: 2 } },
+        ] },
+      { id: 'visitor', vars: { time: ['on the third day of his visit', 'the night he was refused the book', 'the morning he was to leave'], detail: ['the guest-house bed not slept in', 'his satchel packed and one book too many in it', 'the porter paid to forget the hour'], item: ['a scholar\'s knife', 'a letter of introduction under a false seal', 'a list of the Abbey\'s books in a stranger\'s hand'] },
+        brief: 'A brother died in the scriptorium {time}. The Abbey has a visitor, and {detail}. In the guest-house, {item}.',
+        items: [
+          { type: 'clue', label: 'The Guest-house', text: '{detail}. Guests of the Abbey do not usually keep such hours.', aspects: { opportunity: 2, motive: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Not what a scholar carries. Or exactly what one carries, if he came for a book he could not ask for.', needs: 'lab',
+            result: { label: 'The Stranger Read', text: 'The seal is false and the hand is a lawyer\'s. He was sent for the book, and he did not come alone.', aspects: { digital: 2, testimony: 1 } } },
+        ] },
+    ],
+    witch: [
+      { id: 'sluice', vars: { time: ['on the night of the fair', 'the night the mill stood still', 'the night the mother was at the Abbey'], detail: ['the sluice gate opened by a man\'s hand', 'the child\'s shoes found dry on the bank', 'a cart heard at the race after curfew'], item: ['a man\'s belt in the reeds', 'a jointure deed newly sealed', 'the child\'s cap, folded, not dropped'] },
+        brief: 'The child was taken from the race {time}. The quarter says the midwife. But {detail}. Found on the bank, {item}.',
+        items: [
+          { type: 'clue', label: 'What the Quarter Did Not See', text: '{detail}. The quarter was looking at the midwife.', aspects: { opportunity: 2 } },
+          { type: 'clue', label: '{item}', text: 'Not a witch\'s thing. A man\'s, or a lawyer\'s.', aspects: { motive: 1, forensic: 1 } },
+        ] },
+      { id: 'square', vars: { time: ['by noon', 'before the child was cold', 'before the bell'], detail: ['the stepfather led the shouting', 'the suitor paid the crier', 'the miller\'s apprentice was the first to say the word'], item: ['a paper of accusations in one hand', 'a witness who was bought a dinner', 'a mark that was drawn on with walnut juice'] },
+        brief: 'The midwife\'s name was in the square {time}: {detail}. In the shouting, {item}.',
+        items: [
+          { type: 'clue', label: 'Who Shouted First', text: '{detail}. The loudest accuser is not always the guiltiest, but it is where to start.', aspects: { motive: 2, testimony: 1 } },
+          { type: 'clue', label: '{item}', text: 'An accusation that was prepared is an accusation with a reason behind it.', aspects: { testimony: 2 } },
+        ] },
+      { id: 'sister', vars: { time: ['the night before the fair', 'after the mother went to the Abbey', 'the night the sluice was mended'], detail: ['the older sister hid in the loft', 'the sister has bruises of her own', 'the sister will not say the word the square says'], item: ['a child\'s drawing of a man at the water', 'a strap with a buckle that matches the bruises', 'a bribe of sugared almonds'] },
+        brief: 'The child drowned {time}. Its sister saw something: {detail}. In the loft where she hides, {item}.',
+        items: [
+          { type: 'clue', label: 'What the Sister Knows', text: '{detail}. A frightened child is a witness, if somebody is gentle.', aspects: { testimony: 2, motive: 1 } },
+          { type: 'clue', label: '{item}', text: 'Kept hidden by a child who knew it mattered.', aspects: { forensic: 2 } },
+        ] },
+    ],
+    highway: [
+      { id: 'inn', vars: { time: ['the night before the fair', 'the night the strongbox travelled', 'a wet night with no moon'], detail: ['the innkeeper closed early', 'a horse was stabled that nobody owned', 'a boy rode ahead of the carrier'], item: ['a mask of black crape', 'a pistol with the Harbour gunsmith\'s mark', 'a docket that named the strongbox'] },
+        brief: 'The carrier was stopped {time}, and {detail}. In the inn stable, {item}.',
+        items: [
+          { type: 'clue', label: 'The Inn', text: '{detail}. Every robbery on this road starts at the inn.', aspects: { opportunity: 2, testimony: 1 } },
+          { type: 'clue', label: '{item}', text: 'Left where it could be found by somebody who did not expect anybody to look.', aspects: { forensic: 2 } },
+        ] },
+      { id: 'gentleman', vars: { time: ['on quarter-day', 'the night his note fell due', 'the night of the Hill ball'], detail: ['a good horse lathered in a Hill stable at dawn', 'a signet pawned across the river', 'a servant who will not meet your eye'], item: ['a mask of black crape in a gentleman\'s coat', 'a pair of pistols with the Hill gunsmith\'s mark', 'a tailor\'s bill that was suddenly paid'] },
+        brief: 'The carrier was stopped {time} by a rider who sat a horse like a gentleman. On the Hill, {detail}. In a wardrobe there, {item}.',
+        items: [
+          { type: 'clue', label: 'A Gentleman\'s Debts', text: '{detail}. The Hill keeps its accounts, and its accounts were in trouble.', aspects: { financial: 2, motive: 1 } },
+          { type: 'clue', label: '{item}', text: 'Found where a gentleman keeps the things a gentleman does not own.', aspects: { forensic: 2, opportunity: 1 } },
+        ] },
+      { id: 'boy', vars: { time: ['the night before the run', 'at the last inn', 'when the docket was written'], detail: ['the carrier\'s boy rode ahead alone', 'the boy knew the box was there', 'the boy has new boots'], item: ['a share of gulden under a mattress', 'a note from the inn', 'a rider\'s glove too big for a boy'] },
+        brief: 'Somebody told the riders which cart and which night. {detail}, {time}. In the boy\'s loft, {item}.',
+        items: [
+          { type: 'clue', label: 'Who Knew', text: '{detail}. Three people knew the box travelled; one of them talked.', aspects: { opportunity: 2, testimony: 1 } },
+          { type: 'clue', label: '{item}', text: 'A boy\'s share of a gentleman\'s robbery.', aspects: { financial: 2 } },
+        ] },
+    ],
+    contract: [
+      { id: 'hired', vars: { time: ['the night before', 'a week before', 'on the feast day'], detail: ['twelve gulden crossed a table at the Red Ox', 'a letter went to the Stews by a link-boy', 'a man from the Warrens asked which door'], item: ['a purse with a good seal', 'a letter naming an hour', 'a tally with one stroke on it'] },
+        brief: '{victim} was killed with one clean stroke, and {time} {detail}. Found on the killer\'s road, {item}.',
+        items: [
+          { type: 'clue', label: 'The Purse That Moved the Hand', text: '{detail}. The hand was hired; the reason lives on the Hill.', aspects: { financial: 2, motive: 1 } },
+          { type: 'clue', label: '{item}', text: 'Somebody paid, and somebody kept the receipt.', aspects: { financial: 1, digital: 1 } },
+        ] },
+      { id: 'partner', vars: { time: ['the week the accounts were due', 'the day after the quarrel at the warehouse', 'the night the ship came in'], detail: ['the partnership deed altered', 'the warehouse keys changed', 'the victim\'s share already spent'], item: ['a receipt for a debt paid in the Stews', 'a tally with the sender\'s mark', 'a letter to the Stews in a merchant\'s hand'] },
+        brief: '{victim} was killed {time}, one stroke, nothing taken. At the counting-house, {detail}. Among the papers, {item}.',
+        items: [
+          { type: 'clue', label: 'The Partnership', text: '{detail}. A partnership is worth more to one partner dead.', aspects: { financial: 2, motive: 2 } },
+          { type: 'clue', label: '{item}', text: 'A merchant keeps receipts. Even for this.', aspects: { digital: 2, financial: 1 } },
+        ] },
+      { id: 'sender', vars: { time: ['on the night of the fair', 'after the bell', 'in the lane behind the Red Ox'], detail: ['the sender drank at the Red Ox all evening', 'the sender was seen leaving by the Harbour gate', 'the sender\'s blade is known in the Stews'], item: ['a Coquille token', 'a blade wiped on a good cloth', 'a purse with the seal cut off'] },
+        brief: '{victim} died {time}, and the Stews know the hand: {detail}. Left at the scene, {item}.',
+        items: [
+          { type: 'clue', label: 'The Sender\'s Habits', text: '{detail}. The Stews know their own.', aspects: { testimony: 2, opportunity: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Dropped, or left as a signature.', needs: 'bio',
+            result: { label: 'The Blade\'s Owner', text: 'The Stews have a name for the man who carries this. So does the Coquille.', aspects: { forensic: 2, testimony: 1 } } },
+        ] },
+    ],
     coining: [
       { id: 'the_furnace', vars: { time: ['past the gate bell', 'on Sunday, when the forges are cold', 'during the fair, when the city is full of strangers'], detail: ['smoke from a chimney where nobody lives', 'sacks of charcoal carried in at night', 'a smell of hot metal in a lane of weavers'], item: ['a broken mould', 'a bar of lead', 'a crucible with silver in the cracks'] },
         brief: 'Somebody in the city has a furnace going {time}: {detail}. The Mintmaster is certain of the die. In a midden nearby, {item}.',

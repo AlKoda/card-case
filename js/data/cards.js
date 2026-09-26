@@ -156,6 +156,8 @@
       desc: 'A patrician wants a rival searched and will pay for the writ. Put it in Attend to oblige, or let it lie.' },
     tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
       desc: 'The Court of Miracles pays its Examiner while the Treaty stands. Put it in Attend to take it; every week taken is Purse +1. Let it lie and the King notes that too.' },
+    dagger: { label: 'A Dagger on the Pillow', kind: 'threat', tags: ['warning'], aspects: { dagger: 1 }, decay: 100, onExpire: 'mountain',
+      desc: 'The Order of the Mountain warns once. Contemplate it with Coin to buy a season; alone, to endure. Let it lie and they come back.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 

@@ -152,6 +152,7 @@
     s.network = s.network || { fronts: {} };
     s.origin = s.origin || s.calling;
     s.who = s.who || null;
+    s.favour = s.favour || { council: 0, bishop: 0, guild: 0 };
     s.rooms = s.rooms || {};
     s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
     s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
@@ -927,6 +928,7 @@
     var label = this.labelOf(card);
     if (how === 'cold') { this.goCold(card.caseId); return; }
     if (how === 'sentence_default') { this.defaultSentence(card); return; }
+    if (how === 'mountain') { this.remove(card); if (this.mountainStrikes) this.mountainStrikes(); return; }
     if (how === 'heal') {
       this.remove(card);
       this.create('health');
@@ -994,6 +996,12 @@
     if (this.banishedReturn) lines = lines.concat(this.banishedReturn());
     if (this.purseWeek) lines = lines.concat(this.purseWeek());
     if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
+    if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
+    if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
+    if (this.eumenidesWeek) lines = lines.concat(this.eumenidesWeek());
+    if (s.flags.syndicateFallen && this.rng() < 0.25 && this.openCases().length < this.maxOpenCases() && !this.openCases().some(function (r) { return r.template === 'highway'; })) {
+      this.spawnCase('highway', { headline: 'From the Roads: ', lead: 'The Court of Miracles is scattered, and its men have horses now.' });
+    }
     if (s.over) return;
 
     // Retaliation strikes.
@@ -1028,6 +1036,7 @@
 
     this.story('Week ' + s.week, lines.join(' '), 'week');
     if (this.checkPurseEndings) this.checkPurseEndings();
+    if (this.checkCountEndings) this.checkCountEndings();
   };
 
   // At-large criminals find each other; gangs merge into a syndicate.
@@ -1150,7 +1159,7 @@
     if (s.meters.scrutiny >= this.meterMax('scrutiny')) { this.gameOver('corruption'); return; }
 
     // Promotion boards.
-    if (s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
+    if (s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length && !(s.favour && s.favour.council <= -2)) {
       var next = CF.RANK_DEFS[s.rank + 1];
       this.create('promotion', { label: 'The Council\'s Letter: ' + next.label, desc: next.text + ' Attend on the Council.', data: { rank: s.rank + 1 } });
       this.story('The Council Takes Notice', 'A letter, on heavy paper, under the city\'s seal: the Council will see you. Your attendance is expected.', 'major');
@@ -1168,6 +1177,10 @@
     collapse: { win: false, title: 'Collapse', text: 'You fall on the Watch-house stair and do not get up. The barber-surgeon uses words like "a surfeit" and "the heart" and "rest, in the country". The city does not send flowers.' },
     consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.' },
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
+    merciful: { win: true, title: 'The Merciful Judge', text: 'Eight times you sent a poor sinner home instead of to the Ravenstone, and three of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
+    hangmans: { win: false, title: 'The Hangman\'s Examiner', text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
+    stake: { win: false, title: 'The Stake', text: 'The Inquisitor\'s charge lands on you: heresy, from a patron you crossed, sworn to by two men you sent to the Hole. The proof against you is the proof you taught the city to want. The Bishop does not answer your letter. The Fire on Friday.' },
+    dagger: { win: false, title: 'The Dagger on the Pillow', text: 'They warned you once. A dagger on the pillow, and the door still barred. You did not pay, and you did not leave, and one morning the servant who brings the water is not the servant. The Order of the Mountain keeps its word, in daylight, before witnesses, and nobody in the city will say they saw it.' },
     kingofthunes: { win: true, title: 'The King of Thunes', text: 'The old King goes into the river and the Court kneels to a new one who keeps the Examiner\'s desk by day. Crimes fall in number and rise in scale. You decide who is caught, and the Council thanks you for the quiet. Under the Warrens, where the lame walk and the blind see, they sing a new name.' },
     treatycity: { win: true, title: 'The Treaty City', text: 'Twelve quiet weeks. The Stews keep their own peace, the Court tries its own, the Rolls fill with answered cases, and the Council votes you a pension for the calm it does not ask about. You retire rich to a house on the Hill. The city calls it peace, and for the years you have left, it is.' },
     thieftaker: { win: true, title: 'The Thief-taker General', text: 'The city has never had an officer so effective, or so rich. Every fence in the Free City pays you, every victim thanks you, and the Council votes you a chain of office without asking where the goods you recover come from. You know. You are the only one who does. It will hold for years, if nobody ever reads the ledger.' },
@@ -1450,7 +1463,7 @@
     var items = U.shuffle(rng, pool);
     if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
     // The network: a clue that points at the place this crime went through.
-    var front = !T.special ? this.frontForCase(opts) : null;
+    var front = opts.frontId && s.network.fronts[opts.frontId] ? s.network.fronts[opts.frontId] : !T.special ? this.frontForCase(opts) : null;
     if (front) items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, this.linkItem(front));
     var trait = traits[guiltyIdx];
     var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id };
@@ -1465,6 +1478,9 @@
       reopened: !!opts.reopened, criminalId: opts.criminalId || null,
       structure: structure ? structure.id : null, front: front ? front.id : null,
     };
+    rec.week = s.week;
+    if (this.commissionFor) rec.commission = this.commissionFor(rec, T);
+    if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: null, deadline: s.t + (T.lifetime || 250) * 0.66 };
     s.cases[id] = rec;
     s.stats.cases++;
 
@@ -1481,14 +1497,14 @@
     }
     var spec = {
       label: (highProfile ? '★ ' : '') + rec.title,
-      desc: brief + ' (' + CF.DISTRICTS[district].label + ')' + (highProfile ? ' The crier has sung it: the whole city is watching.' : ''),
+      desc: brief + ' (' + CF.DISTRICTS[district].label + ')' + (highProfile ? ' The crier has sung it: the whole city is watching.' : '') + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''),
       caseId: id, lifetime: life, data: { onExpire: 'cold' },
     };
     var card = opts.ctx ? opts.ctx.give('case', spec) : this.create('case', spec);
     if (warning) this.revealSuspect(rec, null);
     if (known && known.traits.indexOf('pilloried') >= 0 && !warning) { this.revealSuspect(rec, null, { key: rec.culprit }); }
     if (!opts.quiet) {
-      this.story(opts.headline || 'New Case: ' + rec.title, (opts.lead ? opts.lead + ' ' : '') + brief, 'case');
+      this.story(opts.headline || (rec.commission ? 'A Commission from ' + CF.PATRONS[rec.commission.from].label + ': ' : 'New Case: ') + rec.title, (opts.lead ? opts.lead + ' ' : '') + brief + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''), 'case');
     }
     return card;
   };
@@ -1607,6 +1623,7 @@
     if (card) this.remove(card);
     if (!rec || rec.status !== 'open') return;
     rec.status = 'cold';
+    if (this.commissionCold) this.commissionCold(rec);
     this.releaseDelegate(rec);
     this.s.stats.cold++;
     this.emit('resolved', this.caseRecord(rec, 'cold'));
@@ -1711,6 +1728,7 @@
     p = U.clamp(p, 0.02, 0.97);
     var convicted = rng() < p;
     rec.status = convicted ? 'closed' : 'acquitted';
+    if (this.commissionVerdict) this.commissionVerdict(rec, d, convicted, notes);
     this.emit('resolved', this.caseRecord(rec, convicted ? (d.guilty ? 'convicted' : 'wrongful') : 'acquitted', d.name));
     var hp = rec.highProfile;
 
@@ -1829,6 +1847,7 @@
       if (this.pathOpen('crusader')) { this.gameOver('crusader'); return; }
       notes.push('The Coquille is broken.');
     }
+    if (rec.template === 'eumenides' && d.guilty && this.eumenidesBroken) this.eumenidesBroken(rec, d, notes);
     if (rec.template === 'architect') {
       if (d.guilty && this.pathOpen('master')) { this.gameOver('master'); return; }
       s.flags.architect = false;

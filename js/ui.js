@@ -24,7 +24,8 @@
     calling_commissioner: 'back-sun', calling_master: 'back-eye', calling_crusader: 'back-scales',
   };
   var CASE_ART = { burglary: 'act-safe', missing: 'scene-corridor', harbor: 'scene-harbour', arson: 'scene-rooftop2', fraud: 'scene-archive',
-    extortion: 'act-threat', poison: 'scene-morgue2', coining: 'act-seal', manhunt: 'act-chase', gang: 'scene-rite2', syndicate: 'scene-catacombs', architect: 'scene-study' };
+    extortion: 'act-threat', poison: 'scene-morgue2', coining: 'act-seal', manhunt: 'act-chase', gang: 'scene-rite2', syndicate: 'scene-catacombs', architect: 'scene-study', eumenides: 'scene-morgue',
+    scriptorium: 'scene-library', witch: 'scene-cemetery', highway: 'scene-rooftop', contract: 'act-deal' };
   var DISTRICT_ART = { docks: 'scene-quay-deal', market: 'scene-station2', neon: 'scene-hole2', uptown: 'scene-library', warrens: 'scene-sewer', canal: 'scene-cemetery' };
   // Portrait cards: one per person, chosen by their name, and kept.
   var PEOPLE = ['char-sleuth', 'char-physician', 'char-hooded', 'char-noble-crown', 'char-lady-eye', 'char-priest', 'char-sailor-pipe', 'char-brawler-two',
@@ -90,6 +91,7 @@
     if (card.def === 'plea') return illus('ev-letter');
     if (card.def === 'writsale') return illus('ev2-letter');
     if (card.def === 'tribute') return plain('coin-heart');
+    if (card.def === 'dagger') return plain('small-skull');
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
       return illus(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length]);
     }
@@ -1138,6 +1140,7 @@
       lines.push('Accused met: ' + (met.length ? met.map(function (x) { return x.name.split(' ')[1] + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); }).join(', ') : 'none'));
       lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched') + (rec.delegate ? ' · ' + rec.delegate.card.label + ' on it' : '') + (rec.major ? ' · cried' : ''));
       lines.push(CF.daysLeft(card.life) + ' days left (' + U.fmtTime(card.life) + ')' + (rec.highProfile ? ' · the city watches' : ''));
+      if (rec.commission) lines.push('Commission: ' + CF.PATRONS[rec.commission.from].label + ' wants ' + { quiet: 'it quiet', mercy: 'mercy', square: 'the square' }[rec.commission.wants]);
     } else if (card.def === 'suspect') {
       var sus = e.suspectOf(card);
       if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1) + (rec && rec.identified === card.data.key ? ' · the one it points to' : ''));
@@ -1173,6 +1176,8 @@
       var cnt = e.s.counts || {};
       lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0) + (cnt.debt ? ' · Debt ' + cnt.debt : ''));
       if (e.s.court && e.s.court.stance) lines.push(e.s.court.stance === 'treaty' ? 'A Treaty with the Court' : 'Inside the Court, week ' + e.s.court.insideWeeks);
+      var fv = e.favour();
+      lines.push('Favour: Council ' + fv.council + ' · Bishop ' + fv.bishop + ' · Guilds ' + fv.guild);
       lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
       if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
       if (e.s.who && CF.ORIGINS[e.s.who]) lines.push('Once ' + CF.ORIGINS[e.s.who].label.toLowerCase());
