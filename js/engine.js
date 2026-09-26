@@ -6,14 +6,14 @@
   var U = CF.util;
 
   var WEEK = 60;          // seconds of game time per week
-  var COLS = 10;          // logical table width in cells
+  var COLS = 8;           // logical table width in cells
   var MAX_OPEN_CASES = 4;
-  var ZONES = {           // first table cell each kind prefers
+  var ZONE_ROWS = {       // table row each kind prefers
     ability: 0, funds: 0, threat: 0, calling: 0, insight: 0, career: 0,
-    case: 10, coldcase: 10, court: 10,
-    clue: 20, evidence: 20, witness: 20, suspect: 20,
-    district: 40, informant: 40, criminal: 40,
-    equipment: 50, order: 50, room: 50, personnel: 50, teammate: 50, hospital: 50, paper: 50, temptation: 50,
+    case: 1, coldcase: 1, court: 1,
+    clue: 2, evidence: 2, witness: 2, suspect: 2,
+    district: 4, informant: 4, criminal: 4,
+    equipment: 5, order: 5, room: 5, personnel: 5, teammate: 5, hospital: 5, paper: 5, temptation: 5,
   };
 
   CF.WEEK = WEEK;
@@ -177,7 +177,7 @@
       occ[c.loc.cell] = c;
     }
     if (prefer !== undefined && prefer !== null && prefer >= 0 && !occ[prefer]) return prefer;
-    var start = ZONES[this.kindOf(card)] || 0;
+    var start = (ZONE_ROWS[this.kindOf(card)] || 0) * COLS;
     for (var j = start; j < 1000; j++) if (!occ[j]) return j;
     return 0;
   };
