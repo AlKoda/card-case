@@ -130,7 +130,12 @@
     UI.lastRank = engine.s.rank;
     UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
-    ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
+    ['#board', '#windows', '#dock'].forEach(function (sel) { $(sel).innerHTML = ''; });
+    UI.journalSeen = engine.s.journal.length;
+    $('#btn-journal').classList.remove('unread');
+    $('#journal-drawer').classList.remove('open');
+    $('#peek').classList.remove('open');
+    T.GAP = CF.Settings.get('gap') || T.GAP;
     cardEls = {}; verbEls = {}; winEls = {}; liveCards = [];
     engine.on(onEvent);
     engine.dirty = true;
@@ -177,6 +182,8 @@
       ev.preventDefault();
       zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015));
     }, { passive: false });
+    $('#btn-journal').addEventListener('click', function () { UI.toggleJournal(); });
+    $('#journal-close').addEventListener('click', function () { UI.toggleJournal(false); });
     window.addEventListener('resize', function () {
       // Keep open windows inside the (possibly smaller) table.
       Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
@@ -248,7 +255,7 @@
     t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
-      else $('#journal').scrollTop = 0;
+      else { UI.toggleJournal(true); $('#journal').scrollTop = 0; }
       t.remove();
     });
     box.appendChild(t);
@@ -265,6 +272,23 @@
     renderJournal();
     renderInspector();
     renderControls();
+    renderHint();
+  }
+
+  // The journal is a drawer over the table, shown only when asked for.
+  UI.toggleJournal = function (on) {
+    var open = on === undefined ? !$('#journal-drawer').classList.contains('open') : !!on;
+    $('#journal-drawer').classList.toggle('open', open);
+    $('#btn-journal').classList.toggle('on', open);
+    if (open) { UI.journalSeen = UI.e ? UI.e.s.journal.length : 0; $('#btn-journal').classList.remove('unread'); }
+  };
+
+  // A line under the dock that tells a new player what to try next.
+  function renderHint() {
+    var e = UI.e, hint = $('#hint');
+    var text = e.introHint ? e.introHint() : null;
+    if (text) { hint.textContent = text; hint.classList.remove('gone'); }
+    else if (!hint.classList.contains('gone') && !hint.dataset.plain) { hint.textContent = 'Drag cards onto the verbs above. Drag the felt to look around, pinch or scroll to zoom. Drag a stack by its number to move all of it.'; hint.dataset.plain = '1'; }
   }
 
   function renderControls() {
@@ -396,9 +420,10 @@
   }
 
   function boardBounds() {
-    var e = UI.e, x0 = 0, y0 = 0, x1 = T.COLS * (T.CW + T.GAP), y1 = T.TOP + 3 * (T.CH + T.GAP);
-    e.tableCards().forEach(function (c) { x1 = Math.max(x1, c.loc.x + T.CW); y1 = Math.max(y1, c.loc.y + T.CH); });
-    CF.VERB_ORDER.forEach(function (id) { var v = e.verb(id); if (v.unlocked) { x1 = Math.max(x1, v.x + T.VW); y1 = Math.max(y1, v.y + T.VH); } });
+    var e = UI.e, cards = e.tableCards();
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    cards.forEach(function (c) { x0 = Math.min(x0, c.loc.x); y0 = Math.min(y0, c.loc.y); x1 = Math.max(x1, c.loc.x + T.CW); y1 = Math.max(y1, c.loc.y + T.CH); });
+    if (!cards.length) { x0 = 0; y0 = T.TOP; x1 = 4 * (T.CW + T.GAP); y1 = T.TOP + T.CH; }
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
@@ -407,9 +432,10 @@
     if (!UI.e) return;
     var r = $('#table').getBoundingClientRect();
     var b = boardBounds();
-    // Fit the width; the board can be panned vertically.
-    var z = U.clamp((r.width - 40) / b.w, 0.5, 1);
-    UI.view = { x: Math.max(20, (r.width - b.w * z) / 2) - b.x * z, y: 16 - b.y * z, z: z };
+    var dockH = ($('#dock') && $('#dock').offsetHeight) || 0;
+    // Fit what is on the table, and lean in when there is little of it.
+    var z = U.clamp(Math.min((r.width - 60) / b.w, (r.height - dockH - 60) / b.h), 0.5, 1.25);
+    UI.view = { x: (r.width - b.w * z) / 2 - b.x * z, y: dockH + Math.max(20, (r.height - dockH - b.h * z) / 2) - b.y * z, z: z };
     applyView();
   };
 
@@ -428,9 +454,9 @@
   function clampView() {
     if (!UI.e) return;
     var r = $('#table').getBoundingClientRect(), v = UI.view, b = boardBounds();
-    var margin = 80;
+    var margin = 80, dockH = ($('#dock') && $('#dock').offsetHeight) || 0;
     v.x = U.clamp(v.x, margin - (b.x + b.w) * v.z, r.width - margin - b.x * v.z);
-    v.y = U.clamp(v.y, margin - (b.y + b.h) * v.z, r.height - margin - b.y * v.z);
+    v.y = U.clamp(v.y, dockH + margin - (b.y + b.h) * v.z, r.height - margin - b.y * v.z);
   }
 
   function toBoard(cx, cy) {
@@ -505,37 +531,56 @@
     return n ? n + ' card' + (n > 1 ? 's' : '') : '';
   }
 
+  // The verbs sit in a dock along the top of the table, outside the camera:
+  // always in view, whatever the zoom. Groups: the clock, the core verbs,
+  // the office, and the verbs a rank opens. Dragging a token onto another
+  // reorders them within the dock.
+  var DOCK_GROUPS = [['time'], ['duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest'], ['requisition'],
+    ['warrant', 'stakeout', 'delegate', 'undercover', 'taskforce', 'majorcrimes']];
+  function dockOrder() {
+    var e = UI.e, order = (e.s.flags.dockOrder || []).filter(function (v) { return CF.VERBS[v]; });
+    CF.VERB_ORDER.forEach(function (v) { if (order.indexOf(v) < 0) order.push(v); });
+    return order;
+  }
   function syncVerbs() {
-    var e = UI.e, board = $('#board');
-    CF.VERB_ORDER.forEach(function (vid) {
-      var v = e.verb(vid);
-      var el = verbEls[vid];
-      if (!v.unlocked) { if (el) { el.remove(); delete verbEls[vid]; } return; }
-      var def = CF.VERBS[vid];
-      if (!el) {
-        el = h('div', 'verb ' + vid + (def.auto ? ' time' : ''));
-        el.dataset.verb = vid;
-        el.title = def.desc;
-        var tok = h('div', 'v-token');
-        tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'token-' + vid);
-        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" /></svg>');
-        if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
-        else tok.appendChild(h('div', 'v-plate', def.label));
-        el.appendChild(tok);
-        if (vid === 'time') el.appendChild(h('div', 'v-name', def.label));
-        el.appendChild(h('div', 'v-status'));
-        el.appendChild(h('div', 'v-badge', '!'));
-        place(el, v.x, v.y);
-        board.appendChild(el);
-        verbEls[vid] = el;
-        if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; el.classList.add('new'); }
-      }
-      if (!(UI.drag && UI.drag.verb === vid)) place(el, v.x, v.y);
-      el.classList.toggle('running', v.status === 'running');
-      el.classList.toggle('done', v.status === 'done');
-      el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
-      el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
-      el.classList.toggle('loaded', v.status === 'idle' && Object.keys(v.slots).length > 0);
+    var e = UI.e, dock = $('#dock');
+    var order = dockOrder();
+    DOCK_GROUPS.forEach(function (group, gi) {
+      var g = dock.querySelector('.dock-group[data-group="' + gi + '"]');
+      if (!g) { g = h('div', 'dock-group'); g.dataset.group = gi; dock.appendChild(g); }
+      var members = order.filter(function (v) { return group.indexOf(v) >= 0 && e.verb(v).unlocked; });
+      g.classList.toggle('empty', !members.length);
+      members.forEach(function (vid) {
+        var v = e.verb(vid), el = verbEls[vid], def = CF.VERBS[vid];
+        if (!el) {
+          el = h('div', 'verb ' + vid + (def.auto ? ' time' : ''));
+          el.dataset.verb = vid;
+          el.title = def.label + ': ' + def.desc;
+          var tok = h('div', 'v-token');
+          tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'token-' + vid);
+          tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" /></svg>');
+          if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
+          else tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
+          el.appendChild(tok);
+          el.appendChild(h('div', 'v-status'));
+          el.appendChild(h('div', 'v-badge', '!'));
+          el.appendChild(h('div', 'v-count'));
+          verbEls[vid] = el;
+          if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; el.classList.add('new'); }
+        }
+        if (el.parentNode !== g) g.appendChild(el);
+        var n = Object.keys(v.slots).length;
+        el.classList.toggle('running', v.status === 'running');
+        el.classList.toggle('done', v.status === 'done');
+        el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
+        el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
+        el.classList.toggle('loaded', v.status === 'idle' && n > 0);
+        el.querySelector('.v-count').textContent = n || '';
+      });
+      // Tokens for verbs that locked again (a loaded save) leave the dock.
+      Array.prototype.slice.call(g.children).forEach(function (child) {
+        if (members.indexOf(child.dataset.verb) < 0) { child.remove(); delete verbEls[child.dataset.verb]; }
+      });
     });
   }
 
@@ -614,10 +659,15 @@
     UI.e.dirty = true;
   }
   function closeWindow(vid) {
+    var e = UI.e, v = e.verb(vid);
+    // Whatever the verb revealed comes out onto the table; cards still in
+    // its slots stay put, and the token counts them.
+    if (v && v.status === 'done' && v.out.length) collectAll(vid);
     UI.openVerbs = UI.openVerbs.filter(function (x) { return x !== vid; });
     UI.hoverSlot = null;
-    UI.e.dirty = true;
+    e.dirty = true;
   }
+  function closeAllWindows() { UI.openVerbs.slice().forEach(closeWindow); }
   UI.openWindow = openWindow;
 
   function windowSig(vid) {
@@ -667,8 +717,7 @@
     var W = 356, pos = UI.winPos[vid];
     if (!pos) {
       var tok = verbEls[vid] && verbEls[vid].getBoundingClientRect();
-      var x = tok ? tok.right - tr.left + 14 : 40, y = tok ? tok.top - tr.top : 40;
-      if (x + W > tr.width - 8 && tok) x = tok.left - tr.left - W - 14;
+      var x = tok ? tok.left - tr.left + tok.width / 2 - W / 2 : 40, y = tok ? tok.bottom - tr.top + 10 : 40;
       // Stagger below any open window whose title bar this one would cover,
       // so every window can still be grabbed.
       for (var i = 0; i < 10; i++) {
@@ -765,9 +814,10 @@
       var box = h('div', 's-box');
       var uid = v.slots[sl.key];
       if (uid && e.card(uid)) box.appendChild(miniCard(e.card(uid)));
-      else box.appendChild(h('div', 's-hint', sl.accepts.map(prettyAspect).join(' / ')));
       s.appendChild(box);
-      s.appendChild(h('div', 's-label', sl.label));
+      var lab = h('div', 's-label', sl.label);
+      lab.title = sl.accepts.map(prettyAspect).join(' / ');
+      s.appendChild(lab);
       s.addEventListener('pointerenter', function () { UI.hoverSlot = { verb: vid, slot: sl.key }; markFits(); });
       s.addEventListener('pointerleave', function () { UI.hoverSlot = null; markFits(); });
       slots.appendChild(s);
@@ -793,7 +843,7 @@
     pane.appendChild(rbox);
 
     var act2 = h('div', 'actions');
-    var go = h('button', 'plate-btn redfill', pv ? 'Begin · ' + Math.round(pv.duration) + 's' : 'Begin');
+    var go = h('button', 'plate-btn redfill go', pv ? pv.label + ' · ' + Math.round(pv.duration) + 's' : (primaryCard ? 'Nothing comes of it' : 'Add a card'));
     go.disabled = !pv || !!pv.blocked;
     go.addEventListener('click', function () { if (e.start(vid)) { CF.Audio.play('start'); e.dirty = true; } });
     act2.appendChild(go);
@@ -868,6 +918,7 @@
     if (shownJournal === j[0] && UI.journalLen === j.length) return;
     shownJournal = j[0];
     UI.journalLen = j.length;
+    if (!$('#journal-drawer').classList.contains('open') && j.length > (UI.journalSeen || 0)) $('#btn-journal').classList.add('unread');
     var pane = $('#journal');
     pane.innerHTML = '';
     j.slice(0, 120).forEach(function (x) {
@@ -957,15 +1008,18 @@
     return lines.slice(0, 4);
   }
 
+  // The dossier: a card floating at the top right of the table while a card
+  // is hovered, pinned while one is selected.
   function renderInspector() {
     var e = UI.e;
-    var box = $('#inspector');
+    var box = $('#peek');
     var uid = UI.hover || UI.selected;
     var card = uid && e.card(uid);
-    if (!card) {
-      box.innerHTML = '<div class="i-note">Hover or click a card to inspect it.</div>';
-      return;
-    }
+    if (!card) { box.classList.remove('open'); box.dataset.uid = ''; return; }
+    box.classList.add('open');
+    box.classList.toggle('pinned', UI.selected === uid);
+    if (box.dataset.uid === String(uid) && box.dataset.sig === cardSig(card, 1)) return;
+    box.dataset.uid = uid; box.dataset.sig = cardSig(card, 1);
     var def = CF.CARDS[card.def];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
     var dz = def.kind === 'case' && rec ? CASE_DOSSIER[rec.template] : KIND_DOSSIER[def.kind] || (def.kind === 'criminal' ? 'redprint' : null);
@@ -986,7 +1040,8 @@
     if (!dz && card.maxLife) html += '<div class="i-note">Time left: ' + U.fmtTime(card.life) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
-    box.innerHTML = html;
+    box.innerHTML = '<button class="peek-close" title="Close">×</button>' + html;
+    box.querySelector('.peek-close').addEventListener('click', function () { select(null); UI.hover = null; renderInspector(); });
   }
 
   // ---------------------------------------------------------------- Input
@@ -1058,7 +1113,9 @@
       var uid = +n.dataset.uid;
       var card = UI.e.card(uid);
       if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
-      UI.drag = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: ev.shiftKey };
+      // The number badge is the handle for the whole stack; the card is one card.
+      var whole = ev.shiftKey || !!(t.closest && t.closest('.c-count'));
+      UI.drag = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole };
       ev.preventDefault();
       return;
     }
@@ -1068,7 +1125,9 @@
       ev.preventDefault();
       return;
     }
-    if (t.closest && t.closest('#table') && !win && !t.closest('#zoom')) {
+    if (t.closest && t.closest('#table') && !win && !t.closest('#zoom') && !t.closest('#dock') && !t.closest('#peek')) {
+      // Touching the felt puts away the windows and the pinned dossier.
+      if (UI.openVerbs.length) closeAllWindows();
       UI.drag = { kind: 'pan', x0: ev.clientX, y0: ev.clientY, vx: UI.view.x, vy: UI.view.y, started: false };
       ev.preventDefault();
     }
@@ -1085,6 +1144,7 @@
     }
     var d = UI.drag;
     if (!d) {
+      if (ev.target.closest && ev.target.closest('#peek')) return;
       var n = cardAt(ev.target);
       var uid = n ? +n.dataset.uid : null;
       if (uid !== UI.hover) { UI.hover = uid; renderInspector(); }
@@ -1109,8 +1169,12 @@
       return;
     }
     if (d.kind === 'verb') {
-      if (!d.started) { d.started = true; d.el.classList.add('dragging'); d.b0 = { x: UI.e.verb(d.verb).x, y: UI.e.verb(d.verb).y }; }
-      place(d.el, d.b0.x + dx / UI.view.z, d.b0.y + dy / UI.view.z);
+      if (!d.started) { d.started = true; d.el.classList.add('dragging'); }
+      d.el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      document.querySelectorAll('.verb.drop-hover').forEach(function (x) { x.classList.remove('drop-hover'); });
+      var under = document.elementFromPoint(ev.clientX, ev.clientY);
+      var over = under && under.closest && under.closest('.verb[data-verb]');
+      if (over && over !== d.el) over.classList.add('drop-hover');
       return;
     }
     if (!d.started) liftCard(d, ev);
@@ -1250,7 +1314,7 @@
     if (!d) return;
     if (d.kind === 'pinch') return;
     if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
-    if (d.kind === 'verb' && d.started) { d.el.classList.remove('dragging'); UI.e.dirty = true; }
+    if (d.kind === 'verb' && d.started) { d.el.classList.remove('dragging'); d.el.style.transform = ''; UI.e.dirty = true; }
   }
 
   function onPointerUp(ev) {
@@ -1270,10 +1334,17 @@
         else openWindow(d.verb);
         CF.Audio.play('click');
       } else {
-        var v = e.verb(d.verb);
-        var p = toBoard(ev.clientX, ev.clientY);
-        e.moveVerb(d.verb, v.x + (p.x - toBoard(d.x0, d.y0).x), v.y + (p.y - toBoard(d.x0, d.y0).y));
-        CF.Audio.play('drop');
+        // Dropped on another token: take its place in the dock.
+        d.el.style.transform = '';
+        var under = document.elementFromPoint(ev.clientX, ev.clientY);
+        var over = under && under.closest && under.closest('.verb[data-verb]');
+        if (over && over !== d.el) {
+          var order = dockOrder(), a = order.indexOf(d.verb), b = order.indexOf(over.dataset.verb);
+          order.splice(a, 1); order.splice(b, 0, d.verb);
+          e.s.flags.dockOrder = order;
+          CF.Audio.play('drop');
+        }
+        document.querySelectorAll('.verb.drop-hover').forEach(function (x) { x.classList.remove('drop-hover'); });
       }
       e.dirty = true;
       return;

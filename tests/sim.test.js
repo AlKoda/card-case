@@ -8,7 +8,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -35,7 +35,7 @@ function checkInvariants(e) {
   // Nothing on the board covers anything else.
   var T = CF.TABLE, rects = [];
   Object.keys(groups).forEach(function (pk) { var xy = pk.split(','); rects.push({ x: +xy[0], y: +xy[1], w: T.CW, h: T.CH, n: 'stack ' + pk }); });
-  Object.keys(s.verbs).forEach(function (id) { var v = s.verbs[id]; if (v.unlocked) rects.push({ x: v.x, y: v.y, w: T.VW, h: T.VH, n: 'verb ' + id }); });
+  // Verbs live in the dock, not on the felt, so only cards can overlap.
   for (var i = 0; i < rects.length; i++) for (var j = i + 1; j < rects.length; j++) {
     var a = rects[i], b = rects[j];
     assert.ok(!(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h), 'overlap: ' + a.n + ' / ' + b.n);

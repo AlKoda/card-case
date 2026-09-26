@@ -1,6 +1,6 @@
 // Service worker: the whole game is cached on first visit, so it opens
 // offline and installs to a tablet's home screen. Bump VERSION on release.
-var VERSION = 'casefile-v1';
+var VERSION = 'casefile-v2';
 var FILES = [
   "index.html",
   "manifest.webmanifest",
@@ -27,6 +27,7 @@ var FILES = [
   "js/data/verbs.js",
   "js/data/deductions.js",
   "js/data/structures.js",
+  "js/data/story.js",
   "js/engine.js",
   "js/systems/charge.js",
   "js/systems/reflect.js",
@@ -34,6 +35,7 @@ var FILES = [
   "js/systems/criminals.js",
   "js/systems/network.js",
   "js/systems/callings.js",
+  "js/systems/intro.js",
   "js/core/recipes.js",
   "js/data/recipes.js",
   "js/settings.js",

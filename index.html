@@ -44,6 +44,7 @@
           <button class="ctl" data-speed="2" title="Fast (2)">2×</button>
           <button class="ctl" data-speed="3" title="Fastest (3)">3×</button>
         </div>
+        <button class="ctl" id="btn-journal" title="Journal">📖</button>
         <button class="ctl" id="btn-precinct" title="Your precinct">⌂</button>
         <button class="ctl" id="btn-help" title="How to play">?</button>
         <button class="ctl" id="btn-menu" title="Menu">☰</button>
@@ -52,6 +53,8 @@
     <div id="main">
       <section id="table" aria-label="The table">
         <div id="board"></div>
+        <div id="dock" aria-label="Verbs"></div>
+        <div id="peek"></div>
         <div id="windows"></div>
         <div id="pause-banner">Paused <span>Space to resume</span></div>
         <div id="zoom">
@@ -59,13 +62,12 @@
           <button data-zoom="fit" title="Fit the table (0)">⤢</button>
           <button data-zoom="in" title="Zoom in (+)">+</button>
         </div>
-        <div id="hint">Drag cards onto verbs. Click a verb to open it. Drag the table to pan, scroll to zoom, Shift-drag to move a whole stack.</div>
+        <div id="hint"></div>
+        <aside id="journal-drawer">
+          <div class="side-head">Journal <button id="journal-close" title="Close">×</button></div>
+          <div id="journal"></div>
+        </aside>
       </section>
-      <aside id="side">
-        <div id="inspector"></div>
-        <div class="side-head">Journal</div>
-        <div id="journal"></div>
-      </aside>
     </div>
   </div>
   <div id="toasts"></div>
@@ -114,6 +116,7 @@
         <nav class="settings-tabs">
           <button data-sec="audio" class="on"><i class="ico ico-audio"></i>Audio</button>
           <button data-sec="display"><i class="ico ico-display"></i>Display</button>
+          <button data-sec="table"><i class="ico ico-display"></i>Table</button>
           <button data-sec="gameplay"><i class="ico ico-gameplay"></i>Gameplay</button>
           <button data-sec="language"><i class="ico ico-language"></i>Language</button>
         </nav>
@@ -124,7 +127,11 @@
           <div class="set-row"><label for="s-sfx">SFX</label><input type="range" id="s-sfx" min="0" max="100"><output></output></div>
           <h3 id="sec-display">Display</h3>
           <div class="set-row"><label for="s-fullscreen">Fullscreen</label><input type="checkbox" class="toggle" id="s-fullscreen"></div>
+          <h3 id="sec-table">Table</h3>
+          <div class="set-row"><label for="s-gap">Card spacing</label><input type="range" id="s-gap" min="4" max="48"><output></output></div>
+          <p class="set-note">Applying re-tidies the table. Tidy any time from the pause menu.</p>
           <h3 id="sec-gameplay">Gameplay</h3>
+          <div class="set-row"><label for="s-guided">Guided start (new games)</label><input type="checkbox" class="toggle" id="s-guided"></div>
           <div class="set-row"><label for="s-textSpeed">Text Speed</label><input type="range" id="s-textSpeed" min="0" max="100"><output></output></div>
           <div class="set-row"><label for="s-shake">Window Shake</label><input type="checkbox" class="toggle red" id="s-shake"></div>
           <div class="set-row"><label for="s-pauseOnCase">Pause when a case arrives</label><input type="checkbox" class="toggle" id="s-pauseOnCase"></div>
@@ -167,6 +174,7 @@
       <div class="row column">
         <button class="plate-btn gold" id="m-resume">Resume</button>
         <button class="plate-btn teal" id="m-save">Save Now</button>
+        <button class="plate-btn grey" id="m-tidy">Tidy the Table</button>
         <button class="plate-btn grey" id="m-settings">Settings</button>
         <button class="plate-btn teal" id="m-precinct">Precinct</button>
         <button class="plate-btn teal" id="m-archive">Case Archive</button>
@@ -263,6 +271,7 @@
   <script src="js/data/verbs.js"></script>
   <script src="js/data/deductions.js"></script>
   <script src="js/data/structures.js"></script>
+  <script src="js/data/story.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/systems/charge.js"></script>
   <script src="js/systems/reflect.js"></script>
@@ -270,6 +279,7 @@
   <script src="js/systems/criminals.js"></script>
   <script src="js/systems/network.js"></script>
   <script src="js/systems/callings.js"></script>
+  <script src="js/systems/intro.js"></script>
   <script src="js/core/recipes.js"></script>
   <script src="js/data/recipes.js"></script>
   <script src="js/settings.js"></script>

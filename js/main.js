@@ -117,7 +117,7 @@
     var legacy = null;
     if (useLegacy) { try { legacy = JSON.parse(load(LEGACY_KEY)); } catch (err) { legacy = null; } }
     var name = $('name').value.trim().slice(0, 24) || 'Marlowe';
-    var e = CF.Engine.newGame({ calling: chosen, name: name, legacy: legacy });
+    var e = CF.Engine.newGame({ calling: chosen, name: name, legacy: legacy, guided: !!CF.Settings.get('guided') });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);
     inGame = true;
@@ -179,6 +179,7 @@
   click('help-close', function () { if (returnTo === 'title') openTitle(); else only(null); });
   click('btn-menu', function () { only('menu'); });
   click('m-resume', function () { only(null); });
+  click('m-tidy', function () { if (UI.e) { UI.e.tidy(); UI.fitView(); } only(null); });
   click('m-save', function () { save(); only(null); });
   click('m-settings', function () { openSettings('menu'); });
   click('m-archive', function () { openArchive('menu'); });
