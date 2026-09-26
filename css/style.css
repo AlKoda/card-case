@@ -222,9 +222,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .recipe { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel-2); margin-bottom: 12px; }
 .recipe h5 { margin: 0 0 4px; font-size: 14px; font-family: var(--serif); }
 .recipe p { margin: 0; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+.recipe .r-strain { color: #b7a06a; font-size: 12px; margin-top: 6px; font-style: italic; }
 .recipe .r-danger { color: #e8945e; font-size: 12px; margin-top: 6px; }
 .recipe .r-blocked { color: var(--danger); font-size: 12px; margin-top: 6px; padding-left: 22px; min-height: 16px; background: var(--art-icon-alert) 0 50% / 16px no-repeat; }
 .recipe .r-none { color: var(--ink-faint); font-style: italic; }
+.clock { display: grid; grid-template-columns: 1fr 70px 52px; align-items: center; gap: 8px; font-size: 12px; margin: 4px 0; color: var(--ink-dim); }
+.clock .ck-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clock .ck-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.clock .ck-bar i { display: block; height: 100%; background: #6dbb6a; }
+.clock.urgent { color: var(--danger); }
+.clock.urgent .ck-bar i { background: var(--danger); }
+.clock .ck-days { font-family: var(--mono); text-align: right; font-size: 11px; }
 .charge { margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); font-size: 12px; }
 .charge .ch-head { display: flex; justify-content: space-between; font-family: var(--serif); font-weight: 700; font-size: 13px; margin-bottom: 6px; }
 .charge.tier-weak .ch-head { color: var(--danger); }

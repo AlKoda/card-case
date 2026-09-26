@@ -56,7 +56,7 @@
   var PEOPLE = ['pic-man', 'pic-woman', 'pic-glasses', 'pic-lady', 'pic-smoker', 'pic-hood', 'pic-youth', 'pic-fedora'];
   var CASE_DOSSIER = { burglary: 'house', missing: 'map', harbor: 'knife', arson: 'alley', fraud: 'city', extortion: 'redprint',
     manhunt: 'alley', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
-  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge',
+  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge', equipment: 'print',
     hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'city', court: 'knife' };
   var VERB_TOKENS = { time: 'token-time' };
   var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
@@ -373,7 +373,8 @@
     if (t) t.textContent = U.fmtTime(card.life);
     var lf = n.querySelector('.c-life > div');
     if (lf) lf.style.width = Math.max(0, (card.life / card.maxLife) * 100) + '%';
-    n.classList.toggle('urgent', CF.CARDS[card.def].kind === 'case' && card.life < 45);
+    var k = CF.CARDS[card.def].kind;
+    n.classList.toggle('urgent', (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30));
   }
 
   // ---------------------------------------------------------------- Board
@@ -681,7 +682,19 @@
       pane.appendChild(h('p', 'vw-desc', def.desc));
       var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
       if (wk) pane.appendChild(storyBox(wk));
-      pane.appendChild(h('p', 'vw-desc', 'Open cases: ' + e.openCases().length + '. Rent is due at the end of every week.'));
+      var open = e.openCases().slice().sort(function (a, b) { return caseLife(a) - caseLife(b); });
+      var money = e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; }).length;
+      pane.appendChild(h('p', 'vw-desc', 'Funds on the table: ' + money + '. Every week pays ' + (CF.ECONOMY.salary[e.s.rank] || 1) + ' in salary and takes ' + CF.ECONOMY.rent + ' in rent; miss the rent and you sleep in the car.'));
+      pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first.' : 'No open cases.'));
+      open.forEach(function (rec) {
+        var cc = e.caseCard(rec.id);
+        if (!cc) return;
+        var life = cc.life / cc.maxLife;
+        var row = h('div', 'clock' + (cc.life < 60 ? ' urgent' : ''));
+        row.innerHTML = '<span class="ck-title">' + esc(rec.title) + '</span><span class="ck-bar"><i style="width:' + Math.round(life * 100) + '%"></i></span>' +
+          '<span class="ck-days">' + CF.daysLeft(cc.life) + ' day' + (CF.daysLeft(cc.life) === 1 ? '' : 's') + '</span>';
+        pane.appendChild(row);
+      });
       return;
     }
 
@@ -745,6 +758,7 @@
     if (pv) {
       rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
         (pv.detail && pv.detail.charge ? chargeHtml(pv.detail.charge) : '') +
+        (pv.strain ? '<div class="r-strain">' + esc(pv.strain) + '</div>' : '') +
         (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
         (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');
     } else if (primaryCard) {
@@ -842,6 +856,8 @@
     });
   }
 
+  function caseLife(rec) { var cc = UI.e.caseCard(rec.id); return cc ? cc.life : Infinity; }
+
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
   function chargeHtml(d) {
@@ -866,7 +882,7 @@
       lines.push(rec.scene + ', ' + CF.DISTRICTS[rec.district].label);
       lines.push('Suspects met: ' + (met.length ? met.map(function (x) { return x.name.split(' ')[1] + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); }).join(', ') : 'none'));
       lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched'));
-      lines.push('Time left: ' + U.fmtTime(card.life) + (rec.highProfile ? ' · high-profile' : ''));
+      lines.push(CF.daysLeft(card.life) + ' days left (' + U.fmtTime(card.life) + ')' + (rec.highProfile ? ' · high-profile' : ''));
     } else if (card.def === 'suspect') {
       var sus = e.suspectOf(card);
       if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1) + (rec && rec.identified === card.data.key ? ' · prime suspect' : ''));
@@ -880,7 +896,15 @@
     } else if (k === 'teammate' || k === 'personnel') {
       if (card.data.name) lines.push(card.data.name);
       if (asp) lines.push(asp);
+      if (card.data.traits && card.data.traits.length) lines.push(card.data.traits.map(function (t) { return CF.OFFICER_TRAITS[t].label; }).join(', '));
       if (card.data.level) lines.push('Level ' + card.data.level);
+    } else if (k === 'equipment') {
+      var m = def.mods || {};
+      if (m.boost) lines.push(Object.keys(m.boost.aspects).map(function (x) { return CF.ASPECTS[x].label + ' +' + m.boost.aspects[x]; }).join(', ') + ' on ' + m.boost.tags.join('/'));
+      if (m.gate) lines.push('Reads evidence that needs it');
+      if (m.extraEvidence) lines.push('Finds more physical evidence');
+      if (m.unlocks) lines.push('Opens: ' + ((CF.RECIPES_BY_ID[m.unlocks] || {}).label || m.unlocks));
+      if (m.unlocksVerb) lines.push('Opens the ' + CF.VERBS[m.unlocksVerb].label + ' verb');
     } else if (k === 'informant') {
       lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
       lines.push('Exposure: ' + (card.data.heat || 0));

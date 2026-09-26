@@ -7,6 +7,13 @@
 
   var WEEK = 60;          // seconds of game time per week
   var MAX_OPEN_CASES = 4;
+  var COLD_WARNING = 60; // seconds left on a case before the warning
+  // Strain: two Fatigue is Exhaustion (street verbs slower), three is
+  // Burnout. Tunnel Vision slows the careful verbs and warps deductions.
+  CF.STRAIN = { exhaustedAt: 2, exhaustedSlow: 1.25, exhaustedVerbs: ['duty', 'patrol', 'investigate', 'interrogate', 'stakeout'],
+    tunnelSlow: 1.25, tunnelVerbs: ['investigate', 'analyze', 'reflect'] };
+  // Money: salary rises with rank, rent does not.
+  CF.ECONOMY = { salary: [1, 2, 3], rent: 1, convictionPay: { reasonable: 1, strong: 2 }, highProfilePay: 1 };
   // The table is a free board measured in board pixels. Cards and verbs can
   // sit anywhere; placement keeps them from covering each other.
   var T = {
@@ -620,12 +627,29 @@
       blocked: lock || blocked,
       danger: rec.danger ? rec.danger(r.ctx) : null,
       detail: rec.detail ? rec.detail(r.ctx) : null,
+      strain: this.strainNote(verbId) || null,
     };
   };
 
+  // How much slower a verb runs while you are exhausted or in Tunnel Vision.
+  P.strainFactor = function (verbId) {
+    var f = 1, S = CF.STRAIN;
+    if (this.exhausted() && S.exhaustedVerbs.indexOf(verbId) >= 0) f *= S.exhaustedSlow;
+    if (this.countOf('tunnel') && S.tunnelVerbs.indexOf(verbId) >= 0) f *= S.tunnelSlow;
+    return f;
+  };
+  P.exhausted = function () {
+    return this.cardsOf('fatigue').filter(function (c) { return c.loc.t === 'table' || c.loc.t === 'out'; }).length >= CF.STRAIN.exhaustedAt;
+  };
+  P.strainNote = function (verbId) {
+    var notes = [], S = CF.STRAIN;
+    if (this.exhausted() && S.exhaustedVerbs.indexOf(verbId) >= 0) notes.push('You are exhausted. This will take longer.');
+    if (this.countOf('tunnel') && S.tunnelVerbs.indexOf(verbId) >= 0) notes.push('Tunnel Vision: you keep going back over the same ground.');
+    return notes.join(' ');
+  };
   P.durationOf = function (rec, ctx) {
     var d = typeof rec.duration === 'function' ? rec.duration(ctx) : rec.duration;
-    return Math.max(3, d || 10);
+    return Math.max(3, Math.round((d || 10) * this.strainFactor(ctx.verb)));
   };
 
   P.start = function (verbId) {
@@ -735,6 +759,7 @@
       if (s.rooms.locker && (c.def === 'clue' || c.def === 'evidence')) rate = 0.5;
       c.life -= dt * rate;
       if (c.life <= 0) this.expire(c);
+      else if (c.def === 'case' && c.life < COLD_WARNING) this.warnCold(c);
       if (s.over) return;
     }
 
@@ -767,6 +792,16 @@
 
     this.checkThresholds();
   };
+
+  // One warning per case, a minute before it goes cold.
+  P.warnCold = function (card) {
+    var rec = this.caseRec(card.caseId);
+    if (!rec || rec.status !== 'open' || rec.warned) return;
+    rec.warned = true;
+    this.story('Going Cold: ' + rec.title, 'A minute left, and the trail is fading. Charge somebody, or let it go and live with it.', 'danger');
+  };
+  // How long a case has left, in the city's days (a week is a game minute).
+  CF.daysLeft = function (seconds) { return Math.max(0, Math.ceil(seconds / (WEEK / 7))); };
 
   P.expire = function (card) {
     var def = this.def(card);
@@ -801,15 +836,18 @@
   };
 
   P.weekTick = function () {
-    var s = this.s;
+    var s = this, self = this;
+    s = this.s;
     s.week++;
     var lines = [];
 
-    // Rent.
+    // Salary, then rent.
+    var salary = CF.ECONOMY.salary[s.rank] || 1;
+    for (var si = 0; si < salary; si++) this.create('funds');
     var funds = this.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; });
-    if (funds.length) {
-      this.remove(funds[0]);
-      lines.push('Rent is paid.');
+    if (funds.length >= CF.ECONOMY.rent) {
+      funds.slice(0, CF.ECONOMY.rent).forEach(function (c) { self.remove(c); });
+      lines.push('Payday: ' + salary + ' Funds. Rent takes ' + CF.ECONOMY.rent + '.');
     } else {
       this.create('fatigue');
       this.create('fatigue');
@@ -1042,12 +1080,29 @@
   P.teammateSpec = function (key) {
     var p = CF.PERSONNEL[key];
     var name = this.newName();
+    var traits = U.sample(this.rng, p.traits || [], p.nTraits || 1);
     return {
       label: p.role + ' ' + name.split(' ')[1],
-      desc: p.desc + ' Slot them into a verb to help.',
+      desc: p.desc + ' Slot them into a verb to help. ' + traits.map(function (t) { return CF.OFFICER_TRAITS[t].label + ': ' + CF.OFFICER_TRAITS[t].desc; }).join(' '),
       aspects: U.clone(p.aspects),
-      data: { personnel: key, name: name, level: 1, role: p.role },
+      data: { personnel: key, name: name, level: 1, role: p.role, traits: traits },
     };
+  };
+  // Is an officer with this trait among the cards in the verb?
+  P.teamHas = function (ctx, trait) {
+    return ctx.cards.some(function (c) { return c.def === 'teammate' && (c.data.traits || []).indexOf(trait) >= 0; });
+  };
+  // Equipment with this modifier among the cards in the verb.
+  P.gearWith = function (ctx, mod) {
+    return ctx.cards.filter(function (c) { var m = CF.CARDS[c.def].mods; return m && m[mod]; });
+  };
+  P.unlockVerb = function (id, why) {
+    var v = this.s.verbs[id];
+    if (!v || v.unlocked) return false;
+    v.unlocked = true;
+    this.layoutVerbs();
+    if (why) this.story('Unlocked: ' + CF.VERBS[id].label, why, 'major');
+    return true;
   };
   P.informantSpec = function (district) {
     var name = this.newName();
@@ -1203,17 +1258,32 @@
 
   // Build a clue spec. Helpers (equipment, team) sharpen what's found;
   // Tunnel Vision may silently misread it.
+  // What a scene item or evidence is made of, for equipment to act on.
+  CF.itemTags = function (item) {
+    if (!item) return [];
+    if (item.tags) return item.tags;
+    var needs = item.needs;
+    return needs === 'prints' ? ['surfaces'] : needs === 'bio' ? ['biology', 'physical'] : needs === 'lab' ? ['records'] : [];
+  };
   P.clueSpec = function (rec, item, helpers, flags) {
     flags = flags || {};
     var aspects = U.clone(item.aspects || {});
     var bonus = {};
-    (helpers || []).forEach(function (h) { U.addAspects(bonus, CF.clueAspects(h)); });
+    var tags = CF.itemTags(item);
+    (helpers || []).forEach(function (h) {
+      var mods = CF.CARDS[h.def].mods;
+      if (CF.aspectsOf(h).tool) {
+        // Equipment only sharpens what it is for.
+        if (mods && mods.boost && mods.boost.tags.some(function (t) { return tags.indexOf(t) >= 0; })) U.addAspects(bonus, mods.boost.aspects);
+      } else U.addAspects(bonus, CF.clueAspects(h));
+    });
+    // Helpers add up to 3 points in all, at most 2 to any one aspect.
     var total = 0;
-    for (var a in aspects) {
-      var add = Math.min(bonus[a] || 0, 2, 3 - total);
-      if (add > 0) { aspects[a] += add; total += add; }
+    for (var a in bonus) {
+      var add = Math.min(bonus[a], 2, 3 - total);
+      if (add > 0) { aspects[a] = (aspects[a] || 0) + add; total += add; }
     }
-    var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, points: flags.points || null };
+    var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null };
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
     return {
       label: item.label,
@@ -1330,6 +1400,13 @@
         notes.push('The defence has the coerced statement thrown out. The judge asks, pointedly, how it was obtained.');
       }
     }
+    for (var q = 0; q < (d.illegal || 0); q++) {
+      if (rng() < 0.3) {
+        p -= 0.25;
+        this.meter('scrutiny', 1);
+        notes.push('The defence asks to see the warrant for the search. There is no warrant. The evidence is excluded.');
+      }
+    }
     if (d.planted && rng() < 0.3) {
       p = 0.03;
       this.meter('scrutiny', 3);
@@ -1356,9 +1433,10 @@
       var ob = this.cardsOf('obsession')[0];
       if (t) { this.remove(t); notes.push('The fog in your head lifts. You can see the edges of things again.'); }
       else if (ob) this.remove(ob);
+      var pay = d.guilty ? (CF.ECONOMY.convictionPay[tier] || 0) + (hp ? CF.ECONOMY.highProfilePay : 0) : 0;
+      for (var pi = 0; pi < pay; pi++) this.create('funds');
+      if (pay) notes.push(tier === 'strong' ? 'A commendation, with a cheque attached.' : 'The case closes, and a small bonus comes with it.');
       if (d.solid && d.guilty) {
-        this.create('funds');
-        notes.push('A commendation, with a small cheque attached.');
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend');
           notes.push('But one detail belongs to no one in the case: a folded paper crane, left where the crime began. You have seen one before.');
@@ -1440,8 +1518,8 @@
   P.hasTool = function (ctx, need) {
     if (!need) return true;
     if (this.s.rooms.lab) return true;
-    var map = { prints: 'kit_prints', bio: 'kit_bio', lab: 'kit_lab' };
-    return ctx.has(map[need]);
+    if (this.teamHas(ctx, 'sharp')) return true;
+    return ctx.cards.some(function (c) { var m = CF.CARDS[c.def].mods; return m && m.gate === need; });
   };
   P.helpers = function (ctx) {
     return ctx.cards.filter(function (c) { var a = CF.aspectsOf(c); return a.tool || a.teammate; });

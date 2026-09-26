@@ -8,7 +8,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/engine.js', 'js/systems/charge.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -123,15 +123,18 @@ function fresh(seed) {
   var timing = d.byLabel(/The Timing/)[0];
   assert.ok(timing);
   d.run('reflect', [statement, timing]);
-  var corr = d.byLabel(/^Corroborated/)[0];
-  assert.ok(corr && CF.clueAspects(corr).opportunity >= 3, 'corroboration binds the sighting to the window of time');
+  // The sighting and the alarm log reconstruct the night (a deduction), and the
+  // result keeps the witness's description of the culprit.
+  var corr = d.byLabel(/Reconstructed Timeline/)[0];
+  assert.ok(corr && CF.clueAspects(corr).opportunity >= 3 && corr.data.corroborated, 'the sighting and the timing become a timeline');
+  assert.strictEqual(corr.data.trait, statement.data.trait);
   var sc = d.suspectCard(d.rec().culprit) || (e.revealSuspect(d.rec(), null, { key: d.rec().culprit }), d.suspectCard(d.rec().culprit));
   // Confront the culprit with the corroborated sighting until they crack (a chance roll).
   var confession = null;
   for (var i = 0; i < 12 && !confession; i++) {
     d.run('interrogate', [sc, d.byDef('focus')[0], corr]);
     confession = d.byLabel(/^Confession/)[0];
-    corr = d.byLabel(/^Corroborated/)[0];
+    corr = d.byLabel(/Reconstructed Timeline/)[0];
   }
   assert.ok(confession, 'the culprit cracks when confronted');
   d.charge([corr, confession, d.byLabel(/Inventory/)[0]]);

@@ -186,7 +186,7 @@
           ],
           reveal: 'any',
           story: { title: 'Door to Door', text: 'Around {scene} people are frightened, and frightened people talk. The woman in the flat opposite was at her window at two in the morning. She usually is.' } },
-        { id: 'timing', verb: 'investigate', label: 'Go Back Over It', duration: 30, needs: { after: ['scene'] },
+        { id: 'timing', verb: 'investigate', label: 'Go Back Over It', duration: 30, needs: { after: ['scene'], without: ['district', 'tool'] },
           preview: 'Go back over {scene} inch by inch. The first pass never finds everything.',
           gives: [
             { type: 'clue', label: 'The Timing', text: 'The alarm was switched off at 2:14 and back on at 2:41. Twenty-seven minutes, and they knew the code.', aspects: { opportunity: 2 } },
