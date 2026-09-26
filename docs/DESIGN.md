@@ -435,7 +435,44 @@ point to what the court wants for their cases. A conviction jails them;
 a manhunt marks them hunted. Records survive the save and ride the legacy
 to the next detective. Failure makes content.
 
-## 15. What this phase does not decide
+## 15. The crime network
+
+Underneath the cases there is a network (`js/systems/network.js`,
+`s.network`). When a gang forms it gets a **front**: a place it works
+through, named for its district (a bonded warehouse at the Docks, a
+pawnbroker in the Old Market, a card room on Neon Row). Cases committed by
+the gang's people, and a quarter of ordinary cases while a front exists,
+carry one scene clue that points at it: a receipt, a matchbook, a docket.
+
+The player is never told which cases connect. Two linked clues from
+*different* cases in Reflect fit the `connect` deduction: "These cases are
+connected." It makes a **Thread** (the two cases and the place), puts the
+**Front** card on the table, and for the Master Detective names a suspect
+in each connected case. The clues stay with their cases.
+
+The Front is a verb target: **Stakeout** it to photograph someone from
+every open case that passes through (a clue and a suspect each);
+**Reflect** the Thread with the Gang or Syndicate card to close in
+(Reputation +1, and a Loose End for the Master Detective); go
+**Undercover** through it and it stands in for the gang behind it, at
+half the risk once it has been watched. Fronts survive the save.
+
+## 16. Procedural structures
+
+A case is generated structure first, prose second. `js/data/structures.js`
+holds, per crime type, three to four **structures** (four burglaries:
+rear window, inside key, smash and grab, the quiet safe; three each for
+missing persons, harbour deaths, arson, fraud, extortion). A structure
+names the choices its writing needs (`{time}`, `{entry}`, `{item}`,
+`{detail}`, ...) with a pool for each, a brief written against them, and
+two scene items written against them. The engine picks a structure, draws
+each variable, fills the brief and the items, and adds the items to the
+template's own pool and the culprit's trait clue. The authored leads (§5)
+still run first; structure items are what the generic search finds after
+the script is spent. Nineteen structures and their pools give the six
+crime types several hundred distinct briefs without random prose.
+
+## 17. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and

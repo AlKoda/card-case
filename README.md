@@ -58,6 +58,7 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 - Scrutiny comes from coercion, bribes, planted evidence and searching a suspect's home without a warrant (Investigate with a Suspect: quick, and the court may exclude what you find). At 10 you face corruption charges.
 - Every week pays a salary by rank and takes the rent; convictions pay by the strength of the charge.
 - Retaliation grows with every criminal at large. Three of them form a gang, and two gangs form the Syndicate. They will come for your informants, your team and you.
+- Cases connect underneath: a gang works through a front, and clues from different cases can point at the same place. Lay two of them together in Reflect and you find the thread; the Front can then be staked out or used as a way in.
 - Nobody who gets away is forgotten: they keep a record, commit new crimes that arrive as cases with their name on them, and climb from Petty Criminal to Syndicate Member.
 - Informants left on the table bring rumours, sightings and warnings on their own time. Pay them for trust; every meeting adds heat, and at three they go quiet until an officer protects them in Duty.
 

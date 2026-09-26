@@ -15,6 +15,11 @@
   var CF = G.CF;
 
   CF.DEDUCTIONS = [
+    // Two clues from different cases that point at the same place: the
+    // cases are connected. Nobody tells the player this; they find it.
+    { id: 'connect', label: 'Follow the Thread', duration: 30,
+      needs: { min: 2, sharedLink: true, crossCase: true },
+      story: { title: 'These Cases Are Connected', text: '{clues}: two cases, one address. Somebody is working through {front}, and more than one of your files leads there.', kind: 'major' } },
     // Two clues that describe the same person: an identification. Confirmed
     // when a suspect on the board fits; only "possible" until then.
     { id: 'identify', label: 'Put a Face to It', duration: 30,

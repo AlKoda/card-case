@@ -16,7 +16,7 @@
     district: 'green', room: 'green',
     threat: 'crimson', criminal: 'crimson',
     ability: 'gold', funds: 'gold', equipment: 'gold', order: 'gold', career: 'gold',
-    insight: 'purple', calling: 'purple', temptation: 'purple', intel: 'purple',
+    insight: 'purple', calling: 'purple', temptation: 'purple', intel: 'purple', place: 'green',
   };
   // Icons for cards that have no picture.
   var CARD_ICONS = {
@@ -56,7 +56,7 @@
   var PEOPLE = ['pic-man', 'pic-woman', 'pic-glasses', 'pic-lady', 'pic-smoker', 'pic-hood', 'pic-youth', 'pic-fedora'];
   var CASE_DOSSIER = { burglary: 'house', missing: 'map', harbor: 'knife', arson: 'alley', fraud: 'city', extortion: 'redprint',
     manhunt: 'alley', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
-  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge', equipment: 'print', intel: 'fedora',
+  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge', equipment: 'print', intel: 'fedora', place: 'city',
     hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'city', court: 'knife' };
   var VERB_TOKENS = { time: 'token-time' };
   var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
@@ -909,6 +909,13 @@
       lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
       lines.push('Trust ' + (card.data.trust || 0) + '/3 · heat ' + (card.data.heat || 0) + '/' + CF.INFORMANT.compromisedAt);
       lines.push(e.informantStatus(card) === 'compromised' ? 'Compromised: gone quiet' : 'Next word in ' + U.fmtTime(Math.max(0, card.data.tipT || 0)));
+    } else if (card.def === 'front') {
+      var fr = e.fronts()[card.data.front];
+      if (fr) {
+        lines.push(CF.DISTRICTS[fr.district].label + ' · ' + fr.gang.replace(/^the /, 'The '));
+        lines.push('Open cases through here: ' + e.casesAtFront(fr.id).length);
+        lines.push(fr.watched ? 'Watched: a safer way in' : 'Not yet watched');
+      }
     } else if (card.def === 'atlarge') {
       var crim = card.data.criminalId && e.criminal(card.data.criminalId);
       if (crim) {
