@@ -133,6 +133,10 @@
     ['#board', '#windows', '#dock'].forEach(function (sel) { $(sel).innerHTML = ''; });
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
+    UI.tidyUndo = null;
+    UI.pick = null;
+    UI.autoPaused = false;
+    renderTools();
     UI.dockH = undefined;
     $('#btn-journal').classList.remove('unread');
     $('#journal-drawer').classList.remove('open');
@@ -144,6 +148,9 @@
     requestAnimationFrame(UI.fitView);
   };
 
+  // The panel scale from Settings (1 = as designed).
+  UI.scale = function () { return U.clamp((CF.Settings.get('uiScale') || 100) / 100, 0.8, 1.6); };
+  UI.applyScale = function () { document.documentElement.style.setProperty('--ui-scale', UI.scale()); };
   UI.setPaused = function (p) { UI.paused = p; renderControls(); };
   UI.setSpeed = function (sp) { UI.speed = sp; UI.paused = false; renderControls(); };
 
@@ -169,7 +176,20 @@
       else if (ev.key === '+' || ev.key === '=') $('#zoom [data-zoom=in]').click();
       else if (ev.key === '-') $('#zoom [data-zoom=out]').click();
       else if (ev.key === '0') UI.fitView();
+      else if (ev.key === 'Tab') { ev.preventDefault(); UI.stackAll(); }
+      else if (ev.key === 't' || ev.key === 'T') UI.tidy();
+      else if (ev.key === 'z' || ev.key === 'Z') UI.undoTidy();
+      else if (ev.key === 'j' || ev.key === 'J') UI.toggleJournal();
+      else if (ev.key === 's' || ev.key === 'S' || ev.key === 'Enter') goTopWindow();
     });
+    $('#zoom').addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-tool]');
+      if (!b) return;
+      if (b.dataset.tool === 'stack') UI.stackAll();
+      else if (b.dataset.tool === 'tidy') UI.tidy();
+      else if (b.dataset.tool === 'undo') UI.undoTidy();
+    });
+    UI.applyScale();
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
@@ -246,6 +266,9 @@
       if (UI.openVerbs.indexOf(payload.verb) < 0 && v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
     }
+    if (type === 'expiring') {
+      toast({ title: 'Fading: ' + payload.label, text: 'Half a minute before it is gone. Use it or lose it.', kind: 'danger', uid: payload.uid });
+    }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
   }
 
@@ -257,6 +280,8 @@
     t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
+      else if (entry.uid) UI.panTo(entry.uid);
+      else if (entry.kind === 'minor') { /* nothing to show */ }
       else { UI.toggleJournal(true); $('#journal').scrollTop = 0; }
       t.remove();
     });
@@ -288,7 +313,7 @@
   // A line under the dock that tells a new player what to try next: the
   // guided start's hint while it runs, then the plain how-to until the
   // player has moved something (remembered across games).
-  var PLAIN_HINT = 'Drag cards onto the verbs above. Drag the felt to look around, pinch or scroll to zoom. Drag a stack by its number to move all of it.';
+  var PLAIN_HINT = 'Drag cards onto the verbs above, or tap an empty slot to pick a card for it. Drag the felt to look around, pinch or scroll to zoom. Drag a stack by its number to move all of it.';
   function renderHint() {
     var e = UI.e, hint = $('#hint');
     var text = e.introHint ? e.introHint() : null;
@@ -451,6 +476,71 @@
     UI.view = { x: (r.width - b.w * z) / 2 - b.x * z, y: dockH + Math.max(20, (r.height - dockH - b.h * z) / 2) - b.y * z, z: z };
     applyView();
   };
+
+  // ---- Table tools: stack like cards, tidy everything, and undo either.
+  function rememberTable() { UI.tidyUndo = UI.e.snapshotTable(); renderTools(); }
+  function renderTools() {
+    var b = $('#zoom [data-tool=undo]');
+    if (b) b.classList.toggle('hidden', !UI.tidyUndo);
+  }
+  UI.stackAll = function () {
+    if (!UI.e || UI.drag) return;
+    var e = UI.e, before = e.snapshotTable();
+    var moved = e.mergeStacks();
+    if (!moved.length) { toast({ title: 'Nothing to stack', text: 'Every like card is already together.', kind: 'minor' }); return; }
+    UI.tidyUndo = before;
+    renderTools();
+    syncBoard();
+    // The stacks that grew glow for a moment, so the eye can find them.
+    var homes = {};
+    moved.forEach(function (u) { var c = e.card(u); if (c && c.loc) homes[c.loc.x + ',' + c.loc.y] = true; });
+    Object.keys(cardEls).forEach(function (uid) {
+      var c = e.card(+uid);
+      if (c && c.loc && homes[c.loc.x + ',' + c.loc.y]) {
+        cardEls[uid].classList.add('merged');
+        setTimeout(function () { cardEls[uid] && cardEls[uid].classList.remove('merged'); }, 1000);
+      }
+    });
+    CF.Audio.play('drop');
+  };
+  UI.tidy = function () {
+    if (!UI.e || UI.drag) return;
+    rememberTable();
+    UI.e.tidy();
+    UI.fitView();
+    CF.Audio.play('drop');
+  };
+  UI.undoTidy = function () {
+    if (!UI.e || !UI.tidyUndo || UI.drag) return;
+    UI.e.restoreTable(UI.tidyUndo);
+    UI.tidyUndo = null;
+    renderTools();
+    clampView(); applyView();
+    CF.Audio.play('drop');
+  };
+
+  // Bring a card into the middle of the view (and pick it up in the dossier).
+  UI.panTo = function (uid) {
+    var e = UI.e, c = e && e.card(uid);
+    if (!c || !c.loc || c.loc.t !== 'table') return false;
+    var r = $('#table').getBoundingClientRect(), v = UI.view;
+    if (v.z < 0.9) v.z = 1;
+    var dockH = ($('#dock') && $('#dock').offsetHeight) || 0;
+    v.x = r.width / 2 - (c.loc.x + T.CW / 2) * v.z;
+    v.y = dockH + (r.height - dockH) / 2 - (c.loc.y + T.CH / 2) * v.z;
+    clampView(); applyView();
+    select(uid);
+    return true;
+  };
+
+  // The keyboard's Begin: start the top window's recipe, or collect its results.
+  function goTopWindow() {
+    var vid = UI.openVerbs[UI.openVerbs.length - 1];
+    if (!vid) return;
+    var e = UI.e, v = e.verb(vid);
+    if (v.status === 'done') { collectAll(vid); return; }
+    if (v.status === 'idle' && e.start(vid)) { CF.Audio.play('start'); e.dirty = true; }
+  }
 
   function zoomAt(cx, cy, factor) {
     var r = $('#table').getBoundingClientRect();
@@ -686,6 +776,7 @@
     if (v && v.status === 'done' && v.out.length) collectAll(vid);
     UI.openVerbs = UI.openVerbs.filter(function (x) { return x !== vid; });
     UI.hoverSlot = null;
+    if (UI.pick && UI.pick.verb === vid) UI.pick = null;
     e.dirty = true;
   }
   function closeAllWindows() { UI.openVerbs.slice().forEach(closeWindow); }
@@ -695,7 +786,7 @@
     var e = UI.e, v = e.verb(vid), pv = v.status === 'idle' ? e.preview(vid) : null;
     return [v.status, JSON.stringify(v.slots), v.out.join(','), v.held.join(','), v.story ? v.story.title : '',
       pv ? pv.label + '|' + pv.blocked + '|' + pv.text : '', e.lockReason(vid) || '', v.recipe || '',
-      vid === 'time' ? e.s.week : ''].join('#');
+      vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : ''].join('#');
   }
 
   function syncWindows() {
@@ -735,7 +826,7 @@
 
   function positionWindow(vid, w) {
     var tr = $('#table').getBoundingClientRect();
-    var W = 356, pos = UI.winPos[vid];
+    var W = Math.round(356 * UI.scale()), pos = UI.winPos[vid];
     if (!pos) {
       var tok = verbEls[vid] && verbEls[vid].getBoundingClientRect();
       var x = tok ? tok.left - tr.left + tok.width / 2 - W / 2 : 40, y = tok ? tok.bottom - tr.top + 10 : 40;
@@ -784,6 +875,8 @@
         var row = h('div', 'clock' + (cc.life < 60 ? ' urgent' : ''));
         row.innerHTML = '<span class="ck-title">' + esc(rec.title) + '</span><span class="ck-bar"><i style="width:' + Math.round(life * 100) + '%"></i></span>' +
           '<span class="ck-days">' + CF.daysLeft(cc.life) + ' day' + (CF.daysLeft(cc.life) === 1 ? '' : 's') + '</span>';
+        row.title = 'Show this case on the table';
+        row.addEventListener('click', function () { UI.panTo(cc.uid); });
         pane.appendChild(row);
       });
       return;
@@ -835,6 +928,17 @@
       var box = h('div', 's-box');
       var uid = v.slots[sl.key];
       if (uid && e.card(uid)) box.appendChild(miniCard(e.card(uid)));
+      else {
+        // An empty slot, tapped, says what it takes and offers the cards that fit.
+        box.classList.add('empty');
+        box.title = 'Pick a card for this slot';
+        box.addEventListener('click', function () {
+          var same = UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key;
+          UI.pick = same ? null : { verb: vid, slot: sl.key };
+          e.dirty = true;
+        });
+        if (UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key) s.classList.add('picking');
+      }
       s.appendChild(box);
       var lab = h('div', 's-label', sl.label);
       lab.title = sl.accepts.map(prettyAspect).join(' / ');
@@ -844,6 +948,10 @@
       slots.appendChild(s);
     });
     pane.appendChild(slots);
+    if (UI.pick && UI.pick.verb === vid) {
+      if (v.slots[UI.pick.slot]) UI.pick = null; // the slot got its card another way
+      else pane.appendChild(slotPicker(vid, UI.pick.slot));
+    }
 
     var pv = e.preview(vid);
     var rbox = h('div', 'recipe');
@@ -874,6 +982,32 @@
       act2.appendChild(clr);
     }
     pane.appendChild(act2);
+  }
+
+  // What an empty slot takes, and every card on the table that fits it.
+  function slotPicker(vid, slotKey) {
+    var e = UI.e;
+    var sl = CF.VERBS[vid].slots.filter(function (x) { return x.key === slotKey; })[0];
+    var box = h('div', 'picker');
+    if (!sl) return box;
+    var fits = e.tableCards().filter(function (c) { return e.slotAccepts(sl, c); }).sort(function (a, b) { return a.uid - b.uid; });
+    var seen = {}, shown = [];
+    fits.forEach(function (c) { var k = e.stackKey(c) || c.uid; if (!seen[k]) { seen[k] = true; shown.push(c); } });
+    box.innerHTML = '<div class="pk-head"><span>' + esc(sl.label) + ' takes: ' + esc(sl.accepts.map(prettyAspect).join(', ')) + '</span><button class="pk-close" title="Close">×</button></div>';
+    box.querySelector('.pk-close').addEventListener('click', function () { UI.pick = null; e.dirty = true; });
+    if (!shown.length) { box.appendChild(h('p', 'pk-none', 'Nothing on the table fits this slot yet.')); return box; }
+    var row = h('div', 'pk-cards');
+    shown.forEach(function (c) {
+      var m = miniCard(c);
+      m.classList.add('pk-card');
+      m.title = 'Put ' + e.labelOf(c) + ' in the slot';
+      m.addEventListener('click', function () {
+        if (e.slotCard(vid, slotKey, c.uid)) { UI.pick = null; CF.Audio.play('drop'); e.dirty = true; }
+      });
+      row.appendChild(m);
+    });
+    box.appendChild(row);
+    return box;
   }
 
   // Cards leaving a window fly from where they are to where they land.
@@ -1129,6 +1263,7 @@
       }
     }
     var n = cardAt(t);
+    if (n && n.closest('.pk-card')) return; // picker cards are buttons, not cards
     if (n && ev.button === 0) {
       var uid = +n.dataset.uid;
       var card = UI.e.card(uid);
@@ -1233,6 +1368,7 @@
     $('#drag-layer').appendChild(d.el);
     d.rot = 0;
     d.lastX = ev.clientX;
+    if (CF.Settings.get('pauseOnDrag') && !UI.paused && !e.s.over) { UI.autoPaused = true; UI.setPaused(true); }
     CF.Audio.play('pick');
     markDropTargets(card);
   }
@@ -1327,10 +1463,14 @@
     return false;
   };
 
+  function resumeAfterDrag() {
+    if (UI.autoPaused) { UI.autoPaused = false; UI.setPaused(false); }
+  }
   function cancelDrag() {
     var d = UI.drag;
     UI.drag = null;
     clearMarks();
+    resumeAfterDrag();
     if (!d) return;
     if (d.kind === 'pinch') return;
     if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
@@ -1345,6 +1485,7 @@
     var e = UI.e;
     UI.drag = null;
     clearMarks();
+    resumeAfterDrag();
     if (d.kind === 'window') return;
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
     if (d.kind === 'verb') {
@@ -1404,6 +1545,7 @@
       var p = toBoard(ev.clientX, ev.clientY);
       var target = { x: p.x - d.gx, y: p.y - d.gy };
       var fin;
+      if (UI.tidyUndo) { UI.tidyUndo = null; renderTools(); }
       if (loc.t === 'table') {
         fin = e.moveCard(card.uid, target.x, target.y, d.uids.length > 1);
         UI.lifted = null;

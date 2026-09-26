@@ -73,6 +73,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #zoom { position: absolute; right: 12px; bottom: 12px; z-index: 6; display: flex; gap: 4px; }
 #zoom button { width: 34px; height: 34px; border-radius: 8px; background: rgba(15, 17, 19, 0.85); border: 1px solid var(--line); color: var(--paper); font-size: 17px; }
 #zoom button:hover { border-color: var(--accent); }
+#zoom .tool-gap { width: 6px; }
+#zoom button.tool-word { width: auto; padding: 0 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+#zoom button.hidden { display: none; }
+.card.merged .c-face { animation: mergedGlow 1s ease-out; }
+@keyframes mergedGlow { 30% { filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.95)); } }
+/* Tapping an empty slot lists the cards that fit it. */
+.slot .s-box.empty { cursor: pointer; }
+.slot .s-box.empty:hover { filter: brightness(1.15); }
+.slot.picking .s-box { filter: drop-shadow(0 0 8px rgba(212, 162, 76, 0.9)); }
+.picker { margin: -4px 0 12px; padding: 8px 10px; border: 1px dashed rgba(212, 162, 76, 0.5); border-radius: 8px; background: rgba(0, 0, 0, 0.25); }
+.picker .pk-head { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+.picker .pk-head span { flex: 1; }
+.picker .pk-close { background: none; border: none; color: var(--ink-dim); font-size: 16px; cursor: pointer; padding: 0 4px; }
+.picker .pk-none { margin: 6px 0 0; font-size: 12px; color: var(--ink-dim); font-family: var(--serif); }
+.picker .pk-cards { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; max-height: 260px; overflow: auto; }
+.picker .pk-card { cursor: pointer; }
+.picker .pk-card:hover .c-face { transform: translateY(-3px); filter: drop-shadow(0 0 6px rgba(212, 162, 76, 0.9)); }
 #hint { position: absolute; left: 50%; bottom: 58px; white-space: pre-line; transform: translateX(-50%); z-index: 4; max-width: 70%; padding: 6px 14px; border-radius: 14px; background: rgba(12, 14, 16, 0.8); text-align: center; font-size: 12px; color: var(--ink-dim); pointer-events: none; transition: opacity 0.6s; }
 #hint.gone { opacity: 0; }
 /* The journal: a drawer over the right of the table, shown on request. */
@@ -520,3 +537,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lu-slot { position: absolute; top: 74.5%; width: 19%; height: 18%; background: center / 90% no-repeat; }
 .lu-slot.s1 { left: 16%; } .lu-slot.s2 { left: 40.5%; } .lu-slot.s3 { left: 64.5%; }
 @keyframes promoIn { from { transform: scale(0.7); opacity: 0; } }
+
+/* Panels scale with the Settings slider; the table itself is zoomed by hand. */
+.vwin { width: calc(356px * var(--ui-scale, 1)); }
+.vw-head, .vw-body, .vwin .divider, #peek, #toasts, #hint, #journal-drawer .side-head, #journal { zoom: var(--ui-scale, 1); }

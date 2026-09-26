@@ -8,6 +8,8 @@
   var WEEK = 60;          // seconds of game time per week
   var MAX_OPEN_CASES = 4; // the ceiling; rank sets the real number (maxOpenCases)
   var COLD_WARNING = 60; // seconds left on a case before the warning
+  var FADE_WARNING = 30; // seconds left on a clue or witness before the warning
+  var FADING = { clue: 1, evidence: 1, witness: 1, intel: 1, bribe: 1 };
   // Strain: two Fatigue is Exhaustion (street verbs slower), three is
   // Burnout. Tunnel Vision slows the careful verbs and warps deductions.
   CF.STRAIN = { exhaustedAt: 2, exhaustedSlow: 1.25, exhaustedVerbs: ['duty', 'patrol', 'investigate', 'interrogate', 'stakeout'],
@@ -763,6 +765,42 @@
     this.dirty = true;
   };
 
+  // Gather every like card on the table into one stack (the first one, by
+  // age), leaving everything else where it is. Returns the uids of the cards
+  // that moved, so the table can show what merged.
+  P.mergeStacks = function () {
+    var self = this, moved = [], homes = {};
+    this.tableCards().sort(function (a, b) { return a.uid - b.uid; }).forEach(function (c) {
+      var key = self.stackKey(c);
+      if (!key) return;
+      if (!homes[key]) { homes[key] = c.loc; return; }
+      if (c.loc.x === homes[key].x && c.loc.y === homes[key].y) return;
+      c.loc = { t: 'table', x: homes[key].x, y: homes[key].y };
+      c.lastPos = null;
+      moved.push(c.uid);
+    });
+    if (moved.length) this.dirty = true;
+    return moved;
+  };
+
+  // Where every table card is right now, so a tidy can be undone.
+  P.snapshotTable = function () {
+    var snap = {};
+    this.tableCards().forEach(function (c) { snap[c.uid] = { x: c.loc.x, y: c.loc.y }; });
+    return snap;
+  };
+  P.restoreTable = function (snap) {
+    var self = this, n = 0;
+    Object.keys(snap || {}).forEach(function (uid) {
+      var c = self.card(+uid);
+      if (!c || !c.loc || c.loc.t !== 'table') return;
+      c.loc = { t: 'table', x: snap[uid].x, y: snap[uid].y };
+      n++;
+    });
+    if (n) this.dirty = true;
+    return n;
+  };
+
   P.collect = function (verbId) {
     var v = this.verb(verbId);
     var self = this;
@@ -794,6 +832,11 @@
       c.life -= dt * rate;
       if (c.life <= 0) this.expire(c);
       else if (c.def === 'case' && c.life < COLD_WARNING) this.warnCold(c);
+      else if (c.life < FADE_WARNING && !c.fadeWarned && c.loc && c.loc.t === 'table' && FADING[c.def]) {
+        // A clue, lead or witness about to go: say so, once, in time to act.
+        c.fadeWarned = true;
+        this.emit('expiring', { uid: c.uid, label: this.labelOf(c) });
+      }
       if (s.over) return;
     }
 
