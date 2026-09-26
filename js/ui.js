@@ -24,7 +24,8 @@
     calling_commissioner: 'back-sun', calling_master: 'back-eye', calling_crusader: 'back-scales',
   };
   var CASE_ART = { burglary: 'act-safe', missing: 'scene-corridor', harbor: 'scene-harbour', arson: 'scene-rooftop2', fraud: 'scene-archive',
-    extortion: 'act-threat', poison: 'scene-morgue2', coining: 'act-seal', manhunt: 'act-chase', gang: 'scene-rite2', syndicate: 'scene-catacombs', architect: 'scene-study' };
+    extortion: 'act-threat', poison: 'scene-morgue2', coining: 'act-seal', manhunt: 'act-chase', gang: 'scene-rite2', syndicate: 'scene-catacombs', architect: 'scene-study',
+    scriptorium: 'scene-library', witch: 'scene-cemetery', highway: 'scene-rooftop', contract: 'act-deal' };
   var DISTRICT_ART = { docks: 'scene-quay-deal', market: 'scene-station2', neon: 'scene-hole2', uptown: 'scene-library', warrens: 'scene-sewer', canal: 'scene-cemetery' };
   // Portrait cards: one per person, chosen by their name, and kept.
   var PEOPLE = ['char-sleuth', 'char-physician', 'char-hooded', 'char-noble-crown', 'char-lady-eye', 'char-priest', 'char-sailor-pipe', 'char-brawler-two',

@@ -388,6 +388,94 @@
     },
 
     // --- Special cases -------------------------------------------------
+    scriptorium: {
+      label: 'The Scriptorium', title: 'A Death in the Scriptorium', lesser: 'a fall, not murder', lifetime: 280, difficulty: 8, highProfile: true, heresy: true,
+      keyAspects: ['forensic', 'digital', 'testimony'], districts: ['canal'],
+      charge: { forensic: 3, digital: 2, testimony: 2 },
+      scenes: ['the Abbey scriptorium', 'the Abbey library, the locked press', 'the infirmary garden under the scriptorium window'],
+      brief: 'A brother of the Abbey lies dead under the scriptorium window, and the scriptorium was locked from within. His fingers and tongue are black. The Bishop wants it called a fall by Sunday; the Inquisitor, if he comes, will want it called something else.',
+      roles: [
+        { role: 'the librarian', motive: 'There is a book in the press that must not be read, and the dead man had read it.' },
+        { role: 'a young novice', motive: 'The dead man knew what the novice did at night, and had begun to write it down.' },
+        { role: 'the cellarer', motive: 'The Abbey\'s accounts are the cellarer\'s, and the dead man had begun to check them.' },
+        { role: 'a visiting scholar', motive: 'Came for one manuscript, and would not leave without it.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Black Fingers', text: 'Ink is not the only thing that blackens a scribe\'s hand.', needs: 'bio',
+          result: { label: 'The Page Was Poisoned', text: 'The tongue too. He licked his finger to turn a page, and the page was painted. Song Ci\'s needle blackens at the corner of the leaf.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'The Locked Press', text: 'One press in the library is chained. The key is the librarian\'s, and the librarian\'s alone.', aspects: { opportunity: 1, digital: 1 } },
+        { type: 'evidence', label: 'The Last Leaf He Copied', text: 'A Greek text on laughter, half copied, in a hand that starts to shake.', needs: 'lab',
+          result: { label: 'The Forbidden Book', text: 'The text is a book the Abbey does not admit to owning. Whoever painted its pages meant to kill whoever read it.', aspects: { digital: 2, motive: 1 } } },
+        { type: 'clue', label: 'The Window Bar', text: 'The scriptorium was locked, but one bar of the window is loose, and the garden below is soft.', aspects: { forensic: 1, opportunity: 1 } },
+      ],
+      witnesses: ['the infirmarian', 'a novice who sleeps badly', 'the Abbey\'s porter'],
+      hints: ['Somebody was in the library after compline with a shaded lamp. Nobody is in the library after compline.', 'They asked me what a certain word in Greek meant, and then said forget it.', 'The garden was trodden under the window, before the frost.'],
+    },
+    witch: {
+      label: 'The Witch Mark', title: 'The Drowned Child of {scene}', lesser: 'neglect, not murder', lifetime: 240, difficulty: 7, highProfile: true, council: true,
+      keyAspects: ['testimony', 'forensic', 'motive'], districts: ['canal', 'warrens', 'market'],
+      charge: { testimony: 3, forensic: 2, motive: 2 },
+      scenes: ['the Mill Race', 'the Tanners\' Ditch', 'the Abbey Fishpond'],
+      brief: 'A child was taken drowned from {scene}, and by noon the quarter had a name: the midwife, who has a mark on her arm and no husband. The Council wants a burning by Friday. The Carolina wants proof. The child wants somebody to look at the bruises properly.',
+      roles: [
+        { role: 'the midwife', motive: 'The quarter has always hated her. That is not a reason, and she knows it, and so do you.' },
+        { role: 'the child\'s stepfather', motive: 'The child was another mouth, and the mother\'s jointure went with the child.' },
+        { role: 'a miller\'s apprentice', motive: 'The child saw what the apprentice did at the sluice, and children talk.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Child', text: 'Laid out in the Abbey chapel. The quarter has already decided what killed it.', needs: 'bio',
+          result: { label: 'Bruises Before the Water', text: 'Song Ci: the drowned have froth at the mouth and water in the belly. This child has neither, and finger-marks on the arms made while it lived.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'The Witch Mark', text: 'A brown mark on the midwife\'s arm. Half the women in the quarter have one. The quarter has not looked at half the women.', aspects: { testimony: 1 } },
+        { type: 'clue', label: 'The Sluice Gate', text: 'Opened that night and not by the miller. Someone wanted the body carried down.', aspects: { opportunity: 2 } },
+        { type: 'clue', label: 'Who Gains', text: 'The mother\'s jointure was the child\'s. Now it is somebody else\'s.', aspects: { motive: 2, financial: 1 } },
+      ],
+      witnesses: ['the miller\'s wife', 'a washerwoman at the race', 'the child\'s older sister'],
+      hints: ['The child was afraid of the house, not of the water.', 'I saw a man at the sluice, and it was no woman, whatever they shout in the square.', 'The midwife was at a birth across the city that night, and there are twelve women who will say so, if anyone asks.'],
+    },
+    highway: {
+      label: 'The Highway', title: 'The Robbery on the {scene}', lesser: 'theft, not robbery', lifetime: 240, difficulty: 7,
+      keyAspects: ['opportunity', 'testimony', 'financial'], districts: ['docks', 'warrens'],
+      charge: { opportunity: 3, testimony: 2, financial: 2 },
+      scenes: ['Abbey Road', 'Mill Road', 'Harbour Causeway'],
+      brief: 'The Court of Miracles is scattered, and its scattered men have taken to the roads. A carrier was stopped on the {scene} by masked riders and stripped of a strongbox and a passenger\'s rings. They were polite about it. They knew the carrier\'s name.',
+      roles: [
+        { role: 'a former upright man', motive: 'Had a cellar in the Warrens once. Has a horse and a mask now.' },
+        { role: 'the carrier\'s own boy', motive: 'Knew what was in the strongbox and which night it would travel.' },
+        { role: 'an innkeeper on the road', motive: 'Keeps the inn where every carrier stops and every stranger drinks.' },
+        { role: 'a gentleman of the Hill in debt', motive: 'Rides well, owes much, and is never seen on the roads at night.' },
+      ],
+      items: [
+        { type: 'clue', label: 'The Carrier\'s Docket', text: 'The strongbox was on no docket. Only three people knew it travelled.', aspects: { opportunity: 2, financial: 1 } },
+        { type: 'evidence', label: 'The Hoofprints', text: 'One horse throws its off fore. It has been shod in the city.', needs: 'prints',
+          result: { label: 'The Farrier\'s Word', text: 'The farrier by the Harbour gate shod that horse a week ago, and remembers the rider\'s coat.', aspects: { testimony: 2, opportunity: 1 } } },
+        { type: 'clue', label: 'The Passenger\'s Rings', text: 'Pledged at a Lombard across the river the next morning by a man in a good coat.', aspects: { financial: 2 } },
+        { type: 'clue', label: 'The Polite Robber', text: 'He called the carrier by name and asked after his wife. He has drunk at the carrier\'s inn.', aspects: { testimony: 2 } },
+      ],
+      witnesses: ['the carrier', 'the passenger', 'a shepherd on the road'],
+      hints: ['He sat a horse like a man who was taught, not like a man who stole one.', 'They knew the box was there before the carrier did.', 'The one who gave the orders had a voice from the Warrens under the mask.'],
+    },
+    contract: {
+      label: 'The Contract', title: 'The Killing of {victim}', lesser: 'manslaughter, not murder', lifetime: 260, difficulty: 8,
+      keyAspects: ['forensic', 'financial', 'motive'], districts: ['neon', 'uptown', 'docks'],
+      charge: { forensic: 2, financial: 3, motive: 2 },
+      scenes: ['the lane behind the Red Ox', 'the {last} House stair', 'the Customs House steps'],
+      brief: '{victim} was killed with one clean stroke at {scene} by a man who took nothing and ran nowhere. A clean wound is a paid wound. Find the hand, then find the purse that moved it.',
+      roles: [
+        { role: 'a sender of the Coquille', motive: 'Kills for hire. Has never once been asked why.' },
+        { role: 'the victim\'s partner in trade', motive: 'The partnership was worth more to one of them dead.' },
+        { role: 'a jilted patrician', motive: 'Wrote three letters, and the third was to somebody in the Stews.' },
+        { role: 'the victim\'s brother', motive: 'Inherits the house, the trade and the quarrel.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Wound', text: 'One stroke, from behind, under the ribs.', needs: 'bio',
+          result: { label: 'A Practised Hand', text: 'Song Ci: the blade went in flat and turned. That is not anger. That is trade.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'A Purse Paid in the Stews', text: 'Twelve gulden changed hands at the Red Ox the night before, and the tapster remembers the seal on the purse.', aspects: { financial: 2, testimony: 1 } },
+        { type: 'clue', label: 'The Third Letter', text: 'Unsigned, to a man in the Stews, naming a street and an hour.', aspects: { digital: 1, motive: 2 } },
+        { type: 'clue', label: 'Nothing Taken', text: 'The purse still on the body, the rings still on the hand. Whoever did this was paid already.', aspects: { motive: 1, forensic: 1 } },
+      ],
+      witnesses: ['the tapster of the Red Ox', 'a link-boy', 'the victim\'s clerk'],
+      hints: ['The man did not run. He walked, like somebody who had done it before.', 'A purse with a good seal on it went across the table the night before.', 'Somebody on the Hill wanted this. The hand was hired; the reason was not.'],
+    },
     manhunt: {
       label: 'Hue and Cry', title: 'Hue and Cry: {culprit}', lifetime: 200, difficulty: 5, special: true,
       keyAspects: ['opportunity', 'testimony', 'forensic'], districts: ['docks', 'warrens', 'canal', 'neon'],
@@ -470,5 +558,7 @@
     },
   };
 
-  CF.ORDINARY_CASES = ['burglary', 'missing', 'harbor', 'arson', 'fraud', 'extortion', 'poison', 'coining'];
+  CF.ORDINARY_CASES = ['burglary', 'missing', 'harbor', 'arson', 'fraud', 'extortion', 'poison', 'coining', 'scriptorium', 'witch', 'contract'];
+  // Crimes the city breeds only after the Court of Miracles is scattered.
+  CF.LATE_CASES = ['highway'];
 })(typeof window !== 'undefined' ? window : globalThis);

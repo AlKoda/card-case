@@ -129,7 +129,33 @@
     // The Inquisitor arrives when the Bishop's Favour is low.
     if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican in a grey cloak has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
     if (f.bishop >= 0 && s.flags.inquisitor) { s.flags.inquisitor = false; lines.push('The Inquisitor has been recalled. The Bishop is satisfied, for now.'); }
+    // A case that smells of heresy, left open two weeks, is his.
+    var self = this;
+    this.openCases().forEach(function (rec) {
+      var T = CF.CASE_TEMPLATES[rec.template];
+      if (!T.heresy || s.week - (rec.week || 0) < 2) return;
+      if (!s.flags.inquisitor && self.rng() < 0.7) return;
+      self.inquisitorSeizes(rec);
+      lines.push('The Inquisitor has taken ' + rec.title + ' out of your hands.');
+    });
     return lines;
+  };
+
+  // The Inquisitor takes a heresy case: somebody burns, and it is rarely the right one.
+  P.inquisitorSeizes = function (rec) {
+    var s = this.s;
+    var card = this.caseCard(rec.id);
+    if (card) this.remove(card);
+    rec.status = 'inquisitor';
+    this.releaseDelegate(rec);
+    this.clearCaseCards(rec.id);
+    var named = U.pick(this.rng, rec.suspects);
+    s.stats.inquisitor = (s.stats.inquisitor || 0) + 1;
+    if (!named.guilty) { s.stats.wrongful++; var cul = rec.suspects.filter(function (x) { return x.guilty; })[0]; var c = this.criminalEscapes(rec, cul, 'wrongful'); this.abroadCard(c, 'Somebody else burned for what they did.'); }
+    this.meter('dread', 2);
+    this.meter('pressure', -1);
+    this.emit('resolved', this.caseRecord(rec, 'inquisitor', named.name));
+    this.story('The Inquisitor: ' + rec.title, 'The Inquisitor found his heretic in two days: ' + named.name + ', who confessed under the question to everything he asked. The Fire on Friday. The Rolls say the case is answered. You were not asked.', 'danger');
   };
 
   // The Inquisitor takes the Condemned before you can sentence, sometimes.

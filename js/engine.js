@@ -996,6 +996,9 @@
     if (this.purseWeek) lines = lines.concat(this.purseWeek());
     if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
+    if (s.flags.syndicateFallen && this.rng() < 0.25 && this.openCases().length < this.maxOpenCases() && !this.openCases().some(function (r) { return r.template === 'highway'; })) {
+      this.spawnCase('highway', { headline: 'From the Roads: ', lead: 'The Court of Miracles is scattered, and its men have horses now.' });
+    }
     if (s.over) return;
 
     // Retaliation strikes.
@@ -1467,7 +1470,9 @@
       reopened: !!opts.reopened, criminalId: opts.criminalId || null,
       structure: structure ? structure.id : null, front: front ? front.id : null,
     };
+    rec.week = s.week;
     if (this.commissionFor) rec.commission = this.commissionFor(rec, T);
+    if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: null, deadline: s.t + (T.lifetime || 250) * 0.66 };
     s.cases[id] = rec;
     s.stats.cases++;
 
