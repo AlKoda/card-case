@@ -142,8 +142,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #inspector .dossier { position: relative; width: 100%; padding-top: var(--ratio, 36%); background: center / 100% 100% no-repeat; margin: 0 0 8px; color: #2a2317; }
 #inspector .d-plate { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0 8px; font-family: var(--serif); font-weight: 700; font-size: 11px; line-height: 1.1; text-align: center; }
 #inspector .d-plate span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-#inspector .d-lines { position: absolute; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px; padding: 0 2px; font-family: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive; font-size: 11px; line-height: 1.2; color: #243049; }
-#inspector .d-lines div { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#inspector .d-lines { position: absolute; display: flex; flex-direction: column; justify-content: space-evenly; gap: 0; padding: 0 2px; font-family: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive; font-size: 10.5px; line-height: 1.12; color: #243049; }
+#inspector .d-lines div { flex: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 #inspector h4 { margin: 0 0 4px; font-family: var(--serif); font-size: 16px; }
 #inspector .i-kind { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-dim); }
 #inspector p { margin: 6px 0; line-height: 1.45; color: var(--ink); font-family: var(--serif); }

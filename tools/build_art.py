@@ -120,13 +120,14 @@ for names, boxes in EVIDENCE_ROWS:
 EVIDENCE.update({'icon-camera': (1329, 783, 1413, 879), 'icon-boot': (1212, 783, 1308, 882)})
 
 # ---------------------------------------------------------- dossiers.png
+# (The wide red 'tower' panel is left out: its writing area is too narrow.)
 DOSSIERS = {
     'dossier-man': (24, 18, 717, 258), 'dossier-house': (750, 24, 1425, 258),
     'dossier-print': (24, 264, 705, 504), 'dossier-map': (726, 270, 1422, 504),
     'dossier-alley': (24, 516, 510, 702), 'dossier-badge': (528, 516, 918, 702),
     'dossier-redprint': (936, 513, 1425, 702), 'dossier-woman': (27, 711, 507, 885),
     'dossier-fedora': (525, 711, 918, 885), 'dossier-knife': (939, 711, 1422, 885),
-    'dossier-tower': (24, 891, 783, 1059), 'dossier-city': (801, 891, 1425, 1062),
+    'dossier-city': (801, 891, 1425, 1062),
 }
 
 # ------------------------------------------------ menu, table, cards.png
@@ -168,8 +169,11 @@ PEOPLE_ROWS = [(69, 190), (301, 421), (525, 637), (739, 850), (952, 1035)]
 PEOPLE = {'pic-' + PEOPLE_NAMES[r][c]: (PEOPLE_COLS[c][0] + 14, PEOPLE_ROWS[r][0], PEOPLE_COLS[c][1] - 14, PEOPLE_ROWS[r][1])
           for r in range(5) for c in range(4)}
 
+# The writing area spans the unlined paper below the title plate (% of height).
+LINES_TOP, LINES_HEIGHT = 30.0, 60.0
+
 # Writing areas the automatic detection gets wrong: (left, width) in %.
-DOSSIER_LINES = {'dossier-redprint': (47.0, 46.0), 'dossier-tower': (77.0, 18.0)}
+DOSSIER_LINES = {'dossier-redprint': (47.0, 46.0)}
 
 SHEETS = [
     ('ui', 'ui.png', UI),
@@ -280,7 +284,7 @@ def dossier_layout(img):
     plate = best or (w * 0.35, h * 0.05, w * 0.3, h * 0.14)
     return {
         'plate': (pct(plate[0], w), pct(plate[1], h), pct(plate[2], w), pct(plate[3], h)),
-        'lines': (pct(rx0 + 6, w), 40.0, pct(rx1 - rx0 - 18, w), 48.0),
+        'lines': (pct(rx0 + 6, w), LINES_TOP, pct(rx1 - rx0 - 18, w), LINES_HEIGHT),
     }
 
 
@@ -314,7 +318,7 @@ def main():
             if key == 'dossiers':
                 lay = dossier_layout(img)
                 if name in DOSSIER_LINES:
-                    lay['lines'] = (DOSSIER_LINES[name][0], 40.0, DOSSIER_LINES[name][1], 48.0)
+                    lay['lines'] = (DOSSIER_LINES[name][0], LINES_TOP, DOSSIER_LINES[name][1], LINES_HEIGHT)
                 ratio = round(img.height / img.width * 100, 3)
                 extra.append('.dossier.%s { --ratio: %s%%; }' % (name, ratio))
                 extra.append('.dossier.%s .d-plate { left: %s%%; top: %s%%; width: %s%%; height: %s%%; }' % ((name,) + lay['plate']))

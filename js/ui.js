@@ -56,9 +56,9 @@
   var DISTRICT_ART = { docks: 'pic-docks', market: 'pic-street', neon: 'ev-alley', uptown: 'pic-mansion', warrens: 'prop-house', canal: 'pic-arch' };
   var PEOPLE = ['pic-man', 'pic-woman', 'pic-glasses', 'pic-lady', 'pic-smoker', 'pic-hood', 'pic-youth', 'pic-fedora'];
   var CASE_DOSSIER = { burglary: 'house', missing: 'map', harbor: 'knife', arson: 'alley', fraud: 'city', extortion: 'redprint',
-    manhunt: 'tower', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
+    manhunt: 'alley', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
   var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge',
-    hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'tower', court: 'knife' };
+    hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'city', court: 'knife' };
   var VERB_TOKENS = { time: 'token-time' };
   var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
   var TOAST_ICONS = { case: 'toast-case', danger: 'toast-danger', major: 'toast-major', victory: 'toast-victory', defeat: 'toast-danger', week: 'token-time' };
