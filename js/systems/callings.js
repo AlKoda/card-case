@@ -36,6 +36,7 @@
   // Progress down a path. Returns true if the calling changed.
   P.pathGain = function (path, n, why) {
     this.initPaths();
+    if (path === 'crusader' && this.s.court && this.s.court.stance === 'treaty') return false;
     this.s.paths[path] = (this.s.paths[path] || 0) + (n || 1);
     if (why) this.s.pathNotes = (this.s.pathNotes || []).concat([{ path: path, n: n, why: why, week: this.s.week }]).slice(-30);
     return this.checkDrift();

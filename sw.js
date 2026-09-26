@@ -28,6 +28,7 @@ var FILES = [
   "js/systems/sentence.js",
   "js/systems/purse.js",
   "js/systems/origins.js",
+  "js/systems/coquille.js",
   "js/systems/network.js",
   "js/systems/callings.js",
   "js/systems/intro.js",

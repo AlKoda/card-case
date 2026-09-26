@@ -154,6 +154,8 @@
       desc: 'Depositions, examinations, the day-book. Entered fair in Attend (with Wit) they soothe the Council\'s eye.' },
     writsale: { label: 'A Patrician\'s Letter', kind: 'temptation', tags: ['money', 'corrupt', 'letter'], aspects: { writsale: 1 }, decay: 70, onExpire: 'vanish',
       desc: 'A patrician wants a rival searched and will pay for the writ. Put it in Attend to oblige, or let it lie.' },
+    tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
+      desc: 'The Court of Miracles pays its Examiner while the Treaty stands. Put it in Attend to take it; every week taken is Purse +1. Let it lie and the King notes that too.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 

@@ -993,6 +993,8 @@
     lines = lines.concat(this.criminalsAct());
     if (this.banishedReturn) lines = lines.concat(this.banishedReturn());
     if (this.purseWeek) lines = lines.concat(this.purseWeek());
+    if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
+    if (s.over) return;
 
     // Retaliation strikes.
     var r = s.meters.retaliation;
@@ -1064,6 +1066,7 @@
     this.newFront('the Coquille', 'warrens');
     this.create('syndicate');
     this.meter('retaliation', 2);
+    if (this.crownKing) this.crownKing();
     this.story('The Coquille', text, 'major');
   };
 
@@ -1165,6 +1168,8 @@
     collapse: { win: false, title: 'Collapse', text: 'You fall on the Watch-house stair and do not get up. The barber-surgeon uses words like "a surfeit" and "the heart" and "rest, in the country". The city does not send flowers.' },
     consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.' },
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
+    kingofthunes: { win: true, title: 'The King of Thunes', text: 'The old King goes into the river and the Court kneels to a new one who keeps the Examiner\'s desk by day. Crimes fall in number and rise in scale. You decide who is caught, and the Council thanks you for the quiet. Under the Warrens, where the lame walk and the blind see, they sing a new name.' },
+    treatycity: { win: true, title: 'The Treaty City', text: 'Twelve quiet weeks. The Stews keep their own peace, the Court tries its own, the Rolls fill with answered cases, and the Council votes you a pension for the calm it does not ask about. You retire rich to a house on the Hill. The city calls it peace, and for the years you have left, it is.' },
     thieftaker: { win: true, title: 'The Thief-taker General', text: 'The city has never had an officer so effective, or so rich. Every fence in the Free City pays you, every victim thanks you, and the Council votes you a chain of office without asking where the goods you recover come from. You know. You are the only one who does. It will hold for years, if nobody ever reads the ledger.' },
     oldbailey: { win: false, title: 'The Old Bailey', text: 'Somebody you hanged had a brother, and the brother had a ledger. The Council makes a new law with your trade in it, word for word, and tries you under it in the same court where you sent so many. Two witnesses. Your own men. The ballad is already printed.' },
     riot: { win: false, title: 'The Crowd Turns', text: 'The next execution is meant to be a lesson. The crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You get out of the city by the Harbour gate with what you are wearing. The Council does not send after you.' },
@@ -1815,6 +1820,7 @@
     if (rec.template === 'syndicate') {
       this.cardsOf('syndicate', true).forEach(function (c) { self.remove(c); });
       s.flags.syndicateFallen = true;
+      if (this.coquilleFalls) this.coquilleFalls();
       this.meter('retaliation', -6);
       this.meter('reputation', 5);
       this.pathGain('crusader', 3, 'broke the Coquille');

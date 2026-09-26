@@ -64,6 +64,14 @@
       { when: function (st) { return st.attacks >= 2; }, text: 'They came for you twice and warned you both times. The third time there was no warning. They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     ],
+    kingofthunes: [
+      { when: function (st, s) { return (s.counts || {}).cruelty >= 6; }, text: 'The old King goes into the river and the Court kneels to a new one it fears more than it feared him. You keep the Examiner\'s desk by day and the barrel by night, and the two offices never meet. Crimes fall in number and rise in scale. You decide who is caught. The city sleeps better and does not know why.' },
+      { text: 'The old King goes into the river and the Court kneels to a new one who keeps the Examiner\'s desk by day. Crimes fall in number and rise in scale. You decide who is caught, and the Council thanks you for the quiet. Under the Warrens, where the lame walk and the blind see, they sing a new name.' },
+    ],
+    treatycity: [
+      { when: function (st) { return (st.scapegoats || 0) >= 2; }, text: 'Twelve quiet weeks. The Court tried its own, and some of the names it found in the Warrens ditch were not the right ones; you did not look. The Council votes you a pension for the calm it does not ask about. You retire rich to a house on the Hill. The city calls it peace.' },
+      { text: 'Twelve quiet weeks. The Stews keep their own peace, the Court tries its own, the Rolls fill with answered cases, and the Council votes you a pension for the calm it does not ask about. You retire rich to a house on the Hill. The city calls it peace, and for the years you have left, it is.' },
+    ],
     thieftaker: [
       { when: function (st) { return (st.frames || 0) >= 1; }, text: 'The city has never had an officer so effective, or so rich. Every fence pays you, every victim thanks you, and the Council votes you a chain of office. There is one name in your ledger that should not be there, one man who hanged on two witnesses who would swear to anything, and you have stopped thinking about him. Mostly.' },
       { text: 'The city has never had an officer so effective, or so rich. Every fence in the Free City pays you, every victim thanks you, and the Council votes you a chain of office without asking where the goods you recover come from. You know. You are the only one who does. It will hold for years, if nobody ever reads the ledger.' },

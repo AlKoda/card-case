@@ -993,6 +993,7 @@
       var clues = slotClues(ctx, ['c1', 'c2', 'c3', 'c4']);
       var a = e.assessCharge(sc, clues);
       rec.status = 'trial';
+      if ((rec.template === 'syndicate' || rec.template === 'gang') && e.breakTreaty) e.breakTreaty('You have indicted one of the Court\'s own.');
       e.releaseDelegate(rec);
       var caseCard = e.caseCard(rec.id);
       if (caseCard) e.remove(caseCard);
@@ -1144,6 +1145,68 @@
   });
 
   // =============================================================== UNDERCOVER
+  // ---- The Court of Miracles: parley, the Court's trial, the throne.
+  R.push({
+    id: 'duty_tribute', verb: 'duty', label: 'Take the Tribute', duration: 5,
+    preview: 'The King of Thunes pays his Examiner. Two Coin, and a week the Court owns a little more of you.',
+    danger: 'Purse +1',
+    requires: ['tribute'],
+    run: function (ctx) {
+      ctx.consume(ctx.primary);
+      ctx.give('funds'); ctx.give('funds');
+      ctx.e.count('purse', 1);
+      return { title: 'The Tribute', text: 'Two Coin, clipped and heavy. You do not ask whose they were.' };
+    },
+  });
+  R.push({
+    id: 'undercover_parley', verb: 'undercover', label: 'Parley with the King', duration: 40,
+    preview: function (ctx) {
+      var court = ctx.e.court();
+      if (court.stance === 'treaty') return 'The Treaty stands. There is nothing to say that the King has not heard.';
+      return 'Go as yourself, unarmed, to a front in the Warrens, and sit across a barrel from the King of Thunes. A Treaty: the Court tries its own, hands you a culprit a week, keeps the Stews quiet, and pays tribute if you take it. It costs a blind eye, the Bishop\'s good opinion, and every step of the Justice path while it stands.';
+    },
+    danger: 'Justice scores nothing under a Treaty',
+    blocked: function (ctx) { return ctx.e.court().stance === 'treaty' ? 'The Treaty already stands.' : ctx.e.court().inside ? 'You are inside the Court already; kings do not parley with their own.' : null; },
+    requires: ['syndicate', 'focus'],
+    run: function (ctx) {
+      var e = ctx.e, king = e.court().king;
+      e.makeTreaty();
+      e.pathGain('commissioner', 1, 'made a treaty with the Coquille');
+      return { title: 'The Treaty', kind: 'major', text: 'A cellar under the Warrens where the lame walk and the blind see. ' + (king ? king.name : 'The King of Thunes') + ' pours the wine himself. By the end of it you have agreed that the Court will try its own, that the Stews will be quiet, and that some cases will arrive on your desk already answered. Nobody writes anything down.' };
+    },
+  });
+  R.push({
+    id: 'undercover_trial', verb: 'undercover', label: 'Stand the Court\'s Trial', duration: 60,
+    preview: 'The bell-hung dummy: a purse to be picked without a sound, before the whole Court, with Instinct against the King\'s eye. Pass, and you are of the Coquille, and may stay inside it. Fail, and they take it out of your hide.',
+    danger: 'Dangerous: you may be Wounded',
+    blocked: function (ctx) {
+      var court = ctx.e.court();
+      if (court.stance === 'treaty') return 'You have a Treaty with the King. He will not try a man he dines with.';
+      return ctx.count('funds') >= 2 ? null : 'The doorkeeper wants 2 Coin.';
+    },
+    requires: { aspects: ['syndicate', 'instinct'], when: function (ctx) { return ctx.count('funds') >= 2 && !ctx.e.court().inside; } },
+    run: function (ctx) {
+      var e = ctx.e;
+      ctx.with('funds').slice(0, 2).forEach(ctx.consume);
+      if (ctx.rng() < 0.6) {
+        e.enterCourt();
+        e.count('cruelty', 0);
+        return { title: 'Of the Coquille', kind: 'major', text: 'The dummy hangs from the beam with a hundred little bells sewn on. You lift the purse and not one of them speaks. The Court roars. You are one of them now, and you may stay as long as you like. Nobody asks what you do in the daytime.' };
+      }
+      e.hurtYou('A bell rings. Then all of them. They beat you at the foot of the King\'s barrel and throw you into the Warrens ditch, and you are lucky it is only that.');
+      return { title: 'A Bell Rings', text: 'One bell, then all of them. The Court has its fun with you before it throws you out.' };
+    },
+  });
+  R.push({
+    id: 'undercover_throne', verb: 'undercover', label: 'Take the Throne', duration: 30,
+    preview: function (ctx) { return ctx.e.canTakeThrone() ? 'The old King is tired and the Court knows what you are. Take the barrel. You will run the underworld and the Examiner\'s office both, and decide who is caught.' : 'Not yet: ' + ctx.e.throneReason() + '.'; },
+    blocked: function (ctx) { return ctx.e.canTakeThrone() ? null : 'Not yet: ' + ctx.e.throneReason() + '.'; },
+    requires: { aspects: ['syndicate', 'instinct'], when: function (ctx) { return ctx.e.court().inside; } },
+    run: function (ctx) {
+      ctx.e.gameOver('kingofthunes');
+      return { title: 'The King of Thunes', kind: 'major', text: 'The old King goes into the river. The Court kneels.' };
+    },
+  });
   R.push({
     id: 'undercover_op', verb: 'undercover',
     label: function (ctx) { return ctx.has('syndicate') ? 'Go Down to the Court' : ctx.has('gang') ? 'Go Among the Band' : 'Track Them Down'; },
@@ -1155,7 +1218,7 @@
     },
     danger: function (ctx) { return 'Dangerous: you may be Wounded' + (ctx.has('teammate') ? ' (a second halves the risk)' : ''); },
     blocked: function (ctx) {
-      if (!ctx.has('instinct')) return 'You need Instinct to hold a cover.';
+      if (!ctx.has('instinct')) return ctx.has('focus') && ctx.has('syndicate') ? null : 'You need Instinct to hold a cover.';
       var g = ctx.first('gang') || (ctx.primary.def === 'front' ? ctx.e.cardsOf('gang').filter(function (x) { return x.data.name === ctx.primary.data.gang; })[0] : null);
       if (g && g.data.caseId && ctx.e.caseRec(g.data.caseId) && ctx.e.caseRec(g.data.caseId).status === 'open') return 'You already have an operation running against them.';
       if (ctx.has('syndicate') && ctx.e.s.flags.syndicateCase && ctx.e.caseRec(ctx.e.s.flags.syndicateCase).status === 'open') return 'The case against the Coquille is already open.';

@@ -17,7 +17,7 @@
       label: 'Attend', rank: 0, lockedBy: 'burnout',
       desc: 'Your hours at the Watch-house. Put in Health to walk a hard round for pay, or Wit to sit with the day-book. Also: the Council\'s letters, drilling your watchmen, guarding an informer with a watchman, and purses left on your desk.',
       slots: [
-        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'promotion', 'chair', 'informant', 'case'], primary: true },
+        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'chair', 'informant', 'case'], primary: true },
         { key: 'extra', label: 'Rolls / Coin', accepts: ['paperwork', 'funds'],
           when: function (p) { return any(p, ['focus', 'teammate', 'case']); } },
         { key: 'extra2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['teammate', 'case']); } },
@@ -135,11 +135,13 @@
     },
     undercover: {
       label: 'Disguise', rank: 2,
-      desc: 'Take off the badge and put on a coat that is nobody\'s. Point yourself at someone Abroad, a Band, or the Coquille itself. It takes a long time, costs Health if it goes wrong, and brings back what nothing else can.',
+      desc: 'Take off the badge and put on a coat that is nobody\'s. Point yourself at someone Abroad, a Band, or the Coquille itself. It takes a long time, costs Health if it goes wrong, and brings back what nothing else can. The Coquille with Wit is a parley; with Instinct and Coin, its court tries you, and you may stay.',
       slots: [
         { key: 'main', label: 'Mark', accepts: ['atlarge', 'gang', 'syndicate', 'front'], primary: true },
-        { key: 'mind', label: 'Cover', accepts: ['instinct'], when: function (p) { return !!p; } },
+        { key: 'mind', label: 'Cover', accepts: ['instinct', 'focus'], when: function (p) { return !!p; } },
         { key: 'help', label: 'Second', accepts: ['teammate'], when: function (p) { return !!p; } },
+        { key: 'coin', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'syndicate'); } },
+        { key: 'coin2', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'syndicate'); } },
       ],
     },
     taskforce: {
