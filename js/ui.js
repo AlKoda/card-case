@@ -8,15 +8,18 @@
   // Art lives in css/art/*.css as --art-* custom properties (see tools/build_art.py).
   function art(name) { return 'var(--art-' + name + ')'; }
   function hash(str) { var x = 0; str = String(str); for (var i = 0; i < str.length; i++) x = (x * 31 + str.charCodeAt(i)) >>> 0; return x; }
-  // Which frame each card kind is drawn in.
-  var FRAMES = {
-    case: 'case', coldcase: 'case', court: 'case',
-    clue: 'evidence', evidence: 'evidence', paper: 'evidence',
-    witness: 'character', suspect: 'character', informant: 'character', teammate: 'character',
-    personnel: 'character', hospital: 'character', criminal: 'character',
-    district: 'location', room: 'location',
+  // Which coloured frame each card kind is drawn in.
+  var FRAME_COLOR = {
+    case: 'red', court: 'red', coldcase: 'black',
+    clue: 'black', evidence: 'black', paper: 'black',
+    witness: 'blue', suspect: 'blue', informant: 'purple', personnel: 'blue',
+    teammate: 'gold', hospital: 'black',
+    district: 'green', room: 'green',
+    threat: 'crimson', criminal: 'crimson',
+    ability: 'gold', funds: 'gold', equipment: 'gold', order: 'gold', career: 'gold',
+    insight: 'purple', calling: 'purple', temptation: 'purple',
   };
-  // Icons shown in the medallion of cards that have no picture.
+  // Icons for cards that have no picture.
   var CARD_ICONS = {
     health: 'icon-health', wound: 'icon-health', focus: 'icon-focus', instinct: 'icon-instinct', funds: 'icon-funds',
     fatigue: 'icon-fatigue', burnout: 'icon-burnout', obsession: 'icon-obsession', tunnel: 'icon-redeye',
@@ -28,28 +31,30 @@
   };
   // Evidence pictures, chosen by what a clue is about.
   var EV_RULES = [
-    [/victim's account|statement|word from|confession|cover story|slip of|testimony/i, 'ev-memo'],
+    [/victim's account|statement|word from|confession|cover story|slip of|testimony/i, 'prop-clipnote'],
     [/motive|hide|signature/i, 'ev-sketch'],
     [/convenient|knife|weapon/i, 'ev-bloodtag'],
-    [/corroborated/i, 'ev-snapshots'],
-    [/finger|print|ink/i, 'ev-fingerprint'],
+    [/corroborated/i, 'pic-board'],
+    [/finger|print|ink/i, 'prop-fingerprint'],
     [/blood|fibre|stroke/i, 'ev-blood'],
-    [/accelerant|paraffin|residue|vial/i, 'ev-vial'],
-    [/call|phone|wiretap|record|cassette/i, 'ev-cassette'],
-    [/letter|correspondence|iou|diary|note/i, 'ev-letter'],
-    [/ledger|account|bank|money|payment|insurance|prospectus|shell|payroll|discrepanc|spending|books|owner/i, 'ev-documents'],
-    [/photo|caught|sighting|seen|ghost/i, 'ev-photos'],
+    [/accelerant|paraffin|residue|vial/i, 'prop-vial'],
+    [/call|phone|wiretap|record|cassette/i, 'prop-cassette'],
+    [/letter|correspondence|iou|diary|note/i, 'prop-envelope'],
+    [/ledger|account|bank|money|payment|insurance|prospectus|shell|payroll|discrepanc|spending|books|owner/i, 'pic-files'],
+    [/photo|caught|sighting|seen|ghost/i, 'pic-photo'],
     [/window|glass|latch|frame|tool|scratch|dent|dust|room|paint/i, 'ev-glass'],
-    [/key|entry|found at|home/i, 'ev-key'],
-    [/timing|tide|timetable|schedule|pattern|suitcase/i, 'ev-notepad'],
+    [/key|entry|found at|home/i, 'prop-key'],
+    [/timing|tide|timetable|schedule|pattern|suitcase/i, 'prop-notepad'],
     [/pawn|gem|ring|goods|stock|wallet|chip/i, 'ev-gem'],
-    [/cigarette|wrapper|scent|butt|licorice|footprint|boot/i, 'ev-tag'],
+    [/cigarette|wrapper|scent|butt|licorice/i, 'prop-bag'],
+    [/footprint|boot/i, 'prop-boot'],
     [/file|typewriter|newspaper/i, 'ev-newspaper'],
   ];
-  var EV_BY_ASPECT = { forensic: 'ev-fingerprint', testimony: 'ev-memo', motive: 'ev-letter', opportunity: 'ev-photos', digital: 'ev-cassette', financial: 'ev-documents' };
-  var CASE_ART = { burglary: 'ev-house', missing: 'ev-mugshot', harbor: 'ev-chalk', arson: 'ev-newspaper', fraud: 'ev-documents',
-    extortion: 'ev-bloodtag', manhunt: 'ev-pair', gang: 'ev-snapshots', syndicate: 'ev-badge', architect: 'ev-sketch' };
-  var DISTRICT_ART = { docks: 'ev-alley', market: 'ev-snapshots', neon: 'ev-cassette', uptown: 'ev-badge', warrens: 'ev-house', canal: 'ev-leaf' };
+  var EV_BY_ASPECT = { forensic: 'prop-fingerprint', testimony: 'prop-clipnote', motive: 'prop-envelope', opportunity: 'pic-photo', digital: 'prop-cassette', financial: 'pic-files' };
+  var CASE_ART = { burglary: 'pic-mansion', missing: 'prop-mugshot', harbor: 'ev-chalk', arson: 'ev-newspaper', fraud: 'pic-files',
+    extortion: 'pic-fedora', manhunt: 'pic-board', gang: 'ev-snapshots', syndicate: 'pic-book', architect: 'ev-sketch' };
+  var DISTRICT_ART = { docks: 'pic-docks', market: 'pic-street', neon: 'ev-alley', uptown: 'pic-mansion', warrens: 'prop-house', canal: 'pic-arch' };
+  var PEOPLE = ['pic-man', 'pic-woman', 'pic-glasses', 'pic-lady', 'pic-smoker', 'pic-hood', 'pic-youth', 'pic-fedora'];
   var CASE_DOSSIER = { burglary: 'house', missing: 'map', harbor: 'knife', arson: 'alley', fraud: 'city', extortion: 'redprint',
     manhunt: 'tower', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
   var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge',
@@ -59,26 +64,29 @@
   var TOAST_ICONS = { case: 'toast-case', danger: 'toast-danger', major: 'toast-major', victory: 'toast-victory', defeat: 'toast-danger', week: 'token-time' };
   var RING_LEN = 2 * Math.PI * 47;
 
-  // The picture in a card's medallion: {art, portrait?, gray?}
+  // The picture in a card's window: {art, fit: 'cover'|'contain'|'icon', gray?}
+  // pic-* are full-bleed paintings; props and old evidence art sit on the paper.
+  function pictureOf(art, gray) {
+    return { art: art, fit: /^pic-/.test(art) ? 'cover' : 'contain', gray: !!gray };
+  }
   function cardPicture(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind;
-    if (k === 'case') { var r = e.caseRec(card.caseId); return { art: CASE_ART[r && r.template] || 'ev-house' }; }
-    if (k === 'coldcase') return { art: CASE_ART[card.data.template] || 'ev-house', gray: true };
+    if (k === 'case') { var r = e.caseRec(card.caseId); return pictureOf(CASE_ART[r && r.template] || 'pic-mansion'); }
+    if (k === 'coldcase') return pictureOf(CASE_ART[card.data.template] || 'pic-mansion', true);
     if (k === 'clue' || k === 'evidence') {
       var label = e.labelOf(card);
-      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return { art: EV_RULES[i][1] };
+      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return pictureOf(EV_RULES[i][1]);
       var a = CF.clueAspects(card), best = null;
       for (var key in a) if (!best || a[key] > a[best]) best = key;
-      return { art: EV_BY_ASPECT[best] || 'ev-tag' };
+      return pictureOf(EV_BY_ASPECT[best] || 'prop-tag');
     }
-    if (k === 'district') return { art: DISTRICT_ART[card.data.district] || 'ev-alley' };
-    if (k === 'teammate' || k === 'personnel') return { art: 'portrait-2', portrait: true };
-    if (k === 'hospital') return { art: 'portrait-2', portrait: true, gray: true };
+    if (k === 'district') return pictureOf(DISTRICT_ART[card.data.district] || 'pic-street');
+    if (k === 'teammate' || k === 'personnel') return pictureOf('pic-bobby');
+    if (k === 'hospital') return pictureOf('pic-bobby', true);
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge') {
-      var n = [0, 1, 3, 4, 5, 6, 7, 8][hash(card.data.name || e.labelOf(card)) % 8];
-      return { art: 'portrait-' + n, portrait: true };
+      return pictureOf(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length]);
     }
-    if (CARD_ICONS[card.def]) return { art: CARD_ICONS[card.def], icon: true, gray: card.def === 'wound' };
+    if (CARD_ICONS[card.def]) return { art: CARD_ICONS[card.def], fit: 'icon', gray: card.def === 'wound' };
     return null;
   }
 
@@ -313,17 +321,19 @@
     var e = UI.e;
     var def = CF.CARDS[card.def];
     var kind = CF.KINDS[def.kind] || { label: def.kind, color: '#777' };
-    var frame = FRAMES[def.kind] || 'status';
+    var frame = FRAME_COLOR[def.kind] || 'gold';
     var n = h('div', 'card frame-' + frame + ' kind-' + def.kind + (opts.mini ? ' mini' : '') + (card.fresh ? ' fresh' : '') + (UI.selected === card.uid ? ' selected' : ''));
     n.dataset.uid = card.uid;
-    n.style.backgroundImage = art('frame-' + frame);
+    n.style.backgroundImage = art('cardframe-' + frame);
+    var body = h('div', 'c-body');
     var pic = cardPicture(card);
     if (pic) {
-      var medal = h('div', 'c-medal' + (pic.portrait ? ' portrait' : pic.icon ? ' icon' : '') + (pic.gray ? ' gray' : ''));
-      medal.style.backgroundImage = art(pic.art);
-      n.appendChild(medal);
+      var win = h('div', 'c-window ' + pic.fit + (pic.gray ? ' gray' : ''));
+      var img = h('div', 'c-img');
+      img.style.backgroundImage = art(pic.art);
+      win.appendChild(img);
+      body.appendChild(win);
     }
-    var body = h('div', 'c-body');
     body.appendChild(h('div', 'c-kind', kind.label));
     body.appendChild(h('div', 'c-title', e.labelOf(card)));
     var sub = '';
