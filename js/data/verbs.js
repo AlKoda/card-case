@@ -69,8 +69,8 @@
       label: 'Reflect', rank: 0,
       desc: 'Your mind palace, and your bed. Rest away Fatigue and Burnout. Let go of Obsession. Lay clues side by side and reason: two descriptions of the same person become an identification, money and motive become a theory. Bring a Case with its clues to see who it points to.',
       slots: [
-        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue', 'intel'], primary: true },
-        { key: 'a', label: 'Clue', accepts: ['clue', 'atlarge', 'looseend'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue', 'intel']); } },
+        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue', 'intel', 'thread'], primary: true },
+        { key: 'a', label: 'Clue', accepts: ['clue', 'atlarge', 'looseend', 'gang', 'syndicate'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue', 'intel', 'thread']); } },
         { key: 'b', label: 'Clue', accepts: ['clue', 'looseend'], when: function (p) { return any(p, ['case', 'looseend', 'clue']); } },
         { key: 'c', label: 'Clue', accepts: ['clue'], when: function (p) { return any(p, ['case', 'clue']); } },
         { key: 'pay', label: 'Funds', accepts: ['funds'], when: function (p) { return any(p, ['fatigue', 'burnout', 'obsession', 'tunnel']); } },
@@ -116,9 +116,9 @@
     },
     stakeout: {
       label: 'Stakeout', rank: 1,
-      desc: 'Sit in a car and watch a Suspect for a long, cold night. The guilty do guilty things. The innocent go to bed.',
+      desc: 'Sit in a car and watch a Suspect for a long, cold night. The guilty do guilty things. The innocent go to bed. Watch a known Front instead to see which of your cases passes through it.',
       slots: [
-        { key: 'main', label: 'Target', accepts: ['suspect'], primary: true },
+        { key: 'main', label: 'Target', accepts: ['suspect', 'front'], primary: true },
         { key: 'mind', label: 'Watcher', accepts: ['instinct', 'teammate'], when: function (p) { return !!p; } },
         { key: 'tool', label: 'Equipment', accepts: ['tool'], when: function (p) { return !!p; } },
       ],
@@ -127,7 +127,7 @@
       label: 'Undercover', rank: 1,
       desc: 'Go under. Point yourself at someone At Large, a Gang, or the Syndicate itself. Takes a long time, costs Health if it goes wrong, and gets results nothing else can.',
       slots: [
-        { key: 'main', label: 'Target', accepts: ['atlarge', 'gang', 'syndicate'], primary: true },
+        { key: 'main', label: 'Target', accepts: ['atlarge', 'gang', 'syndicate', 'front'], primary: true },
         { key: 'mind', label: 'Cover', accepts: ['instinct'], when: function (p) { return !!p; } },
         { key: 'help', label: 'Backup', accepts: ['teammate'], when: function (p) { return !!p; } },
       ],

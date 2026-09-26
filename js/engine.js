@@ -94,7 +94,7 @@
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
       version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 55, nextUid: 1,
-      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {},
+      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0 },
       rank: 0, calling: opts.calling || 'master', detective: opts.name || 'Detective',
       over: null,
@@ -140,6 +140,7 @@
   Engine.load = function (json) {
     var s = typeof json === 'string' ? JSON.parse(json) : json;
     s.criminals = s.criminals || {}; // older saves had no criminal records
+    s.network = s.network || { fronts: {} };
     // Saves from the grid-table days stored a cell index instead of x/y.
     for (var k in s.cards) {
       var c = s.cards[k];
@@ -907,9 +908,10 @@
       var name = U.pick(this.rng, CF.NAMES.gang);
       var names = members.map(function (c) { return c.data.name; });
       members.forEach(function (c) { self.remove(c); self.criminalJoins(c.data.name, 'gang'); });
+      var front = this.newFront(name);
       this.create('gang', {
         label: 'Gang: ' + name.replace(/^the /, 'The '),
-        data: { name: name, members: names },
+        data: { name: name, members: names, front: front.id },
         desc: 'Formed by ' + names.join(', ') + ', who all got away from you. They feed Retaliation every week. Go Undercover to build a case against them.',
       });
       this.meter('pressure', 1);
@@ -929,6 +931,7 @@
   P.spawnSyndicate = function (text) {
     var s = this.s;
     for (var k in s.criminals) if (s.criminals[k].organization === 'gang') s.criminals[k].organization = 'syndicate';
+    this.newFront('the Syndicate', 'uptown');
     this.create('syndicate');
     this.meter('retaliation', 2);
     this.story('The Syndicate', text, 'major');
@@ -1160,6 +1163,16 @@
     return null;
   };
 
+  // A structure's scene item with its variables filled in.
+  function fillItem(it, vars) {
+    var out = U.clone(it);
+    out.label = U.fill(out.label, vars);
+    out.text = U.fill(out.text, vars);
+    if (out.result) { out.result.label = U.fill(out.result.label, vars); out.result.text = U.fill(out.result.text, vars); }
+    if (out.label) out.label = out.label.charAt(0).toUpperCase() + out.label.slice(1);
+    return out;
+  }
+
   // Generate a case record and put its card on the table (or into ctx output).
   P.spawnCase = function (templateId, opts) {
     opts = opts || {};
@@ -1177,6 +1190,9 @@
     };
     var scene = U.fill(U.pick(rng, T.scenes), vars);
     vars.scene = scene;
+    // Structure first, prose second: the shape of this particular crime.
+    var structure = (CF.STRUCTURES[tid] && CF.STRUCTURES[tid].length) ? U.pick(rng, CF.STRUCTURES[tid]) : null;
+    if (structure) for (var sv in structure.vars) vars[sv] = U.pick(rng, structure.vars[sv]);
 
     var nSus = Math.min(3, T.roles.length);
     var roles = U.sample(rng, T.roles, nSus);
@@ -1209,8 +1225,13 @@
     var known = opts.criminalId && this.criminal(opts.criminalId);
 
     // Scene pool: template items + generic items + the culprit's trait clue.
-    var items = U.shuffle(rng, T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1)));
+    var pool = T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1));
+    if (structure) pool = pool.concat(structure.items.map(function (it) { return fillItem(it, vars); }));
+    var items = U.shuffle(rng, pool);
     if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
+    // The network: a clue that points at the place this crime went through.
+    var front = !T.special ? this.frontForCase(opts) : null;
+    if (front) items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, this.linkItem(front));
     var trait = traits[guiltyIdx];
     var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id };
     items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, traitItem);
@@ -1222,12 +1243,13 @@
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
       special: !!T.special, atLargeUid: opts.atLargeUid || null, gangUid: opts.gangUid || null,
       reopened: !!opts.reopened, criminalId: opts.criminalId || null,
+      structure: structure ? structure.id : null, front: front ? front.id : null,
     };
     s.cases[id] = rec;
     s.stats.cases++;
 
     var life = (opts.lifetime || T.lifetime) + (opts.extraTime || 0);
-    var brief = U.fill(T.brief, vars);
+    var brief = U.fill(structure && !opts.culpritName ? structure.brief : T.brief, vars);
     // An informant's warning: you were ready for this one.
     var warning = !T.special && this.warningFor(tid);
     if (warning) {
@@ -1312,7 +1334,7 @@
       var add = Math.min(bonus[a], 2, 3 - total);
       if (add > 0) { aspects[a] = (aspects[a] || 0) + add; total += add; }
     }
-    var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null };
+    var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null, link: item.link || null };
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
     return {
       label: item.label,

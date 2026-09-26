@@ -38,6 +38,7 @@
     hospital: { label: 'Hospital', color: '#6b6f78' },
     informant: { label: 'Informant', color: '#7a5c8a' },
     intel: { label: 'Intelligence', color: '#8a6f9c' },
+    place: { label: 'Place', color: '#4f7a5a' },
     criminal: { label: 'Criminal', color: '#5b1f1f' },
     court: { label: 'Court', color: '#8e7cc3' },
     paper: { label: 'Paperwork', color: '#a8a290' },
@@ -121,6 +122,11 @@
       desc: 'A street contact. Left on the table they bring rumours, sightings and warnings on their own time; pay them in Patrol for a proper tip and their trust. Every meeting warms them up: at three they are compromised and go quiet. Protect them in Duty with an officer.' },
     intel: { label: 'Intelligence', kind: 'intel', tags: ['street'], image: 'icon-binoculars', aspects: { intel: 1 }, decay: 100, onExpire: 'ignored',
       desc: 'Something an informant heard. It will not stay true for long.' },
+
+    front: { label: 'Front', kind: 'place', tags: ['place', 'crime'], image: 'icon-court', aspects: { front: 1 },
+      desc: 'A place the network works through.' },
+    thread: { label: 'Thread', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { thread: 1 },
+      desc: 'Two cases that touch the same place. They are connected, and now you know it.' },
 
     // --- The criminal ecosystem ----------------------------------------
     atlarge: { label: 'At Large', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },

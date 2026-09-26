@@ -701,6 +701,45 @@
     },
   });
   R.push({
+    id: 'ref_thread', verb: 'reflect', label: 'Close In', duration: 30,
+    preview: 'The thread and the gang it leads to. Think about who goes in and out, and when.',
+    blocked: function (ctx) { return ctx.has('gang') || ctx.has('syndicate') ? null : 'Add the Gang or Syndicate card the thread leads to.'; },
+    requires: { primary: 'thread' },
+    run: function (ctx) {
+      var e = ctx.e, th = ctx.primary;
+      var target = ctx.first('gang') || ctx.first('syndicate');
+      var front = e.fronts()[th.data.front];
+      if (front) front.watched = true;
+      ctx.consume(th);
+      e.meter('reputation', 1);
+      if (e.s.calling === 'master') ctx.give('looseend');
+      return { title: 'The Shape of It', kind: 'major', text: 'You draw the map on the kitchen wall: the cases, the place, ' + e.labelOf(target) + '. An Undercover operation through ' + (front ? front.name : 'the front') + ' will be safer now that you know the doors.' +
+        (e.s.calling === 'master' ? ' And in the corner of the map, something that is not a gang at all: a paper crane.' : '') };
+    },
+  });
+  R.push({
+    id: 'stakeout_front', verb: 'stakeout', label: 'Watch the Front',
+    duration: function (ctx) { return ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60; },
+    preview: function (ctx) { return 'Sit across the road from ' + ctx.e.labelOf(ctx.primary) + ' and write down who comes and goes.'; },
+    blocked: function (ctx) { return ctx.slots.mind ? null : 'Someone has to watch: you (Instinct) or an officer.'; },
+    requires: { primary: 'front' },
+    run: function (ctx) {
+      var e = ctx.e, fc = ctx.primary;
+      var front = e.fronts()[fc.data.front];
+      if (front) front.watched = true;
+      if (ctx.has('instinct')) maybe(ctx, 0.4, 'fatigue');
+      var linked = front ? e.casesAtFront(front.id) : [];
+      var got = [];
+      linked.forEach(function (rec) {
+        ctx.give('clue', e.clueSpec(rec, { label: 'Seen at ' + front.name, text: 'Photographed going into ' + front.name + ' with a bag, and coming out without it: someone from ' + rec.title + '.', aspects: { opportunity: 2, financial: 1 }, tags: ['watching'] }, e.helpers(ctx)));
+        var sc = e.revealSuspect(rec, ctx);
+        if (sc) got.push(e.labelOf(sc));
+      });
+      if (!linked.length) return { title: 'A Quiet Night', text: 'Deliveries, a drunk, a cat. Nothing tonight ties ' + (front ? front.name : 'the place') + ' to an open case. It will.' };
+      return { title: 'Who Comes and Goes', text: 'By dawn you have a page of names and times, and a photograph for each of your open files.' + (got.length ? ' New faces: ' + got.join(', ') + '.' : '') };
+    },
+  });
+  R.push({
     id: 'ref_sighting', verb: 'reflect', label: 'Follow the Sighting', duration: 20,
     preview: 'An informant saw them. Put it beside their card and think about where they sleep.',
     blocked: function (ctx) {
@@ -740,14 +779,20 @@
     preview: function (ctx) {
       return deduction(ctx).gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
     },
-    blocked: { sameCase: true },
+    blocked: function (ctx) {
+      if (CF.Deduce.crossCase(deduction(ctx))) return null;
+      var cl = ctx.with('clue'), id = cl[0].caseId;
+      return cl.every(function (c) { return c.caseId === id; }) ? null : 'These clues belong to different cases.';
+    },
     requires: { primary: 'clue', when: function (ctx) { return ctx.with('clue').length >= 2 && !!deduction(ctx); } },
     run: function (ctx) {
       var clues = ctx.with('clue');
+      var d = deduction(ctx);
+      if (CF.Deduce.crossCase(d)) return CF.Deduce.run(ctx, d, null, clues);
       var rec = openRec(ctx, clues[0]);
       if (!rec) return closed();
       ctx.e.caseWork(rec, ctx);
-      return CF.Deduce.run(ctx, deduction(ctx), rec, clues);
+      return CF.Deduce.run(ctx, d, rec, clues);
     },
   });
   R.push({
@@ -994,17 +1039,26 @@
     danger: function (ctx) { return 'Dangerous: you may be Wounded' + (ctx.has('teammate') ? ' (Backup halves the risk)' : ''); },
     blocked: function (ctx) {
       if (!ctx.has('instinct')) return 'You need Instinct to hold a cover.';
-      var g = ctx.first('gang');
+      var g = ctx.first('gang') || (ctx.primary.def === 'front' ? ctx.e.cardsOf('gang').filter(function (x) { return x.data.name === ctx.primary.data.gang; })[0] : null);
       if (g && g.data.caseId && ctx.e.caseRec(g.data.caseId) && ctx.e.caseRec(g.data.caseId).status === 'open') return 'You already have an operation running against them.';
       if (ctx.has('syndicate') && ctx.e.s.flags.syndicateCase && ctx.e.caseRec(ctx.e.s.flags.syndicateCase).status === 'open') return 'The case against the Syndicate is already open.';
       return null;
     },
-    requires: { primary: ['atlarge', 'gang', 'syndicate'] },
+    requires: { primary: ['atlarge', 'gang', 'syndicate', 'front'] },
     run: function (ctx) {
       var e = ctx.e;
       var t = ctx.primary;
+      // A known front is a door: it stands in for the gang (or the Syndicate) behind it.
+      var via = null;
+      if (t.def === 'front') {
+        via = e.fronts()[t.data.front];
+        var gangCard = e.cardsOf('gang').filter(function (g) { return g.data.name === t.data.gang; })[0];
+        t = gangCard || e.cardsOf('syndicate')[0] || null;
+        if (!t) return { title: 'Nobody Home', text: 'The place is shuttered. Whoever worked through it has moved on.' };
+      }
       var risk = t.def === 'syndicate' ? 0.45 : t.def === 'gang' ? 0.35 : 0.2;
       if (ctx.has('teammate')) risk /= 2;
+      if (via && via.watched) risk /= 2;
       var out;
       if (t.def === 'atlarge') {
         var c = e.spawnCase('manhunt', { ctx: ctx, culpritName: t.data.name, culpritTrait: t.data.trait, atLargeUid: t.uid, lifetime: 260,
