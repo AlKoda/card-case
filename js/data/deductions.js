@@ -33,6 +33,13 @@
       needs: { min: 2, distinctTraits: 2 },
       story: { title: 'Two Different People', text: 'Lay them side by side and they describe two different people. At least one of these tokens is about somebody who was not there, or who was there for another reason.', kind: 'minor' } },
 
+    // Two pieces of the pattern: where he goes next.
+    { id: 'pattern', label: 'Read the Pattern', duration: 40,
+      needs: { min: 2, pattern: 2 },
+      gives: { label: 'The Next Door', text: 'The doors, the nights, the hair. You know which lane he walks next, and which night.', aspects: { opportunity: 3, forensic: 1 } },
+      consume: true,
+      story: { title: 'The Pattern Read', text: 'You draw the doors on a map of the quarter and the lines meet. He is not choosing girls. He is walking a shape, and the shape has one door left in it. Be there.', kind: 'major' } },
+
     // Theories: aspects that explain each other.
     { id: 'money_motive', label: 'Follow the Coin', duration: 35,
       needs: { min: 2, aspects: { financial: 2, motive: 1 } },

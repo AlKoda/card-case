@@ -498,6 +498,51 @@
       witnesses: ['the hospital porter', 'a beggar fed at the door', 'a laundress who washes the chapter house linen'],
       hints: ['The carts go out by the Harbour road, after compline, covered.', 'They give the poor a ring and a supper. Nobody who took the ring came back for a second supper.', 'The physician drinks now. He did not, before.'],
     },
+    pattern: {
+      label: 'The Pattern', title: 'The Girls of {scene}', lesser: 'one death, not all', lifetime: 360, difficulty: 9, highProfile: true, serial: true,
+      keyAspects: ['opportunity', 'forensic', 'testimony'], districts: ['neon', 'market', 'warrens'],
+      charge: { opportunity: 3, forensic: 2, testimony: 2 },
+      scenes: ['the Stews', 'the Market Lanes', 'the Warrens'],
+      brief: 'A girl of {scene} found dead in a doorway with her hair cut off and nothing else touched. The second will come, and the third; the city already knows it. Each one leaves a piece of the pattern. Read enough of it to be at the next door before he is.',
+      roles: [
+        { role: 'a perfumer\'s journeyman', motive: 'Wants something from them that is not what the Stews sell.' },
+        { role: 'a barber of the Market', motive: 'Cuts hair for a living and has been seen where he should not be.' },
+        { role: 'a wool-merchant\'s son', motive: 'Rides through the Stews at night with a groom and a purse.' },
+        { role: 'the spinning-house warden', motive: 'Keeps the girls locked in by day and knows which walk at night.' },
+      ],
+      items: [
+        { type: 'clue', label: 'The First Door', text: 'Found at dawn in a doorway, hair cut close, nothing else touched. No struggle. She knew him, or did not fear him.', aspects: { forensic: 1, opportunity: 1 }, pattern: true },
+        { type: 'evidence', label: 'The Cut Hair', text: 'Cut, not torn. A good blade, and a careful hand.', needs: 'bio',
+          result: { label: 'A Barber\'s Cut', text: 'One stroke, close to the scalp, from behind. The hand has done this a thousand times to the living.', aspects: { forensic: 2 } } },
+        { type: 'clue', label: 'What Was Not Taken', text: 'Her purse, her ring, her shoes. He wanted the hair, and only the hair.', aspects: { motive: 2 } },
+        { type: 'clue', label: 'A Smell of Attar', text: 'Rosewater and something under it, on the doorpost where he leaned.', aspects: { forensic: 1, testimony: 1 } },
+      ],
+      witnesses: ['a girl who walks the same lane', 'the night soil man', 'a tapster closing up'],
+      hints: ['He does not hurry. He walks like a man going home.', 'The girls say a gentle voice asked their names the week before.', 'Always the night after a fair. Always a girl with fair hair.'],
+    },
+    threedays: {
+      label: 'The Three Days', title: 'The Apple in the Chest', lesser: 'a death by misadventure', lifetime: 100, difficulty: 8, highProfile: true, council: true, nSuspects: 4, guiltyRole: 'the husband',
+      keyAspects: ['digital', 'testimony', 'opportunity'], districts: ['uptown', 'market'],
+      charge: { digital: 2, testimony: 2, opportunity: 2 },
+      scenes: ['the Weigh-house', 'the Fish Market', 'the Council Steps'],
+      brief: 'A chest bought at auction at {scene} for a hundred gulden, and inside it a young woman cut in pieces. The Council gives you three days\' grace to bring the murderer, and the Council, being the Council, will stretch three days to a fortnight before it comes for you instead. Two men have already confessed. Both are lying, and one of them is lying for the man who did it.',
+      roles: [
+        { role: 'the husband', motive: 'Loved her, and believed a story he was told about her, and did not ask.' },
+        { role: 'the husband\'s brother', motive: 'Cannot bear what his brother believes, and would hang for him.' },
+        { role: 'a servant boy', motive: 'Took an apple from a sick woman\'s table and gave it to a man who did not deserve it.' },
+        { role: 'a porter of the Market', motive: 'Was given an apple by a boy and told a lie about where it came from.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Apple in the First Hand', text: 'Three apples were bought for a sick woman. One left her table. Whose hand took it?', needs: 'lab',
+          result: { label: 'The First Hand', text: 'The boy took it. He says so, when he is asked gently. He gave it to a porter, for a kindness.', aspects: { testimony: 2 } } },
+        { type: 'evidence', label: 'The Apple in the Second Hand', text: 'A porter of the Market was seen with an apple he could not have bought.', needs: 'lab',
+          result: { label: 'The Second Hand', text: 'The porter, asked, tells the lie he was told: that a woman gave it him, for love. He did not think what the lie would do.', aspects: { testimony: 2, motive: 1 } } },
+        { type: 'clue', label: 'The Third Hand', text: 'The husband heard the porter\'s lie in the Market, went home, and did not ask his wife anything. The chest was in the house by evening.', aspects: { opportunity: 2, motive: 2 } },
+        { type: 'clue', label: 'The Bill of Sale', text: 'The chest was sold at auction by the man who owned it. He signed his own name.', aspects: { digital: 2, opportunity: 1 } },
+      ],
+      witnesses: ['the auctioneer', 'the sick woman\'s neighbour', 'a fishwife who saw the chest carried'],
+      hints: ['Two men came to the Watch-house on the same morning, each saying he did it, and neither would look at the other.', 'The apples were bought on the Hill, three of them, for a woman who was dying.', 'The husband was not angry when he came home. He was very quiet.'],
+    },
     manhunt: {
       label: 'Hue and Cry', title: 'Hue and Cry: {culprit}', lifetime: 200, difficulty: 5, special: true,
       keyAspects: ['opportunity', 'testimony', 'forensic'], districts: ['docks', 'warrens', 'canal', 'neon'],
@@ -580,7 +625,9 @@
     },
   };
 
-  CF.ORDINARY_CASES = ['burglary', 'missing', 'harbor', 'arson', 'fraud', 'extortion', 'poison', 'coining', 'scriptorium', 'witch', 'contract'];
+  CF.ORDINARY_CASES = ['burglary', 'missing', 'harbor', 'arson', 'fraud', 'extortion', 'poison', 'coining', 'scriptorium', 'witch', 'contract', 'threedays'];
+  // Crimes that arrive on their own clock: the Pattern, once a run, from week six.
+  CF.RARE_CASES = ['pattern'];
   // Crimes the city breeds only after the Court of Miracles is scattered.
   CF.LATE_CASES = ['highway'];
 })(typeof window !== 'undefined' ? window : globalThis);
