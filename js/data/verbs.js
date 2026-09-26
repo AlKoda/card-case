@@ -14,12 +14,13 @@
     },
     duty: {
       label: 'Duty', rank: 0, lockedBy: 'burnout',
-      desc: 'Your paid shift. Put in Health for a hard beat shift or Focus for desk work. Also: promotion boards, training your team, and envelopes left on your desk.',
+      desc: 'Your paid shift. Put in Health for a hard beat shift or Focus for desk work. Also: promotion boards, training your team, protecting an informant with an officer, and envelopes left on your desk.',
       slots: [
-        { key: 'main', label: 'Shift', accepts: ['health', 'focus', 'teammate', 'bribe', 'promotion', 'chair'], primary: true },
+        { key: 'main', label: 'Shift', accepts: ['health', 'focus', 'teammate', 'bribe', 'promotion', 'chair', 'informant'], primary: true },
         { key: 'extra', label: 'Paperwork / Funds', accepts: ['paperwork', 'funds'],
           when: function (p) { return any(p, ['focus', 'teammate']); } },
         { key: 'extra2', label: 'Funds', accepts: ['funds'], when: function (p) { return has(p, 'teammate'); } },
+        { key: 'guard', label: 'Officer', accepts: ['teammate'], when: function (p) { return has(p, 'informant'); } },
       ],
     },
     patrol: {
@@ -68,8 +69,8 @@
       label: 'Reflect', rank: 0,
       desc: 'Your mind palace, and your bed. Rest away Fatigue and Burnout. Let go of Obsession. Lay clues side by side and reason: two descriptions of the same person become an identification, money and motive become a theory. Bring a Case with its clues to see who it points to.',
       slots: [
-        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue'], primary: true },
-        { key: 'a', label: 'Clue', accepts: ['clue', 'atlarge', 'looseend'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue']); } },
+        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue', 'intel'], primary: true },
+        { key: 'a', label: 'Clue', accepts: ['clue', 'atlarge', 'looseend'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue', 'intel']); } },
         { key: 'b', label: 'Clue', accepts: ['clue', 'looseend'], when: function (p) { return any(p, ['case', 'looseend', 'clue']); } },
         { key: 'c', label: 'Clue', accepts: ['clue'], when: function (p) { return any(p, ['case', 'clue']); } },
         { key: 'pay', label: 'Funds', accepts: ['funds'], when: function (p) { return any(p, ['fatigue', 'burnout', 'obsession', 'tunnel']); } },

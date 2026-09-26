@@ -16,7 +16,7 @@
     district: 'green', room: 'green',
     threat: 'crimson', criminal: 'crimson',
     ability: 'gold', funds: 'gold', equipment: 'gold', order: 'gold', career: 'gold',
-    insight: 'purple', calling: 'purple', temptation: 'purple',
+    insight: 'purple', calling: 'purple', temptation: 'purple', intel: 'purple',
   };
   // Icons for cards that have no picture.
   var CARD_ICONS = {
@@ -56,7 +56,7 @@
   var PEOPLE = ['pic-man', 'pic-woman', 'pic-glasses', 'pic-lady', 'pic-smoker', 'pic-hood', 'pic-youth', 'pic-fedora'];
   var CASE_DOSSIER = { burglary: 'house', missing: 'map', harbor: 'knife', arson: 'alley', fraud: 'city', extortion: 'redprint',
     manhunt: 'alley', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
-  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge', equipment: 'print',
+  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge', equipment: 'print', intel: 'fedora',
     hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'city', court: 'knife' };
   var VERB_TOKENS = { time: 'token-time' };
   var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
@@ -907,7 +907,17 @@
       if (m.unlocksVerb) lines.push('Opens the ' + CF.VERBS[m.unlocksVerb].label + ' verb');
     } else if (k === 'informant') {
       lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
-      lines.push('Exposure: ' + (card.data.heat || 0));
+      lines.push('Trust ' + (card.data.trust || 0) + '/3 · heat ' + (card.data.heat || 0) + '/' + CF.INFORMANT.compromisedAt);
+      lines.push(e.informantStatus(card) === 'compromised' ? 'Compromised: gone quiet' : 'Next word in ' + U.fmtTime(Math.max(0, card.data.tipT || 0)));
+    } else if (card.def === 'atlarge') {
+      var crim = card.data.criminalId && e.criminal(card.data.criminalId);
+      if (crim) {
+        lines.push(CF.Criminals.rankOf(crim).label + ' · ' + crim.crimes + ' crime' + (crim.crimes === 1 ? '' : 's'));
+        if (crim.traits.length) lines.push(crim.traits.map(function (t) { return CF.CRIMINAL_TRAITS[t].label; }).join(', '));
+        if (crim.organization !== 'none') lines.push('Runs with: ' + crim.organization);
+        var last = crim.history[crim.history.length - 1];
+        if (last && last.title) lines.push('Last: ' + last.title);
+      }
     } else if (card.maxLife) {
       lines.push('Time left: ' + U.fmtTime(card.life));
     }

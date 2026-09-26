@@ -398,7 +398,44 @@ on the card. Traits change verbs, not numbers:
 Fatigue, loyalty, personal events and promotions for officers wait for a
 later phase; injuries (Retaliation) already exist.
 
-## 13. What this phase does not decide
+## 13. Informants
+
+An informant is a street contact who talks before the city does. Left on
+the table they bring **intelligence on their own time**: a tip every
+80 − 15·trust seconds (`CF.INFORMANT`). A tip is one of three cards:
+
+- a **Rumor**: a clue about an open case carrying the culprit's description;
+- a **Sighting** of someone At Large: in Reflect with their card, a manhunt;
+- a **Warning**: a crime that is about to happen. The next case arrives
+  sooner; if the warning is still on the table it comes with an extra
+  minute and a first suspect already named, and the informant earns trust.
+
+Informants need money, protection and trust. Paying them in Patrol gives a
+proper tip and +1 trust; a tip that expires unused costs 1. Every meeting
+adds **heat**; at 3 they are *Compromised*: they go quiet, and Retaliation
+picks them first. Protect them in Duty with an officer to reset the heat.
+A burned informant is gone; a burned *compromised* informant becomes a
+Missing Person case with their name on it.
+
+## 14. Criminals persist
+
+Nobody who gets away is deleted. A cold case, an acquittal or a wrongful
+conviction gives the culprit a **record** (`s.criminals`,
+`js/systems/criminals.js`): name, trait, crimes, heat, organisation,
+traits (*Careful* after a day in court: their scenes give up less;
+*Violent*: feeds Retaliation weekly), status and history. The At Large
+card is a view of the record and follows it.
+
+Every week each criminal at large may commit another crime (20%, 30% for
+repeat offenders), which arrives as a new case with their name and trait
+on it: "*Name* again." Rank follows the record: Petty Criminal → Repeat
+Offender (2 crimes) → Gang Member (three At Large form a gang) → Gang
+Lieutenant (4 crimes) → Syndicate Member (two gangs). Each rank adds a
+point to what the court wants for their cases. A conviction jails them;
+a manhunt marks them hunted. Records survive the save and ride the legacy
+to the next detective. Failure makes content.
+
+## 15. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and
