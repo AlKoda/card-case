@@ -159,6 +159,19 @@
   click('set-apply', function () { CF.SettingsUI.apply(); goBack(); });
   click('arc-back', goBack);
 
+  // Back (Android, or the host's own back control): close the top modal, or
+  // open the pause menu; on the title screen there is nothing to go back to.
+  UI.onBack = function () {
+    var open = document.querySelector('.modal:not(.hidden)');
+    if (open && open.id === 'confirm') { closeConfirm(); return true; }
+    if (open && open.id === 'title') return false;
+    if (open && (open.id === 'settings' || open.id === 'archive')) { goBack(); return true; }
+    if (open && open.id === 'start') { openTitle(); return true; }
+    if (open && open.id === 'end') return true;
+    if (open) { only(inGame ? null : 'title'); return true; }
+    if (inGame) { only('menu'); return true; }
+    return false;
+  };
   click('btn-help', function () { returnTo = 'game'; only('help'); });
   click('btn-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   click('m-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });

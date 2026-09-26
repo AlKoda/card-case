@@ -1,0 +1,6 @@
+// The Android wrapper: a full-screen WebView with the game bundled as assets.
+// Built by .github/workflows/android.yml; the assets are copied in at build
+// time and never committed.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

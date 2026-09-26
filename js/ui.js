@@ -166,7 +166,9 @@
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', function () { cancelDrag(); });
+    document.addEventListener('pointercancel', function (ev) { delete pointers[ev.pointerId]; cancelDrag(); });
+    // Long presses on a tablet must not open the browser's context menu.
+    document.addEventListener('contextmenu', function (ev) { if (ev.target.closest && ev.target.closest('#table')) ev.preventDefault(); });
     document.addEventListener('dblclick', onDoubleClick);
     $('#table').addEventListener('wheel', function (ev) {
       if (UI.modal) return;
@@ -1017,8 +1019,27 @@
   try { if (localStorage.getItem('casefile.hinted')) document.addEventListener('DOMContentLoaded', hideHint); } catch (err) { /* ignore */ }
   UI.hideHint = hideHint;
 
+  // Touch: every active pointer, so two fingers on the felt can pinch.
+  var pointers = {};
+  function pinchState() {
+    var ids = Object.keys(pointers);
+    if (ids.length !== 2) return null;
+    var a = pointers[ids[0]], b = pointers[ids[1]];
+    return { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+  }
+
   function onPointerDown(ev) {
     if (UI.modal || (ev.button !== 0 && ev.button !== 1)) return;
+    if (ev.pointerType === 'touch') {
+      pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+      var pinch = pinchState();
+      if (pinch) {
+        // A second finger: whatever the first was doing becomes a pinch.
+        if (UI.drag) cancelDrag();
+        UI.drag = { kind: 'pinch', d0: pinch.d, z0: UI.view.z, started: true };
+        return;
+      }
+    }
     if (UI.drag) cancelDrag(); // a second pointer, or a pointerup we never saw
     var t = ev.target;
     var winHead = t.closest && t.closest('.vw-head');
@@ -1054,6 +1075,14 @@
   }
 
   function onPointerMove(ev) {
+    if (pointers[ev.pointerId]) pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+    if (UI.drag && UI.drag.kind === 'pinch') {
+      var pinch = pinchState();
+      if (!pinch) return;
+      var want = U.clamp(UI.drag.z0 * (pinch.d / UI.drag.d0), 0.4, 1.6);
+      zoomAt(pinch.cx, pinch.cy, want / UI.view.z);
+      return;
+    }
     var d = UI.drag;
     if (!d) {
       var n = cardAt(ev.target);
@@ -1205,18 +1234,30 @@
     }
   }
 
+  // The tablet's Back button: undo the most recent thing that can be undone.
+  // Returns false when there is nothing left to close (the host may leave).
+  UI.back = function () {
+    if (UI.drag) { cancelDrag(); return true; }
+    if (UI.openVerbs.length) { closeWindow(UI.openVerbs[UI.openVerbs.length - 1]); return true; }
+    if (UI.onBack) return UI.onBack();
+    return false;
+  };
+
   function cancelDrag() {
     var d = UI.drag;
     UI.drag = null;
     clearMarks();
     if (!d) return;
+    if (d.kind === 'pinch') return;
     if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
     if (d.kind === 'verb' && d.started) { d.el.classList.remove('dragging'); UI.e.dirty = true; }
   }
 
   function onPointerUp(ev) {
+    delete pointers[ev.pointerId];
     var d = UI.drag;
     if (!d) return;
+    if (d.kind === 'pinch') { if (!pinchState()) UI.drag = null; return; }
     var e = UI.e;
     UI.drag = null;
     clearMarks();

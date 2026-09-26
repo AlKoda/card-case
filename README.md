@@ -10,6 +10,11 @@ The fixed rules, the engine decision and the roadmap-to-code map are in [`docs/D
 
 Open `index.html` in a browser. There's no build step and nothing to install. The game autosaves to your browser's local storage.
 
+### On a tablet
+
+- **Install from the web page.** Open the Pages URL in Chrome on the tablet, then *Add to Home screen*. The game installs as a full-screen app and works offline (a service worker caches everything on first visit). Two fingers pinch to zoom the table; the Back button closes windows and menus.
+- **Or sideload the APK.** Every push to `main` builds `CaseFile.apk` (a WebView wrapper with the game bundled inside, see `android/README.md`) and attaches it to the **apk-latest** release on the Releases page. Download it on the tablet, allow installs from that source, and open it. Saves live inside the app.
+
 ### Host it on GitHub Pages
 
 The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the game to GitHub Pages on every push to `main`.

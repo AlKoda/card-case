@@ -29,7 +29,11 @@ jobs:
       - name: Collect site files
         run: |
           mkdir _site
-          cp -r index.html css js _site/
+          cp -r index.html css js manifest.webmanifest sw.js icons _site/
+      - name: Rasterise the app icon (PNGs are built here, never committed)
+        run: |
+          pip install --quiet pillow cairosvg
+          python tools/build_icons.py _site/icons
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
