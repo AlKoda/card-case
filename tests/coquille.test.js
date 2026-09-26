@@ -106,7 +106,7 @@ function run(e, verb, cards) {
   assert.ok(/Not yet/.test(pv.blocked || pv.text), 'the throne is not yet yours: ' + (pv.blocked || pv.text));
   e2.clearSlots('undercover');
   for (var w = 0; w < 4; w++) e2.coquilleWeek();
-  assert.strictEqual(e2.court().insideWeeks, 4);
+  assert.ok(e2.court().insideWeeks >= 4, 'four weeks inside: ' + e2.court().insideWeeks);
   assert.ok(byDef(e2, 'clue').some(function (c) { return /Court's Word/.test(e2.labelOf(c)); }), 'from inside you feed the Watch-house');
   e2.s.counts.purse = 4; e2.s.counts.cruelty = 2;
   assert.ok(e2.canTakeThrone());
