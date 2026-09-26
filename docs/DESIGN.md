@@ -515,7 +515,42 @@ builds it.
 | Crime Lab | Analysis faster; no evidence needs special equipment. |
 | Surveillance Room | Stakeouts take half the night and never tire you. |
 
-## 19. What this phase does not decide
+## 19. Callings as drift
+
+The Calling chosen at the start is a leaning, not a campaign. It keeps its
+starting bonus (`s.origin`), seeds its path with a head start, and then
+the run drifts toward whichever path the detective actually walks
+(`js/systems/callings.js`, `s.paths`):
+
+| Path | Grows from |
+|---|---|
+| **Power** (the Commissioner) | promotions, rooms built, a calm city under a senior officer (every other week with Pressure and Scrutiny at 3 or less) |
+| **Knowledge** (the Master Detective) | connections found in the network (+2), confirmed identifications, cold cases reopened and closed, loose ends, strong convictions of the suspect the mind palace named |
+| **Justice** (the Crusader) | gangs broken (+2), the Syndicate broken (+3), criminals at large put away, repeat offenders convicted, undercover operations |
+
+When another path leads the current calling by four, the calling changes:
+`s.calling` moves, the Calling card on the table becomes the new one, and
+the journal says what you have actually been doing. Every ending's
+machinery keys on the current calling, so all three endings are reachable
+from any start: the Chair convenes for a drifted Commissioner, Loose Ends
+and the Architect open to a drifted Master Detective, and breaking the
+Syndicate ends the game as the Crusader for whoever has become one. The
+Calling card's dossier shows the three scores and the leaning; the ending
+screen records where you set out from and where you ended.
+
+The random bot, which promotes and keeps the city calm, drifts to the
+Commissioner in about half its games. That is the design working: it
+plays the Commissioner's game.
+
+## 20. What the roadmap leaves open
+
+Everything in the eighteen phases is in. What remains is content and
+tuning, not systems: more written cases like the burglary (each crime
+type deserves one), more structures per type (the roadmap asked for
+eight burglaries and six frauds), officer fatigue and loyalty, art for
+Delegate and Major Crimes, the `data/*.json` split, and a long balancing
+pass with real players on the tension the whole design rests on: four
+cases, one detective, not enough time.
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and
