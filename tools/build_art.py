@@ -21,6 +21,10 @@ with transparent backgrounds):
     cards.png     illustrated character and scene cards
     props.png     blank card frames, evidence props, small desk items
     people.png    square portrait/scene cards (only the pictures are used)
+    ranks.png     portrait frames and rank badges (only the badges are used)
+    hud.png       meters and timers (the sun-to-moon week bar)
+    buttons.png   plates, buttons and bars
+    dialogs.png   dialogs, alert bars and confirm boxes
 A missing sheet is skipped and its CSS file left as it is.
 
 --preview also writes every piece as PNG to tools/.preview/ (git-ignored).
@@ -172,6 +176,19 @@ PEOPLE = {'pic-' + PEOPLE_NAMES[r][c]: (PEOPLE_COLS[c][0] + 14, PEOPLE_ROWS[r][0
 # The writing area spans the unlined paper below the title plate (% of height).
 LINES_TOP, LINES_HEIGHT = 30.0, 60.0
 
+# ------------------------------------------ ranks, hud, buttons, dialogs
+RANKS = grid(['rank-1', 'rank-2', 'rank-3', 'rank-laurel', 'rank-crown'], 861, 1425, 927, 1068)
+RANKS['rank-star'] = (726, 939, 852, 1068)
+HUD = {'week-bar': (15, 984, 489, 1065)}
+BUTTONS = dict(zip(['plate-gold', 'plate-red', 'plate-teal', 'plate-green', 'plate-dark-gold', 'plate-dark-red', 'plate-dark-teal', 'plate-dark-purple'],
+                   [(27, 324, 237, 378), (243, 324, 447, 378), (450, 324, 651, 378), (657, 324, 852, 378),
+                    (855, 324, 1005, 375), (1011, 324, 1137, 375), (1143, 327, 1275, 375), (1281, 324, 1422, 375)]))
+DIALOGS = {
+    'bar-danger': (30, 318, 501, 435), 'bar-major': (519, 327, 960, 435), 'bar-victory': (990, 333, 1419, 438),
+    'bar-case': (33, 435, 486, 534), 'bar-mind': (519, 438, 960, 537), 'bar-search': (993, 435, 1416, 537),
+    'dlg-confirm': (537, 6, 954, 315), 'dlg-levelup': (438, 537, 759, 861),
+}
+
 # Writing areas the automatic detection gets wrong: (left, width) in %.
 DOSSIER_LINES = {'dossier-redprint': (47.0, 46.0)}
 
@@ -187,12 +204,17 @@ SHEETS = [
     ('cards', 'cards.png', CARDS),
     ('props', 'props.png', PROPS),
     ('people', 'people.png', PEOPLE),
+    ('ranks', 'ranks.png', RANKS),
+    ('hud', 'hud.png', HUD),
+    ('buttons', 'buttons.png', BUTTONS),
+    ('dialogs', 'dialogs.png', DIALOGS),
 ]
 
 # Longest side in pixels (about 2x on-screen size).
 MAX_SIDE = [('frame', 260), ('aspect', 64), ('icon', 64), ('portrait', 120), ('toast', 56), ('slot', 140),
             ('token', 180), ('card-back', 220), ('divider', 480), ('ev-', 160), ('dossier', 600),
-            ('bg-', 1600), ('logo', 740), ('pcard', 300), ('cardframe', 240), ('prop-', 150), ('pic-', 220)]
+            ('bg-', 1600), ('logo', 740), ('pcard', 300), ('cardframe', 240), ('prop-', 150), ('pic-', 220),
+            ('rank-', 80), ('week-bar', 480), ('plate-', 300), ('bar-', 480), ('dlg-', 460)]
 
 
 def fit(img, name):
@@ -302,9 +324,9 @@ def main():
             continue
         sheet = Image.open(path).convert('RGBA')
         pieces = {name: sheet.crop(box) for name, box in sprites.items()}
-        if key in ('verbs', 'icons', 'cards', 'props'):
+        if key in ('verbs', 'icons', 'cards', 'props', 'ranks', 'dialogs', 'buttons', 'hud'):
             for name in pieces:
-                if name.startswith(('token', 'portrait', 'card-back', 'pcard', 'cardframe', 'prop-')):
+                if name.startswith(('token', 'portrait', 'card-back', 'pcard', 'cardframe', 'prop-', 'rank-', 'bar-', 'dlg-', 'plate-', 'week-bar')):
                     pieces[name] = isolate(pieces[name])
                 if name.startswith('pcard'):
                     pieces[name] = pieces[name].crop(pieces[name].getchannel('A').getbbox())

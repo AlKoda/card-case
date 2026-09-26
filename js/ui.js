@@ -61,7 +61,7 @@
     hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'city', court: 'knife' };
   var VERB_TOKENS = { time: 'token-time' };
   var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
-  var TOAST_ICONS = { case: 'toast-case', danger: 'toast-danger', major: 'toast-major', victory: 'toast-victory', defeat: 'toast-danger', week: 'token-time' };
+  var TOAST_BARS = { case: 'bar-case', danger: 'bar-danger', defeat: 'bar-danger', major: 'bar-major', victory: 'bar-victory', week: 'bar-mind', verb: 'bar-search' };
   var RING_LEN = 2 * Math.PI * 47;
 
   // The picture in a card's window: {art, fit: 'cover'|'contain'|'icon', gray?}
@@ -112,6 +112,7 @@
     UI.selected = null;
     UI.tab = 'desk';
     UI.seenVerbs = {};
+    UI.lastRank = engine.s.rank;
     UI.newVerbs = {};
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     engine.on(onEvent);
@@ -199,8 +200,7 @@
     if (UI.modal) return;
     var box = $('#toasts');
     var t = h('div', 'toast k-' + (entry.kind || 'event'));
-    var ti = entry.verb ? (VERB_TOKENS[entry.verb] || 'token-' + entry.verb) : TOAST_ICONS[entry.kind];
-    if (ti) { t.classList.add('has-icon'); t.style.setProperty('--toast-icon', art(ti)); }
+    t.style.backgroundImage = art(TOAST_BARS[entry.kind] || 'bar-search');
     t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
     t.addEventListener('click', function () {
       if (entry.verb) { UI.openVerb = entry.verb; UI.tab = 'desk'; }
@@ -235,7 +235,8 @@
   function meter(key, label, val, max, shown) {
     var pct = Math.min(100, (val / max) * 100);
     var state = key === 'reputation' ? ' rep' : val >= max * 0.8 ? ' crit' : val >= max * 0.6 ? ' warn' : '';
-    return '<div class="meter' + state + '" title="' + esc(label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
+    var full = { pressure: 'Public Pressure', scrutiny: 'Scrutiny (Internal Affairs)', retaliation: 'Retaliation', reputation: 'Reputation' }[key];
+    return '<div class="meter' + state + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
       '<div class="m-main"><div class="m-label"><span>' + label + '</span><span>' + shown +
       '</span></div><div class="m-bar"><div class="m-fill" style="width:' + pct + '%"></div></div></div></div>';
   }
@@ -244,9 +245,14 @@
     var e = UI.e, s = e.s, m = s.meters;
     var nextRep = s.rank < 2 ? CF.RANK_REP[s.rank + 1] : (s.calling === 'commissioner' ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
-    $('#meters').innerHTML = mm('pressure', 'Public Pressure') + mm('scrutiny', 'Scrutiny') + mm('retaliation', 'Retaliation') +
+    $('#meters').innerHTML = mm('pressure', 'Pressure') + mm('scrutiny', 'Scrutiny') + mm('retaliation', 'Retaliation') +
       meter('reputation', 'Reputation', m.reputation, nextRep, m.reputation + (s.rank < 2 || s.calling === 'commissioner' ? '/' + nextRep : ''));
-    $('#rank').textContent = CF.RANKS[s.rank] + ' ' + s.detective + ' · ' + CF.CALLINGS[s.calling].label;
+    $('#rank').textContent = s.detective + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
+    $('#rank-badge').style.backgroundImage = art('rank-' + (s.rank + 1));
+    $('#rank-badge').title = CF.RANKS[s.rank];
+    if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
+    UI.lastRank = s.rank;
+    updateWeekBar();
   }
 
   function verbStatus(vid) {
@@ -369,8 +375,15 @@
     if (CF.CARDS[card.def].kind === 'case') n.classList.toggle('urgent', card.life < 45);
   }
 
+  // The sun-to-moon bar: six dots light up as the week passes.
+  function updateWeekBar() {
+    var sh = document.querySelector('#weekbar .wb-shade');
+    if (sh && UI.e) sh.style.left = (19 + 62 * Math.min(1, UI.e.s.weekT / CF.WEEK)) + '%';
+  }
+
   function updateLive() {
     var e = UI.e;
+    updateWeekBar();
     advanceTyping();
     updateVerbBars();
     document.querySelectorAll('.card[data-uid]').forEach(function (n) {
