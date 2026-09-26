@@ -662,7 +662,7 @@
         return { title: 'A Confession', text: U.fill(U.pick(ctx.rng, P.suspectPressure), vars) + (ind.sufficient ? '' : ' There were no sufficient indicia for it. If the Council asks, and it will, you have no answer.') };
       }
 
-      if (!sus.guilty && rec.template === 'threedays' && !sus.cleared && (sus.role === 'the husband' || /brother/.test(sus.role))) {
+      if (!sus.guilty && rec.template === 'threedays' && !sus.cleared && (/brother/.test(sus.role) || /porter/.test(sus.role))) {
         // Each confesses to save the other. A free confession, and a false one.
         ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession: ' + sus.name, text: sus.name + ' confesses freely, in a steady voice, to everything. Too much of everything: the wrong day, the wrong knife. They are lying to save somebody.', aspects: { testimony: 3, motive: 1 }, trait: sus.trait }, helpers, { noMisread: true, confession: 'free', falseConfession: true })));
         return { title: 'A Confession, Freely Given', text: sus.name + ' does not wait to be asked. The Council has three days and here is a confession in a steady voice. Look at the details before you take it to the Court. Look at who they keep glancing at.' };

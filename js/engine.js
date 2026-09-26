@@ -1004,7 +1004,7 @@
       this.spawnCase('pattern', { headline: 'The Pattern: ', lead: 'The first of them.' });
     }
     this.openCases().forEach(function (rec) {
-      if (rec.template !== 'pattern' || rec.patternRead) return;
+      if (rec.template !== 'pattern' || rec.patternRead || rec.week === s.week) return;
       rec.victims = (rec.victims || 1) + 1;
       self.meter('pressure', 1);
       var n = ['', 'first', 'second', 'third', 'fourth', 'fifth'][Math.min(5, rec.victims)];
@@ -1442,10 +1442,11 @@
     var structure = (CF.STRUCTURES[tid] && CF.STRUCTURES[tid].length) ? U.pick(rng, CF.STRUCTURES[tid]) : null;
     if (structure) for (var sv in structure.vars) vars[sv] = U.pick(rng, structure.vars[sv]);
 
-    var nSus = Math.min(3, T.roles.length);
-    var roles = U.sample(rng, T.roles, nSus);
+    var nSus = Math.min(T.nSuspects || 3, T.roles.length);
+    var roles = T.nSuspects ? T.roles.slice(0, nSus) : U.sample(rng, T.roles, nSus);
     var traits = U.sample(rng, CF.TRAITS, nSus);
     var guiltyIdx = U.randInt(rng, 0, nSus - 1);
+    if (T.guiltyRole) { var gi = roles.map(function (r) { return r.role; }).indexOf(T.guiltyRole); if (gi >= 0) guiltyIdx = gi; }
     if (opts.culpritTrait) {
       var tr = CF.TRAITS.filter(function (x) { return x.id === opts.culpritTrait; })[0];
       if (tr) {

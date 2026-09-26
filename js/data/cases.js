@@ -521,13 +521,13 @@
       hints: ['He does not hurry. He walks like a man going home.', 'The girls say a gentle voice asked their names the week before.', 'Always the night after a fair. Always a girl with fair hair.'],
     },
     threedays: {
-      label: 'The Three Days', title: 'The Apple in the Chest', lesser: 'a death by misadventure', lifetime: 130, difficulty: 8, highProfile: true, council: true,
+      label: 'The Three Days', title: 'The Apple in the Chest', lesser: 'a death by misadventure', lifetime: 100, difficulty: 8, highProfile: true, council: true, nSuspects: 4, guiltyRole: 'the husband',
       keyAspects: ['digital', 'testimony', 'opportunity'], districts: ['uptown', 'market'],
       charge: { digital: 2, testimony: 2, opportunity: 2 },
       scenes: ['the Weigh-house', 'the Fish Market', 'the Council Steps'],
-      brief: 'A chest bought at auction at {scene} for a hundred gulden, and inside it a young woman cut in pieces. The Council gives you three days to bring the murderer, or it will bring you. Two people have already confessed. Both are lying, and each is lying for the other.',
+      brief: 'A chest bought at auction at {scene} for a hundred gulden, and inside it a young woman cut in pieces. The Council gives you three days\' grace to bring the murderer, and the Council, being the Council, will stretch three days to a fortnight before it comes for you instead. Two men have already confessed. Both are lying, and one of them is lying for the man who did it.',
       roles: [
-        { role: 'the husband', motive: 'Loved her, and believes a story he was told about her.' },
+        { role: 'the husband', motive: 'Loved her, and believed a story he was told about her, and did not ask.' },
         { role: 'the husband\'s brother', motive: 'Cannot bear what his brother believes, and would hang for him.' },
         { role: 'a servant boy', motive: 'Took an apple from a sick woman\'s table and gave it to a man who did not deserve it.' },
         { role: 'a porter of the Market', motive: 'Was given an apple by a boy and told a lie about where it came from.' },

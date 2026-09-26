@@ -40,6 +40,9 @@ function run(e, verb, cards) {
   for (var k = 0; k < 4 && !doors().length && rec.found < rec.items.length; k++) run(e, 'investigate', [kase]);
   assert.ok(doors().length >= 1, 'the first door is a piece of the pattern');
   var v0 = rec.victims || 1, p0 = e.s.meters.pressure;
+  rec.week = e.s.week + 1; // as if she arrived in this very tick
+  e.weekTick();
+  assert.strictEqual(rec.victims || 1, v0, 'no second girl in the week she arrived');
   e.weekTick();
   assert.strictEqual(rec.victims, v0 + 1, 'another girl every week');
   assert.ok(e.s.meters.pressure > p0, 'and the Crowd grows');
@@ -66,8 +69,11 @@ function run(e, verb, cards) {
   var rec = e.caseRec(e.spawnCase('threedays', { quiet: true }).caseId);
   assert.ok(rec.commission && rec.commission.from === 'council', 'the Council\'s ultimatum');
   assert.ok(e.caseCard(rec.id).life <= 140, 'three days');
-  var liar = rec.suspects.filter(function (x) { return !x.guilty && (x.role === 'the husband' || /brother/.test(x.role)); })[0];
-  assert.ok(liar, 'somebody innocent who will confess');
+  assert.strictEqual(rec.suspects.length, 4, 'all four are in it');
+  assert.strictEqual(rec.suspects.filter(function (x) { return x.guilty; })[0].role, 'the husband', 'the husband did it');
+  var liars = rec.suspects.filter(function (x) { return !x.guilty && (/brother/.test(x.role) || /porter/.test(x.role)); });
+  assert.strictEqual(liars.length, 2, 'two innocent men who will confess');
+  var liar = liars[0];
   var sc = e.revealSuspect(rec, null, { key: liar.key });
   var r = run(e, 'interrogate', [sc, byDef(e, 'focus')[0]]);
   var conf = r.out.filter(function (c) { return c.data.confession === 'free'; })[0];
