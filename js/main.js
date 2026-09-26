@@ -30,13 +30,13 @@
 
   // Promotion: rank badge, and the verbs the new rank unlocks.
   UI.onPromotion = function (rank) {
-    $('promo-badge').style.backgroundImage = 'var(--art-rank-' + ((CF.RANK_DEFS[rank] || {}).badge || 1) + ')';
+    $('promo-badge').style.backgroundImage = 'var(--art-' + (['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[rank] || {}).badge || 1) - 1] || 'medal-sun') + ')';
     $('promo-title').textContent = 'Promoted: ' + CF.RANKS[rank];
     var unlocked = CF.VERB_ORDER.filter(function (v) { return CF.VERBS[v].rank === rank; });
     [1, 2, 3].forEach(function (i) {
       var v = unlocked[i - 1];
       var el = $('promo-s' + i);
-      el.style.backgroundImage = v ? 'var(--art-token-' + v + ')' : '';
+      el.style.backgroundImage = v ? 'var(--art-' + (UI.verbArt ? UI.verbArt(v) : 'act-study') + ')' : '';
       el.title = v ? CF.VERBS[v].label : '';
     });
     CF.Audio.play('victory');
@@ -48,9 +48,9 @@
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
 
-  var CALLING_ART = { commissioner: 'officer', master: 'eye', crusader: 'smoker' };
-  var ENDING_ART = { dismissed: 'mirror', burnout: 'hourglass', collapse: 'hourglass', consumed: 'tangled', corruption: 'letter',
-    death: 'crow', commissioner: 'officer', master: 'eye', crusader: 'smoker' };
+  var CALLING_ART = { commissioner: 'back-sun', master: 'back-eye', crusader: 'back-scales' };
+  var ENDING_ART = { dismissed: 'back-moon', burnout: 'back-moon', collapse: 'back-moon', consumed: 'back-eye', corruption: 'back-key',
+    death: 'back-snake', commissioner: 'back-sun', master: 'back-eye', crusader: 'back-scales' };
 
   function save() {
     if (inGame && UI.e && !UI.e.s.over) store(SAVE_KEY, UI.e.save());
@@ -64,7 +64,7 @@
     store(LEGACY_KEY, JSON.stringify(e.s.legacy));
     var st = e.s.stats;
     $('end').querySelector('.modal-box').className = 'modal-box end-box ' + (over.win ? 'end-win' : 'end-lose');
-    $('end-card').style.backgroundImage = 'var(--art-pcard-' + (ENDING_ART[over.id] || 'hourglass') + ')';
+    $('end-card').style.backgroundImage = 'var(--art-' + (ENDING_ART[over.id] || 'back-moon') + ')';
     $('end-card-top').textContent = over.title;
     $('end-card-bottom').textContent = e.s.detective;
     $('end-title').textContent = over.title;
@@ -72,7 +72,7 @@
       (over.origin && over.calling && over.origin !== over.calling ? ' · set out as ' + CF.CALLINGS[over.origin].label + ', ended as ' + CF.CALLINGS[over.calling].label : '');
     $('end-text').textContent = over.text;
     $('end-stats').innerHTML = [
-      ['Convictions', st.convictions], ['Acquittals', st.acquittals], ['Gone cold', st.cold], ['Wrongful', st.wrongful],
+      ['Convictions', st.convictions], ['Acquittals', st.acquittals], ['Unanswered', st.cold], ['Wrongful', st.wrongful],
     ].map(function (x) { return '<div><b>' + x[1] + '</b><span>' + x[0] + '</span></div>'; }).join('');
     CF.Audio.play(over.win ? 'victory' : 'defeat');
     only('end');
@@ -91,7 +91,7 @@
       var c = CF.CALLINGS[k];
       var b = document.createElement('button');
       b.className = 'calling' + (k === chosen ? ' on' : '');
-      b.innerHTML = '<div class="pcard" style="background-image:var(--art-pcard-' + CALLING_ART[k] + ')"><span class="pc-top">' + c.label.replace('The ', '') +
+      b.innerHTML = '<div class="pcard" style="background-image:var(--art-' + CALLING_ART[k] + ')"><span class="pc-top">' + c.label.replace('The ', '') +
         '</span><span class="pc-bottom">' + c.theme + '</span></div><div class="calling-text"><h3>' + c.label + '</h3><p>' + c.blurb + '</p><div class="bonus">' + c.bonus + '</div></div>';
       b.addEventListener('click', function () { chosen = k; CF.Audio.play('pick'); buildCallings(); });
       box.appendChild(b);
@@ -106,7 +106,7 @@
     if (legacy) {
       try {
         var L = JSON.parse(legacy);
-        $('legacy-label').textContent = 'Succeed ' + L.predecessor + ' (' + L.ending + '): inherit ' + (L.cold || []).length + ' cold case(s) and ' +
+        $('legacy-label').textContent = 'Succeed ' + L.predecessor + ' (' + L.ending + '): inherit ' + (L.cold || []).length + ' unanswered case(s) and ' +
           ((L.atlarge || []).length + (L.gangs || []).length) + ' enemies';
       } catch (err) { $('legacy-row').classList.add('hidden'); }
     }
@@ -116,7 +116,7 @@
   function newGame(useLegacy) {
     var legacy = null;
     if (useLegacy) { try { legacy = JSON.parse(load(LEGACY_KEY)); } catch (err) { legacy = null; } }
-    var name = $('name').value.trim().slice(0, 24) || 'Marlowe';
+    var name = $('name').value.trim().slice(0, 24) || 'Kessler';
     var e = CF.Engine.newGame({ calling: chosen, name: name, legacy: legacy, guided: !!CF.Settings.get('guided') });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);
@@ -146,7 +146,7 @@
   function goBack() { if (returnTo === 'menu') only('menu'); else if (returnTo === 'end') only('end'); else openTitle(); }
 
   click('t-new', function () {
-    if (load(SAVE_KEY)) ask('Start a new case file? Your saved game will be lost.', function () { openStart(false); });
+    if (load(SAVE_KEY)) ask('Take up a new letter of office? Your saved game will be lost.', function () { openStart(false); });
     else openStart(false);
   });
   click('t-continue', continueGame);
@@ -185,7 +185,7 @@
   click('m-archive', function () { openArchive('menu'); });
   click('m-title', function () { save(); openTitle(); });
   click('m-new', function () {
-    ask('Abandon this case file? Your progress will be lost.', function () {
+    ask('Resign your office? Your progress will be lost.', function () {
       store(SAVE_KEY, null);
       inGame = false;
       openStart(false);

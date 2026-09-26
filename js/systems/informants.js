@@ -59,11 +59,11 @@
       var rec = U.pick(this.rng, open);
       var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
       this.create('clue', this.clueSpec(rec, {
-        label: 'Rumor from ' + nick,
+        label: 'Rumour from ' + nick,
         text: nick + ' heard something about ' + rec.title + ': "' + CF.TRAIT_SEEN[cul.trait] + '"',
         aspects: { testimony: 1 }, trait: cul.trait,
       }, [], { noMisread: true }));
-      this.story('A Word from ' + nick, 'A folded note under your windscreen wiper, about ' + rec.title + '. ' + nick + ' does not sign things.', 'minor');
+      this.story('A Word from ' + nick, 'A folded paper pushed under the Watch-house door, about ' + rec.title + '. ' + nick + ' does not sign things.', 'minor');
       return 'rumor';
     }
     if (al.length && roll < 0.75) {
@@ -71,10 +71,10 @@
       target.data.sighted = true;
       this.create('intel', {
         label: 'Sighting: ' + target.data.name,
-        desc: nick + ' has seen ' + target.data.name + ' in ' + CF.DISTRICTS[inf.data.district].label + '. Bring this to Reflect with their At Large card to start a manhunt. It will not stay true for long.',
+        desc: nick + ' has seen ' + target.data.name + ' in ' + CF.DISTRICTS[inf.data.district].label + '. Bring this to Contemplate with their Abroad card to raise the hue and cry. It will not stay true for long.',
         data: { kind: 'sighting', criminal: target.data.name, informant: inf.uid },
       });
-      this.story('A Sighting', nick + ' has seen ' + target.data.name + '. "Same bar every night. Ask me how I know."', 'minor');
+      this.story('A Sighting', nick + ' has seen ' + target.data.name + '. "Same tavern every night. Ask me how I know."', 'minor');
       return 'sighting';
     }
     // A warning: something is about to happen. One at a time.
@@ -105,9 +105,9 @@
     var was = this.informantStatus(card);
     var name = card.data.name;
     this.remove(card);
-    this.story('An Informant Is Burned', text, 'danger');
+    this.story('An Informer Is Burned', text, 'danger');
     if (was === 'compromised' && this.openCases().length < 4) {
-      this.spawnCase('missing', { victim: name, headline: 'Missing: ' + name, lead: 'Nobody has seen ' + name + ' since the night they were questioned.', extraTime: 30 });
+      this.spawnCase('missing', { victim: name, headline: 'Vanished: ' + name, lead: 'Nobody has seen ' + name + ' since the night they were questioned.', extraTime: 30 });
     }
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,26 +1,17 @@
 // Service worker: the whole game is cached on first visit, so it opens
 // offline and installs to a tablet's home screen. Bump VERSION on release.
-var VERSION = 'casefile-v3';
+var VERSION = 'casefile-v4';
 var FILES = [
   "index.html",
   "manifest.webmanifest",
   "icons/icon.svg",
   "css/style.css",
-  "css/art/buttons.css",
-  "css/art/cards.css",
-  "css/art/dialogs.css",
-  "css/art/dossiers.css",
-  "css/art/evidence.css",
-  "css/art/frames.css",
-  "css/art/hud.css",
-  "css/art/icons.css",
   "css/art/menu.css",
-  "css/art/people.css",
-  "css/art/props.css",
-  "css/art/ranks.css",
-  "css/art/table.css",
-  "css/art/ui.css",
-  "css/art/verbs.css",
+  "css/art/city-cards.css",
+  "css/art/city-scenes.css",
+  "css/art/city-ui.css",
+  "css/art/city-icons.css",
+  "css/art/city-tables.css",
   "js/util.js",
   "js/data/cards.js",
   "js/data/cases.js",

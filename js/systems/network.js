@@ -18,18 +18,18 @@
   Net.LINK_CHANCE = 0.25; // ordinary cases that touch a front while one exists
 
   var FRONT_NAMES = {
-    docks: ['Pier {n} Storage', 'the {last} Bonded Warehouse', 'Berth {n}'],
-    market: ['{last}\'s Pawnbrokers', 'the {last} Street Lock-Up', 'a stall at the back of the Old Market'],
-    neon: ['the {gang} Club', 'the {last} Card Room', 'a bar with no name on Neon Row'],
-    uptown: ['{last} Holdings', 'a townhouse on {last} Square', 'the {last} Foundation'],
-    warrens: ['the {last} Street Boarding House', 'a basement under {last} Court', 'the launderette on {last} Row'],
-    canal: ['{last} & Co. Warehouse', 'the {last} Street Workshop', 'a barge moored at {last} Wharf'],
+    docks: ['the Crane-house at Berth {n}', 'the {last} Bonded Warehouse', 'Berth {n}'],
+    market: ['{last}\'s Pawnshop', 'the {last} Lane Lock-up', 'a stall at the back of the Market'],
+    neon: ['the {gang} Bathhouse', 'the {last} Dice-cellar', 'a tavern with no sign in the Stews'],
+    uptown: ['{last} & Company', 'a house on {last} Square', 'the {last} Almshouse'],
+    warrens: ['the {last} Lane Lodging-house', 'a cellar under {last} Court', 'the washhouse in {last} Row'],
+    canal: ['the {last} Chantry', 'the {last} Workshop by the Close', 'a barge moored at {last} Wharf'],
   };
   var LINK_ITEMS = [
-    { label: 'A Receipt from {front}', text: 'Folded small, in the wrong pocket. A receipt from {front}, dated last week.', aspects: { financial: 1, opportunity: 1 } },
-    { label: 'Matchbook: {front}', text: 'A matchbook from {front}. Half the matches gone.', aspects: { opportunity: 1, testimony: 1 } },
-    { label: 'Delivery Docket', text: 'A delivery docket with the address of {front}, and a signature that is not a name.', aspects: { financial: 1, digital: 1 } },
-    { label: 'Torn Ticket Stub', text: 'A ticket stub from {front}. Somebody spends their evenings there.', aspects: { opportunity: 1, testimony: 1 } },
+    { label: 'A Chit from {front}', text: 'Folded small, in the wrong pocket. A chit from {front}, dated last week.', aspects: { financial: 1, opportunity: 1 } },
+    { label: 'A Tavern Token: {front}', text: 'A lead token from {front}, the kind they give for a drink owed. Rubbed smooth.', aspects: { opportunity: 1, testimony: 1 } },
+    { label: 'A Carrier\'s Docket', text: 'A carrier\'s docket for a load to {front}, and a mark that is not a name.', aspects: { financial: 1, digital: 1 } },
+    { label: 'A Torn Tally', text: 'Half a tally-stick from {front}. Somebody spends their evenings there, and owes.', aspects: { opportunity: 1, testimony: 1 } },
   ];
 
   P.fronts = function () { return this.s.network.fronts; };
@@ -84,7 +84,7 @@
     if (existing) return existing;
     return this.create('front', {
       label: front.name.charAt(0).toUpperCase() + front.name.slice(1),
-      desc: front.name + ', ' + CF.DISTRICTS[front.district].label + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Stake it out for what passes through, or go Undercover here for a way in.',
+      desc: front.name + ', ' + CF.DISTRICTS[front.district].label + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Watch it for what passes through, or go in Disguise here for a way in.',
       data: { front: front.id, gang: front.gang },
     });
   };

@@ -58,7 +58,7 @@ function checkInvariants(e) {
   // Duty with Health earns 2 Funds.
   var hp = byDef('health')[0];
   assert.strictEqual(e.autoSlot('duty', hp.uid), 'main');
-  assert.ok(e.preview('duty').label === 'Beat Shift');
+  assert.ok(e.preview('duty').label === 'Walk the Hard Round');
   assert.ok(e.start('duty'));
   for (var i = 0; i < 31; i++) e.tick(1);
   assert.strictEqual(e.verb('duty').status, 'done');

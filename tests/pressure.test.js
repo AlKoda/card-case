@@ -116,7 +116,7 @@ function run(e, verb, cards) {
     var t = g.create('trial', { data: { caseId: rr.id, name: 'X', guilty: true, solid: true, tier: 'strong', real: 8, need: 6, coerced: 0, planted: 0, illegal: 1, contradictions: 0 } });
     var before = g.s.journal.length;
     g.verdict(t);
-    if (g.s.journal.slice(0, g.s.journal.length - before).some(function (j) { return /no warrant/.test(j.text); })) excluded++;
+    if (g.s.journal.slice(0, g.s.journal.length - before).some(function (j) { return /no writ/.test(j.text); })) excluded++;
   }
   assert.ok(excluded > N * 0.15 && excluded < N * 0.5, 'exclusion happens sometimes: ' + excluded + '/' + N);
   console.log('temptation: ok');
@@ -128,7 +128,7 @@ function run(e, verb, cards) {
   var before = byDef(e, 'funds').length;
   e.tick(CF.WEEK + 0.01);
   assert.strictEqual(byDef(e, 'funds').length, before + CF.ECONOMY.salary[0] - CF.ECONOMY.rent, 'week 1: salary in, rent out');
-  assert.ok(e.s.journal.some(function (j) { return /Payday/.test(j.text); }));
+  assert.ok(e.s.journal.some(function (j) { return /stipend/.test(j.text); }));
   e.s.rank = 2;
   before = byDef(e, 'funds').length;
   e.tick(CF.WEEK);

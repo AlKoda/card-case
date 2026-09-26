@@ -31,7 +31,7 @@
     this.story(op.title, op.text, 'major');
     var rec = this.openCases()[0];
     this.story('New Case: ' + rec.title, this.caseCard(rec.id).desc, 'case');
-    s.intro.hint = 'Drag the case onto Investigate, then press what it offers.';
+    s.intro.hint = 'Drag the case onto Examine, then press what it offers.';
     this.dirty = true;
   };
 
@@ -57,23 +57,23 @@
       run: function (e) {
         e.introUnlock(['analyze']);
         e.introReveal(['instinct']);
-        return { hint: 'Evidence goes into Analyze. Put Focus or Instinct in with the case to search differently.' };
+        return { hint: 'Raw proof goes into Study. Put Wit or Instinct in with the case to search differently.' };
       } },
     { cue: function (e) { return e.countOf('witness') + e.countOf('suspect') > 0; },
       run: function (e) {
         e.introUnlock(['interrogate']);
         e.introReveal(['health']);
-        return { hint: 'People go into Interrogate: Focus to listen, Instinct to bluff, Health to lean on them.' };
+        return { hint: 'People go into Question: Wit to listen, Instinct to bluff, Health to lean on them.' };
       } },
     { cue: function (e) { return e.countOf('clue') >= 2; },
       run: function (e) {
         e.introUnlock(['reflect']);
-        return { hint: 'Two clues side by side in Reflect: see whether they tell one story.' };
+        return { hint: 'Two tokens side by side in Contemplate: see whether they tell one story.' };
       } },
     { cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
       run: function (e) {
         e.introUnlock(['arrest']);
-        return { hint: 'A suspect and their clues in Arrest make a charge. The window says how strong it is.' };
+        return { hint: 'An accused and their tokens in Indict make a charge. The window says how it will stand.' };
       } },
     { cue: function (e) { return e.countOf('trial') > 0 || e.s.cases[Object.keys(e.s.cases)[0]].status !== 'open'; },
       run: function (e) { e.introFinish(); return null; } },

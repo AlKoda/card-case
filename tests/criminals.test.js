@@ -48,7 +48,7 @@ function run(e, verb, cards) {
   var r = game(42, 'crusader');
   var rec = r.caseRec(byDef(r, 'case')[0].caseId);
   var kind; for (var j = 0; j < 20 && kind !== 'rumor'; j++) { r.rng.setState(j * 31 + 1); kind = r.informantTip(byDef(r, 'informant')[0]); }
-  var rumor = r.tableCards().filter(function (c) { return /^Rumor/.test(r.labelOf(c)); })[0];
+  var rumor = r.tableCards().filter(function (c) { return /^Rumour/.test(r.labelOf(c)); })[0];
   assert.ok(rumor && rumor.caseId === rec.id && rumor.data.trait === rec.suspects.filter(function (x) { return x.guilty; })[0].trait);
 
   // A warning foreshadows the next case: it comes sooner, with more time and a name.
@@ -101,7 +101,7 @@ function run(e, verb, cards) {
   assert.strictEqual(h.s.journal.length, jn, 'compromised informants say nothing');
   var officer = h.create('teammate', h.teammateSpec('rookie'));
   h.autoSlot('duty', hinf.uid);
-  assert.ok(/officer/i.test(h.preview('duty').blocked));
+  assert.ok(/watchman/i.test(h.preview('duty').blocked));
   h.autoSlot('duty', officer.uid);
   var pr = run(h, 'duty', []);
   assert.strictEqual(pr.id, 'duty_protect');
@@ -131,10 +131,10 @@ function run(e, verb, cards) {
   assert.strictEqual(rec.status, 'cold');
   var crim = e.criminalByName(culprit.name);
   assert.ok(crim && crim.crimes === 1 && crim.status === 'at_large' && crim.trait === culprit.trait);
-  assert.strictEqual(CF.Criminals.rankOf(crim).label, 'Petty Criminal');
+  assert.strictEqual(CF.Criminals.rankOf(crim).label, 'Petty Thief');
   var al = byDef(e, 'atlarge')[0];
   assert.strictEqual(al.data.criminalId, crim.id);
-  assert.ok(/^Petty Criminal: /.test(e.labelOf(al)));
+  assert.ok(/^Petty Thief: /.test(e.labelOf(al)));
   assert.ok(/1 crime on the record/.test(al.desc));
 
   // Weeks pass: they commit new crimes that arrive as cases with their name on them.
@@ -147,8 +147,8 @@ function run(e, verb, cards) {
   assert.strictEqual(again.suspects.filter(function (x) { return x.guilty; })[0].name, culprit.name);
   assert.strictEqual(again.suspects.filter(function (x) { return x.guilty; })[0].trait, culprit.trait);
   assert.strictEqual(crim.crimes, 2);
-  assert.strictEqual(CF.Criminals.rankOf(crim).label, 'Repeat Offender');
-  assert.ok(/^Repeat Offender: /.test(e.labelOf(al)), 'the card follows the record');
+  assert.strictEqual(CF.Criminals.rankOf(crim).label, 'Old Offender');
+  assert.ok(/^Old Offender: /.test(e.labelOf(al)), 'the card follows the record');
   // Rank makes the court want more.
   var T = CF.CASE_TEMPLATES[again.template];
   assert.strictEqual(again.charge[T.keyAspects[0]], T.charge[T.keyAspects[0]] + 1 + (again.highProfile && !T.highProfile ? 1 : 0));
@@ -186,11 +186,11 @@ function run(e, verb, cards) {
   assert.strictEqual(g.countOf('gang'), 1);
   var member = g.criminalByName('Crook 0');
   assert.strictEqual(member.organization, 'gang');
-  assert.strictEqual(CF.Criminals.rankOf(member).label, 'Gang Member');
+  assert.strictEqual(CF.Criminals.rankOf(member).label, 'Sworn of a Band');
   member.crimes = 4;
-  assert.strictEqual(CF.Criminals.rankOf(member).label, 'Gang Lieutenant');
+  assert.strictEqual(CF.Criminals.rankOf(member).label, 'Upright Man');
   g.spawnSyndicate('x');
-  assert.strictEqual(CF.Criminals.rankOf(member).label, 'Syndicate Member');
+  assert.strictEqual(CF.Criminals.rankOf(member).label, 'Of the Coquille');
 
   // Records survive save/load and ride the legacy.
   var s2 = CF.Engine.load(g.save());

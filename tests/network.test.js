@@ -110,7 +110,7 @@ function gangUp(e) {
   var before = byDef(e, 'suspect').length;
   var res = run(e, 'reflect', [a, b]);
   assert.strictEqual(res.id, 'ref_deduce');
-  assert.strictEqual(res.story.title, 'These Cases Are Connected');
+  assert.strictEqual(res.story.title, 'These Cases Are One');
   assert.strictEqual(res.story.kind, 'major');
   var thread = res.out.filter(function (c) { return c.def === 'thread'; })[0];
   assert.ok(thread && thread.data.front === front.id && thread.data.cases.length === 2);

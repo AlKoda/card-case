@@ -12,9 +12,9 @@
 
   var Charge = (CF.Charge = {});
   Charge.TIERS = {
-    weak: { label: 'Weak', text: 'Enough to arrest. A good lawyer will eat it alive.' },
-    reasonable: { label: 'Reasonable', text: 'It could go either way. A jury might buy it.' },
-    strong: { label: 'Strong', text: 'Several independent kinds of proof, all pointing one way. It should hold.' },
+    weak: { label: 'Indicia', text: 'Enough to hold them in the Hole. Before the sworn men, an advocate will eat it alive.' },
+    reasonable: { label: 'Half Proof', text: 'It could go either way. The sworn men might take it, or convict of the lesser crime.' },
+    strong: { label: 'Full Proof', text: 'Several independent kinds of proof, all pointing one way. The Carolina is satisfied. It should hold.' },
   };
 
   // The charge profile of a case: {aspect: points needed}. Generated cases
@@ -117,10 +117,10 @@
     var extra = Object.keys(a.have).filter(function (k) { return !a.profile[k]; });
     if (extra.length) notes.push({ kind: 'dim', text: extra.map(function (k) { return CF.ASPECTS[k].label + ' ' + a.have[k]; }).join(', ') + ': not what this case turns on. Counts for little.' });
     if (a.diversity) notes.push({ kind: 'good', text: 'Independent kinds of proof: +' + a.diversity });
-    if (a.corroboration) notes.push({ kind: 'good', text: 'Corroboration, or evidence that names them: +' + a.corroboration });
-    if (a.contradictions) notes.push({ kind: 'bad', text: a.contradictions + ' clue' + (a.contradictions > 1 ? 's' : '') + ' describe' + (a.contradictions > 1 ? '' : 's') + ' somebody else: −' + a.contradictions * 2 });
-    if (a.illegal) notes.push({ kind: 'bad', text: 'Coerced, planted or found without a warrant: −' + a.illegal + ', and the defence may find out.' });
-    if (a.foreign) notes.push({ kind: 'bad', text: a.foreign + ' clue' + (a.foreign > 1 ? 's have' : ' has') + ' nothing to do with this case.' });
+    if (a.corroboration) notes.push({ kind: 'good', text: 'Corroboration, or proof that names them: +' + a.corroboration });
+    if (a.contradictions) notes.push({ kind: 'bad', text: a.contradictions + ' token' + (a.contradictions > 1 ? 's' : '') + ' describe' + (a.contradictions > 1 ? '' : 's') + ' somebody else: −' + a.contradictions * 2 });
+    if (a.illegal) notes.push({ kind: 'bad', text: 'Beaten out, arranged, or found without a writ: −' + a.illegal + ', and the advocate may find out.' });
+    if (a.foreign) notes.push({ kind: 'bad', text: a.foreign + ' token' + (a.foreign > 1 ? 's have' : ' has') + ' nothing to do with this case.' });
     return { rows: rows, notes: notes, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -60,16 +60,16 @@ r.out.forEach(function (c) { e.remove(c); });
 
 // Theories from aspects.
 r = reflect([clue('Debts', { financial: 2 }), clue('Letter', { motive: 1, testimony: 1 })]);
-assert.strictEqual(e.labelOf(r.out[0]), 'Theory: Financial Motive');
+assert.strictEqual(e.labelOf(r.out[0]), 'Theory: Who Profits');
 assert.ok(r.out[0].data.corroborated);
 e.remove(r.out[0]);
 r = reflect([clue('Print', { forensic: 2 }), clue('Timing', { opportunity: 2 })]);
-assert.strictEqual(e.labelOf(r.out[0]), 'Placed at the Scene');
+assert.strictEqual(e.labelOf(r.out[0]), 'Placed in the Room');
 e.remove(r.out[0]);
 
 // Three clues in Reflect: the primary and up to three more.
 r = reflect([clue('A', { opportunity: 1 }), clue('B', { opportunity: 1 }), clue('C', { opportunity: 1 })]);
-assert.strictEqual(e.labelOf(r.out[0]), 'Reconstructed Timeline');
+assert.strictEqual(e.labelOf(r.out[0]), 'The Night Reckoned');
 e.remove(r.out[0]);
 
 // Clues with nothing in common: no deduction, and corroboration refuses.
@@ -87,10 +87,10 @@ assert.ok(r.blocked && /different cases/.test(r.blocked));
 var before = e.s.journal.length;
 kase.life = 61;
 e.tick(2);
-var warn = e.s.journal.filter(function (j) { return /^Going Cold/.test(j.title); });
+var warn = e.s.journal.filter(function (j) { return /^Going Unanswered/.test(j.title); });
 assert.strictEqual(warn.length, 1, 'one warning');
 e.tick(2);
-assert.strictEqual(e.s.journal.filter(function (j) { return /^Going Cold/.test(j.title); }).length, 1, 'still one warning');
+assert.strictEqual(e.s.journal.filter(function (j) { return /^Going Unanswered/.test(j.title); }).length, 1, 'still one warning');
 assert.strictEqual(CF.daysLeft(kase.life), 7);
 e.tick(70);
 assert.strictEqual(rec.status, 'cold');
