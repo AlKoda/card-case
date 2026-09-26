@@ -64,7 +64,7 @@
       { when: function (st) { return st.attacks >= 2; }, text: 'They came for you twice and warned you both times. The third time there was no warning. They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     ],
-    merciful: [{ text: 'Eight times you sent a poor sinner home instead of to the Ravenstone, and three of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' }],
+    merciful: [{ text: 'Twelve times you sent a poor sinner home instead of to the Ravenstone, and four of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' }],
     hangmans: [
       { when: function (st, s) { return s.who === 'hangman'; }, text: 'You began outside the walls and you end there. The Council keeps you because the city is quiet, and the city is quiet because it knows what you are. The executioner\'s house by the Ravenstone was always going to be your house. The work goes on.' },
       { text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },

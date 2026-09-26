@@ -1190,6 +1190,14 @@
     } else if (card.def === 'plea') {
       lines.push({ church: 'From the Bishop', guild: 'From the Guild', family: 'From the family' }[card.data.from] || 'A plea');
       lines.push('A reason for mercy');
+    } else if (card.def === 'syndicate') {
+      var court = e.s.court || {};
+      if (court.king) lines.push('King of Thunes: ' + court.king.name);
+      lines.push(court.stance === 'treaty' ? 'A Treaty stands' : court.stance === 'rule' ? 'You are inside, week ' + court.insideWeeks : 'No stance yet');
+      lines.push('Disguise: ledger, Wit, or Instinct and Coin');
+    } else if (card.def === 'gang') {
+      lines.push((card.data.members || []).length + ' sworn');
+      lines.push('Disguise to go among them');
     } else if (card.def === 'front') {
       var fr = e.fronts()[card.data.front];
       if (fr) {
