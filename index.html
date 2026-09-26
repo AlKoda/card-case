@@ -16,13 +16,19 @@
   <link rel="stylesheet" href="css/art/cards.css">
   <link rel="stylesheet" href="css/art/props.css">
   <link rel="stylesheet" href="css/art/people.css">
+  <link rel="stylesheet" href="css/art/ranks.css">
+  <link rel="stylesheet" href="css/art/hud.css">
+  <link rel="stylesheet" href="css/art/buttons.css">
+  <link rel="stylesheet" href="css/art/dialogs.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="app">
     <header id="topbar">
       <div class="brand">Case File</div>
+      <div id="rank-badge" title="Rank"></div>
       <div class="rank" id="rank"></div>
+      <div id="weekbar" title="The week"><div class="wb-shade"></div></div>
       <div id="meters"></div>
       <div id="controls">
         <button class="ctl" data-speed="0" title="Pause (Space)">❚❚</button>
@@ -178,6 +184,24 @@
         </div>
       </div>
       <div class="row"><button class="btn" id="help-close">Back to work</button></div>
+    </div>
+  </div>
+
+  <!-- Confirm -->
+  <div class="modal dialog hidden" id="confirm">
+    <div class="dlg dlg-confirm">
+      <div class="dlg-text" id="confirm-text"></div>
+      <button class="dlg-hot yes" id="confirm-yes" aria-label="Yes"></button>
+      <button class="dlg-hot no" id="confirm-no" aria-label="No"></button>
+    </div>
+  </div>
+
+  <!-- Promotion -->
+  <div class="modal dialog hidden" id="promo">
+    <div class="dlg dlg-levelup" id="promo-box" title="Click to continue">
+      <div class="lu-badge" id="promo-badge"></div>
+      <div class="lu-title" id="promo-title"></div>
+      <div class="lu-slot s1" id="promo-s1"></div><div class="lu-slot s2" id="promo-s2"></div><div class="lu-slot s3" id="promo-s3"></div>
     </div>
   </div>
 

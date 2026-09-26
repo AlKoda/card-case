@@ -16,6 +16,34 @@
   }
   function click(id, fn) { $(id).addEventListener('click', function (ev) { CF.Audio.play('click'); fn(ev); }); }
 
+  // A styled yes/no dialog in place of the browser's confirm().
+  var confirmYes = null, confirmFrom = null;
+  function ask(text, onYes) {
+    confirmYes = onYes;
+    confirmFrom = document.querySelector('.modal:not(.hidden)');
+    $('confirm-text').textContent = text;
+    show('confirm', true);
+  }
+  function closeConfirm() { show('confirm', false); confirmYes = null; }
+  click('confirm-no', closeConfirm);
+  click('confirm-yes', function () { var fn = confirmYes; closeConfirm(); if (fn) fn(); });
+
+  // Promotion: rank badge, and the verbs the new rank unlocks.
+  UI.onPromotion = function (rank) {
+    $('promo-badge').style.backgroundImage = 'var(--art-rank-' + (rank + 1) + ')';
+    $('promo-title').textContent = 'Promoted: ' + CF.RANKS[rank];
+    var unlocked = CF.VERB_ORDER.filter(function (v) { return CF.VERBS[v].rank === rank; });
+    [1, 2, 3].forEach(function (i) {
+      var v = unlocked[i - 1];
+      var el = $('promo-s' + i);
+      el.style.backgroundImage = v ? 'var(--art-token-' + v + ')' : '';
+      el.title = v ? CF.VERBS[v].label : '';
+    });
+    CF.Audio.play('victory');
+    show('promo', true);
+  };
+  click('promo-box', function () { show('promo', false); });
+
   var chosen = 'master';
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
@@ -113,7 +141,10 @@
   function openArchive(from) { returnTo = from; CF.Archive.open(); only('archive'); }
   function goBack() { if (returnTo === 'menu') only('menu'); else if (returnTo === 'end') only('end'); else openTitle(); }
 
-  click('t-new', function () { openStart(false); });
+  click('t-new', function () {
+    if (load(SAVE_KEY)) ask('Start a new case file? Your saved game will be lost.', function () { openStart(false); });
+    else openStart(false);
+  });
   click('t-continue', continueGame);
   click('t-archive', function () { openArchive('title'); });
   click('t-settings', function () { openSettings('title'); });
@@ -133,10 +164,11 @@
   click('m-archive', function () { openArchive('menu'); });
   click('m-title', function () { save(); openTitle(); });
   click('m-new', function () {
-    if (!confirm('Abandon this case file? Your progress will be lost.')) return;
-    store(SAVE_KEY, null);
-    inGame = false;
-    openStart(false);
+    ask('Abandon this case file? Your progress will be lost.', function () {
+      store(SAVE_KEY, null);
+      inGame = false;
+      openStart(false);
+    });
   });
   click('end-successor', function () { inGame = false; openStart(true); });
   click('end-new', function () { inGame = false; openStart(false); });
