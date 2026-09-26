@@ -8,7 +8,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/engine.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/engine.js', 'js/systems/charge.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -50,9 +50,18 @@ Detective.prototype.charge = function (clues) {
   var trial = this.byDef('trial')[0];
   assert.ok(trial, 'no trial');
   assert.strictEqual(trial.data.guilty, true, 'charged the culprit');
-  assert.strictEqual(trial.data.solid, true, 'the charge is solid: real ' + a.real + '/' + a.need + ' keys ' + Object.keys(a.realKeys));
-  e.tick(trial.life + 1);
-  assert.strictEqual(rec.status, 'closed', 'convicted, got ' + rec.status);
+  assert.strictEqual(trial.data.solid, true, 'the charge is solid: real ' + a.real + '/' + a.need + ' ' + JSON.stringify(a.have));
+  assert.strictEqual(trial.data.tier, 'strong');
+  // A strong charge convicts 92% of the time; the jury still rolls dice, so
+  // try the verdict from a few different RNG states rather than one seed.
+  var saved = e.save(), convicted = false;
+  for (var i = 0; i < 6 && !convicted; i++) {
+    var g = CF.Engine.load(saved);
+    g.rng.setState((i + 1) * 7919);
+    g.tick(trial.life + 1);
+    convicted = g.caseRec(rec.id).status === 'closed';
+  }
+  assert.ok(convicted, 'a strong charge convicts');
   return a;
 };
 
@@ -90,7 +99,10 @@ function fresh(seed) {
   var th = d.run('reflect', [kase, d.byLabel(/Tool Mark/)[0]]);
   assert.strictEqual(d.rec().identified, d.rec().culprit, 'Hands and Hours names the culprit');
   void th;
-  d.charge([d.byLabel(/Tool Mark/)[0], d.byLabel(/Matched Print/)[0]]);
+  // Forensics alone pile up on one aspect; the timing gives the charge its second leg.
+  assert.notStrictEqual(e.assessCharge(d.suspectCard(d.rec().culprit), [d.byLabel(/Tool Mark/)[0], d.byLabel(/Matched Print/)[0]]).tier, 'strong');
+  d.run('investigate', [kase]);
+  d.charge([d.byLabel(/Tool Mark/)[0], d.byLabel(/Matched Print/)[0], d.byLabel(/The Timing/)[0]]);
   console.log('forensic route: convicted\n  ' + d.log.join('\n  '));
 })();
 

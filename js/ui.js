@@ -744,6 +744,7 @@
     var rbox = h('div', 'recipe');
     if (pv) {
       rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
+        (pv.detail && pv.detail.charge ? chargeHtml(pv.detail.charge) : '') +
         (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
         (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');
     } else if (primaryCard) {
@@ -841,6 +842,19 @@
     });
   }
 
+  // The charge breakdown in the Arrest window: what the case needs proven
+  // against what the clues give, then the bonuses and penalties.
+  function chargeHtml(d) {
+    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(d.tierLabel) + ' charge</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
+    d.rows.forEach(function (r) {
+      var pct = Math.min(100, (r.have / r.need) * 100);
+      html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art('aspect-' + r.aspect) + '"></span>' +
+        '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + r.have + ' / ' + r.need + '</span></div>';
+    });
+    d.notes.forEach(function (n) { html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
+    return html + '</div>';
+  }
+
   // Short handwritten notes for the inspector's dossier.
   function dossierNotes(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, lines = [];
@@ -855,9 +869,9 @@
       lines.push('Time left: ' + U.fmtTime(card.life) + (rec.highProfile ? ' · high-profile' : ''));
     } else if (card.def === 'suspect') {
       var sus = e.suspectOf(card);
-      if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1));
+      if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1) + (rec && rec.identified === card.data.key ? ' · prime suspect' : ''));
       if (rec) lines.push('Case: ' + rec.title);
-      if (rec && rec.identified === card.data.key) lines.push('Prime suspect');
+      if (rec) { var prof = CF.Charge.profileOf(rec); lines.push('To charge: ' + Object.keys(prof).map(function (k) { return CF.ASPECTS[k].short + ' ' + prof[k]; }).join(', ')); }
     } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
       if (rec) lines.push('Case: ' + rec.title);
       if (asp) lines.push(asp);
@@ -898,7 +912,7 @@
     }
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
-      return '<span class="chip big"><span class="chip-icon" style="background-image:' + art('aspect-' + k) + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
+      return '<span class="chip big" title="' + esc(CF.ASPECTS[k].meaning) + '"><span class="chip-icon" style="background-image:' + art('aspect-' + k) + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
     }).join('');
     if (badges && !dz) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';

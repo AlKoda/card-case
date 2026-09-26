@@ -619,6 +619,7 @@
       duration: this.durationOf(rec, r.ctx),
       blocked: lock || blocked,
       danger: rec.danger ? rec.danger(r.ctx) : null,
+      detail: rec.detail ? rec.detail(r.ctx) : null,
     };
   };
 
@@ -1129,6 +1130,10 @@
 
     var highProfile = !!T.highProfile || rng() < 0.15;
     var difficulty = T.difficulty + (highProfile && !T.highProfile ? 1 : 0);
+    // The charge profile: what a court will want proven. A high-profile
+    // case wants one more point of its main aspect.
+    var charge = U.clone(T.charge);
+    if (highProfile && !T.highProfile) charge[T.keyAspects[0]]++;
 
     // Scene pool: template items + generic items + the culprit's trait clue.
     var items = U.shuffle(rng, T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1)));
@@ -1139,7 +1144,7 @@
     var rec = {
       id: id, template: tid, title: U.fill(T.title, vars), short: T.label, district: district, scene: scene,
       victim: victim, vars: vars, suspects: suspects, culprit: culprit.key, keyAspects: T.keyAspects.slice(),
-      difficulty: difficulty, highProfile: highProfile, items: items, found: 0,
+      difficulty: difficulty, highProfile: highProfile, charge: charge, items: items, found: 0,
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
       special: !!T.special, atLargeUid: opts.atLargeUid || null, gangUid: opts.gangUid || null,
       reopened: !!opts.reopened,
@@ -1299,33 +1304,7 @@
 
   // ---- Charges and trials ---------------------------------------------------
   // Assess a charge. `apparent` is what you believe; `real` excludes misread clues.
-  P.assessCharge = function (suspectCard, clues) {
-    var rec = this.caseRec(suspectCard.caseId);
-    if (!rec) return null;
-    var res = { rec: rec, apparent: 0, real: 0, keys: {}, realKeys: {}, coerced: 0, planted: 0, foreign: 0, n: 0 };
-    clues.forEach(function (c) {
-      if (c.caseId !== rec.id) { res.foreign++; return; }
-      res.n++;
-      var a = CF.clueAspects(c);
-      var v = 0;
-      for (var k in a) {
-        var key = rec.keyAspects.indexOf(k) >= 0;
-        v += key ? a[k] : a[k] * 0.5;
-        if (key) res.keys[k] = true;
-        if (key && !c.data.misread) res.realKeys[k] = true;
-      }
-      res.apparent += v;
-      if (!c.data.misread) res.real += v;
-      if (c.data.coerced) res.coerced++;
-      if (c.data.planted) res.planted++;
-    });
-    var need = rec.difficulty;
-    res.need = need;
-    res.solid = res.real >= need && Object.keys(res.realKeys).length >= 2;
-    var ratio = res.apparent / need;
-    res.quality = res.apparent >= need && Object.keys(res.keys).length >= 2 ? 'solid' : ratio >= 0.6 ? 'fair' : 'thin';
-    return res;
-  };
+  // assessCharge lives in js/systems/charge.js.
 
   P.verdict = function (trialCard) {
     var d = trialCard.data;
@@ -1336,8 +1315,9 @@
     var rng = this.rng;
     var notes = [];
     var p;
+    var tier = d.tier || (d.solid ? 'strong' : 'weak');
     if (d.guilty) {
-      p = d.solid ? 0.92 : U.clamp(0.15 + 0.6 * d.real / d.need, 0.15, 0.75);
+      p = d.solid ? 0.92 : tier === 'reasonable' ? U.clamp(0.35 + 0.4 * d.real / d.need, 0.35, 0.8) : U.clamp(0.15 + 0.5 * d.real / d.need, 0.15, 0.55);
     } else {
       p = U.clamp(0.08 + 0.25 * Math.min(1, d.real / d.need), 0, 0.35);
       if (d.coerced) p += 0.25;
@@ -1355,6 +1335,13 @@
       this.meter('scrutiny', 3);
       notes.push('The defence\'s expert takes your planted evidence apart on the stand. The courtroom goes very quiet.');
     }
+    for (var j = 0; j < (d.contradictions || 0); j++) {
+      if (rng() < 0.35) {
+        p -= 0.2;
+        notes.push('The defence reads your own evidence back to the jury: it describes somebody else entirely.');
+      }
+    }
+    p = U.clamp(p, 0.02, 0.97);
     var convicted = rng() < p;
     rec.status = convicted ? 'closed' : 'acquitted';
     this.emit('resolved', this.caseRecord(rec, convicted ? (d.guilty ? 'convicted' : 'wrongful') : 'acquitted', d.name));
@@ -1395,6 +1382,11 @@
       s.stats.acquittals++;
       this.meter('pressure', 1);
       this.meter('retaliation', rec.special ? 2 : 1);
+      this.meter('reputation', -1);
+      if (tier === 'weak' && rng() < 0.5) {
+        this.meter('scrutiny', 1);
+        notes.push('The judge\'s remarks about a rushed charge reach Internal Affairs by lunchtime.');
+      }
       if (!rec.special || rec.template === 'manhunt') {
         if (rec.template === 'manhunt' && rec.atLargeUid && this.card(rec.atLargeUid)) {
           // They were already at large; they simply stay so.

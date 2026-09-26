@@ -47,7 +47,7 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 | **Warrant / Stakeout / Undercover** | Unlocked at Inspector. |
 | **Task Force** | Unlocked at Chief. |
 
-**Charges.** Clues carry six aspects: Forensic, Testimony, Motive, Opportunity, Digital and Financial. Each case type turns on a few of them. A solid charge needs enough weight in the right aspects. A thin charge can still convict, but an acquitted suspect comes back At Large and angrier.
+**Charges.** Clues carry six aspects: Forensic, Testimony, Motive, Opportunity, Digital and Financial. Each case has a charge profile: the aspects a court will want proven, and how much of each. A charge is scored as evidence strength + independent kinds of proof + corroboration − contradictions − illegal evidence. Four Forensic clues are not better than one of each kind, and a clue that describes somebody other than the accused counts against you. **Weak** charges are enough to arrest and little more; **reasonable** ones could go either way; **strong** ones hold, and pay.
 
 **Deduction.** Every suspect has a trait, such as a limp, menthol cigarettes or a green van. The culprit's trait leaks into scene clues and witness statements, so a careful reader can spot the culprit before the mind palace confirms it. Nothing tells you which aspects combine into a theory in Reflect. Working that out is the detective work.
 
