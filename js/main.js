@@ -23,6 +23,7 @@
     store(LEGACY_KEY, JSON.stringify(e.s.legacy));
     var st = e.s.stats;
     $('end').querySelector('.modal-box').className = 'modal-box ' + (over.win ? 'end-win' : 'end-lose');
+    $('end-deck').style.backgroundImage = over.win ? 'var(--art-card-back)' : 'var(--art-card-back-red)';
     $('end-title').textContent = over.title;
     $('end-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ', week ' + over.week;
     $('end-text').textContent = over.text;
