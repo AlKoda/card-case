@@ -152,6 +152,8 @@
       desc: 'Somebody asks mercy for the Condemned. In Sentence, with a lighter rung, it counts as a reason. Some letters are heavier than paper.' },
     paperwork: { label: 'The Rolls', kind: 'paper', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { paperwork: 1 }, stackable: true,
       desc: 'Depositions, examinations, the day-book. Entered fair in Attend (with Wit) they soothe the Council\'s eye.' },
+    writsale: { label: 'A Patrician\'s Letter', kind: 'temptation', tags: ['money', 'corrupt', 'letter'], aspects: { writsale: 1 }, decay: 70, onExpire: 'vanish',
+      desc: 'A patrician wants a rival searched and will pay for the writ. Put it in Attend to oblige, or let it lie.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 
@@ -194,6 +196,7 @@
     surveillance: { label: 'Lantern and Cloak', cost: 6, give: 'surveillance', rank: 2 },
     intel: { label: 'The Informers\' Bench', cost: 6, room: 'intel', rank: 2 },
     training: { label: 'The Drill Yard', cost: 5, room: 'training', rank: 2 },
+    thieftakers: { label: 'The Thief-takers\' Office', cost: 4, room: 'thieftakers', rank: 1 },
     lab: { label: 'The Apothecary', cost: 9, room: 'lab', rank: 3 },
     survroom: { label: 'The Belfry', cost: 8, room: 'survroom', rank: 3 },
   };
@@ -208,8 +211,9 @@
     training: { label: 'The Drill Yard', order: 'training', desc: 'Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.' },
     lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, and no raw proof needs a special instrument.' },
     survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you.' },
+    thieftakers: { label: 'The Thief-takers\' Office', order: 'thieftakers', desc: 'A room let to men who know every fence in the city. Put a Case in Attend with 2 Coin and they get the goods back for a cut, without a trial. Some of what they bring back is a frame.' },
   };
-  CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'lab', 'survroom'];
+  CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'thieftakers', 'lab', 'survroom'];
 
   // A watchman's traits change what a verb does when they are in it.
   CF.OFFICER_TRAITS = {

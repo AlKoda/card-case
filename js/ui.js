@@ -88,6 +88,7 @@
     if (k === 'teammate' || k === 'personnel' || k === 'hospital') return illus(WATCH[hash(card.data.name || e.labelOf(card)) % WATCH.length], k === 'hospital');
     if (card.def === 'rung') return plain((CF.RUNGS[card.data.rung] || {}).icon || 'icon-scales');
     if (card.def === 'plea') return illus('ev-letter');
+    if (card.def === 'writsale') return illus('ev2-letter');
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
       return illus(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length]);
     }
@@ -1146,6 +1147,7 @@
       if (asp) lines.push(asp);
       if (card.data.stake && CF.STAKES[card.data.stake]) lines.push(CF.STAKES[card.data.stake].label + (card.data.againstInterest ? ' · against interest' : '') + (card.data.coerced ? ' · not credible' : ''));
       if (card.data.confession) lines.push(card.data.confession === 'free' ? 'Confessed freely' : 'Under the question');
+      if (card.data.frame) lines.push('The thief-takers\' men');
       if (card.maxLife) lines.push('Keeps for ' + U.fmtTime(card.life));
       if (k === 'evidence' && card.data.item && card.data.item.needs) lines.push('Needs an instrument');
     } else if (k === 'teammate' || k === 'personnel') {
@@ -1168,7 +1170,7 @@
       e.initPaths();
       lines.push(CF.Callings.summary(e));
       var cnt = e.s.counts || {};
-      lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0));
+      lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0) + (cnt.debt ? ' · Debt ' + cnt.debt : ''));
       lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
       if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
     } else if (card.def === 'condemned') {
