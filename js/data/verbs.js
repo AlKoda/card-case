@@ -88,6 +88,15 @@
         { key: 'c4', label: 'Proof', accepts: ['clue'], when: function (p) { return !!p; } },
       ],
     },
+    sentence: {
+      label: 'Sentence', rank: 0,
+      desc: 'The Condemned wait in the Hole for your word. Put one beside a rung of the ladder and the Council follows. A plea, or a free confession, is a reason for mercy. Every rung has its price: in Mercy, in Cruelty, in what the city thinks of you.',
+      slots: [
+        { key: 'main', label: 'The Condemned', accepts: ['condemned'], primary: true },
+        { key: 'rung', label: 'The Ladder', accepts: ['rung'], when: function (p) { return !!p; } },
+        { key: 'plea', label: 'Plea', accepts: ['plea', 'clue'], when: function (p) { return !!p; } },
+      ],
+    },
     requisition: {
       label: 'Petition', rank: 0,
       desc: 'Spend Coin. Put in a Petition or a Letter of Service, then enough Coin to cover it.',
@@ -163,6 +172,6 @@
     ],
   };
 
-  CF.VERB_ORDER = ['time', 'duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest',
+  CF.VERB_ORDER = ['time', 'duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest', 'sentence',
     'requisition', 'warrant', 'stakeout', 'delegate', 'undercover', 'taskforce', 'majorcrimes'];
 })(typeof window !== 'undefined' ? window : globalThis);

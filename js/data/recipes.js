@@ -972,6 +972,48 @@
     },
   });
 
+  // ================================================================= SENTENCE
+  R.push({
+    id: 'sen_none', verb: 'sentence', label: 'The Ladder', duration: 5,
+    preview: function (ctx) {
+      var d = ctx.primary.data;
+      return d.name + ' waits in the Hole. Custom would give them ' + CF.Sentence.rungLabel(d.template, d.custom).toLowerCase() + '. Put a rung of the ladder beside them; a plea or a free confession is a reason for mercy.';
+    },
+    blocked: 'Choose a rung of the ladder.',
+    requires: ['condemned'],
+    forbids: ['rung'],
+  });
+  R.push({
+    id: 'sen_pass', verb: 'sentence',
+    label: function (ctx) { return CF.Sentence.rungLabel(ctx.primary.data.template, ctx.first('rung').data.rung); },
+    duration: 10,
+    preview: function (ctx) {
+      var d = ctx.primary.data, r = ctx.first('rung').data.rung, R0 = CF.RUNGS[r];
+      var plea = ctx.slots.plea;
+      var reason = d.penitent || (plea && (plea.def === 'plea' || plea.data.confession === 'free'));
+      var lighter = CF.Sentence.ORDER.indexOf(r) < CF.Sentence.ORDER.indexOf(d.custom);
+      var out = R0.desc;
+      if (r === 'pardon') out += reason ? ' You have a reason the Council will accept.' : ' You have no reason to give the Council.';
+      if (plea && plea.def === 'plea' && plea.data.purse && lighter) out += ' The letter is heavier than paper, and you know what that means.';
+      if (lighter && r !== 'pardon') out += ' Lighter than custom; the crowd notices.';
+      if (r === 'sword' && CF.Sentence.ladderOf(d.template).capital && d.custom === 'wheel') out += ' Commuted out of mercy.';
+      return out;
+    },
+    danger: function (ctx) { return CF.RUNGS[ctx.first('rung').data.rung].cost; },
+    requires: ['condemned', 'rung'],
+    run: function (ctx) {
+      var e = ctx.e, cond = ctx.primary, rung = ctx.first('rung');
+      if (rung.data.condemned !== cond.uid) return { title: 'The Wrong Ladder', text: 'That rung belongs to somebody else\'s sentence.' };
+      var plea = ctx.slots.plea || null;
+      if (plea && plea.def !== 'plea' && plea.data.confession !== 'free') plea = null;
+      var res = e.passSentence(cond, rung.data.rung, plea, { quiet: true });
+      ctx.consume(cond);
+      if (plea) ctx.consume(plea);
+      ctx.give('paperwork');
+      return res;
+    },
+  });
+
   // ============================================================== REQUISITION
   R.push({
     id: 'req_buy', verb: 'requisition',

@@ -27,6 +27,9 @@
   CF.CRIMINAL_TRAITS = {
     careful: { label: 'Careful', desc: 'Has stood before the Blood Court once. Leaves less behind.' },
     violent: { label: 'Violent', desc: 'Hurts people. Feeds the Vendetta every week.' },
+    spared: { label: 'Spared', desc: 'Pardoned once. Owes the Examiner, and the underworld knows it.' },
+    pilloried: { label: 'Pilloried', desc: 'Stood in the collar. Every quarter knows the face: named at once at any new scene.' },
+    branded: { label: 'Branded', desc: 'The iron on the cheek. Cannot swear before a court, cannot be pardoned again.' },
   };
   Crim.WEEKLY_CRIME = 0.2;
 
@@ -49,7 +52,7 @@
   };
   P.criminalsAtLarge = function () {
     var s = this.s.criminals, out = [];
-    for (var k in s) if (s[k].status !== 'jailed') out.push(s[k]);
+    for (var k in s) if (s[k].status === 'at_large' || s[k].status === 'hunted') out.push(s[k]);
     return out;
   };
 

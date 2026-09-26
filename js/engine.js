@@ -922,6 +922,7 @@
     var how = card.data.onExpire || def.onExpire || 'vanish';
     var label = this.labelOf(card);
     if (how === 'cold') { this.goCold(card.caseId); return; }
+    if (how === 'sentence_default') { this.defaultSentence(card); return; }
     if (how === 'heal') {
       this.remove(card);
       this.create('health');
@@ -986,6 +987,7 @@
     if (atLarge + gangs * 2 + synd * 3 >= 4) { this.meter('pressure', 1); lines.push('The broadsheet-sellers count the thieves abroad, and sing the number in the Market.'); }
     this.organise();
     lines = lines.concat(this.criminalsAct());
+    if (this.banishedReturn) lines = lines.concat(this.banishedReturn());
 
     // Retaliation strikes.
     var r = s.meters.retaliation;
@@ -1469,6 +1471,7 @@
     };
     var card = opts.ctx ? opts.ctx.give('case', spec) : this.create('case', spec);
     if (warning) this.revealSuspect(rec, null);
+    if (known && known.traits.indexOf('pilloried') >= 0 && !warning) { this.revealSuspect(rec, null, { key: rec.culprit }); }
     if (!opts.quiet) {
       this.story(opts.headline || 'New Case: ' + rec.title, (opts.lead ? opts.lead + ' ' : '') + brief, 'case');
     }
@@ -1723,6 +1726,7 @@
         }
       }
       this.onConviction(rec, d, notes);
+      if (!s.over) this.condemn(rec, d, tier);
       if (!d.guilty) {
         var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
         this.meter('scrutiny', 1);
