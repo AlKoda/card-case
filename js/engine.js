@@ -1027,6 +1027,7 @@
       if (s.calmWeeks % 2 === 0) this.pathGain('commissioner', 1, 'a calm fortnight');
     }
     // Fear fades, slowly, and while it lasts the Stews keep their heads down.
+    if (s.meters.dread > 0) this.meter('dread', -1);
     if (s.meters.dread > 0 && this.rng() < 0.5) this.meter('dread', -1);
     if (s.meters.dread >= 6) { this.meter('pressure', -1); lines.push('The Stews are quiet. Nobody wants to be the next one you put to the question.'); }
     if (s.meters.dread >= 8) lines.push('Doors close as you pass. The city is afraid of you now, and fear does not stay quiet forever.');

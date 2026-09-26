@@ -88,7 +88,7 @@
       { text: 'Somebody you hanged had a brother, and the brother had a ledger. The Council makes a new law with your trade in it, word for word, and tries you under it in the same court where you sent so many. Two witnesses. Your own men. The ballad is already printed.' },
     ],
     riot: [
-      { when: function (st, s) { return (s.counts || {}).cruelty >= 6; }, text: 'You put too many of them to the question, and the quarters counted. The next execution is meant to be a lesson; the crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You leave by the Harbour gate with what you are wearing.' },
+      { when: function (st, s) { return (s.counts || {}).cruelty >= 8; }, text: 'You put too many of them to the question, and the quarters counted. The next execution is meant to be a lesson; the crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You leave by the Harbour gate with what you are wearing.' },
       { text: 'The next execution is meant to be a lesson. The crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You get out of the city by the Harbour gate with what you are wearing. The Council does not send after you.' },
     ],
     commissioner: [

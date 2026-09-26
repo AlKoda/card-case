@@ -15,7 +15,7 @@
     advocate: { label: 'The Advocate', icon: 'gicon-scales', art: 'char-clerk-papers',
       blurb: 'You argued before the Blood Court for ten years and know how a file is built. The Council trusts your pen more than your fists.',
       bends: 'Reads the file: the first search of every scene turns up the token that marks the culprit. Begins with Wit ×2 and the Council\'s ear.',
-      shut: 'Weak: a Wound takes twice as long to heal.' },
+      shut: 'Weak: a Wound takes half again as long to heal.' },
     hangman: { label: 'The Hangman', icon: 'icon-skull', art: 'char-hooded',
       blurb: 'You kept the Ravenstone for the city and read more bodies than any physician. The Council uses you. It will never dine with you.',
       bends: 'Reads wounds and poisons alone: begins with a Physician\'s Case, Health ×2 and the keys to the Hole. Study is quicker.',
@@ -23,7 +23,7 @@
     monk: { label: 'The Physician-Monk', icon: 'gicon-cross', art: 'char-priest',
       blurb: 'The Abbey lent you to the Council because you know herbs, wounds and the human heart, and because the Abbot wanted you out of the garden.',
       bends: 'Poisons and plants read at a glance: Study takes half the time. Begins with a Physician\'s Case and the Apothecary\'s Key.',
-      shut: 'May not carry the sword: the Watch must make every arrest, and the Watch is slow. Indict takes twice as long.' },
+      shut: 'May not carry the sword: the Watch must make every arrest, and the Watch is slow. Indict takes half again as long.' },
     watchman: { label: 'The Watchman', icon: 'gicon-star', art: 'char-watchman',
       blurb: 'Twenty years on the night round with a cudgel and a lantern. Every tapster knows you. Every thief knows to run.',
       bends: 'Beats, chases and doors: Walk the Ward and the Watch take a quarter less time. Begins with Health ×3 and a Beadle already in service.',
@@ -71,7 +71,7 @@
     if (!who) return 1;
     if (who === 'hangman' && verbId === 'analyze') return 0.75;
     if (who === 'monk' && verbId === 'analyze') return 0.5;
-    if (who === 'monk' && verbId === 'arrest') return 2;
+    if (who === 'monk' && verbId === 'arrest') return 1.5;
     if (who === 'watchman' && (verbId === 'patrol' || verbId === 'stakeout')) return 0.75;
     if (who === 'watchman' && verbId === 'analyze' && !this.hasClerk()) return 2;
     if (who === 'clerk' && verbId === 'warrant') return 0.5;
@@ -89,7 +89,7 @@
   // The highest office the Council will give this origin.
   P.rankCap = function () { return this.s.who === 'hangman' ? 2 : CF.TOP_RANK; };
   // How long a wound lasts for this body.
-  P.woundFactor = function () { return this.s.who === 'advocate' ? 2 : 1; };
+  P.woundFactor = function () { return this.s.who === 'advocate' ? 1.5 : 1; };
   // The Advocate reads the file: the culprit's trait token comes first.
   P.readFile = function (rec) {
     if (this.s.who !== 'advocate' || rec.fileRead) return false;

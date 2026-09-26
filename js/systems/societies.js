@@ -19,8 +19,8 @@
   var P = CF.Engine.prototype;
 
   var Soc = (CF.Societies = {});
-  Soc.MERCIFUL = { mercy: 8, cruelty: 1, reformed: 3 };
-  Soc.HANGMANS = { cruelty: 8 };
+  Soc.MERCIFUL = { mercy: 12, cruelty: 1, reformed: 4 };
+  Soc.HANGMANS = { cruelty: 14, dread: 5 };
   Soc.MOUNTAIN = { week: 8, rank: 2, chance: 0.12, grace: 6 };
   Soc.EUMENIDES = { week: 8, chance: 0.2 };
 
@@ -35,7 +35,7 @@
     var s = this.s, cnt = s.counts || {}, f = s.favour || {};
     if (s.over) return;
     if ((cnt.mercy || 0) >= Soc.MERCIFUL.mercy && (cnt.cruelty || 0) <= Soc.MERCIFUL.cruelty && this.reformedCount() >= Soc.MERCIFUL.reformed) { this.gameOver('merciful'); return; }
-    if ((cnt.cruelty || 0) >= Soc.HANGMANS.cruelty) { this.gameOver('hangmans'); return; }
+    if ((cnt.cruelty || 0) >= Soc.HANGMANS.cruelty && s.meters.dread >= Soc.HANGMANS.dread) { this.gameOver('hangmans'); return; }
     if ((f.bishop || 0) <= -4 && s.flags.inquisitor && (s.stats.wrongful || 0) >= 1 && this.rng() < 0.15) { this.gameOver('stake'); return; }
   };
 

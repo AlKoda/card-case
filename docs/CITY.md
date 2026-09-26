@@ -472,7 +472,7 @@ Two phases at a time, each a pull request, tests first, as before.
 | **G. The Court of Miracles** (done) | Coquille roles on records; the King of Thunes; the three stances (Eradicate, Rule, Treaty) with their verbs and cards; tribute; Closed-by-the-Court cases; the King of Thunes and Treaty City endings | D |
 | **H. New crimes** (done: Poisoning, Coining, the Scriptorium, the Witch Mark, the Highway, the Contract; the Pattern and the Three Days remain) | Poisoning, Coining, the Locked Scriptorium, the Contract, the Witch Mark, the Pattern, the Highway, the Three Days; structures and leads for each | B |
 | **I. Endings and societies** (done) | The ten new endings with variants; the Eumenides; the Order of the Mountain | all |
-| **J. Balance** | The bot plays five hundred games per origin; the tension of Part I §20 re-tuned for the Court's slower clock | all |
+| **J. Balance** (first pass done) | The bot plays with four temperaments across the five origins; the count endings, Dread's fading and two origin doors re-tuned | all |
 
 A and B are the first round.
 

@@ -62,7 +62,7 @@ function dur(e, verb, cards) {
   assert.ok(dur(watch, 'analyze', [ev(watch)]) <= d0, 'until a Clerk is in service');
   // The Monk may not carry the sword.
   function sc(e) { var k = byDef(e, 'case')[0], r = e.caseRec(k.caseId); return e.revealSuspect(r, null, { key: r.culprit }); }
-  assert.ok(dur(monk, 'arrest', [sc(monk)]) >= dur(none, 'arrest', [sc(none)]) * 2 - 1, 'the Watch is slow');
+  assert.ok(dur(monk, 'arrest', [sc(monk)]) > dur(none, 'arrest', [sc(none)]), 'the Watch is slow');
   // The Watchman walks quicker; the Clerk cannot walk at all, yet.
   var pn = dur(none, 'patrol', [byDef(none, 'health')[0]]);
   assert.ok(dur(watch, 'patrol', [byDef(watch, 'health')[0]]) < pn, 'the Watchman knows the round');
@@ -90,7 +90,7 @@ function dur(e, verb, cards) {
   // and heals slowly.
   adv.hurtYou('a blow');
   none.hurtYou('a blow');
-  assert.strictEqual(byDef(adv, 'wound')[0].life, byDef(none, 'wound')[0].life * 2, 'a Wound takes twice as long');
+  assert.strictEqual(byDef(adv, 'wound')[0].life, byDef(none, 'wound')[0].life * 1.5, 'a Wound takes half again as long');
   // Saves keep the origin; old saves have none.
   var again = CF.Engine.load(monk.save());
   assert.strictEqual(again.s.who, 'monk');

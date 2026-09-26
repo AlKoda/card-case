@@ -163,8 +163,7 @@
     var s = this.s;
     if (!s.flags.inquisitor || this.rng() >= 0.5) return false;
     var name = cond.data.name;
-    this.passSentence(cond, 'wheel', null, { quiet: true, byCouncil: true });
-    this.count('cruelty', -2); // the Inquisitor's, not yours
+    this.passSentence(cond, 'wheel', null, { quiet: true, byCouncil: true }); // the Inquisitor's cruelty, not yours
     this.meter('dread', 1);
     s.stats.inquisitor = (s.stats.inquisitor || 0) + 1;
     this.story('The Inquisitor: ' + name, 'The Inquisitor takes ' + name + ' out of the Hole before you can speak. The question is applied whether you would or not, a confession is read out, and the Fire follows by the end of the week. He thanks you for your diligence in finding the heretic. You did not know there was one.', 'danger');
