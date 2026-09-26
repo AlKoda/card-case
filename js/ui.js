@@ -133,6 +133,7 @@
     ['#board', '#windows', '#dock'].forEach(function (sel) { $(sel).innerHTML = ''; });
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
+    UI.dockH = undefined;
     $('#btn-journal').classList.remove('unread');
     $('#journal-drawer').classList.remove('open');
     $('#peek').classList.remove('open');
@@ -594,6 +595,14 @@
         if (members.indexOf(child.dataset.verb) < 0) { child.remove(); delete verbEls[child.dataset.verb]; }
       });
     });
+    // A new verb can wrap the dock onto another row: keep the cards below it.
+    var dockH = dock.offsetHeight;
+    if (UI.dockH !== undefined && dockH !== UI.dockH) {
+      UI.view.y += dockH - UI.dockH;
+      clampView();
+      applyView();
+    }
+    UI.dockH = dockH;
   }
 
   function updateVerbRings() {
