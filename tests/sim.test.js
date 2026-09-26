@@ -16,7 +16,7 @@ console.error = function (err) { throw err; }; // recipe errors must fail the te
 
 function checkInvariants(e) {
   var s = e.s;
-  var cellKinds = {};
+  var groups = {};
   Object.keys(s.cards).forEach(function (k) {
     var c = s.cards[k];
     assert.ok(c.loc, 'card ' + c.def + ' has no location');
@@ -25,12 +25,21 @@ function checkInvariants(e) {
     if (c.loc.t === 'held') assert.ok(v.held.indexOf(c.uid) >= 0 && v.status === 'running', 'held mismatch');
     if (c.loc.t === 'out') assert.ok(v.out.indexOf(c.uid) >= 0, 'out mismatch');
     if (c.loc.t === 'table') {
+      assert.ok(isFinite(c.loc.x) && isFinite(c.loc.y) && c.loc.x >= 0 && c.loc.y >= 0, 'bad position');
+      var pk = c.loc.x + ',' + c.loc.y;
       var key = e.stackKey(c) || ('u' + c.uid);
-      var prev = cellKinds[c.loc.cell];
-      assert.ok(!prev || (prev === key && e.stackKey(c)), 'two different cards share table cell ' + c.loc.cell);
-      cellKinds[c.loc.cell] = key;
+      assert.ok(!groups[pk] || (groups[pk] === key && e.stackKey(c)), 'two different cards share a position');
+      groups[pk] = key;
     }
   });
+  // Nothing on the board covers anything else.
+  var T = CF.TABLE, rects = [];
+  Object.keys(groups).forEach(function (pk) { var xy = pk.split(','); rects.push({ x: +xy[0], y: +xy[1], w: T.CW, h: T.CH, n: 'stack ' + pk }); });
+  Object.keys(s.verbs).forEach(function (id) { var v = s.verbs[id]; if (v.unlocked) rects.push({ x: v.x, y: v.y, w: T.VW, h: T.VH, n: 'verb ' + id }); });
+  for (var i = 0; i < rects.length; i++) for (var j = i + 1; j < rects.length; j++) {
+    var a = rects[i], b = rects[j];
+    assert.ok(!(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h), 'overlap: ' + a.n + ' / ' + b.n);
+  }
   Object.keys(s.verbs).forEach(function (id) {
     var v = s.verbs[id];
     Object.keys(v.slots).forEach(function (k) { assert.ok(s.cards[v.slots[k]], 'dangling slot ' + id + '.' + k); });
@@ -92,6 +101,20 @@ function checkInvariants(e) {
   assert.strictEqual(rec.status, 'cold');
   assert.ok(e.countOf('coldcase') === 1 && e.countOf('atlarge') === 1);
 
+  // Stackable cards join one stack; dropping one elsewhere moves only it.
+  var funds = e.tableCards().filter(function (c) { return c.def === 'funds'; });
+  assert.ok(funds.length >= 2 && funds.every(function (c) { return c.loc.x === funds[0].loc.x && c.loc.y === funds[0].loc.y; }), 'funds stack together');
+  var p = e.moveCard(funds[0].uid, 900, 900);
+  assert.ok(p.x !== funds[1].loc.x || p.y !== funds[1].loc.y, 'one card leaves the stack');
+  e.moveCard(funds[0].uid, funds[1].loc.x + 20, funds[1].loc.y + 10);
+  assert.ok(funds[0].loc.x === funds[1].loc.x && funds[0].loc.y === funds[1].loc.y, 'dropping it back rejoins the stack');
+
+  // Old grid saves load onto the free board.
+  var old = JSON.parse(e.save());
+  Object.keys(old.cards).forEach(function (k, i) { var c = old.cards[k]; if (c.loc.t === 'table') c.loc = { t: 'table', cell: i }; });
+  Object.keys(old.verbs).forEach(function (k) { delete old.verbs[k].x; delete old.verbs[k].y; });
+  checkInvariants(CF.Engine.load(old));
+
   // Save / load round trip.
   var e2 = CF.Engine.load(e.save());
   assert.deepStrictEqual(Object.keys(e2.s.cards).sort(), Object.keys(e.s.cards).sort());
@@ -125,7 +148,11 @@ function botStep(e, rng) {
   });
   if (rng() < 0.1) {
     var t = e.tableCards();
-    if (t.length) e.moveCard(t[Math.floor(rng() * t.length)].uid, Math.floor(rng() * 80));
+    if (t.length) e.moveCard(t[Math.floor(rng() * t.length)].uid, rng() * 1400, rng() * 1200, rng() < 0.3);
+  }
+  if (rng() < 0.03) {
+    var vids = CF.VERB_ORDER.filter(function (v) { return e.verb(v).unlocked; });
+    e.moveVerb(vids[Math.floor(rng() * vids.length)], rng() * 1400, rng() * 1000);
   }
 }
 

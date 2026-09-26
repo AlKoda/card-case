@@ -8,18 +8,20 @@
   // ------------------------------------------------------------ Settings
   var SettingsUI = (CF.SettingsUI = {});
   var RANGES = ['master', 'music', 'sfx', 'textSpeed'];
+  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur'];
 
   function showValue(input) { input.nextElementSibling.textContent = input.value + '%'; }
 
   SettingsUI.open = function () {
     var v = CF.Settings.values;
     RANGES.forEach(function (k) { var el = $('s-' + k); el.value = v[k]; showValue(el); });
-    $('s-shake').checked = !!v.shake;
+    TOGGLES.forEach(function (k) { $('s-' + k).checked = !!v[k]; });
     $('s-fullscreen').checked = !!document.fullscreenElement;
   };
 
   SettingsUI.apply = function () {
-    var vals = { shake: $('s-shake').checked };
+    var vals = {};
+    TOGGLES.forEach(function (k) { vals[k] = $('s-' + k).checked; });
     RANGES.forEach(function (k) { vals[k] = +$('s-' + k).value; });
     CF.Settings.save(vals);
     var fs = $('s-fullscreen').checked;

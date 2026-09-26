@@ -14,9 +14,12 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 2. Push to `main`, or open the **Actions** tab, pick **Deploy to GitHub Pages**, and click **Run workflow**.
 3. When it finishes, the game is at `https://<your-username>.github.io/<repo-name>/`. The link also appears on the workflow run.
 
-- **Drag** cards onto a verb, or into a verb's slots. **Begin** runs it.
-- **Hover or click** a card to read it. **Double-click** a card to send it to the open verb.
-- **Space** pauses, **1/2/3** set the speed, **J** opens the journal, and **Esc** closes the verb window.
+- **Drag** cards onto a verb, or into a verb's slots. **Begin** runs it. Cards that fit an open verb glow.
+- **Click a verb** to open its window. Windows can be dragged, and several can be open at once.
+- **Move anything**: cards, stacks and verbs. Drop a card on its own kind to stack it; drag the top card off a stack to take one, or **Shift-drag** to take the whole stack.
+- **Drag the empty table** to pan, **scroll** to zoom, **0** to fit the table.
+- **Hover or click** a card to read it. **Double-click** a card to send it to an open verb.
+- **Space** pauses, **1/2/3** set the speed, and **Esc** closes the top window. You can still move cards and start verbs while paused.
 
 ### Menus and settings
 

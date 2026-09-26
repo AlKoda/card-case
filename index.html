@@ -31,30 +31,37 @@
       <div id="weekbar" title="The week"><div class="wb-shade"></div></div>
       <div id="meters"></div>
       <div id="controls">
-        <button class="ctl" data-speed="0" title="Pause (Space)">❚❚</button>
-        <button class="ctl" data-speed="1" title="Normal speed (1)">▶</button>
-        <button class="ctl" data-speed="2" title="Fast (2)">▶▶</button>
-        <button class="ctl" data-speed="3" title="Fastest (3)">▶▶▶</button>
+        <div class="speed">
+          <button class="ctl" data-speed="0" title="Pause (Space)">❚❚</button>
+          <button class="ctl" data-speed="1" title="Normal speed (1)">1×</button>
+          <button class="ctl" data-speed="2" title="Fast (2)">2×</button>
+          <button class="ctl" data-speed="3" title="Fastest (3)">3×</button>
+        </div>
         <button class="ctl" id="btn-help" title="How to play">?</button>
         <button class="ctl" id="btn-menu" title="Menu">☰</button>
       </div>
     </header>
     <div id="main">
-      <section id="board">
-        <div id="verbs"></div>
-        <div id="table"><div id="table-inner"></div></div>
+      <section id="table" aria-label="The table">
+        <div id="board"></div>
+        <div id="windows"></div>
+        <div id="pause-banner">Paused <span>Space to resume</span></div>
+        <div id="zoom">
+          <button data-zoom="out" title="Zoom out (-)">−</button>
+          <button data-zoom="fit" title="Fit the table (0)">⤢</button>
+          <button data-zoom="in" title="Zoom in (+)">+</button>
+        </div>
+        <div id="hint">Drag cards onto verbs. Click a verb to open it. Drag the table to pan, scroll to zoom, Shift-drag to move a whole stack.</div>
       </section>
       <aside id="side">
-        <div id="tabs">
-          <button data-tab="desk" class="on">Desk</button>
-          <button data-tab="journal">Journal</button>
-        </div>
-        <div id="pane"></div>
         <div id="inspector"></div>
+        <div class="side-head">Journal</div>
+        <div id="journal"></div>
       </aside>
     </div>
   </div>
   <div id="toasts"></div>
+  <div id="drag-layer"></div>
 
   <!-- Title screen -->
   <div class="modal screen hidden" id="title">
@@ -112,6 +119,9 @@
           <h3 id="sec-gameplay">Gameplay</h3>
           <div class="set-row"><label for="s-textSpeed">Text Speed</label><input type="range" id="s-textSpeed" min="0" max="100"><output></output></div>
           <div class="set-row"><label for="s-shake">Window Shake</label><input type="checkbox" class="toggle red" id="s-shake"></div>
+          <div class="set-row"><label for="s-pauseOnCase">Pause when a case arrives</label><input type="checkbox" class="toggle" id="s-pauseOnCase"></div>
+          <div class="set-row"><label for="s-pauseOnVerb">Pause when a verb finishes</label><input type="checkbox" class="toggle" id="s-pauseOnVerb"></div>
+          <div class="set-row"><label for="s-pauseOnBlur">Pause when you switch away</label><input type="checkbox" class="toggle" id="s-pauseOnBlur"></div>
           <h3 id="sec-language">Language</h3>
           <div class="set-row"><span></span><div class="lang-pick"><button disabled>&lsaquo;</button><span>English</span><button disabled>&rsaquo;</button></div></div>
           <p class="set-note">More languages are planned.</p>
@@ -164,7 +174,11 @@
       <div class="help-grid">
         <div>
           <h4>Cards and verbs</h4>
-          <p>Everything is a card. You act by dragging cards into the <b>verbs</b> along the top. Each verb has a first slot; filling it reveals the others. When the verb says what it will do, press Begin.</p>
+          <p>Everything is a card. You act by dragging cards onto the <b>verbs</b> on the table. Click a verb to open it: its first slot takes a card, and filling it reveals the others. Cards that fit glow. When the verb says what it will do, press Begin. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <h4>Your table</h4>
+          <p>Move anything: cards, stacks and verbs. Drop a card on its own kind to stack it; drag the top card off a stack to take one, or Shift-drag to take the whole stack. Drag the empty table to pan, scroll to zoom, <b>0</b> to fit. Windows can be dragged by their title.</p>
+          <h4>Time</h4>
+          <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives or a verb finishes.</p>
           <h4>Cases</h4>
           <p>Cases arrive on their own and count down. When one hits zero it goes <b>cold</b>, the criminal is <b>At Large</b>, and Public Pressure rises. You can't close everything.</p>
           <h4>Detective work</h4>
