@@ -86,13 +86,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #btn-journal { position: relative; }
 
 /* The verb dock: fixed along the top of the table, outside the camera. */
-#dock { position: absolute; left: 0; right: 0; top: 0; z-index: 8; display: flex; align-items: flex-start; justify-content: center; gap: 4px; padding: 6px 12px 2px; pointer-events: none; }
+#dock { position: absolute; left: 0; right: 0; top: 0; z-index: 8; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 4px; padding: 6px 12px 2px; pointer-events: none; }
 #dock .dock-group { display: flex; gap: 2px; padding: 0 6px; pointer-events: auto; border-right: 1px solid rgba(255, 255, 255, 0.08); }
 #dock .dock-group:last-child, #dock .dock-group.empty { border-right: none; }
 #dock .dock-group.empty { padding: 0; }
 #dock .verb { position: relative; left: auto; top: auto; transition: none; width: 84px; height: 96px; }
 #dock .verb .v-token { width: 76px; height: 84px; }
 #dock .verb.time .v-token { width: 64px; height: 70px; }
+/* Narrow tables: smaller tokens, and the dock wraps onto a second row. */
+@media (max-width: 1200px) {
+  #dock .verb { width: 66px; height: 78px; }
+  #dock .verb .v-token { width: 60px; height: 66px; }
+  #dock .verb.time .v-token { width: 52px; height: 57px; }
+  #dock .verb .v-status { font-size: 9px; }
+  #dock .dock-group { padding: 0 3px; }
+}
 .verb .v-plate.long { font-size: 5.6px; letter-spacing: -0.03em; }
 .verb .v-count { position: absolute; top: 2px; left: 6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--accent); color: #1c1914; font-weight: 800; font-size: 12px; line-height: 20px; text-align: center; box-shadow: 0 0 0 2px #0e1112; transform: scale(0); transition: transform 0.2s; }
 .verb.loaded .v-count { transform: scale(1); }
