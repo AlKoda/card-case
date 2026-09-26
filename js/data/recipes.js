@@ -767,6 +767,39 @@
     },
   });
   R.push({
+    id: 'ref_dagger', verb: 'reflect',
+    label: function (ctx) { return ctx.count('funds') >= 2 ? 'Pay the Mountain' : 'Endure the Warning'; },
+    duration: 20,
+    preview: function (ctx) { return ctx.count('funds') >= 2 ? 'Two Coin left where the dagger lay. The Order takes it, and leaves you alone for a season.' : 'Bar the door, change the servant, sleep with a blade. They cannot be broken. They can be outlasted, sometimes.'; },
+    danger: function (ctx) { return ctx.count('funds') >= 2 ? null : 'Dread +1 · Vendetta +2 · they may come anyway'; },
+    requires: { primary: 'dagger' },
+    run: function (ctx) {
+      var e = ctx.e;
+      ctx.consume(ctx.primary);
+      if (ctx.count('funds') >= 2) {
+        ctx.with('funds').slice(0, 2).forEach(ctx.consume);
+        e.s.flags.mountainPaidUntil = e.s.week + CF.Societies.MOUNTAIN.grace;
+        e.count('purse', 0);
+        return { title: 'The Mountain Is Paid', text: 'You leave the Coin where the dagger lay. In the morning both are gone. Nobody in the house saw anything.' };
+      }
+      e.meter('dread', 1);
+      e.meter('retaliation', 2);
+      if (ctx.rng() < 0.3) { e.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts.'); return { title: 'They Came Anyway', text: 'The Order keeps its word. Not all of it, this time.' }; }
+      return { title: 'Endured', text: 'You bar the door and change the servant and sleep, when you sleep, with a blade. Nothing comes. For now.' };
+    },
+  });
+  R.push({
+    id: 'ref_eumenides', verb: 'reflect', label: 'The Hospital Door', duration: 40,
+    preview: 'Two torsos, one hospital. The Brotherhood of St Julian feeds the poor and sits on the Council. Open the case against it.',
+    blocked: function (ctx) { return ctx.e.s.flags.eumenidesCase && ctx.e.caseRec(ctx.e.s.flags.eumenidesCase).status === 'open' ? 'The case against the Brotherhood is already open.' : ctx.e.s.flags.eumenidesBroken ? 'The Brotherhood is finished.' : null; },
+    requires: { primary: 'thread', when: function (ctx) { var f = ctx.e.fronts()[ctx.primary.data.front]; return !!(f && f.society === 'eumenides'); } },
+    run: function (ctx) {
+      ctx.consume(ctx.primary);
+      ctx.e.openEumenides(ctx);
+      return { title: 'The Eumenides', kind: 'major', text: 'Two torsos, one door: the Hospital of St Julian, whose board of charity is half the Council. Behind its chapter house there is a room with a drain in the floor. You have a case now. You do not yet have a friend on the Hill.' };
+    },
+  });
+  R.push({
     id: 'ref_thread', verb: 'reflect', label: 'Close In', duration: 30,
     preview: 'The thread and the band it leads to. Think about who goes in and out, and when.',
     blocked: function (ctx) { return ctx.has('gang') || ctx.has('syndicate') ? null : 'Add the Band or Coquille card the thread leads to.'; },

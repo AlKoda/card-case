@@ -30,6 +30,7 @@ var FILES = [
   "js/systems/origins.js",
   "js/systems/coquille.js",
   "js/systems/patrons.js",
+  "js/systems/societies.js",
   "js/systems/network.js",
   "js/systems/callings.js",
   "js/systems/intro.js",

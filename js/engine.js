@@ -928,6 +928,7 @@
     var label = this.labelOf(card);
     if (how === 'cold') { this.goCold(card.caseId); return; }
     if (how === 'sentence_default') { this.defaultSentence(card); return; }
+    if (how === 'mountain') { this.remove(card); if (this.mountainStrikes) this.mountainStrikes(); return; }
     if (how === 'heal') {
       this.remove(card);
       this.create('health');
@@ -996,6 +997,8 @@
     if (this.purseWeek) lines = lines.concat(this.purseWeek());
     if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
+    if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
+    if (this.eumenidesWeek) lines = lines.concat(this.eumenidesWeek());
     if (s.flags.syndicateFallen && this.rng() < 0.25 && this.openCases().length < this.maxOpenCases() && !this.openCases().some(function (r) { return r.template === 'highway'; })) {
       this.spawnCase('highway', { headline: 'From the Roads: ', lead: 'The Court of Miracles is scattered, and its men have horses now.' });
     }
@@ -1033,6 +1036,7 @@
 
     this.story('Week ' + s.week, lines.join(' '), 'week');
     if (this.checkPurseEndings) this.checkPurseEndings();
+    if (this.checkCountEndings) this.checkCountEndings();
   };
 
   // At-large criminals find each other; gangs merge into a syndicate.
@@ -1173,6 +1177,10 @@
     collapse: { win: false, title: 'Collapse', text: 'You fall on the Watch-house stair and do not get up. The barber-surgeon uses words like "a surfeit" and "the heart" and "rest, in the country". The city does not send flowers.' },
     consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.' },
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
+    merciful: { win: true, title: 'The Merciful Judge', text: 'Eight times you sent a poor sinner home instead of to the Ravenstone, and three of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
+    hangmans: { win: false, title: 'The Hangman\'s Examiner', text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
+    stake: { win: false, title: 'The Stake', text: 'The Inquisitor\'s charge lands on you: heresy, from a patron you crossed, sworn to by two men you sent to the Hole. The proof against you is the proof you taught the city to want. The Bishop does not answer your letter. The Fire on Friday.' },
+    dagger: { win: false, title: 'The Dagger on the Pillow', text: 'They warned you once. A dagger on the pillow, and the door still barred. You did not pay, and you did not leave, and one morning the servant who brings the water is not the servant. The Order of the Mountain keeps its word, in daylight, before witnesses, and nobody in the city will say they saw it.' },
     kingofthunes: { win: true, title: 'The King of Thunes', text: 'The old King goes into the river and the Court kneels to a new one who keeps the Examiner\'s desk by day. Crimes fall in number and rise in scale. You decide who is caught, and the Council thanks you for the quiet. Under the Warrens, where the lame walk and the blind see, they sing a new name.' },
     treatycity: { win: true, title: 'The Treaty City', text: 'Twelve quiet weeks. The Stews keep their own peace, the Court tries its own, the Rolls fill with answered cases, and the Council votes you a pension for the calm it does not ask about. You retire rich to a house on the Hill. The city calls it peace, and for the years you have left, it is.' },
     thieftaker: { win: true, title: 'The Thief-taker General', text: 'The city has never had an officer so effective, or so rich. Every fence in the Free City pays you, every victim thanks you, and the Council votes you a chain of office without asking where the goods you recover come from. You know. You are the only one who does. It will hold for years, if nobody ever reads the ledger.' },
@@ -1455,7 +1463,7 @@
     var items = U.shuffle(rng, pool);
     if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
     // The network: a clue that points at the place this crime went through.
-    var front = !T.special ? this.frontForCase(opts) : null;
+    var front = opts.frontId && s.network.fronts[opts.frontId] ? s.network.fronts[opts.frontId] : !T.special ? this.frontForCase(opts) : null;
     if (front) items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, this.linkItem(front));
     var trait = traits[guiltyIdx];
     var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id };
@@ -1839,6 +1847,7 @@
       if (this.pathOpen('crusader')) { this.gameOver('crusader'); return; }
       notes.push('The Coquille is broken.');
     }
+    if (rec.template === 'eumenides' && d.guilty && this.eumenidesBroken) this.eumenidesBroken(rec, d, notes);
     if (rec.template === 'architect') {
       if (d.guilty && this.pathOpen('master')) { this.gameOver('master'); return; }
       s.flags.architect = false;

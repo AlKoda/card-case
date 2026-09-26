@@ -70,11 +70,12 @@
       label: 'Contemplate', rank: 0,
       desc: 'Your study, and your bed. Sleep off Weariness and Fever. Let go of Obsession. Lay tokens side by side and reason: two descriptions of one person become an identification, coin and motive become a theory. Bring a Case with its tokens to see who it points to.',
       slots: [
-        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue', 'intel', 'thread'], primary: true },
+        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue', 'intel', 'thread', 'dagger'], primary: true },
         { key: 'a', label: 'Token', accepts: ['clue', 'atlarge', 'looseend', 'gang', 'syndicate'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue', 'intel', 'thread']); } },
         { key: 'b', label: 'Token', accepts: ['clue', 'looseend'], when: function (p) { return any(p, ['case', 'looseend', 'clue']); } },
         { key: 'c', label: 'Token', accepts: ['clue'], when: function (p) { return any(p, ['case', 'clue']); } },
-        { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['fatigue', 'burnout', 'obsession', 'tunnel']); } },
+        { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['fatigue', 'burnout', 'obsession', 'tunnel', 'dagger']); } },
+        { key: 'pay2', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'dagger'); } },
       ],
     },
     arrest: {

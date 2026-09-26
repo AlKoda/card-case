@@ -24,7 +24,7 @@
     calling_commissioner: 'back-sun', calling_master: 'back-eye', calling_crusader: 'back-scales',
   };
   var CASE_ART = { burglary: 'act-safe', missing: 'scene-corridor', harbor: 'scene-harbour', arson: 'scene-rooftop2', fraud: 'scene-archive',
-    extortion: 'act-threat', poison: 'scene-morgue2', coining: 'act-seal', manhunt: 'act-chase', gang: 'scene-rite2', syndicate: 'scene-catacombs', architect: 'scene-study',
+    extortion: 'act-threat', poison: 'scene-morgue2', coining: 'act-seal', manhunt: 'act-chase', gang: 'scene-rite2', syndicate: 'scene-catacombs', architect: 'scene-study', eumenides: 'scene-morgue',
     scriptorium: 'scene-library', witch: 'scene-cemetery', highway: 'scene-rooftop', contract: 'act-deal' };
   var DISTRICT_ART = { docks: 'scene-quay-deal', market: 'scene-station2', neon: 'scene-hole2', uptown: 'scene-library', warrens: 'scene-sewer', canal: 'scene-cemetery' };
   // Portrait cards: one per person, chosen by their name, and kept.
@@ -91,6 +91,7 @@
     if (card.def === 'plea') return illus('ev-letter');
     if (card.def === 'writsale') return illus('ev2-letter');
     if (card.def === 'tribute') return plain('coin-heart');
+    if (card.def === 'dagger') return plain('small-skull');
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
       return illus(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length]);
     }

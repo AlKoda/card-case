@@ -64,6 +64,13 @@
       { when: function (st) { return st.attacks >= 2; }, text: 'They came for you twice and warned you both times. The third time there was no warning. They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     ],
+    merciful: [{ text: 'Eight times you sent a poor sinner home instead of to the Ravenstone, and three of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' }],
+    hangmans: [
+      { when: function (st, s) { return s.who === 'hangman'; }, text: 'You began outside the walls and you end there. The Council keeps you because the city is quiet, and the city is quiet because it knows what you are. The executioner\'s house by the Ravenstone was always going to be your house. The work goes on.' },
+      { text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
+    ],
+    stake: [{ text: 'The Inquisitor\'s charge lands on you: heresy, from a patron you crossed, sworn to by two men you sent to the Hole. The proof against you is the proof you taught the city to want. The Bishop does not answer your letter. The Fire on Friday.' }],
+    dagger: [{ text: 'They warned you once. A dagger on the pillow, and the door still barred. You did not pay, and you did not leave, and one morning the servant who brings the water is not the servant. The Order of the Mountain keeps its word, in daylight, before witnesses, and nobody in the city will say they saw it.' }],
     kingofthunes: [
       { when: function (st, s) { return (s.counts || {}).cruelty >= 6; }, text: 'The old King goes into the river and the Court kneels to a new one it fears more than it feared him. You keep the Examiner\'s desk by day and the barrel by night, and the two offices never meet. Crimes fall in number and rise in scale. You decide who is caught. The city sleeps better and does not know why.' },
       { text: 'The old King goes into the river and the Court kneels to a new one who keeps the Examiner\'s desk by day. Crimes fall in number and rise in scale. You decide who is caught, and the Council thanks you for the quiet. Under the Warrens, where the lame walk and the blind see, they sing a new name.' },

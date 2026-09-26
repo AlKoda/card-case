@@ -476,6 +476,28 @@
       witnesses: ['the tapster of the Red Ox', 'a link-boy', 'the victim\'s clerk'],
       hints: ['The man did not run. He walked, like somebody who had done it before.', 'A purse with a good seal on it went across the table the night before.', 'Somebody on the Hill wanted this. The hand was hired; the reason was not.'],
     },
+    eumenides: {
+      label: 'The Eumenides', title: 'The Brotherhood of St Julian', lifetime: 360, difficulty: 10, special: true, highProfile: true,
+      keyAspects: ['digital', 'testimony', 'forensic', 'motive'], districts: ['uptown'],
+      charge: { digital: 3, testimony: 2, forensic: 2, motive: 2 },
+      scenes: ['the Hospital of St Julian', 'the Brotherhood\'s chapter house on the Hill'],
+      brief: 'Two torsos, one hospital door. The Brotherhood of St Julian feeds the poor, endows the Abbey, and sits on half the Council. Behind its chapter house is a room with a drain in the floor. Prove it before the Hill closes ranks.',
+      roles: [
+        { role: 'the Brotherhood\'s almoner', motive: 'Chooses who is fed at the hospital door, and who is never seen again.' },
+        { role: 'a patrician benefactor', motive: 'Founded the hospital. Uses the room behind it.' },
+        { role: 'the hospital\'s physician', motive: 'Signs the deaths, and never writes what he saw.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Hospital Register', text: 'Admitted, admitted, admitted. Discharged less often than arithmetic allows.', needs: 'lab',
+          result: { label: 'The Missing Discharged', text: 'Eleven names admitted and never discharged, never buried, never seen. All young, all poor, all in winter.', aspects: { digital: 3, motive: 1 } } },
+        { type: 'evidence', label: 'The Drain', text: 'A room behind the chapter house with a drain in the floor and a smell of lye.', needs: 'bio',
+          result: { label: 'What the Drain Kept', text: 'Song Ci\'s test on the stones: blood, and a great deal of it, under the lye.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'The Ring-mark', text: 'Both torsos wore a ring on the same finger. The Brotherhood gives its beneficiaries a ring.', aspects: { forensic: 1, testimony: 1 } },
+        { type: 'clue', label: 'The Porter\'s Word', text: 'The hospital porter has seen the carts leave at night and has been paid, until now, not to count them.', aspects: { testimony: 2, opportunity: 1 } },
+      ],
+      witnesses: ['the hospital porter', 'a beggar fed at the door', 'a laundress who washes the chapter house linen'],
+      hints: ['The carts go out by the Harbour road, after compline, covered.', 'They give the poor a ring and a supper. Nobody who took the ring came back for a second supper.', 'The physician drinks now. He did not, before.'],
+    },
     manhunt: {
       label: 'Hue and Cry', title: 'Hue and Cry: {culprit}', lifetime: 200, difficulty: 5, special: true,
       keyAspects: ['opportunity', 'testimony', 'forensic'], districts: ['docks', 'warrens', 'canal', 'neon'],
