@@ -94,7 +94,7 @@
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
       version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 55, nextUid: 1,
-      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [],
+      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {},
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0 },
       rank: 0, calling: opts.calling || 'master', detective: opts.name || 'Detective',
       over: null,
@@ -139,6 +139,7 @@
 
   Engine.load = function (json) {
     var s = typeof json === 'string' ? JSON.parse(json) : json;
+    s.criminals = s.criminals || {}; // older saves had no criminal records
     // Saves from the grid-table days stored a cell index instead of x/y.
     for (var k in s.cards) {
       var c = s.cards[k];
@@ -780,11 +781,14 @@
       if (s.over) return;
     }
 
-    // Dispatch: new cases come in on their own clock.
+    this.tickInformants(dt);
+
+    // Dispatch: new cases come in on their own clock (or an informant's).
     s.dispatchT -= dt;
     if (s.dispatchT <= 0) {
       var open = this.openCases().length;
-      if (open < MAX_OPEN_CASES) this.spawnCase();
+      var next = s.nextCase; s.nextCase = null;
+      if (open < MAX_OPEN_CASES) this.spawnCase(next ? next.template : null, next ? { district: next.district } : {});
       var base = U.randInt(this.rng, 70, 105) - Math.min(30, s.week * 2);
       if (this.countOf('syndicate')) base -= 10;
       s.dispatchT = Math.max(40, base);
@@ -829,6 +833,12 @@
       return;
     }
     if (how === 'verdict') { this.verdict(card); return; }
+    if (how === 'ignored') {
+      var inf = card.data.informant && this.card(card.data.informant);
+      if (inf && inf.def === 'informant') { this.trustInformant(inf, -1); this.story('Nothing Came of It', inf.data.name + ' notices you did nothing with what they told you. They will be slower to tell you again.', 'minor'); }
+      this.remove(card);
+      return;
+    }
     if (card.def === 'witness') this.story('A Witness Moves On', label + ' has left town. Whatever they saw went with them.', 'minor');
     if (card.def === 'bribe') this.story('The Envelope Is Gone', 'Somebody came back for it. They will remember you left it alone.', 'minor');
     if (card.def === 'clue' || card.def === 'evidence') this.story('Trail Degrades', label + ' has degraded beyond use.', 'minor');
@@ -862,6 +872,7 @@
     if (ret) { this.meter('retaliation', ret); lines.push('Out there, the people who got away are talking about you.'); }
     if (atLarge + gangs * 2 + synd * 3 >= 4) { this.meter('pressure', 1); lines.push('The newspapers count the criminals at large, and print the number on the front page.'); }
     this.organise();
+    lines = lines.concat(this.criminalsAct());
 
     // Retaliation strikes.
     var r = s.meters.retaliation;
@@ -895,7 +906,7 @@
       var members = al.slice(0, 3);
       var name = U.pick(this.rng, CF.NAMES.gang);
       var names = members.map(function (c) { return c.data.name; });
-      members.forEach(function (c) { self.remove(c); });
+      members.forEach(function (c) { self.remove(c); self.criminalJoins(c.data.name, 'gang'); });
       this.create('gang', {
         label: 'Gang: ' + name.replace(/^the /, 'The '),
         data: { name: name, members: names },
@@ -916,6 +927,8 @@
   };
 
   P.spawnSyndicate = function (text) {
+    var s = this.s;
+    for (var k in s.criminals) if (s.criminals[k].organization === 'gang') s.criminals[k].organization = 'syndicate';
     this.create('syndicate');
     this.meter('retaliation', 2);
     this.story('The Syndicate', text, 'major');
@@ -940,8 +953,7 @@
     if (!target) target = pool[pool.length - 1];
     var c = target.c;
     if (c && c.def === 'informant') {
-      this.remove(c);
-      this.story('An Informant Is Burned', c.data.name + ' was dragged into an alley and asked who they had been talking to. They survived. They will not be talking to you again.', 'danger');
+      this.burnInformant(c, c.data.name + ' was dragged into an alley and asked who they had been talking to. ' + (this.informantStatus(c) === 'safe' ? 'They survived. They will not be talking to you again.' : 'Nobody has seen them since.'));
     } else if (c && c.def === 'teammate') {
       if (s.meters.retaliation >= 5 && this.rng() < 0.3) {
         this.remove(c);
@@ -1043,12 +1055,14 @@
       atlarge: this.cardsOf('atlarge', true).map(function (c) { return { label: c.label, desc: c.desc, data: c.data }; }),
       gangs: this.cardsOf('gang', true).map(function (c) { return { label: c.label, desc: c.desc, data: c.data }; }),
       syndicate: this.countOf('syndicate') > 0 && !self.s.flags.syndicateFallen,
+      criminals: this.criminalsAtLarge().sort(function (a, b) { return b.crimes - a.crimes; }).slice(0, 4),
     };
   };
 
   P.applyLegacy = function (L) {
     var self = this;
     (L.cold || []).slice(0, 4).forEach(function (c) { self.create('coldcase', c); });
+    (L.criminals || []).forEach(function (c) { var copy = U.clone(c); copy.heat = 0; self.s.criminals[copy.id] = copy; });
     (L.atlarge || []).slice(0, 2).forEach(function (c) { self.create('atlarge', c); });
     (L.gangs || []).slice(0, 1).forEach(function (c) { self.create('gang', c); });
     if (L.syndicate) this.create('syndicate');
@@ -1110,7 +1124,7 @@
     return {
       label: 'Informant: ' + nick,
       desc: name + ', known on the street as ' + nick + '. Works ' + CF.DISTRICTS[district].label + '. Meet them in Patrol with Funds for a tip.',
-      data: { name: nick, district: district, heat: 0 },
+      data: { name: nick, district: district, heat: 0, trust: 1, tipT: CF.INFORMANT.firstTip },
     };
   };
 
@@ -1154,7 +1168,7 @@
     var tid = templateId || U.pick(rng, CF.ORDINARY_CASES);
     var T = CF.CASE_TEMPLATES[tid];
     var id = 'c' + s.nextUid++;
-    var victim = this.newName();
+    var victim = opts.victim || this.newName();
     var last = U.pick(rng, CF.NAMES.last);
     var district = opts.district || U.pick(rng, T.districts);
     var vars = {
@@ -1189,9 +1203,14 @@
     // case wants one more point of its main aspect.
     var charge = U.clone(T.charge);
     if (highProfile && !T.highProfile) charge[T.keyAspects[0]]++;
+    // A known criminal's crimes are harder to prove the further they have risen.
+    charge[T.keyAspects[0]] += this.caseRankBonus(opts.criminalId);
+    // A Careful criminal leaves less behind.
+    var known = opts.criminalId && this.criminal(opts.criminalId);
 
     // Scene pool: template items + generic items + the culprit's trait clue.
     var items = U.shuffle(rng, T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1)));
+    if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
     var trait = traits[guiltyIdx];
     var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id };
     items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, traitItem);
@@ -1202,19 +1221,29 @@
       difficulty: difficulty, highProfile: highProfile, charge: charge, items: items, found: 0,
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
       special: !!T.special, atLargeUid: opts.atLargeUid || null, gangUid: opts.gangUid || null,
-      reopened: !!opts.reopened,
+      reopened: !!opts.reopened, criminalId: opts.criminalId || null,
     };
     s.cases[id] = rec;
     s.stats.cases++;
 
     var life = (opts.lifetime || T.lifetime) + (opts.extraTime || 0);
     var brief = U.fill(T.brief, vars);
+    // An informant's warning: you were ready for this one.
+    var warning = !T.special && this.warningFor(tid);
+    if (warning) {
+      life += CF.INFORMANT.warningExtraTime;
+      var winf = warning.data.informant && this.card(warning.data.informant);
+      if (winf && winf.def === 'informant') this.trustInformant(winf, 1);
+      this.remove(warning);
+      brief += ' You were warned, and you were ready: the scene is fresh, and you already have a name.';
+    }
     var spec = {
       label: (highProfile ? '★ ' : '') + rec.title,
       desc: brief + ' (' + CF.DISTRICTS[district].label + ')' + (highProfile ? ' High-profile: the papers are watching.' : ''),
       caseId: id, lifetime: life, data: { onExpire: 'cold' },
     };
     var card = opts.ctx ? opts.ctx.give('case', spec) : this.create('case', spec);
+    if (warning) this.revealSuspect(rec, null);
     if (!opts.quiet) {
       this.story(opts.headline || 'New Case: ' + rec.title, (opts.lead ? opts.lead + ' ' : '') + brief, 'case');
     }
@@ -1358,10 +1387,11 @@
       return;
     }
 
+    var crim = this.criminalEscapes(rec, culprit, 'cold');
     var al = this.create('atlarge', {
-      label: 'At Large: ' + culprit.name,
-      desc: culprit.name + ', ' + culprit.role + '. Got away with ' + rec.title + '. ' + CF.TRAITS.filter(function (t) { return t.id === culprit.trait; })[0].desc,
-      data: { name: culprit.name, trait: culprit.trait, template: rec.template },
+      label: CF.Criminals.rankOf(crim).label + ': ' + culprit.name,
+      desc: culprit.name + ', ' + culprit.role + '. Got away with ' + rec.title + '. ' + this.criminalDesc(crim),
+      data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crim.id },
     });
     this.create('coldcase', {
       label: 'Cold: ' + rec.title,
@@ -1427,6 +1457,7 @@
     if (convicted) {
       s.stats.convictions++;
       if (!d.guilty) s.stats.wrongful++;
+      if (d.guilty) this.criminalCaught(d.name);
       this.meter('reputation', 1 + (d.solid ? 1 : 0) + (hp ? 1 : 0) + (rec.special ? 2 : 0));
       this.meter('pressure', hp ? -2 : -1);
       var t = this.cardsOf('tunnel')[0];
@@ -1447,10 +1478,11 @@
         var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
         this.meter('scrutiny', 1);
         if (!rec.special) {
+          var crimW = this.criminalEscapes(rec, culprit, 'wrongful');
           this.create('atlarge', {
-            label: 'At Large: ' + culprit.name,
-            desc: culprit.name + ', ' + culprit.role + '. Someone else went to prison for what they did.',
-            data: { name: culprit.name, trait: culprit.trait, template: rec.template },
+            label: CF.Criminals.rankOf(crimW).label + ': ' + culprit.name,
+            desc: culprit.name + ', ' + culprit.role + '. Someone else went to prison for what they did. ' + this.criminalDesc(crimW),
+            data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crimW.id },
           });
         }
       }
@@ -1469,10 +1501,12 @@
         if (rec.template === 'manhunt' && rec.atLargeUid && this.card(rec.atLargeUid)) {
           // They were already at large; they simply stay so.
         } else {
+          var charged = rec.suspects.filter(function (x) { return x.name === d.name; })[0] || { name: d.name, trait: null };
+          var crimA = d.guilty ? this.criminalEscapes(rec, charged, 'acquitted') : null;
           this.create('atlarge', {
-            label: 'At Large: ' + d.name,
-            desc: d.name + ' walked out of court smiling. ' + (d.guilty ? 'They are guilty, and now they are careful.' : 'They were innocent, and now they hate you.'),
-            data: { name: d.name, careful: true },
+            label: (crimA ? CF.Criminals.rankOf(crimA).label : 'At Large') + ': ' + d.name,
+            desc: d.name + ' walked out of court smiling. ' + (d.guilty ? 'They are guilty, and now they are careful. ' + this.criminalDesc(crimA) : 'They were innocent, and now they hate you.'),
+            data: { name: d.name, trait: charged.trait, careful: true, criminalId: crimA ? crimA.id : null },
           });
         }
       }

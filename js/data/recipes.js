@@ -126,6 +126,21 @@
     },
   });
   R.push({
+    id: 'duty_protect', verb: 'duty', label: 'Protect an Informant', duration: 30,
+    preview: function (ctx) { return ctx.has('teammate') ? 'An officer watches their back for a week. The heat comes off them.' : 'Add an officer to watch their back.'; },
+    blocked: function (ctx) { return ctx.has('teammate') ? null : 'Someone has to do the watching: add an officer.'; },
+    requires: { primary: 'informant' },
+    run: function (ctx) {
+      var e = ctx.e, inf = ctx.primary, guard = ctx.first('teammate');
+      // The officer can be pulled off the job mid-week (Retaliation).
+      if (!guard) return { title: 'Nobody Watching', text: 'The officer you posted never made it to the car. ' + inf.data.name + ' spends the week alone.' };
+      inf.data.heat = 0;
+      e.heatInformant(inf, 0);
+      e.trustInformant(inf, 1);
+      return { title: 'Watched Over', text: guard.data.name + ' spends a week in a parked car outside ' + inf.data.name + '\'s door. Nobody comes. ' + inf.data.name + ' starts sleeping again.' };
+    },
+  });
+  R.push({
     id: 'duty_team', verb: 'duty', label: 'Put Them on Shift', duration: 30,
     preview: 'They work a shift in your name. The overtime comes to you.',
     requires: ['teammate'], forbids: ['funds', 'paperwork'],
@@ -182,7 +197,8 @@
     run: function (ctx) {
       var e = ctx.e, inf = ctx.primary;
       ctx.consume(ctx.first('funds'));
-      inf.data.heat = (inf.data.heat || 0) + 1;
+      e.heatInformant(inf, 1);
+      e.trustInformant(inf, 1);
       var nick = inf.data.name;
       var open = e.openCases().filter(function (r) { return !r.identified && !r.special; });
       var al = e.cardsOf('atlarge');
@@ -682,6 +698,28 @@
       if (e.s.calling === 'master') ctx.give('looseend');
       return { title: 'Old Ghosts', text: 'You read the cold file again, and think like ' + al.data.name + '. Where would you go? Who would you call? By dawn, you have a guess.' +
         (e.s.calling === 'master' ? ' And in the margin of the old file, a doodle you never noticed: a paper crane.' : '') };
+    },
+  });
+  R.push({
+    id: 'ref_sighting', verb: 'reflect', label: 'Follow the Sighting', duration: 20,
+    preview: 'An informant saw them. Put it beside their card and think about where they sleep.',
+    blocked: function (ctx) {
+      var al = ctx.first('atlarge');
+      if (!al) return 'Add the At Large card of the person who was seen.';
+      if (al.data.name !== ctx.primary.data.criminal) return 'That is not who was seen.';
+      if (al.data.hunted && ctx.e.caseRec(al.data.hunted) && ctx.e.caseRec(al.data.hunted).status === 'open') return 'You are already hunting them.';
+      return null;
+    },
+    requires: { primary: 'intel', when: function (ctx) { return ctx.primary.data.kind === 'sighting'; } },
+    run: function (ctx) {
+      var e = ctx.e, al = ctx.first('atlarge');
+      ctx.consume(ctx.primary);
+      var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid, criminalId: al.data.criminalId,
+        headline: 'Manhunt: ' + al.data.name, lead: 'An informant\'s word and a map.' });
+      al.data.hunted = card.caseId;
+      var crim = al.data.criminalId && e.criminal(al.data.criminalId);
+      if (crim) crim.status = 'hunted';
+      return { title: 'The Same Bar Every Night', text: 'You sit across the road from it for two nights. On the second, ' + al.data.name + ' walks in.' };
     },
   });
   R.push({

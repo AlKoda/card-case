@@ -37,6 +37,7 @@
     teammate: { label: 'Team', color: '#3d7ea6' },
     hospital: { label: 'Hospital', color: '#6b6f78' },
     informant: { label: 'Informant', color: '#7a5c8a' },
+    intel: { label: 'Intelligence', color: '#8a6f9c' },
     criminal: { label: 'Criminal', color: '#5b1f1f' },
     court: { label: 'Court', color: '#8e7cc3' },
     paper: { label: 'Paperwork', color: '#a8a290' },
@@ -117,7 +118,9 @@
     injured: { label: 'Injured Officer', kind: 'hospital', tags: ['team', 'person', 'injury'], aspects: { injured: 1 }, decay: 150, onExpire: 'recover',
       desc: 'In hospital. They will be back, if nothing else happens to them.' },
     informant: { label: 'Informant', kind: 'informant', tags: ['street', 'person'], aspects: { informant: 1 },
-      desc: 'A street contact. Meet them in Patrol with Funds for a tip. The more you lean on them, the more exposed they are.' },
+      desc: 'A street contact. Left on the table they bring rumours, sightings and warnings on their own time; pay them in Patrol for a proper tip and their trust. Every meeting warms them up: at three they are compromised and go quiet. Protect them in Duty with an officer.' },
+    intel: { label: 'Intelligence', kind: 'intel', tags: ['street'], image: 'icon-binoculars', aspects: { intel: 1 }, decay: 100, onExpire: 'ignored',
+      desc: 'Something an informant heard. It will not stay true for long.' },
 
     // --- The criminal ecosystem ----------------------------------------
     atlarge: { label: 'At Large', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
