@@ -19,6 +19,8 @@ with transparent backgrounds):
     menu.png      the main menu mock-up (only the logo is used)
     table.png     the table background
     cards.png     illustrated character and scene cards
+    props.png     blank card frames, evidence props, small desk items
+    people.png    square portrait/scene cards (only the pictures are used)
 A missing sheet is skipped and its CSS file left as it is.
 
 --preview also writes every piece as PNG to tools/.preview/ (git-ignored).
@@ -46,11 +48,6 @@ def grid(names, x0, x1, y0, y1):
 
 # ---------------------------------------------------------------- ui.png
 UI = {
-    'frame-case': (32, 292, 284, 636),
-    'frame-evidence': (316, 292, 576, 636),
-    'frame-character': (600, 292, 852, 636),
-    'frame-location': (876, 292, 1136, 636),
-    'frame-status': (1168, 292, 1420, 636),
     'aspect-forensic': (40, 672, 144, 772),
     'aspect-testimony': (162, 672, 262, 772),
     'aspect-motive': (279, 672, 381, 772),
@@ -82,24 +79,24 @@ ICONS.update(grid(['portrait-%d' % i for i in range(9)], 30, 1041, 879, 1044))
 
 # ------------------------------------------------------------ frames.png
 FRAMES = {
-    'slot-dark': (21, 414, 120, 531),
-    'slot-gold': (360, 414, 462, 531),
-    'toast-danger': (30, 646, 104, 708),
-    'toast-major': (30, 722, 104, 772),
-    'toast-case': (30, 785, 104, 832),
-    'toast-victory': (30, 845, 104, 889),
+    'slot-dark': (24, 420, 120, 534),
+    'slot-gold': (360, 420, 462, 534),
+    'toast-danger': (30, 650, 102, 708),
+    'toast-major': (30, 722, 102, 772),
+    'toast-case': (30, 788, 102, 834),
+    'toast-victory': (30, 846, 102, 888),
 }
 
 # ------------------------------------------------------------- verbs.png
 # Each token is isolated from its neighbours (rows overlap slightly).
 VERBS = {
-    'token-duty': (87, 9, 396, 345), 'token-patrol': (405, 9, 720, 345),
-    'token-investigate': (729, 9, 1044, 345), 'token-warrant': (1050, 9, 1362, 345),
-    'token-interrogate': (15, 336, 297, 642), 'token-reflect': (300, 336, 582, 642),
-    'token-arrest': (585, 336, 866, 642), 'token-stakeout': (866, 336, 1146, 642),
-    'token-undercover': (1149, 336, 1434, 642),
-    'token-taskforce': (90, 636, 393, 942), 'token-requisition': (411, 636, 714, 945),
-    'token-rest': (729, 636, 1038, 945), 'token-analyze': (1053, 636, 1356, 945),
+    'token-duty': (48, 12, 372, 360), 'token-patrol': (381, 12, 702, 363),
+    'token-investigate': (732, 12, 1056, 360), 'token-warrant': (1074, 9, 1401, 360),
+    'token-interrogate': (9, 345, 288, 654), 'token-reflect': (291, 342, 576, 651),
+    'token-arrest': (582, 345, 867, 654), 'token-stakeout': (870, 342, 1155, 651),
+    'token-undercover': (1161, 342, 1440, 651),
+    'token-taskforce': (80, 636, 396, 942), 'token-requisition': (405, 636, 705, 942),
+    'token-rest': (738, 633, 1041, 942), 'token-analyze': (1058, 633, 1378, 942),
 }
 
 # ---------------------------------------------------------- evidence.png
@@ -123,13 +120,14 @@ for names, boxes in EVIDENCE_ROWS:
 EVIDENCE.update({'icon-camera': (1329, 783, 1413, 879), 'icon-boot': (1212, 783, 1308, 882)})
 
 # ---------------------------------------------------------- dossiers.png
+# (The wide red 'tower' panel is left out: its writing area is too narrow.)
 DOSSIERS = {
-    'dossier-man': (36, 18, 714, 255), 'dossier-house': (738, 9, 1416, 255),
-    'dossier-print': (39, 264, 690, 504), 'dossier-map': (714, 267, 1410, 501),
-    'dossier-alley': (36, 510, 498, 705), 'dossier-badge': (519, 513, 930, 705),
-    'dossier-redprint': (948, 507, 1413, 705), 'dossier-woman': (36, 711, 495, 894),
-    'dossier-fedora': (519, 714, 909, 897), 'dossier-knife': (930, 717, 1416, 894),
-    'dossier-tower': (33, 900, 762, 1074), 'dossier-city': (783, 900, 1416, 1074),
+    'dossier-man': (24, 18, 717, 258), 'dossier-house': (750, 24, 1425, 258),
+    'dossier-print': (24, 264, 705, 504), 'dossier-map': (726, 270, 1422, 504),
+    'dossier-alley': (24, 516, 510, 702), 'dossier-badge': (528, 516, 918, 702),
+    'dossier-redprint': (936, 513, 1425, 702), 'dossier-woman': (27, 711, 507, 885),
+    'dossier-fedora': (525, 711, 918, 885), 'dossier-knife': (939, 711, 1422, 885),
+    'dossier-city': (801, 891, 1425, 1062),
 }
 
 # ------------------------------------------------ menu, table, cards.png
@@ -143,8 +141,39 @@ CARD_ROWS = [(9, 378), (384, 735), (738, 1071)]
 CARDS = {'pcard-' + CARD_NAMES[r][c]: (CARD_COLS[c][0], CARD_ROWS[r][0], CARD_COLS[c][1], CARD_ROWS[r][1])
          for r in range(3) for c in range(6)}
 
+# ------------------------------------------------------------- props.png
+PROPS = {}
+PROPS.update(zip(['cardframe-red', 'cardframe-blue', 'cardframe-gold', 'cardframe-green', 'cardframe-black', 'cardframe-purple', 'cardframe-crimson'],
+                 [(21, 48, 216, 369), (228, 51, 408, 366), (420, 51, 603, 366), (618, 48, 816, 366), (828, 51, 1017, 366),
+                  (1029, 51, 1224, 366), (1239, 48, 1425, 366)]))
+PROPS.update(zip(['prop-house', 'prop-fingerprint', 'prop-cassette', 'prop-vial', 'prop-key', 'prop-leaf', 'prop-map', 'prop-envelope'],
+                 [(24, 390, 207, 609), (213, 384, 384, 606), (390, 387, 561, 603), (567, 387, 702, 606), (705, 387, 870, 612),
+                  (867, 384, 1044, 612), (1053, 396, 1242, 609), (1239, 384, 1428, 606)]))
+PROPS.update(zip(['prop-tag', 'prop-tag-white', 'prop-tag-pink', 'prop-tag-blue', 'prop-notepad', 'prop-clipnote', 'prop-pinnote',
+                  'prop-mugshot', 'prop-bag'],
+                 [(24, 627, 159, 843), (168, 630, 306, 840), (318, 630, 441, 840), (447, 630, 552, 840), (564, 636, 714, 840),
+                  (720, 627, 891, 843), (900, 639, 1086, 840), (1098, 636, 1248, 837), (1263, 636, 1425, 840)]))
+PROPS.update(zip(['prop-pin', 'prop-target', 'prop-marker', 'prop-clip', 'prop-binder', 'prop-seal', 'prop-tape-red', 'prop-tape',
+                  'prop-magnifier', 'prop-boot', 'prop-x'],
+                 [(42, 951, 105, 1047), (135, 951, 231, 1050), (255, 942, 357, 1050), (375, 951, 447, 1047), (468, 951, 555, 1047),
+                  (579, 945, 678, 1050), (702, 966, 825, 1026), (849, 963, 1050, 1038), (1074, 945, 1179, 1050),
+                  (1200, 945, 1302, 1050), (1326, 951, 1416, 1041)]))
+
+# ------------------------------------------------------------ people.png
+# Only the picture between each card's two name plates is kept.
+PEOPLE_NAMES = [['fedora', 'board', 'redprint', 'files'], ['man', 'woman', 'bobby', 'glasses'],
+                ['lady', 'smoker', 'hood', 'youth'], ['mansion', 'street', 'arch', 'docks'],
+                ['key', 'envelope', 'book', 'photo']]
+PEOPLE_COLS = [(111, 303), (369, 564), (630, 822), (885, 1083)]
+PEOPLE_ROWS = [(69, 190), (301, 421), (525, 637), (739, 850), (952, 1035)]
+PEOPLE = {'pic-' + PEOPLE_NAMES[r][c]: (PEOPLE_COLS[c][0] + 14, PEOPLE_ROWS[r][0], PEOPLE_COLS[c][1] - 14, PEOPLE_ROWS[r][1])
+          for r in range(5) for c in range(4)}
+
+# The writing area spans the unlined paper below the title plate (% of height).
+LINES_TOP, LINES_HEIGHT = 30.0, 60.0
+
 # Writing areas the automatic detection gets wrong: (left, width) in %.
-DOSSIER_LINES = {'dossier-redprint': (47.0, 46.0), 'dossier-tower': (77.0, 18.0)}
+DOSSIER_LINES = {'dossier-redprint': (47.0, 46.0)}
 
 SHEETS = [
     ('ui', 'ui.png', UI),
@@ -156,12 +185,14 @@ SHEETS = [
     ('menu', 'menu.png', MENU),
     ('table', 'table.png', TABLE),
     ('cards', 'cards.png', CARDS),
+    ('props', 'props.png', PROPS),
+    ('people', 'people.png', PEOPLE),
 ]
 
 # Longest side in pixels (about 2x on-screen size).
 MAX_SIDE = [('frame', 260), ('aspect', 64), ('icon', 64), ('portrait', 120), ('toast', 56), ('slot', 140),
             ('token', 180), ('card-back', 220), ('divider', 480), ('ev-', 160), ('dossier', 600),
-            ('bg-', 1600), ('logo', 740), ('pcard', 300)]
+            ('bg-', 1600), ('logo', 740), ('pcard', 300), ('cardframe', 240), ('prop-', 150), ('pic-', 220)]
 
 
 def fit(img, name):
@@ -253,7 +284,7 @@ def dossier_layout(img):
     plate = best or (w * 0.35, h * 0.05, w * 0.3, h * 0.14)
     return {
         'plate': (pct(plate[0], w), pct(plate[1], h), pct(plate[2], w), pct(plate[3], h)),
-        'lines': (pct(rx0 + 6, w), 40.0, pct(rx1 - rx0 - 18, w), 48.0),
+        'lines': (pct(rx0 + 6, w), LINES_TOP, pct(rx1 - rx0 - 18, w), LINES_HEIGHT),
     }
 
 
@@ -271,9 +302,9 @@ def main():
             continue
         sheet = Image.open(path).convert('RGBA')
         pieces = {name: sheet.crop(box) for name, box in sprites.items()}
-        if key in ('verbs', 'icons', 'cards'):
+        if key in ('verbs', 'icons', 'cards', 'props'):
             for name in pieces:
-                if name.startswith(('token', 'portrait', 'card-back', 'pcard')):
+                if name.startswith(('token', 'portrait', 'card-back', 'pcard', 'cardframe', 'prop-')):
                     pieces[name] = isolate(pieces[name])
                 if name.startswith('pcard'):
                     pieces[name] = pieces[name].crop(pieces[name].getchannel('A').getbbox())
@@ -287,7 +318,7 @@ def main():
             if key == 'dossiers':
                 lay = dossier_layout(img)
                 if name in DOSSIER_LINES:
-                    lay['lines'] = (DOSSIER_LINES[name][0], 40.0, DOSSIER_LINES[name][1], 48.0)
+                    lay['lines'] = (DOSSIER_LINES[name][0], LINES_TOP, DOSSIER_LINES[name][1], LINES_HEIGHT)
                 ratio = round(img.height / img.width * 100, 3)
                 extra.append('.dossier.%s { --ratio: %s%%; }' % (name, ratio))
                 extra.append('.dossier.%s .d-plate { left: %s%%; top: %s%%; width: %s%%; height: %s%%; }' % ((name,) + lay['plate']))

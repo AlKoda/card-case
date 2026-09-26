@@ -112,7 +112,7 @@
     else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
     var portrait = cul.name ? 'portrait-' + [0, 1, 3, 4, 5, 6, 7, 8][hash(cul.name) % 8] : 'portrait-0';
     box.innerHTML = '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
-      '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' +
+      '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
       row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>, week ' + rec.week + (rec.highProfile ? ' · high-profile' : '') + '<br><span class="a-dim">Detective ' + esc(rec.detective) + '</span>') +
       row('pin', esc(rec.scene) + '<br><span class="a-dim">' + esc((CF.DISTRICTS[rec.district] || {}).label || '') + '</span>') +
       row('person', 'Victim: ' + esc(rec.victim) + (rec.charged ? '<br>Charged: ' + esc(rec.charged) : '<br><span class="a-dim">Nobody was charged.</span>')) +
