@@ -7,6 +7,7 @@
 
   var WEEK = 60;          // seconds of game time per week
   var MAX_OPEN_CASES = 4;
+  var COLD_WARNING = 60; // seconds left on a case before the warning
   // The table is a free board measured in board pixels. Cards and verbs can
   // sit anywhere; placement keeps them from covering each other.
   var T = {
@@ -735,6 +736,7 @@
       if (s.rooms.locker && (c.def === 'clue' || c.def === 'evidence')) rate = 0.5;
       c.life -= dt * rate;
       if (c.life <= 0) this.expire(c);
+      else if (c.def === 'case' && c.life < COLD_WARNING) this.warnCold(c);
       if (s.over) return;
     }
 
@@ -767,6 +769,16 @@
 
     this.checkThresholds();
   };
+
+  // One warning per case, a minute before it goes cold.
+  P.warnCold = function (card) {
+    var rec = this.caseRec(card.caseId);
+    if (!rec || rec.status !== 'open' || rec.warned) return;
+    rec.warned = true;
+    this.story('Going Cold: ' + rec.title, 'A minute left, and the trail is fading. Charge somebody, or let it go and live with it.', 'danger');
+  };
+  // How long a case has left, in the city's days (a week is a game minute).
+  CF.daysLeft = function (seconds) { return Math.max(0, Math.ceil(seconds / (WEEK / 7))); };
 
   P.expire = function (card) {
     var def = this.def(card);

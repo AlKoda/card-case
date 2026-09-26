@@ -66,12 +66,12 @@
     },
     reflect: {
       label: 'Reflect', rank: 0,
-      desc: 'Your mind palace, and your bed. Rest away Fatigue and Burnout. Let go of Obsession. Bring a Case and its clues together and see what they add up to.',
+      desc: 'Your mind palace, and your bed. Rest away Fatigue and Burnout. Let go of Obsession. Lay clues side by side and reason: two descriptions of the same person become an identification, money and motive become a theory. Bring a Case with its clues to see who it points to.',
       slots: [
         { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue'], primary: true },
         { key: 'a', label: 'Clue', accepts: ['clue', 'atlarge', 'looseend'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue']); } },
         { key: 'b', label: 'Clue', accepts: ['clue', 'looseend'], when: function (p) { return any(p, ['case', 'looseend', 'clue']); } },
-        { key: 'c', label: 'Clue', accepts: ['clue'], when: function (p) { return has(p, 'case'); } },
+        { key: 'c', label: 'Clue', accepts: ['clue'], when: function (p) { return any(p, ['case', 'clue']); } },
       ],
     },
     arrest: {

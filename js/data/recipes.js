@@ -616,10 +616,39 @@
       return { title: 'Regret', text: 'You remember every mistake. If you knew where the one who walked was now, you could do something about it.' };
     },
   });
+  // Deduction: clues laid side by side become theories, identifications, or
+  // nothing at all (see js/data/deductions.js).
+  R.push({
+    id: 'ref_deduce', verb: 'reflect', priority: 5,
+    label: function (ctx) { return CF.Deduce.find(ctx.with('clue')).label; },
+    duration: function (ctx) { return CF.Deduce.find(ctx.with('clue')).duration || 30; },
+    preview: function (ctx) {
+      var d = CF.Deduce.find(ctx.with('clue'));
+      return d.gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
+    },
+    blocked: { sameCase: true },
+    requires: { primary: 'clue', when: function (ctx) { return ctx.with('clue').length >= 2 && !!CF.Deduce.find(ctx.with('clue')); } },
+    run: function (ctx) {
+      var clues = ctx.with('clue');
+      var rec = openRec(ctx, clues[0]);
+      if (!rec) return closed();
+      ctx.e.caseWork(rec, ctx);
+      return CF.Deduce.run(ctx, CF.Deduce.find(clues), rec, clues);
+    },
+  });
   R.push({
     id: 'ref_corroborate', verb: 'reflect', label: 'Corroborate', duration: 20,
     preview: 'Two pieces of the same truth, told in different ways. Bind them into one stronger clue.',
-    blocked: { minClues: 2, sameCase: true },
+    blocked: function (ctx) {
+      var cl = ctx.with('clue');
+      if (cl.length < 2) return 'You need at least two clues.';
+      var id = cl[0].caseId;
+      if (!cl.every(function (c) { return c.caseId === id; })) return 'These clues belong to different cases.';
+      // They must have something in common to corroborate each other.
+      var first = CF.clueAspects(cl[0]);
+      var share = cl.slice(1).every(function (c) { var a = CF.clueAspects(c); for (var k in a) if (first[k]) return true; return false; });
+      return share ? null : 'These clues do not tell the same story. Nothing binds them.';
+    },
     requires: { primary: 'clue' },
     run: function (ctx) {
       var e = ctx.e;

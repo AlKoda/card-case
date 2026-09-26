@@ -35,13 +35,13 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 
 | Verb | What it does |
 |---|---|
-| **Time** | The weekly clock. It takes rent, and at-large criminals organise. |
+| **Time** | The weekly clock. It takes rent, and at-large criminals organise. Open it to see every case's clock, most urgent first. |
 | **Duty** | Earn Funds (Health for a beat shift, Focus for desk work), file paperwork to calm Internal Affairs, train officers, attend promotion boards, or pocket an envelope. |
 | **Patrol** | Discover districts, informants and walk-in cases. Work a district's streets. Pay informants for tips. |
 | **Investigate** | Search a case's scene. Add the case's District to canvass for witnesses and suspects. Equipment and team strengthen what you find. |
 | **Analyze** | Process evidence into clues. Some evidence needs a specific kit. Reopen cold cases once you have an Archive. You can also fabricate evidence. |
 | **Interrogate** | Question witnesses and suspects with Focus (empathy), Instinct (bluff) or Health (pressure). Confront a suspect with a clue to crack them. |
-| **Reflect** | Rest off Fatigue, Burnout, Obsession and Tunnel Vision. Put a case with its clues here to form theories. Corroborate clues together. |
+| **Reflect** | Rest off Fatigue, Burnout, Obsession and Tunnel Vision. Lay clues side by side and reason: two descriptions of the same person become an identification, money and motive become a theory, and two descriptions of different people tell you one of them is wrong. Put a case with its clues here to see who it points to. |
 | **Arrest** | Charge a suspect with clues from their case. The trial resolves a little later. |
 | **Requisition** | Buy equipment and precinct rooms, and hire officers. |
 | **Warrant / Stakeout / Undercover** | Unlocked at Inspector. |

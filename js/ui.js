@@ -373,7 +373,8 @@
     if (t) t.textContent = U.fmtTime(card.life);
     var lf = n.querySelector('.c-life > div');
     if (lf) lf.style.width = Math.max(0, (card.life / card.maxLife) * 100) + '%';
-    n.classList.toggle('urgent', CF.CARDS[card.def].kind === 'case' && card.life < 45);
+    var k = CF.CARDS[card.def].kind;
+    n.classList.toggle('urgent', (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30));
   }
 
   // ---------------------------------------------------------------- Board
@@ -681,7 +682,17 @@
       pane.appendChild(h('p', 'vw-desc', def.desc));
       var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
       if (wk) pane.appendChild(storyBox(wk));
-      pane.appendChild(h('p', 'vw-desc', 'Open cases: ' + e.openCases().length + '. Rent is due at the end of every week.'));
+      var open = e.openCases().slice().sort(function (a, b) { return caseLife(a) - caseLife(b); });
+      pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first. Rent is due at the end of every week.' : 'No open cases. Rent is due at the end of every week.'));
+      open.forEach(function (rec) {
+        var cc = e.caseCard(rec.id);
+        if (!cc) return;
+        var life = cc.life / cc.maxLife;
+        var row = h('div', 'clock' + (cc.life < 60 ? ' urgent' : ''));
+        row.innerHTML = '<span class="ck-title">' + esc(rec.title) + '</span><span class="ck-bar"><i style="width:' + Math.round(life * 100) + '%"></i></span>' +
+          '<span class="ck-days">' + CF.daysLeft(cc.life) + ' day' + (CF.daysLeft(cc.life) === 1 ? '' : 's') + '</span>';
+        pane.appendChild(row);
+      });
       return;
     }
 
@@ -842,6 +853,8 @@
     });
   }
 
+  function caseLife(rec) { var cc = UI.e.caseCard(rec.id); return cc ? cc.life : Infinity; }
+
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
   function chargeHtml(d) {
@@ -866,7 +879,7 @@
       lines.push(rec.scene + ', ' + CF.DISTRICTS[rec.district].label);
       lines.push('Suspects met: ' + (met.length ? met.map(function (x) { return x.name.split(' ')[1] + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); }).join(', ') : 'none'));
       lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched'));
-      lines.push('Time left: ' + U.fmtTime(card.life) + (rec.highProfile ? ' · high-profile' : ''));
+      lines.push(CF.daysLeft(card.life) + ' days left (' + U.fmtTime(card.life) + ')' + (rec.highProfile ? ' · high-profile' : ''));
     } else if (card.def === 'suspect') {
       var sus = e.suspectOf(card);
       if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1) + (rec && rec.identified === card.data.key ? ' · prime suspect' : ''));

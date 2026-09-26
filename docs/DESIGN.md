@@ -283,7 +283,45 @@ defence a 35% chance to knock 20 points off. Acquittal costs Reputation,
 and a weak charge that fails may draw Scrutiny. The Arrest window shows the
 whole breakdown before you commit.
 
-## 7. What this phase does not decide
+## 7. Reflect is reasoning
+
+Analyze is the lab; Reflect is the detective's head. Clues laid side by side
+in Reflect are matched against **deductions** (`js/data/deductions.js`,
+read by `js/systems/reflect.js`): patterns across two or more clues of one
+case that produce a new clue, a theory, or nothing.
+
+- Two clues that describe the same person (they carry the same trait) make
+  an **Identification**: *Confirmed*, naming the suspect and making them the
+  prime suspect, when someone on the board fits; only *Possible* until then.
+- Two descriptions of different people make **nothing**, and the story says
+  so: at least one of them is about somebody else. That is the game telling
+  the player something without telling them which.
+- Aspects that explain each other become theories: Financial + Motive →
+  *Financial Motive*; Forensic + Opportunity → *Placed at the Scene*;
+  Opportunity across clues → *Reconstructed Timeline*; Digital + Financial
+  → *Paper Trail*; Testimony + Forensic → *Corroborated Account*.
+- Clues with nothing in common cannot even be corroborated. Corroborate is
+  the plain fallback for clues that share an aspect but fit no pattern.
+
+Deductions are content: a new pattern is a new entry, never new code.
+Deduction results count as corroborated in a charge (§6) and keep the
+trait and identification of the clues they came from, so a wrong theory
+built on a wrong description still contradicts the right suspect.
+
+## 8. Time
+
+Every verb takes seconds (Patrol 25, Investigate 30, Analyze 25, Interrogate
+20–25, Reflect 15–60, Arrest 15); a week is 60 seconds and takes the rent.
+Cases carry their own clock (250–400 seconds by type) and are shown in the
+city's days (a week is seven). The **Time** window lists every open case,
+most urgent first, with its bar and days left; a case gets one warning a
+minute before it goes cold; cases pulse in their last minute, and clues,
+evidence and witnesses in their last thirty seconds. A cold case raises
+Public Pressure and puts its culprit At Large. With up to four cases open
+and one detective, the game is triage; that tension is the design, and
+nothing later should relieve it for free.
+
+## 9. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and
