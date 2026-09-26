@@ -4,6 +4,6 @@
   "private": true,
   "description": "A detective card game in the style of Cultist Simulator.",
   "scripts": {
-    "test": "node tests/board.test.js && node tests/case.test.js && node tests/charge.test.js && node tests/reflect.test.js && node tests/pressure.test.js && node tests/team.test.js && node tests/criminals.test.js && node tests/network.test.js && node tests/ranks.test.js && node tests/callings.test.js && node tests/review.test.js && node tests/sim.test.js && node tests/bot.test.js 30"
+    "test": "node tests/board.test.js && node tests/case.test.js && node tests/charge.test.js && node tests/reflect.test.js && node tests/pressure.test.js && node tests/team.test.js && node tests/criminals.test.js && node tests/network.test.js && node tests/ranks.test.js && node tests/callings.test.js && node tests/review.test.js && node tests/pwa.test.js && node tests/sim.test.js && node tests/bot.test.js 30"
   }
 }

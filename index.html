@@ -2,9 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>Case File</title>
   <meta name="description" content="A detective card game in the style of Cultist Simulator.">
+  <meta name="theme-color" content="#0e1112">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/art/ui.css">
   <link rel="stylesheet" href="css/art/icons.css">
   <link rel="stylesheet" href="css/art/frames.css">
@@ -270,5 +277,11 @@
   <script src="js/ui.js"></script>
   <script src="js/screens.js"></script>
   <script src="js/main.js"></script>
+  <script>
+    // Installable and offline when served over http(s); nothing to do from file:// or inside the app.
+    if ('serviceWorker' in navigator && /^https?:/.test(location.protocol) && !window.CaseFileAndroid) {
+      navigator.serviceWorker.register('sw.js').catch(function () { /* offline install unavailable */ });
+    }
+  </script>
 </body>
 </html>

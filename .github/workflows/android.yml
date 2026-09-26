@@ -1,0 +1,49 @@
+# Builds the Android APK (a WebView wrapper around the game) and publishes it
+# as a build artifact and on the "apk-latest" release. Runs on every push to
+# main, on pull requests (artifact only), and by hand from the Actions tab.
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run tests
+        run: npm test
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Bundle the game into the app's assets
+        run: |
+          mkdir -p android/app/src/main/assets/www
+          cp -r index.html css js manifest.webmanifest sw.js icons android/app/src/main/assets/www/
+      - name: Build the debug APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon --warning-mode all
+      - name: Name the file
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk CaseFile.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CaseFile-apk
+          path: CaseFile.apk
+      - name: Publish on the apk-latest release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "Case File for Android (latest)" --notes "Debug build of the latest main. Sideload on a tablet." --latest=false
+          gh release upload apk-latest CaseFile.apk --clobber
