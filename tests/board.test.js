@@ -194,3 +194,16 @@ console.error = function (err) { throw err; };
   assert.strictEqual(seen.length, 1, 'the warning is not repeated');
   console.log('fade warning: once, at 30s');
 })();
+
+// A fading card inside a verb warns too, and names the verb.
+(function fadeInVerb() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'FadeSlot' });
+  var seen = [];
+  e.on(function (type, p) { if (type === 'expiring') seen.push(p); });
+  var w = e.create('witness', { label: 'Nervous Clerk', lifetime: 35 });
+  assert.ok(e.slotCard('interrogate', CF.VERBS.interrogate.slots[0].key, w.uid), 'the witness goes into Interrogate');
+  e.tick(8);
+  assert.strictEqual(seen.length, 1, 'warned while in a slot');
+  assert.strictEqual(seen[0].verb, 'interrogate', 'the warning names the verb');
+  console.log('fade warning: also inside a verb');
+})();

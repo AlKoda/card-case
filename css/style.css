@@ -539,5 +539,5 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes promoIn { from { transform: scale(0.7); opacity: 0; } }
 
 /* Panels scale with the Settings slider; the table itself is zoomed by hand. */
-.vwin { width: calc(356px * var(--ui-scale, 1)); }
+.vwin { width: min(calc(356px * var(--ui-scale, 1)), calc(100% - 8px)); }
 .vw-head, .vw-body, .vwin .divider, #peek, #toasts, #hint, #journal-drawer .side-head, #journal { zoom: var(--ui-scale, 1); }

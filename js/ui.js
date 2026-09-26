@@ -150,7 +150,11 @@
 
   // The panel scale from Settings (1 = as designed).
   UI.scale = function () { return U.clamp((CF.Settings.get('uiScale') || 100) / 100, 0.8, 1.6); };
-  UI.applyScale = function () { document.documentElement.style.setProperty('--ui-scale', UI.scale()); };
+  UI.applyScale = function () {
+    document.documentElement.style.setProperty('--ui-scale', UI.scale());
+    // Open windows grow or shrink in place; keep them inside the table.
+    Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
+  };
   UI.setPaused = function (p) { UI.paused = p; renderControls(); };
   UI.setSpeed = function (sp) { UI.speed = sp; UI.paused = false; renderControls(); };
 
@@ -170,6 +174,8 @@
     });
     document.addEventListener('keydown', function (ev) {
       if (UI.modal || ev.target.tagName === 'INPUT') return;
+      // Enter on a focused button is that button's click, not Begin.
+      if (ev.key === 'Enter' && /^(BUTTON|SELECT|TEXTAREA|A)$/.test(ev.target.tagName)) return;
       if (ev.code === 'Space') { ev.preventDefault(); UI.setPaused(!UI.paused); }
       else if (ev.key === '1' || ev.key === '2' || ev.key === '3') UI.setSpeed(+ev.key);
       else if (ev.key === 'Escape') { if (UI.drag) cancelDrag(); else if (UI.openVerbs.length) closeWindow(UI.openVerbs[UI.openVerbs.length - 1]); }
@@ -267,7 +273,7 @@
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
     }
     if (type === 'expiring') {
-      toast({ title: 'Fading: ' + payload.label, text: 'Half a minute before it is gone. Use it or lose it.', kind: 'danger', uid: payload.uid });
+      toast({ title: 'Fading: ' + payload.label, text: 'Half a minute before it is gone. Use it or lose it.', kind: 'danger', uid: payload.uid, verb: payload.verb });
     }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
   }
@@ -280,7 +286,7 @@
     t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
-      else if (entry.uid) UI.panTo(entry.uid);
+      else if (entry.uid) { if (!UI.panTo(entry.uid) && entry.verb) openWindow(entry.verb); }
       else if (entry.kind === 'minor') { /* nothing to show */ }
       else { UI.toggleJournal(true); $('#journal').scrollTop = 0; }
       t.remove();
