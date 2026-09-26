@@ -6,7 +6,7 @@
   var U = CF.util;
 
   var WEEK = 60;          // seconds of game time per week
-  var MAX_OPEN_CASES = 4;
+  var MAX_OPEN_CASES = 4; // the ceiling; rank sets the real number (maxOpenCases)
   var COLD_WARNING = 60; // seconds left on a case before the warning
   // Strain: two Fatigue is Exhaustion (street verbs slower), three is
   // Burnout. Tunnel Vision slows the careful verbs and warps deductions.
@@ -50,7 +50,9 @@
   CF.aspectsOf = function (card) {
     var def = CF.CARDS[card.def];
     var res = {};
-    res[def.kind] = 1;
+    // The kind is an aspect too, but a definition that already names it
+    // (Funds carry `funds`) must not count double: a cost of 2 is 2 cards.
+    if (!def.aspects || !def.aspects[def.kind]) res[def.kind] = 1;
     U.addAspects(res, def.aspects || {});
     if (card.aspects) U.addAspects(res, card.aspects);
     return res;
@@ -783,14 +785,16 @@
     }
 
     this.tickInformants(dt);
+    this.tickDelegates(dt);
+    if (s.rooms.intel) this.tickIntelOffice();
 
     // Dispatch: new cases come in on their own clock (or an informant's).
     s.dispatchT -= dt;
     if (s.dispatchT <= 0) {
       var open = this.openCases().length;
       var next = s.nextCase; s.nextCase = null;
-      if (open < MAX_OPEN_CASES) this.spawnCase(next ? next.template : null, next ? { district: next.district } : {});
-      var base = U.randInt(this.rng, 70, 105) - Math.min(30, s.week * 2);
+      if (open < this.maxOpenCases()) this.spawnCase(next ? next.template : null, next ? { district: next.district, extraTime: next.extraTime || 0 } : {});
+      var base = U.randInt(this.rng, 70, 105) - Math.min(30, s.week * 2) - (CF.RANK_DEFS[s.rank] || {}).dispatch || 0;
       if (this.countOf('syndicate')) base -= 10;
       s.dispatchT = Math.max(40, base);
     }
@@ -853,7 +857,7 @@
     var lines = [];
 
     // Salary, then rent.
-    var salary = CF.ECONOMY.salary[s.rank] || 1;
+    var salary = (CF.RANK_DEFS[s.rank] || {}).salary || CF.ECONOMY.salary[s.rank] || 1;
     for (var si = 0; si < salary; si++) this.create('funds');
     var funds = this.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; });
     if (funds.length >= CF.ECONOMY.rent) {
@@ -1015,11 +1019,12 @@
     if (s.meters.scrutiny >= this.meterMax('scrutiny')) { this.gameOver('corruption'); return; }
 
     // Promotion boards.
-    if (s.rank < 2 && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.countOf('promo_inspector') && !this.countOf('promo_chief')) {
-      this.create(s.rank === 0 ? 'promo_inspector' : 'promo_chief');
+    if (s.rank < CF.TOP_RANK && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
+      var next = CF.RANK_DEFS[s.rank + 1];
+      this.create('promotion', { label: 'Promotion Board: ' + next.label, desc: next.text + ' Attend the board in Duty.', data: { rank: s.rank + 1 } });
       this.story('The Brass Take Notice', 'A memo, on heavy paper: a promotion board has been convened. Your attendance is expected.', 'major');
     }
-    if (s.calling === 'commissioner' && s.rank === 2 && s.meters.reputation >= CF.COMMISSIONER_REP && !this.countOf('chair') && !s.flags.chairCooldown) {
+    if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && s.meters.reputation >= CF.COMMISSIONER_REP && !this.countOf('chair') && !s.flags.chairCooldown) {
       this.create('chair');
       this.story('The Chair Is Empty', 'The Commissioner has resigned. The council will choose a successor, and your name is on the list.', 'major');
     }
@@ -1146,6 +1151,82 @@
     this.s.flags.bought = this.s.flags.bought || {};
     this.s.flags.bought[key] = true;
     this.cardsOf('order', true).forEach(function (c) { if (c.data.order === key) self.remove(c); });
+  };
+
+  // ---- Rank ----------------------------------------------------------------
+  P.rankDef = function () { return CF.RANK_DEFS[this.s.rank] || CF.RANK_DEFS[0]; };
+  P.maxOpenCases = function () { return Math.min(MAX_OPEN_CASES + 1, this.rankDef().maxCases); };
+  // Take the next rank: verbs, requisitions, salary, caseload.
+  P.promote = function () {
+    var s = this.s;
+    if (s.rank >= CF.TOP_RANK) return [];
+    s.rank++;
+    var unlocked = [];
+    CF.VERB_ORDER.forEach(function (id) {
+      if (!s.verbs[id].unlocked && CF.VERBS[id].rank <= s.rank) { s.verbs[id].unlocked = true; unlocked.push(CF.VERBS[id].label); }
+    });
+    this.layoutVerbs();
+    this.addOrdersForRank(s.rank);
+    return unlocked;
+  };
+
+  // ---- Delegated cases (the Delegate verb) ----------------------------------
+  // An officer works a case alone: something from the scene every so often
+  // until the case closes, when they come back.
+  CF.DELEGATE_EVERY = 30;
+  P.delegateCase = function (rec, officer) {
+    rec.delegate = { card: { label: officer.label, desc: officer.desc, aspects: officer.aspects, data: officer.data }, t: CF.DELEGATE_EVERY, found: 0 };
+    this.remove(officer);
+  };
+  P.releaseDelegate = function (rec, note) {
+    var d = rec.delegate;
+    if (!d) return null;
+    rec.delegate = null;
+    var back = this.create('teammate', d.card);
+    if (note !== false) this.story('Back from ' + rec.title, this.labelOf(back) + ' hands in a report on ' + rec.title + ' and goes back to their desk.', 'minor');
+    return back;
+  };
+  P.tickDelegates = function (dt) {
+    var self = this;
+    this.openCases().forEach(function (rec) {
+      var d = rec.delegate;
+      if (!d) return;
+      d.t -= dt;
+      if (d.t > 0) return;
+      d.t = CF.DELEGATE_EVERY;
+      var helper = { def: 'teammate', aspects: d.card.aspects, data: d.card.data };
+      var it = self.drawSceneItem(rec, [helper]);
+      if (it) { d.found++; self.story(d.card.label + ' Reports', 'From ' + rec.title + ': ' + it.label + '.', 'minor'); }
+      else if (rec.witnesses.length) { self.create('witness', self.witnessSpec(rec)); d.found++; }
+    });
+  };
+  // Draw the next unfound scene item onto the table (the engine-side twin
+  // of the recipes' drawItem).
+  P.drawSceneItem = function (rec, helpers) {
+    var item = rec.items[rec.found];
+    if (!item) return null;
+    rec.found++;
+    if (item.type === 'clue') this.create('clue', this.clueSpec(rec, item, helpers));
+    else {
+      var needs = item.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[item.needs] + ' to analyse properly.' : '';
+      this.create('evidence', { label: item.label, desc: item.text + ' Take it to Analyze.' + needs + ' (Evidence in: ' + rec.title + ')', caseId: rec.id, data: { item: item } });
+    }
+    return item;
+  };
+
+  // ---- The Intelligence Office ------------------------------------------------
+  // A clue that points at a front reveals the front as soon as it is found.
+  P.tickIntelOffice = function () {
+    var self = this, fronts = this.fronts();
+    for (var k in this.s.cards) {
+      var c = this.s.cards[k];
+      if (c.def !== 'clue' || !c.data.link || !c.loc) continue;
+      var f = fronts[c.data.link];
+      if (f && !f.known) {
+        self.revealFront(f);
+        self.story('Intelligence Office', 'The office matches ' + self.labelOf(c) + ' to a known address: ' + f.name + '. ' + f.gang.replace(/^the /, 'The ') + ' works through it.', 'major');
+      }
+    }
   };
 
   // ---- Cases ----------------------------------------------------------------
@@ -1383,11 +1464,12 @@
     if (card) this.remove(card);
     if (!rec || rec.status !== 'open') return;
     rec.status = 'cold';
+    this.releaseDelegate(rec);
     this.s.stats.cold++;
     this.emit('resolved', this.caseRecord(rec, 'cold'));
     this.clearCaseCards(caseId);
     var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
-    this.meter('pressure', rec.highProfile ? 2 : 1);
+    this.meter('pressure', (rec.highProfile ? 2 : 1) + (rec.major ? 1 : 0));
 
     if (rec.template === 'gang') {
       this.meter('retaliation', 2);
@@ -1480,7 +1562,7 @@
       s.stats.convictions++;
       if (!d.guilty) s.stats.wrongful++;
       if (d.guilty) this.criminalCaught(d.name);
-      this.meter('reputation', 1 + (d.solid ? 1 : 0) + (hp ? 1 : 0) + (rec.special ? 2 : 0));
+      this.meter('reputation', 1 + (d.solid ? 1 : 0) + (hp ? 1 : 0) + (rec.special ? 2 : 0) + (rec.major ? 1 : 0));
       this.meter('pressure', hp ? -2 : -1);
       var t = this.cardsOf('tunnel')[0];
       var ob = this.cardsOf('obsession')[0];

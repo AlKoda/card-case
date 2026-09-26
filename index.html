@@ -37,6 +37,7 @@
           <button class="ctl" data-speed="2" title="Fast (2)">2×</button>
           <button class="ctl" data-speed="3" title="Fastest (3)">3×</button>
         </div>
+        <button class="ctl" id="btn-precinct" title="Your precinct">⌂</button>
         <button class="ctl" id="btn-help" title="How to play">?</button>
         <button class="ctl" id="btn-menu" title="Menu">☰</button>
       </div>
@@ -160,10 +161,21 @@
         <button class="plate-btn gold" id="m-resume">Resume</button>
         <button class="plate-btn teal" id="m-save">Save Now</button>
         <button class="plate-btn grey" id="m-settings">Settings</button>
+        <button class="plate-btn teal" id="m-precinct">Precinct</button>
         <button class="plate-btn teal" id="m-archive">Case Archive</button>
         <button class="plate-btn grey" id="m-title">Main Menu</button>
         <button class="plate-btn red" id="m-new">Abandon File</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Precinct -->
+  <div class="modal hidden" id="precinct">
+    <div class="modal-box" style="max-width:860px">
+      <h1 style="font-size:24px">The Precinct</h1>
+      <h2 id="precinct-sub"></h2>
+      <div id="precinct-grid" class="precinct-grid"></div>
+      <div class="row"><button class="btn" id="precinct-close">Back to work</button></div>
     </div>
   </div>
 
@@ -192,7 +204,7 @@
           <h4>Threats</h4>
           <p><b>Fatigue</b> ×3 becomes Burnout. <b>Obsession</b> ×3 becomes Tunnel Vision, and you misread clues. <b>Public Pressure</b>, <b>Scrutiny</b> (Internal Affairs) and <b>Retaliation</b> build up at the top. Rest in Reflect. Close cases. Keep your hands clean, or don't.</p>
           <h4>Growing</h4>
-          <p>Spend Funds in <b>Requisition</b> on equipment, precinct rooms and new officers. Reputation brings promotion boards, and new verbs: Warrant, Stakeout, Undercover, Task Force.</p>
+          <p>Spend Funds in <b>Requisition</b> on equipment, precinct rooms and new officers. Reputation brings promotion boards. Each rank changes the game: Senior Detective (Warrant, more cases), Inspector (Stakeout, Delegate, Undercover), Chief Inspector (Task Force, Major Crimes). The ⌂ button shows your precinct: rooms that change how the verbs work.</p>
           <h4>Winning</h4>
           <p>Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Rent comes out every week. Don't go broke.</p>
         </div>

@@ -145,6 +145,9 @@
       desc: 'Thick, unmarked, left on your desk. Put it in Duty to pocket it. Or let it sit until someone takes it back.' },
 
     // --- Career ----------------------------------------------------------
+    promotion: { label: 'Promotion Board', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
+      desc: 'The brass have noticed you. Attend the board in Duty.' },
+    // Kept for older saves; the generic `promotion` card replaced them.
     promo_inspector: { label: 'Promotion Board: Inspector', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The brass have noticed you. Attend the board in Duty.' },
     promo_chief: { label: 'Promotion Board: Chief', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
@@ -174,19 +177,28 @@
     prints: { label: 'Fingerprint Set', cost: 3, give: 'prints', rank: 0 },
     kit: { label: 'Forensic Kit', cost: 4, give: 'kit', rank: 0 },
     locker: { label: 'Evidence Locker', cost: 4, room: 'locker', rank: 0 },
-    suite: { label: 'Interrogation Suite', cost: 5, room: 'suite', rank: 1 },
+    suite: { label: 'Interview Room', cost: 5, room: 'suite', rank: 1 },
     labpass: { label: 'Lab Access', cost: 5, give: 'labpass', rank: 1 },
-    surveillance: { label: 'Surveillance Gear', cost: 6, give: 'surveillance', rank: 1 },
     archive: { label: 'Archive', cost: 5, room: 'archive', rank: 1 },
-    lab: { label: 'Crime Lab', cost: 9, room: 'lab', rank: 2 },
+    surveillance: { label: 'Surveillance Gear', cost: 6, give: 'surveillance', rank: 2 },
+    intel: { label: 'Intelligence Office', cost: 6, room: 'intel', rank: 2 },
+    training: { label: 'Training Room', cost: 5, room: 'training', rank: 2 },
+    lab: { label: 'Crime Lab', cost: 9, room: 'lab', rank: 3 },
+    survroom: { label: 'Surveillance Room', cost: 8, room: 'survroom', rank: 3 },
   };
 
+  // The precinct: a second board. Each room changes a system (see
+  // docs/DESIGN.md, "The precinct"); `order` is the requisition that builds it.
   CF.ROOMS = {
-    locker: { label: 'Evidence Locker', desc: 'Clues and evidence keep twice as long.' },
-    suite: { label: 'Interrogation Suite', desc: 'Interrogations are faster and draw out more Testimony.' },
-    archive: { label: 'Archive', desc: 'Cold Cases can be reopened in Analyze.' },
-    lab: { label: 'Crime Lab', desc: 'Analysis is faster, and no evidence needs special equipment.' },
+    locker: { label: 'Evidence Locker', order: 'locker', desc: 'Clues and evidence keep twice as long.' },
+    suite: { label: 'Interview Room', order: 'suite', desc: 'Interrogations are faster and draw out more Testimony.' },
+    archive: { label: 'Archive', order: 'archive', desc: 'Cold Cases can be reopened in Analyze.' },
+    intel: { label: 'Intelligence Office', order: 'intel', desc: 'A clue that points at a front reveals the front at once; the network shows itself.' },
+    training: { label: 'Training Room', order: 'training', desc: 'Training an officer costs 1 Fund instead of 2, and at level 3 they learn a new trait.' },
+    lab: { label: 'Crime Lab', order: 'lab', desc: 'Analysis is faster, and no evidence needs special equipment.' },
+    survroom: { label: 'Surveillance Room', order: 'survroom', desc: 'Stakeouts take half the night and never tire you.' },
   };
+  CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'lab', 'survroom'];
 
   // Officer traits change what a verb does when the officer is in it.
   CF.OFFICER_TRAITS = {
@@ -213,8 +225,21 @@
       desc: 'Thirty years on the job. Has seen this before. Has seen everything before.' },
   };
 
-  CF.RANKS = ['Detective', 'Inspector', 'Chief'];
-  CF.RANK_REP = [0, 6, 15]; // reputation needed for the board to convene
+  // Ranks change the game: the verbs you have, the caseload the city hands
+  // you, your salary, and which requisitions the brass will sign.
+  CF.RANK_DEFS = [
+    { id: 'detective', label: 'Detective', rep: 0, salary: 1, maxCases: 3, badge: 1, dispatch: 0,
+      text: 'A desk, a caseload, and the street.' },
+    { id: 'senior', label: 'Senior Detective', rep: 4, salary: 2, maxCases: 4, badge: 1, dispatch: 0,
+      text: 'You can get a judge to sign a Warrant, and the city sends you more.' },
+    { id: 'inspector', label: 'Inspector', rep: 9, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
+      text: 'Stakeouts, Undercover work, and officers you can Delegate a case to.' },
+    { id: 'chief', label: 'Chief Inspector', rep: 15, salary: 4, maxCases: 5, badge: 3, dispatch: 10,
+      text: 'Task Forces, Major Crimes, and a city that expects everything of you.' },
+  ];
+  CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
+  CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // reputation needed for the board to convene
+  CF.TOP_RANK = CF.RANK_DEFS.length - 1;
   CF.COMMISSIONER_REP = 24;
 
   CF.CALLINGS = {

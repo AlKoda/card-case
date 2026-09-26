@@ -115,7 +115,7 @@
       ],
     },
     stakeout: {
-      label: 'Stakeout', rank: 1,
+      label: 'Stakeout', rank: 2,
       desc: 'Sit in a car and watch a Suspect for a long, cold night. The guilty do guilty things. The innocent go to bed. Watch a known Front instead to see which of your cases passes through it.',
       slots: [
         { key: 'main', label: 'Target', accepts: ['suspect', 'front'], primary: true },
@@ -124,7 +124,7 @@
       ],
     },
     undercover: {
-      label: 'Undercover', rank: 1,
+      label: 'Undercover', rank: 2,
       desc: 'Go under. Point yourself at someone At Large, a Gang, or the Syndicate itself. Takes a long time, costs Health if it goes wrong, and gets results nothing else can.',
       slots: [
         { key: 'main', label: 'Target', accepts: ['atlarge', 'gang', 'syndicate', 'front'], primary: true },
@@ -133,7 +133,7 @@
       ],
     },
     taskforce: {
-      label: 'Task Force', rank: 2,
+      label: 'Task Force', rank: 3,
       desc: 'Hand a Case to a Task Force of your officers. They work it in parallel with you and bring back whatever they find.',
       slots: [
         { key: 'main', label: 'Case', accepts: ['case'], primary: true },
@@ -144,6 +144,24 @@
     },
   };
 
+  CF.VERBS.delegate = {
+    label: 'Delegate', rank: 2,
+    desc: 'Hand a Case to an officer. They work it on their own, in parallel with you, turning up something from the scene every half minute until it is closed. They come back when it is.',
+    slots: [
+      { key: 'main', label: 'Case', accepts: ['case'], primary: true },
+      { key: 'who', label: 'Officer', accepts: ['teammate'], when: function (p) { return !!p; } },
+    ],
+  };
+  CF.VERBS.majorcrimes = {
+    label: 'Major Crimes', rank: 3,
+    desc: 'The division answers to you now. Declare a Case a Major Crime (with Funds) and the city gives it time, attention and a name; or put a District in to focus the division there.',
+    slots: [
+      { key: 'main', label: 'Case / District', accepts: ['case', 'district'], primary: true },
+      { key: 'pay', label: 'Funds', accepts: ['funds'], when: function (p) { return has(p, 'case'); } },
+      { key: 'pay2', label: 'Funds', accepts: ['funds'], when: function (p) { return has(p, 'case'); } },
+    ],
+  };
+
   CF.VERB_ORDER = ['time', 'duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest',
-    'requisition', 'warrant', 'stakeout', 'undercover', 'taskforce'];
+    'requisition', 'warrant', 'stakeout', 'delegate', 'undercover', 'taskforce', 'majorcrimes'];
 })(typeof window !== 'undefined' ? window : globalThis);

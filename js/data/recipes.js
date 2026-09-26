@@ -71,16 +71,13 @@
     run: function (ctx) {
       var e = ctx.e, s = e.s;
       ctx.consume(ctx.primary);
-      s.rank = Math.min(2, s.rank + 1);
-      var unlocked = [];
-      CF.VERB_ORDER.forEach(function (id) {
-        if (!s.verbs[id].unlocked && CF.VERBS[id].rank <= s.rank) { s.verbs[id].unlocked = true; unlocked.push(CF.VERBS[id].label); }
-      });
-      e.addOrdersForRank(s.rank);
-      ctx.give('personnel', e.personnelSpec(s.rank === 1 ? 'interviewer' : 'veteran'));
+      var unlocked = e.promote();
+      var rank = e.rankDef();
+      ctx.give('personnel', e.personnelSpec(['rookie', 'tech', 'interviewer', 'veteran'][s.rank] || 'veteran'));
       ctx.give('funds'); ctx.give('funds');
-      return { title: 'Promoted: ' + CF.RANKS[s.rank], kind: 'major',
-        text: 'They shake your hand and give you a new title, a pay rise and a bigger caseload. You are now ' + CF.RANKS[s.rank] + '. New tools are open to you: ' + unlocked.join(', ') + '. New requisitions arrive with the memo.' };
+      return { title: 'Promoted: ' + rank.label, kind: 'major',
+        text: 'They shake your hand and give you a new title, a pay rise and a bigger caseload. You are now ' + rank.label + '. ' + rank.text +
+          (unlocked.length ? ' New tools are open to you: ' + unlocked.join(', ') + '.' : '') + ' The city will send you up to ' + e.maxOpenCases() + ' cases at once, and pay ' + rank.salary + ' a week. New requisitions arrive with the memo.' };
     },
   });
   R.push({
@@ -112,17 +109,23 @@
   R.push({
     id: 'duty_train', verb: 'duty', label: 'Train an Officer', duration: 40,
     preview: 'Courses, drills, a mentor. They will come back sharper.',
-    requires: { aspects: { teammate: 1, funds: 2 } },
+    requires: { aspects: { teammate: 1 }, when: function (ctx) { return ctx.count('funds') >= (ctx.e.s.rooms.training ? 1 : 2); } },
     run: function (ctx) {
-      var t = ctx.primary;
-      ctx.with('funds').slice(0, 2).forEach(ctx.consume);
+      var e = ctx.e, t = ctx.primary;
+      ctx.with('funds').slice(0, e.s.rooms.training ? 1 : 2).forEach(ctx.consume);
       var a = t.aspects;
       var best = Object.keys(a).sort(function (x, y) { return a[y] - a[x]; })[0];
       a[best]++;
       t.data.level = (t.data.level || 1) + 1;
       var titles = ['', '', 'Senior ', 'Lead ', 'Chief '];
       t.label = (titles[Math.min(4, t.data.level)] || 'Chief ') + t.data.role + ' ' + t.data.name.split(' ')[1];
-      return { title: 'Training Complete', text: t.data.name + ' comes back from the course with a certificate and a new confidence. Their ' + CF.ASPECTS[best].label + ' is now ' + a[best] + '.' };
+      var learned = null;
+      if (e.s.rooms.training && t.data.level >= 3) {
+        var pool = Object.keys(CF.OFFICER_TRAITS).filter(function (k) { return (t.data.traits || []).indexOf(k) < 0; });
+        if (pool.length) { learned = U.pick(ctx.rng, pool); t.data.traits = (t.data.traits || []).concat([learned]); }
+      }
+      return { title: 'Training Complete', text: t.data.name + ' comes back from the course with a certificate and a new confidence. Their ' + CF.ASPECTS[best].label + ' is now ' + a[best] + '.' +
+        (learned ? ' And something else: they are ' + CF.OFFICER_TRAITS[learned].label.toLowerCase() + ' now. ' + CF.OFFICER_TRAITS[learned].desc : '') };
     },
   });
   R.push({
@@ -719,7 +722,7 @@
   });
   R.push({
     id: 'stakeout_front', verb: 'stakeout', label: 'Watch the Front',
-    duration: function (ctx) { return ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60; },
+    duration: function (ctx) { return ctx.e.s.rooms.survroom ? 30 : ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60; },
     preview: function (ctx) { return 'Sit across the road from ' + ctx.e.labelOf(ctx.primary) + ' and write down who comes and goes.'; },
     blocked: function (ctx) { return ctx.slots.mind ? null : 'Someone has to watch: you (Instinct) or an officer.'; },
     requires: { primary: 'front' },
@@ -727,7 +730,7 @@
       var e = ctx.e, fc = ctx.primary;
       var front = e.fronts()[fc.data.front];
       if (front) front.watched = true;
-      if (ctx.has('instinct')) maybe(ctx, 0.4, 'fatigue');
+      if (ctx.has('instinct') && !e.s.rooms.survroom) maybe(ctx, 0.4, 'fatigue');
       var linked = front ? e.casesAtFront(front.id) : [];
       var got = [];
       linked.forEach(function (rec) {
@@ -920,6 +923,7 @@
       var clues = slotClues(ctx, ['c1', 'c2', 'c3', 'c4']);
       var a = e.assessCharge(sc, clues);
       rec.status = 'trial';
+      e.releaseDelegate(rec);
       var caseCard = e.caseCard(rec.id);
       if (caseCard) e.remove(caseCard);
       e.clearCaseCards(rec.id, clues.filter(function (c) { return c.caseId !== rec.id; }));
@@ -1005,7 +1009,7 @@
   // ================================================================= STAKEOUT
   R.push({
     id: 'stakeout_watch', verb: 'stakeout', label: 'Stake Them Out',
-    duration: function (ctx) { return Math.round((ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
+    duration: function (ctx) { return Math.round((ctx.e.s.rooms.survroom ? 30 : ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
     preview: 'Cold coffee, a steamed-up windscreen, and a long night watching one front door.',
     blocked: function (ctx) { return ctx.slots.mind ? null : 'Someone has to watch: you (Instinct) or an officer.'; },
     requires: ['suspect'],
@@ -1015,7 +1019,7 @@
       var rec = openRec(ctx, sc);
       if (!rec) return closed();
       var sus = e.suspectOf(sc);
-      if (ctx.has('instinct')) maybe(ctx, 0.4, 'fatigue');
+      if (ctx.has('instinct') && !e.s.rooms.survroom) maybe(ctx, 0.4, 'fatigue');
       if (!sus.guilty) {
         sus.cleared = true;
         ctx.consume(sc);
@@ -1110,6 +1114,64 @@
       });
       if (team.length >= 2) { var s = e.revealSuspect(rec, ctx); if (s) got.push(s.label); }
       return { title: 'Task Force Report', text: team.length + ' officer' + (team.length > 1 ? 's' : '') + ' worked ' + rec.title + '. ' + (got.length ? 'They bring back: ' + got.join(', ') + '.' : 'They found nothing new.') };
+    },
+  });
+
+  // ================================================================= DELEGATE
+  R.push({
+    id: 'delegate_case', verb: 'delegate', label: 'Delegate the Case', duration: 10,
+    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.delegate ? 'Somebody is already working this case for you.' : 'Hand it over. They will bring you something every half minute until it closes.'; },
+    blocked: function (ctx) {
+      var rec = ctx.caseOf(ctx.primary);
+      if (rec && rec.delegate) return 'An officer is already on it.';
+      return ctx.has('teammate') ? null : 'Add the officer who will take it.';
+    },
+    requires: ['case'],
+    run: function (ctx) {
+      var e = ctx.e;
+      var rec = openRec(ctx, ctx.primary);
+      if (!rec) return closed();
+      var officer = ctx.first('teammate');
+      if (!officer) return { title: 'Nobody Free', text: 'The officer you had in mind is not at their desk.' };
+      e.delegateCase(rec, officer);
+      return { title: 'Delegated', text: officer.data.name + ' takes the file for ' + rec.title + ' and a set of keys. You will hear from them.' };
+    },
+  });
+
+  // ============================================================= MAJOR CRIMES
+  R.push({
+    id: 'major_declare', verb: 'majorcrimes', label: 'Declare a Major Crime', duration: 15,
+    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.major ? 'It is already a Major Crime.' : 'Costs 2 Funds. The case gets an extra two minutes, a name on the board, a witness, and the whole city watching. Convictions pay in Reputation; a cold case costs Pressure.'; },
+    blocked: function (ctx) {
+      var rec = ctx.caseOf(ctx.primary);
+      if (rec && rec.major) return 'This is already a Major Crime.';
+      return ctx.count('funds') >= 2 ? null : 'Needs 2 Funds (you have put in ' + ctx.count('funds') + ').';
+    },
+    requires: ['case'],
+    run: function (ctx) {
+      var e = ctx.e, card = ctx.primary;
+      var rec = openRec(ctx, card);
+      if (!rec) return closed();
+      ctx.with('funds').slice(0, 2).forEach(ctx.consume);
+      rec.major = true;
+      rec.highProfile = true;
+      card.life += 120; card.maxLife = Math.max(card.maxLife || 0, card.life);
+      card.label = '★ ' + card.label.replace(/^★ /, '');
+      var sc = e.revealSuspect(rec, ctx);
+      if (rec.witnesses.length) ctx.give('witness', e.witnessSpec(rec));
+      return { title: 'Major Crime: ' + rec.title, kind: 'major', text: 'You put the division on it. Overtime, a hotline, a press conference. The city gives you time and expects a name.' + (sc ? ' The first one: ' + e.labelOf(sc) + '.' : '') };
+    },
+  });
+  R.push({
+    id: 'major_focus', verb: 'majorcrimes', label: 'Focus the Division', duration: 15,
+    preview: function (ctx) { return 'Patrols, informants and paperwork all point at ' + ctx.e.labelOf(ctx.primary) + '. The next case comes from there, sooner, with more time on its clock.'; },
+    requires: ['district'],
+    run: function (ctx) {
+      var e = ctx.e, d = ctx.primary.data.district;
+      var tid = U.pick(ctx.rng, CF.ORDINARY_CASES.filter(function (t) { return CF.CASE_TEMPLATES[t].districts.indexOf(d) >= 0; }) || CF.ORDINARY_CASES);
+      e.s.nextCase = { template: tid, district: d, extraTime: 60 };
+      e.s.dispatchT = Math.min(e.s.dispatchT, 30);
+      return { title: 'Eyes on ' + CF.DISTRICTS[d].label, text: 'Every patrol car in the division spends the week in ' + CF.DISTRICTS[d].label + '. Whatever happens there next, you will hear first.' };
     },
   });
 

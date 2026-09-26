@@ -44,8 +44,9 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 | **Reflect** | Rest off Fatigue, Burnout, Obsession and Tunnel Vision. Lay clues side by side and reason: two descriptions of the same person become an identification, money and motive become a theory, and two descriptions of different people tell you one of them is wrong. Put a case with its clues here to see who it points to. |
 | **Arrest** | Charge a suspect with clues from their case. The trial resolves a little later. |
 | **Requisition** | Buy equipment and precinct rooms, and hire officers. Equipment changes what verbs do: the Camera photographs a scene so its clues keep, Lab Access takes a clue back to the bench, Surveillance Gear opens the Stakeout. Officers come with traits (Thorough, Streetwise, Empathetic, Sharp, Patient, Steady) that change the verbs they help with. |
-| **Warrant / Stakeout / Undercover** | Unlocked at Inspector. |
-| **Task Force** | Unlocked at Chief. |
+| **Warrant** | Senior Detective. Search a suspect's home with probable cause. |
+| **Stakeout / Delegate / Undercover** | Inspector. Delegate hands a case to an officer who works it alone until it closes. |
+| **Task Force / Major Crimes** | Chief Inspector. Declare a Major Crime, or focus the division on a district. |
 
 **Charges.** Clues carry six aspects: Forensic, Testimony, Motive, Opportunity, Digital and Financial. Each case has a charge profile: the aspects a court will want proven, and how much of each. A charge is scored as evidence strength + independent kinds of proof + corroboration − contradictions − illegal evidence. Four Forensic clues are not better than one of each kind, and a clue that describes somebody other than the accused counts against you. **Weak** charges are enough to arrest and little more; **reasonable** ones could go either way; **strong** ones hold, and pay.
 
@@ -56,7 +57,8 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 - Three Obsession become Tunnel Vision: you work slower, silently misread clues, and cannot see when two descriptions disagree.
 - Public Pressure rises when cases go cold and gets you dismissed at 10.
 - Scrutiny comes from coercion, bribes, planted evidence and searching a suspect's home without a warrant (Investigate with a Suspect: quick, and the court may exclude what you find). At 10 you face corruption charges.
-- Every week pays a salary by rank and takes the rent; convictions pay by the strength of the charge.
+- Every week pays a salary by rank and takes the rent; convictions pay by the strength of the charge. Ranks (Detective → Senior Detective → Inspector → Chief Inspector) raise the caseload and the salary and open new verbs.
+- The **precinct** (⌂) is a second board: seven rooms that change how the verbs work, each with a cost and a rank that can sign for it.
 - Retaliation grows with every criminal at large. Three of them form a gang, and two gangs form the Syndicate. They will come for your informants, your team and you.
 - Cases connect underneath: a gang works through a front, and clues from different cases can point at the same place. Lay two of them together in Reflect and you find the thread; the Front can then be staked out or used as a way in.
 - Nobody who gets away is forgotten: they keep a record, commit new crimes that arrive as cases with their name on them, and climb from Petty Criminal to Syndicate Member.
