@@ -52,6 +52,58 @@
     });
   });
 
+  // ------------------------------------------------------------ Precinct
+  // The precinct as a second board: every room, what it does, what it costs,
+  // and a way to put its requisition on the table.
+  var Precinct = (CF.Precinct = {});
+  // Pure: the tiles the board shows for an engine.
+  Precinct.tiles = function (e) {
+    return CF.ROOM_ORDER.map(function (key) {
+      var room = CF.ROOMS[key], order = CF.ORDERS[room.order];
+      var owned = !!e.s.rooms[key];
+      var onTable = e.cardsOf('order', true).some(function (c) { return c.data.order === room.order; });
+      var locked = e.s.rank < order.rank;
+      return { key: key, label: room.label, desc: room.desc, cost: order.cost, rank: order.rank,
+        state: owned ? 'owned' : locked ? 'locked' : onTable ? 'ordered' : 'open' };
+    });
+  };
+  // Put the requisition form on the table, unless it is already there.
+  Precinct.order = function (e, key) {
+    var room = CF.ROOMS[key], order = CF.ORDERS[room.order];
+    if (e.s.rooms[key] || e.s.rank < order.rank) return false;
+    if (e.cardsOf('order', true).some(function (c) { return c.data.order === room.order; })) return false;
+    e.create('order', { label: 'Order: ' + order.label, desc: room.desc + ' Cost: ' + order.cost + ' Funds.', data: { order: room.order } });
+    e.dirty = true;
+    return true;
+  };
+  Precinct.open = function (e) {
+    Precinct.e = e;
+    Precinct.render();
+  };
+  Precinct.render = function () {
+    var e = Precinct.e;
+    if (!e) return;
+    var grid = $('precinct-grid');
+    grid.innerHTML = '';
+    var owned = 0;
+    Precinct.tiles(e).forEach(function (t) {
+      if (t.state === 'owned') owned++;
+      var d = document.createElement('div');
+      d.className = 'room ' + t.state;
+      d.innerHTML = '<div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
+        '<div class="rm-foot">' + (t.state === 'owned' ? 'Built' : t.state === 'locked' ? 'Needs ' + esc(CF.RANKS[t.rank]) : t.state === 'ordered' ? 'Form on the table' : t.cost + ' Funds') + '</div>';
+      if (t.state === 'open') {
+        var b = document.createElement('button');
+        b.className = 'plate-btn teal small';
+        b.textContent = 'Requisition';
+        b.addEventListener('click', function () { Precinct.order(e, t.key); CF.Audio.play('start'); Precinct.render(); });
+        d.appendChild(b);
+      }
+      grid.appendChild(d);
+    });
+    $('precinct-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ' · ' + owned + ' of ' + CF.ROOM_ORDER.length + ' rooms built · up to ' + e.maxOpenCases() + ' open cases · salary ' + e.rankDef().salary + ' a week';
+  };
+
   // ------------------------------------------------------------ Archive
   var KEY = 'casefile.archive.v1';
   var OPENED = 'casefile.archive.opened.v1';

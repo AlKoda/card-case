@@ -23,7 +23,7 @@
     health: 'icon-health', wound: 'icon-health', focus: 'icon-focus', instinct: 'icon-instinct', funds: 'icon-funds',
     fatigue: 'icon-fatigue', burnout: 'icon-burnout', obsession: 'icon-obsession', tunnel: 'icon-redeye',
     bribe: 'icon-handshake', gang: 'icon-roots', syndicate: 'icon-pyramid', trial: 'icon-gavel',
-    promo_inspector: 'icon-star', promo_chief: 'icon-star', chair: 'icon-court', room: 'icon-court',
+    promotion: 'icon-star', promo_inspector: 'icon-star', promo_chief: 'icon-star', chair: 'icon-court', room: 'icon-court',
     looseend: 'icon-hook', ledger: 'icon-scales', paperwork: 'icon-folder', order: 'icon-folder', notes: 'icon-folder',
     camera: 'icon-camera', prints: 'aspect-forensic', kit: 'icon-search', surveillance: 'icon-binoculars', labpass: 'icon-mind',
     calling_commissioner: 'icon-star', calling_master: 'icon-mind', calling_crusader: 'icon-scales',
@@ -58,7 +58,7 @@
     manhunt: 'alley', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
   var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge', equipment: 'print', intel: 'fedora', place: 'city',
     hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'city', court: 'knife' };
-  var VERB_TOKENS = { time: 'token-time' };
+  var VERB_TOKENS = { time: 'token-time', delegate: 'token-rest', majorcrimes: 'token-warrant' };
   var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
   var TOAST_BARS = { case: 'bar-case', danger: 'bar-danger', defeat: 'bar-danger', major: 'bar-major', victory: 'bar-victory', week: 'bar-mind', verb: 'bar-search' };
   var RING_LEN = 2 * Math.PI * 47;
@@ -275,12 +275,12 @@
 
   function renderTop() {
     var e = UI.e, s = e.s, m = s.meters;
-    var nextRep = s.rank < 2 ? CF.RANK_REP[s.rank + 1] : (s.calling === 'commissioner' ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
+    var nextRep = s.rank < CF.TOP_RANK ? CF.RANK_REP[s.rank + 1] : (s.calling === 'commissioner' ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
     $('#meters').innerHTML = mm('pressure', 'Pressure') + mm('scrutiny', 'Scrutiny') + mm('retaliation', 'Retaliation') +
-      meter('reputation', 'Reputation', m.reputation, nextRep, m.reputation + (s.rank < 2 || s.calling === 'commissioner' ? '/' + nextRep : ''));
+      meter('reputation', 'Reputation', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
     $('#rank').textContent = s.detective + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
-    $('#rank-badge').style.backgroundImage = art('rank-' + (s.rank + 1));
+    $('#rank-badge').style.backgroundImage = art('rank-' + (CF.RANK_DEFS[s.rank] || {}).badge || 1);
     $('#rank-badge').title = CF.RANKS[s.rank];
     if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
     UI.lastRank = s.rank;
@@ -881,7 +881,7 @@
       var met = rec.suspects.filter(function (x) { return x.revealed; });
       lines.push(rec.scene + ', ' + CF.DISTRICTS[rec.district].label);
       lines.push('Suspects met: ' + (met.length ? met.map(function (x) { return x.name.split(' ')[1] + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); }).join(', ') : 'none'));
-      lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched'));
+      lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched') + (rec.delegate ? ' · ' + rec.delegate.card.label + ' on it' : '') + (rec.major ? ' · Major Crime' : ''));
       lines.push(CF.daysLeft(card.life) + ' days left (' + U.fmtTime(card.life) + ')' + (rec.highProfile ? ' · high-profile' : ''));
     } else if (card.def === 'suspect') {
       var sus = e.suspectOf(card);

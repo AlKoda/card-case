@@ -472,7 +472,50 @@ still run first; structure items are what the generic search finds after
 the script is spent. Nineteen structures and their pools give the six
 crime types several hundred distinct briefs without random prose.
 
-## 17. What this phase does not decide
+## 17. Ranks
+
+Four ranks (`CF.RANK_DEFS`), each of which changes the game rather than a
+percentage:
+
+| Rank | Reputation | Salary | Cases at once | Brings |
+|---|---|---|---|---|
+| Detective | 0 | 1 | 3 | Duty, Patrol, Investigate, Analyze, Interrogate, Reflect, Arrest, Requisition |
+| Senior Detective | 4 | 2 | 4 | Warrant; the Interview Room, Archive and Lab Access requisitions |
+| Inspector | 9 | 3 | 4 | Stakeout, **Delegate**, Undercover; Surveillance Gear, the Intelligence Office and Training Room; cases come a little faster |
+| Chief Inspector | 15 | 4 | 5 | Task Force, **Major Crimes**; the Crime Lab and Surveillance Room; cases come faster still |
+
+Reputation convenes a promotion board (one at a time); attending it in
+Duty promotes, with a personnel file and two Funds. The Commissioner's
+Chair waits for Chief Inspector. Undercover sits at Inspector rather than
+the roadmap's Chief Inspector so the Crusader can reach the Syndicate in
+time; everything else follows the roadmap's ladder.
+
+**Delegate** hands a case to one officer, who leaves the table and works
+it alone: something from the scene every thirty seconds until the case
+closes, when they come back. **Major Crimes** declares a case a Major
+Crime for 2 Funds (two more minutes, high-profile, a suspect and a
+witness; convictions pay an extra Reputation and a cold case an extra
+Pressure), or focuses the division on a District so the next case comes
+from there, sooner, with an extra minute.
+
+## 18. The precinct
+
+The precinct is a second board (`⌂` in the top bar, or the menu): seven
+rooms, each changing a system, with what it costs and which rank can sign
+for it. A room's tile puts its requisition form on the table; Requisition
+builds it.
+
+| Room | Effect |
+|---|---|
+| Evidence Locker | Clues and evidence keep twice as long. |
+| Interview Room | Interrogations faster; +1 Testimony. |
+| Archive | Cold cases can be reopened in Analyze. |
+| Intelligence Office | A clue that points at a front reveals the front at once. |
+| Training Room | Training costs 1 Fund; at level 3 an officer learns a new trait. |
+| Crime Lab | Analysis faster; no evidence needs special equipment. |
+| Surveillance Room | Stakeouts take half the night and never tire you. |
+
+## 19. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and

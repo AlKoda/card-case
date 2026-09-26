@@ -30,7 +30,7 @@
 
   // Promotion: rank badge, and the verbs the new rank unlocks.
   UI.onPromotion = function (rank) {
-    $('promo-badge').style.backgroundImage = 'var(--art-rank-' + (rank + 1) + ')';
+    $('promo-badge').style.backgroundImage = 'var(--art-rank-' + ((CF.RANK_DEFS[rank] || {}).badge || 1) + ')';
     $('promo-title').textContent = 'Promoted: ' + CF.RANKS[rank];
     var unlocked = CF.VERB_ORDER.filter(function (v) { return CF.VERBS[v].rank === rank; });
     [1, 2, 3].forEach(function (i) {
@@ -156,6 +156,9 @@
   click('arc-back', goBack);
 
   click('btn-help', function () { returnTo = 'game'; only('help'); });
+  click('btn-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
+  click('m-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
+  click('precinct-close', function () { only(null); });
   click('help-close', function () { if (returnTo === 'title') openTitle(); else only(null); });
   click('btn-menu', function () { only('menu'); });
   click('m-resume', function () { only(null); });

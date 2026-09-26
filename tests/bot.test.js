@@ -47,7 +47,7 @@ function step(e) {
   if (of(e, 'looseend').length >= 3) tryRun(e, 'reflect', of(e, 'looseend').slice(0, 3));
 
   // Duty: career, then money.
-  var career = of(e, 'promo_inspector')[0] || of(e, 'promo_chief')[0] || of(e, 'chair')[0];
+  var career = of(e, 'promotion')[0] || of(e, 'promo_inspector')[0] || of(e, 'promo_chief')[0] || of(e, 'chair')[0];
   if (career) tryRun(e, 'duty', [career]);
   else if (of(e, 'paperwork').length && s.meters.scrutiny > 0) tryRun(e, 'duty', [of(e, 'focus')[0], of(e, 'paperwork')[0]]);
   else if (funds.length < 6 && fatigue === 0 && of(e, 'health')[0]) tryRun(e, 'duty', [of(e, 'health')[0]]);
@@ -75,7 +75,7 @@ function step(e) {
       var d = of(e, 'district').filter(function (x) { return x.data.district === rec.district; })[0];
       if (d) tryRun(e, 'investigate', [cc, d, team[0]]);
     }
-    if (s.rank >= 2 && team.length) tryRun(e, 'taskforce', [cc].concat(team.slice(0, 3)));
+    if (s.rank >= 3 && team.length) tryRun(e, 'taskforce', [cc].concat(team.slice(0, 3)));
     // Interrogate.
     var wit = table(e, function (c) { return c.def === 'witness' && c.caseId === rec.id; })[0];
     if (wit) tryRun(e, 'interrogate', [wit, of(e, 'focus')[0]]);
@@ -102,14 +102,14 @@ function step(e) {
   if (inf && funds.length > 4) tryRun(e, 'patrol', [inf, funds[0]]);
   else if (of(e, 'instinct')[0]) tryRun(e, 'patrol', [of(e, 'instinct')[0]]);
   var ucTarget = of(e, 'syndicate')[0] || of(e, 'gang')[0] || al;
-  if (ucTarget && s.rank >= 1 && of(e, 'health').length) tryRun(e, 'undercover', [ucTarget, of(e, 'instinct')[0], team[1] || team[0]]);
+  if (ucTarget && s.rank >= 2 && of(e, 'health').length) tryRun(e, 'undercover', [ucTarget, of(e, 'instinct')[0], team[1] || team[0]]);
   if (of(e, 'bribe')[0] && s.meters.scrutiny < 3) tryRun(e, 'duty', [of(e, 'bribe')[0]]);
   // Idle team earns money.
   of(e, 'teammate').forEach(function (t) { if (funds.length < 8) tryRun(e, 'duty', [t]); });
 }
 
 var GAMES = +process.argv[2] || 45;
-var endings = {}, weeks = [], ranks = [0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {};
+var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {};
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var e = CF.Engine.newGame({ seed: 500 + g, calling: calling });
@@ -126,7 +126,7 @@ for (var g = 0; g < GAMES; g++) {
 }
 console.log('bot: ' + GAMES + ' games');
 console.log('endings', JSON.stringify(endings));
-console.log('final rank [Det, Insp, Chief]', JSON.stringify(ranks), 'avg week', (weeks.reduce(function (a, b) { return a + b; }, 0) / GAMES).toFixed(1));
+console.log('final rank [Det, Senior, Insp, ChiefInsp]', JSON.stringify(ranks), 'avg week', (weeks.reduce(function (a, b) { return a + b; }, 0) / GAMES).toFixed(1));
 console.log('convictions', convictions, 'acquittals', acquittals, 'wrongful', wrongful);
 console.log('recipes never run:', CF.RECIPES.map(function (r) { return r.id; }).filter(function (id) { return !seen[id]; }).join(', ') || 'none');
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
