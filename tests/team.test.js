@@ -173,6 +173,7 @@ function officer(e, key, traits) {
   r1.witnesses = ['a', 'b', 'c', 'd'];
   var d1 = byDef(s1, 'district')[0];
   var got1 = run(s1, 'investigate', [k1, d1, officer(s1, 'rookie', ['steady'])]).out.filter(function (c) { return c.def === 'witness'; }).length;
+  r1.witnesses = ['a', 'b', 'c', 'd'];
   var got2 = run(s1, 'investigate', [k1, d1, officer(s1, 'rookie', ['streetwise'])]).out.filter(function (c) { return c.def === 'witness'; }).length;
   assert.strictEqual(got2, got1 + 1, 'streetwise: ' + got2 + ' vs ' + got1);
   console.log('team: ok');
