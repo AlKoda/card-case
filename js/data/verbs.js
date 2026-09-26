@@ -34,9 +34,9 @@
     },
     investigate: {
       label: 'Investigate', rank: 0, lockedBy: 'burnout',
-      desc: 'Work a case. Alone, you search the scene. With the case\'s District, you canvass the neighbourhood for witnesses and suspects.',
+      desc: 'Work a case. Alone, you search the scene. With the case\'s District, you canvass the neighbourhood for witnesses and suspects. Put a Suspect in instead and you can search their home without a warrant: fast, and Internal Affairs would love to hear about it.',
       slots: [
-        { key: 'main', label: 'Case', accepts: ['case'], primary: true },
+        { key: 'main', label: 'Case / Suspect', accepts: ['case', 'suspect'], primary: true },
         { key: 'where', label: 'District', accepts: ['district'], when: function (p) { return has(p, 'case'); } },
         { key: 'tool', label: 'Equipment', accepts: ['tool'], when: function (p) { return has(p, 'case'); } },
         { key: 'help', label: 'Team', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
@@ -72,6 +72,7 @@
         { key: 'a', label: 'Clue', accepts: ['clue', 'atlarge', 'looseend'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue']); } },
         { key: 'b', label: 'Clue', accepts: ['clue', 'looseend'], when: function (p) { return any(p, ['case', 'looseend', 'clue']); } },
         { key: 'c', label: 'Clue', accepts: ['clue'], when: function (p) { return any(p, ['case', 'clue']); } },
+        { key: 'pay', label: 'Funds', accepts: ['funds'], when: function (p) { return any(p, ['fatigue', 'burnout', 'obsession', 'tunnel']); } },
       ],
     },
     arrest: {

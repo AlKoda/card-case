@@ -351,6 +351,30 @@
     },
   });
 
+  R.push({
+    id: 'inv_illegal_search', verb: 'investigate', label: 'Search Without a Warrant', duration: 15,
+    preview: function (ctx) { return 'Nobody home at ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', '') + '\'s place. A window is open, or could be. Quick, and nothing a judge signed.'; },
+    danger: function () { return 'Scrutiny +1 (+2 if they are innocent). What you find may be excluded at trial.'; },
+    requires: ['suspect'],
+    run: function (ctx) {
+      var e = ctx.e;
+      var sc = ctx.primary;
+      var rec = openRec(ctx, sc);
+      if (!rec) return closed();
+      var sus = e.suspectOf(sc);
+      e.caseWork(rec, ctx);
+      maybe(ctx, 0.3, 'fatigue');
+      if (!sus.guilty) {
+        e.meter('scrutiny', 2);
+        return { title: 'Nothing, and a Complaint', text: 'You go through ' + sus.name + '\'s drawers by torchlight and find socks. A neighbour saw you climb in. The complaint is on the Commissioner\'s desk before you are.' };
+      }
+      e.meter('scrutiny', 1);
+      ctx.give('clue', e.clueSpec(rec, { label: 'Found at ' + sus.name + '\'s Home', text: 'In a shoebox at the back of the wardrobe: what they took, or what they used. Nobody signed a warrant for this.',
+        aspects: { forensic: 2, opportunity: 2 } }, [], { noMisread: true, illegal: true }));
+      return { title: 'A Shoebox', text: 'Twenty minutes by torchlight and there it is, at the back of the wardrobe. You put it in your coat. Nobody saw. Probably nobody saw.' };
+    },
+  });
+
   // ================================================================== ANALYZE
   R.push({
     id: 'an_evidence', verb: 'analyze', label: 'Process Evidence',
@@ -548,11 +572,14 @@
   });
 
   // ================================================================== REFLECT
+  // Resting. Funds buy a proper night off: a third of the time.
   function rest(id, defId, label, dur, text, preview) {
     R.push({
-      id: id, verb: 'reflect', label: label, duration: dur, preview: preview,
+      id: id, verb: 'reflect', label: function (ctx) { return ctx.has('funds') ? label + ' (Paid)' : label; },
+      duration: function (ctx) { return ctx.has('funds') ? Math.ceil(dur / 3) : dur; },
+      preview: function (ctx) { return ctx.has('funds') ? preview + ' With money in your pocket it goes quicker: a good meal, a hotel, a doctor who does not ask questions.' : preview + ' (Add Funds to make it quicker.)'; },
       requires: { primary: defId },
-      effects: [{ consume: 'primary' }, { story: { title: label, text: text } }],
+      effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: label, text: text } }],
     });
   }
   rest('ref_fatigue', 'fatigue', 'Sleep', 20, 'You sleep for eleven hours and wake up hungry. The world is still there. So are you.', 'Close the curtains. Unplug the phone. Sleep.');
@@ -618,22 +645,22 @@
   });
   // Deduction: clues laid side by side become theories, identifications, or
   // nothing at all (see js/data/deductions.js).
+  function deduction(ctx) { return CF.Deduce.find(ctx.with('clue'), ctx.e.countOf('tunnel') > 0); }
   R.push({
     id: 'ref_deduce', verb: 'reflect', priority: 5,
-    label: function (ctx) { return CF.Deduce.find(ctx.with('clue')).label; },
-    duration: function (ctx) { return CF.Deduce.find(ctx.with('clue')).duration || 30; },
+    label: function (ctx) { return deduction(ctx).label; },
+    duration: function (ctx) { return deduction(ctx).duration || 30; },
     preview: function (ctx) {
-      var d = CF.Deduce.find(ctx.with('clue'));
-      return d.gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
+      return deduction(ctx).gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
     },
     blocked: { sameCase: true },
-    requires: { primary: 'clue', when: function (ctx) { return ctx.with('clue').length >= 2 && !!CF.Deduce.find(ctx.with('clue')); } },
+    requires: { primary: 'clue', when: function (ctx) { return ctx.with('clue').length >= 2 && !!deduction(ctx); } },
     run: function (ctx) {
       var clues = ctx.with('clue');
       var rec = openRec(ctx, clues[0]);
       if (!rec) return closed();
       ctx.e.caseWork(rec, ctx);
-      return CF.Deduce.run(ctx, CF.Deduce.find(clues), rec, clues);
+      return CF.Deduce.run(ctx, deduction(ctx), rec, clues);
     },
   });
   R.push({
@@ -768,7 +795,7 @@
         label: 'Trial: ' + sus.name,
         desc: sus.name + ' stands trial for ' + rec.title + '. The charge looked ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '.',
         data: { caseId: rec.id, name: sus.name, guilty: sus.guilty, solid: a.solid, tier: a.realTier, real: a.real, need: a.need,
-          coerced: a.coerced, planted: a.planted, contradictions: a.contradictions },
+          coerced: a.coerced, planted: a.planted, illegal: a.unwarranted, contradictions: a.contradictions },
       });
       ctx.give('paperwork');
       return { title: 'Arrested: ' + sus.name, text: 'You make the arrest at ' + U.pick(ctx.rng, ['dawn, on their doorstep', 'their place of work, in front of everyone', 'a café, mid-sentence', 'the railway station, one foot on the train']) +

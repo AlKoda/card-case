@@ -242,7 +242,9 @@
           id: 'lead_' + tid + '_' + lead.id, verb: lead.verb, lead: lead, priority: 10,
           label: lead.label, duration: lead.duration || 30, danger: lead.danger,
           preview: function (ctx) { var rec = leadRec(ctx); return rec ? U.fill(text(lead.preview, ctx), leadVars(rec)) : ''; },
-          requires: { case: tid, when: function (ctx) {
+          // A lead runs on the case card (Investigate), a piece of evidence
+          // (Analyze), or whatever the lead names as `primary`.
+          requires: { case: tid, primary: lead.primary || { investigate: 'case', analyze: 'evidence', interrogate: ['witness', 'suspect'], reflect: ['case', 'clue'] }[lead.verb], when: function (ctx) {
             var rec = leadRec(ctx);
             if (!rec) return false;
             if (lead.once !== false && (rec.leads || {})[lead.id]) return false;

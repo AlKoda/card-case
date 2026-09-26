@@ -52,10 +52,11 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 **Deduction.** Every suspect has a trait, such as a limp, menthol cigarettes or a green van. The culprit's trait leaks into scene clues and witness statements, so a careful reader can spot the culprit before the mind palace confirms it. Nothing tells you which aspects combine into a theory in Reflect. Working that out is the detective work.
 
 **Threats.**
-- Three Fatigue become Burnout, which locks your street verbs until you rest.
-- Three Obsession become Tunnel Vision, and you start silently misreading clues.
+- Two Fatigue is Exhaustion (the street verbs slow down); three become Burnout, which locks them until you rest. Funds beside the card in Reflect buy a quicker night off.
+- Three Obsession become Tunnel Vision: you work slower, silently misread clues, and cannot see when two descriptions disagree.
 - Public Pressure rises when cases go cold and gets you dismissed at 10.
-- Scrutiny comes from coercion, bribes and planted evidence. At 10 you face corruption charges.
+- Scrutiny comes from coercion, bribes, planted evidence and searching a suspect's home without a warrant (Investigate with a Suspect: quick, and the court may exclude what you find). At 10 you face corruption charges.
+- Every week pays a salary by rank and takes the rent; convictions pay by the strength of the charge.
 - Retaliation grows with every criminal at large. Three of them form a gang, and two gangs form the Syndicate. They will come for your informants, your team and you.
 
 **Callings** set how you win:

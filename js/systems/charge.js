@@ -55,6 +55,7 @@
       }
       if (c.data.coerced) res.illegal++;
       if (c.data.planted) res.illegal++;
+      if (c.data.illegal) res.illegal++;
     });
     // Strength: profile aspects count in full up to what the case needs,
     // half for as much again, nothing past that; aspects the case does not
@@ -92,10 +93,10 @@
     var res = {
       rec: rec, profile: profile, need: need, n: own.length, foreign: clues.length - own.length,
       have: apparent.have, strength: apparent.strength, diversity: apparent.diversity, corroboration: apparent.corroboration,
-      contradictions: apparent.contradictions, illegal: apparent.illegal, coerced: 0, planted: 0,
+      contradictions: apparent.contradictions, illegal: apparent.illegal, coerced: 0, planted: 0, unwarranted: 0,
       score: apparent.score, apparent: apparent.score, real: real.score, covered: apparent.covered,
     };
-    own.forEach(function (c) { if (c.data.coerced) res.coerced++; if (c.data.planted) res.planted++; });
+    own.forEach(function (c) { if (c.data.coerced) res.coerced++; if (c.data.planted) res.planted++; if (c.data.illegal) res.unwarranted++; });
     res.tier = tierOf(apparent, need);
     res.realTier = tierOf(real, need);
     res.quality = res.tier;
@@ -118,7 +119,7 @@
     if (a.diversity) notes.push({ kind: 'good', text: 'Independent kinds of proof: +' + a.diversity });
     if (a.corroboration) notes.push({ kind: 'good', text: 'Corroboration, or evidence that names them: +' + a.corroboration });
     if (a.contradictions) notes.push({ kind: 'bad', text: a.contradictions + ' clue' + (a.contradictions > 1 ? 's' : '') + ' describe' + (a.contradictions > 1 ? '' : 's') + ' somebody else: −' + a.contradictions * 2 });
-    if (a.illegal) notes.push({ kind: 'bad', text: 'Coerced or planted: −' + a.illegal + ', and the defence may find out.' });
+    if (a.illegal) notes.push({ kind: 'bad', text: 'Coerced, planted or found without a warrant: −' + a.illegal + ', and the defence may find out.' });
     if (a.foreign) notes.push({ kind: 'bad', text: a.foreign + ' clue' + (a.foreign > 1 ? 's have' : ' has') + ' nothing to do with this case.' });
     return { rows: rows, notes: notes, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text };
   };

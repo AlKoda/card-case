@@ -13,8 +13,11 @@
     return t;
   }
 
-  Deduce.fits = function (d, clues) {
+  // Tunnel Vision cannot see a conflict: any two descriptions look like the
+  // same person, and the identification lands on whoever you already suspect.
+  Deduce.fits = function (d, clues, tunnel) {
     var n = d.needs || {};
+    if (tunnel && n.distinctTraits) return false;
     if (clues.length < (n.min || 2)) return false;
     if (n.aspects) {
       var agg = {};
@@ -24,7 +27,8 @@
     var traits = traitsOf(clues);
     if (n.sameTrait) {
       var shared = Object.keys(traits).filter(function (t) { return traits[t] >= 2; });
-      if (!shared.length) return false;
+      var total = 0; for (var tk in traits) total += traits[tk];
+      if (!shared.length && !(tunnel && total >= 2)) return false;
     }
     if (n.distinctTraits && Object.keys(traits).length < n.distinctTraits) return false;
     if (n.points && !clues.some(function (c) { return c.data.points; })) return false;
@@ -32,8 +36,8 @@
   };
 
   // The first pattern the clues fit, or null.
-  Deduce.find = function (clues) {
-    for (var i = 0; i < CF.DEDUCTIONS.length; i++) if (Deduce.fits(CF.DEDUCTIONS[i], clues)) return CF.DEDUCTIONS[i];
+  Deduce.find = function (clues, tunnel) {
+    for (var i = 0; i < CF.DEDUCTIONS.length; i++) if (Deduce.fits(CF.DEDUCTIONS[i], clues, tunnel)) return CF.DEDUCTIONS[i];
     return null;
   };
 
@@ -47,10 +51,21 @@
     // Who does this describe? A revealed suspect with the trait, or one the clues name.
     var named = clues.map(function (c) { return c.data.points; }).filter(Boolean)[0] || null;
     var fits = rec.suspects.filter(function (x) { return x.revealed && !x.cleared && (x.key === named || (trait && x.trait === trait)); })[0] || null;
+    // Tunnel Vision: conflicting descriptions "identify" whoever is on the
+    // board, and the result is a misreading that will not hold up.
+    var warped = false;
+    if (d.id === 'identify' && !shared && Object.keys(traits).length >= 2 && e.countOf('tunnel')) {
+      var onBoard = rec.suspects.filter(function (x) { return x.revealed && !x.cleared; });
+      fits = onBoard.filter(function (x) { return !x.guilty; })[0] || onBoard[0] || null;
+      trait = fits ? fits.trait : trait;
+      traitDef = trait && CF.TRAITS.filter(function (t) { return t.id === trait; })[0];
+      warped = true;
+    }
     var vars = { clues: clues.map(function (c) { return e.labelOf(c); }).join(', '), trait: traitDef ? traitDef.desc : '', name: fits ? fits.name : 'someone' };
+    if (warped) vars.trait = 'It all fits. It has to.';
     var made = null;
     if (d.gives) {
-      var data = { misread: false, coerced: false, planted: false, corroborated: true, trait: trait, points: fits ? fits.key : named, deduction: d.id };
+      var data = { misread: warped, coerced: false, planted: false, corroborated: true, trait: trait, points: fits ? fits.key : named, deduction: d.id };
       clues.forEach(function (c) {
         data.misread = data.misread || !!c.data.misread;
         data.coerced = data.coerced || !!c.data.coerced;

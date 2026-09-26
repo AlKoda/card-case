@@ -8,6 +8,12 @@
   var WEEK = 60;          // seconds of game time per week
   var MAX_OPEN_CASES = 4;
   var COLD_WARNING = 60; // seconds left on a case before the warning
+  // Strain: two Fatigue is Exhaustion (street verbs slower), three is
+  // Burnout. Tunnel Vision slows the careful verbs and warps deductions.
+  CF.STRAIN = { exhaustedAt: 2, exhaustedSlow: 1.25, exhaustedVerbs: ['duty', 'patrol', 'investigate', 'interrogate', 'stakeout'],
+    tunnelSlow: 1.25, tunnelVerbs: ['investigate', 'analyze', 'reflect'] };
+  // Money: salary rises with rank, rent does not.
+  CF.ECONOMY = { salary: [1, 2, 3], rent: 1, convictionPay: { reasonable: 1, strong: 2 }, highProfilePay: 1 };
   // The table is a free board measured in board pixels. Cards and verbs can
   // sit anywhere; placement keeps them from covering each other.
   var T = {
@@ -621,12 +627,29 @@
       blocked: lock || blocked,
       danger: rec.danger ? rec.danger(r.ctx) : null,
       detail: rec.detail ? rec.detail(r.ctx) : null,
+      strain: this.strainNote(verbId) || null,
     };
   };
 
+  // How much slower a verb runs while you are exhausted or in Tunnel Vision.
+  P.strainFactor = function (verbId) {
+    var f = 1, S = CF.STRAIN;
+    if (this.exhausted() && S.exhaustedVerbs.indexOf(verbId) >= 0) f *= S.exhaustedSlow;
+    if (this.countOf('tunnel') && S.tunnelVerbs.indexOf(verbId) >= 0) f *= S.tunnelSlow;
+    return f;
+  };
+  P.exhausted = function () {
+    return this.cardsOf('fatigue').filter(function (c) { return c.loc.t === 'table' || c.loc.t === 'out'; }).length >= CF.STRAIN.exhaustedAt;
+  };
+  P.strainNote = function (verbId) {
+    var notes = [], S = CF.STRAIN;
+    if (this.exhausted() && S.exhaustedVerbs.indexOf(verbId) >= 0) notes.push('You are exhausted. This will take longer.');
+    if (this.countOf('tunnel') && S.tunnelVerbs.indexOf(verbId) >= 0) notes.push('Tunnel Vision: you keep going back over the same ground.');
+    return notes.join(' ');
+  };
   P.durationOf = function (rec, ctx) {
     var d = typeof rec.duration === 'function' ? rec.duration(ctx) : rec.duration;
-    return Math.max(3, d || 10);
+    return Math.max(3, Math.round((d || 10) * this.strainFactor(ctx.verb)));
   };
 
   P.start = function (verbId) {
@@ -813,15 +836,18 @@
   };
 
   P.weekTick = function () {
-    var s = this.s;
+    var s = this, self = this;
+    s = this.s;
     s.week++;
     var lines = [];
 
-    // Rent.
+    // Salary, then rent.
+    var salary = CF.ECONOMY.salary[s.rank] || 1;
+    for (var si = 0; si < salary; si++) this.create('funds');
     var funds = this.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; });
-    if (funds.length) {
-      this.remove(funds[0]);
-      lines.push('Rent is paid.');
+    if (funds.length >= CF.ECONOMY.rent) {
+      funds.slice(0, CF.ECONOMY.rent).forEach(function (c) { self.remove(c); });
+      lines.push('Payday: ' + salary + ' Funds. Rent takes ' + CF.ECONOMY.rent + '.');
     } else {
       this.create('fatigue');
       this.create('fatigue');
@@ -1225,7 +1251,7 @@
       var add = Math.min(bonus[a] || 0, 2, 3 - total);
       if (add > 0) { aspects[a] += add; total += add; }
     }
-    var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, points: flags.points || null };
+    var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null };
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
     return {
       label: item.label,
@@ -1342,6 +1368,13 @@
         notes.push('The defence has the coerced statement thrown out. The judge asks, pointedly, how it was obtained.');
       }
     }
+    for (var q = 0; q < (d.illegal || 0); q++) {
+      if (rng() < 0.3) {
+        p -= 0.25;
+        this.meter('scrutiny', 1);
+        notes.push('The defence asks to see the warrant for the search. There is no warrant. The evidence is excluded.');
+      }
+    }
     if (d.planted && rng() < 0.3) {
       p = 0.03;
       this.meter('scrutiny', 3);
@@ -1368,9 +1401,10 @@
       var ob = this.cardsOf('obsession')[0];
       if (t) { this.remove(t); notes.push('The fog in your head lifts. You can see the edges of things again.'); }
       else if (ob) this.remove(ob);
+      var pay = d.guilty ? (CF.ECONOMY.convictionPay[tier] || 0) + (hp ? CF.ECONOMY.highProfilePay : 0) : 0;
+      for (var pi = 0; pi < pay; pi++) this.create('funds');
+      if (pay) notes.push(tier === 'strong' ? 'A commendation, with a cheque attached.' : 'The case closes, and a small bonus comes with it.');
       if (d.solid && d.guilty) {
-        this.create('funds');
-        notes.push('A commendation, with a small cheque attached.');
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend');
           notes.push('But one detail belongs to no one in the case: a folded paper crane, left where the crime began. You have seen one before.');

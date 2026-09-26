@@ -683,7 +683,9 @@
       var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
       if (wk) pane.appendChild(storyBox(wk));
       var open = e.openCases().slice().sort(function (a, b) { return caseLife(a) - caseLife(b); });
-      pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first. Rent is due at the end of every week.' : 'No open cases. Rent is due at the end of every week.'));
+      var money = e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; }).length;
+      pane.appendChild(h('p', 'vw-desc', 'Funds on the table: ' + money + '. Every week pays ' + (CF.ECONOMY.salary[e.s.rank] || 1) + ' in salary and takes ' + CF.ECONOMY.rent + ' in rent; miss the rent and you sleep in the car.'));
+      pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first.' : 'No open cases.'));
       open.forEach(function (rec) {
         var cc = e.caseCard(rec.id);
         if (!cc) return;
@@ -756,6 +758,7 @@
     if (pv) {
       rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
         (pv.detail && pv.detail.charge ? chargeHtml(pv.detail.charge) : '') +
+        (pv.strain ? '<div class="r-strain">' + esc(pv.strain) + '</div>' : '') +
         (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
         (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');
     } else if (primaryCard) {

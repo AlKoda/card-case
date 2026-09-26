@@ -321,7 +321,48 @@ Public Pressure and puts its culprit At Large. With up to four cases open
 and one detective, the game is triage; that tension is the design, and
 nothing later should relieve it for free.
 
-## 9. What this phase does not decide
+## 9. Your own clocks
+
+The detective wears out on the same clock as the cases.
+
+- **Fatigue** comes from Duty, Patrol, Investigate, Interrogate, stakeouts
+  and missed rent. Two on the table is **Exhaustion**: the street verbs run
+  25% slower and say so. Three become **Burnout**, which closes them until
+  you Reflect, and which ends the career if it runs out.
+- **Obsession** comes from working one case past six actions. Three become
+  **Tunnel Vision**: Investigate, Analyze and Reflect run slower; a third
+  of new clues are silently misread; a suspect's alibi can look like guilt;
+  and Reflect cannot see a conflict any more, so two descriptions of
+  different people "identify" whoever is already on the board, as a
+  misreading that will not survive court. A conviction, or a long rest,
+  clears it.
+- **Public Pressure** rises with cold cases, acquittals and criminals at
+  large; a conviction lowers it, a high-profile one by two. Ten and you are
+  dismissed.
+- **Scrutiny** rises with the tempting things: leaning on a witness,
+  coercing a confession, planting evidence, pocketing an envelope, and
+  searching a home without a warrant. Each of them is faster or stronger
+  than the clean way, on purpose: the illegal search takes fifteen seconds
+  and no probable cause where the warrant takes forty and a clue, and what
+  it finds is good evidence that the defence may get excluded. Ten and
+  Internal Affairs comes for you.
+
+`CF.STRAIN` holds the thresholds and slowdowns.
+
+## 10. Money
+
+Sources: the weekly salary (1, 2 or 3 Funds by rank), Duty shifts,
+convictions (1 for a reasonable charge, 2 for a strong one, +1
+high-profile), promotions, informants' side-effects and the occasional
+envelope. Expenses: rent (1 a week, before salary is counted; miss it and
+you sleep in the car), informants, equipment, training, precinct rooms,
+and yourself: Funds beside a Fatigue, Obsession, Burnout or Tunnel Vision
+card in Reflect buys a proper night off at a third of the time. The Time
+window shows the balance and the terms. `CF.ECONOMY` holds the numbers.
+The test of the economy is the question it should keep asking: the
+investigation, the precinct, or yourself?
+
+## 11. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and
