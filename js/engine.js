@@ -1027,6 +1027,8 @@
       if (s.calmWeeks % 2 === 0) this.pathGain('commissioner', 1, 'a calm fortnight');
     }
     // Fear fades, slowly, and while it lasts the Stews keep their heads down.
+    // The count endings are judged before fear fades, so the thresholds mean what they say.
+    if (this.checkCountEndings) { this.checkCountEndings(); if (s.over) return; }
     if (s.meters.dread > 0) this.meter('dread', -1);
     if (s.meters.dread > 0 && this.rng() < 0.5) this.meter('dread', -1);
     if (s.meters.dread >= 6) { this.meter('pressure', -1); lines.push('The Stews are quiet. Nobody wants to be the next one you put to the question.'); }
@@ -1037,7 +1039,6 @@
 
     this.story('Week ' + s.week, lines.join(' '), 'week');
     if (this.checkPurseEndings) this.checkPurseEndings();
-    if (this.checkCountEndings) this.checkCountEndings();
   };
 
   // At-large criminals find each other; gangs merge into a syndicate.

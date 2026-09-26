@@ -60,7 +60,8 @@ function step(e, temper) {
     else if (temper === 'brutal') pick = rungs[rungs.length - 1];
     else if (temper === 'corrupt') pick = pleas.some(function (p) { return p.data.purse; }) ? rungs[0] : rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
     else pick = rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
-    if (pick) tryRun(e, 'sentence', [cond, pick, pleas[0]]);
+    var purse = pleas.filter(function (p) { return p.data.purse; })[0];
+    if (pick) tryRun(e, 'sentence', [cond, pick, temper === 'corrupt' && purse ? purse : pleas[0]]);
   }
   // Temptations.
   if (temper === 'corrupt') {
