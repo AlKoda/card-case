@@ -100,7 +100,7 @@
       version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 55, nextUid: 1,
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0 },
-      rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', detective: opts.name || 'Detective',
+      rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', detective: opts.name || 'Examiner',
       over: null,
       stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0 },
     };
@@ -137,8 +137,8 @@
     if (opts.guided && e.setupIntro) { e.setupIntro(); return e; }
     if (CF.Story) { var op = CF.Story.opening(e); e.story(op.title, op.text, 'major'); return e; }
     e.story('Your First Day',
-      'The desk is yours now, along with the cold coffee, the ringing phone and the file already waiting in the tray. ' +
-      'The last detective to sit here left in a hurry. The city did not stop to notice. ' +
+      'The desk is yours now, along with the tallow stub, the cracked inkhorn and the case already waiting on it. ' +
+      'The last examiner to sit here left in a hurry. The city did not stop to notice. ' +
       'Drag cards onto the verbs on your table to act. Click a verb to open it and see what it wants.', 'major');
     e.dirty = true;
     return e;
@@ -518,7 +518,7 @@
 
   P.lockReason = function (verbId) {
     var def = CF.VERBS[verbId];
-    if (def.lockedBy === 'burnout' && this.countOf('burnout') > 0) return 'You are burnt out. Rest in Reflect first.';
+    if (def.lockedBy === 'burnout' && this.countOf('burnout') > 0) return 'The fever has you. Rest in Contemplate first.';
     return null;
   };
 
@@ -884,7 +884,7 @@
     var rec = this.caseRec(card.caseId);
     if (!rec || rec.status !== 'open' || rec.warned) return;
     rec.warned = true;
-    this.story('Going Cold: ' + rec.title, 'A minute left, and the trail is fading. Charge somebody, or let it go and live with it.', 'danger');
+    this.story('Going Unanswered: ' + rec.title, 'A minute left, and the trail is fading. Indict somebody, or let it go and live with it.', 'danger');
   };
   // How long a case has left, in the city's days (a week is a game minute).
   CF.daysLeft = function (seconds) { return Math.max(0, Math.ceil(seconds / (WEEK / 7))); };
@@ -897,7 +897,7 @@
     if (how === 'heal') {
       this.remove(card);
       this.create('health');
-      this.story('Healed', 'The stitches come out. You can take a punch again. Probably.', 'minor');
+      this.story('Healed', 'The barber-surgeon takes the stitches out. You can take a blow again. Probably.', 'minor');
       return;
     }
     if (how === 'burnout') {
@@ -910,7 +910,7 @@
       this.remove(card);
       if (spec) {
         this.create('teammate', spec);
-        this.story('Back on Duty', spec.label + ' is out of hospital and back at their desk.', 'minor');
+        this.story('Back on the Round', spec.label + ' is out of the Abbey hospital and back at the Watch-house.', 'minor');
       }
       return;
     }
@@ -921,9 +921,9 @@
       this.remove(card);
       return;
     }
-    if (card.def === 'witness') this.story('A Witness Moves On', label + ' has left town. Whatever they saw went with them.', 'minor');
-    if (card.def === 'bribe') this.story('The Envelope Is Gone', 'Somebody came back for it. They will remember you left it alone.', 'minor');
-    if (card.def === 'clue' || card.def === 'evidence') this.story('Trail Degrades', label + ' has degraded beyond use.', 'minor');
+    if (card.def === 'witness') this.story('A Witness Moves On', label + ' has left the city. Whatever they saw went with them.', 'minor');
+    if (card.def === 'bribe') this.story('The Purse Is Gone', 'Somebody came back for it. They will remember you left it alone.', 'minor');
+    if (card.def === 'clue' || card.def === 'evidence') this.story('The Trail Fades', label + ' has faded beyond use.', 'minor');
     this.remove(card);
   };
 
@@ -940,13 +940,13 @@
     var paid = funds.length >= CF.ECONOMY.rent;
     if (paid) {
       funds.slice(0, CF.ECONOMY.rent).forEach(function (c) { self.remove(c); });
-      lines.push('Rent takes ' + CF.ECONOMY.rent + '. Payday: ' + salary + ' Funds.');
+      lines.push('Lodging and dues take ' + CF.ECONOMY.rent + '. The Council\'s stipend: ' + salary + ' Coin.');
     }
     for (var si = 0; si < salary; si++) this.create('funds');
     if (!paid) {
       this.create('fatigue');
       this.create('fatigue');
-      lines.push('You cannot make rent. The landlord bangs on the door at six in the morning. You sleep in the car.');
+      lines.push('You cannot pay your lodging. The landlord puts your chest in the lane at prime. You sleep in the Watch-house, on the bench.');
     }
 
     // The criminal ecosystem grows.
@@ -954,8 +954,8 @@
     var gangs = this.countOf('gang');
     var synd = this.countOf('syndicate');
     var ret = (atLarge ? 1 : 0) + (atLarge >= 3 ? 1 : 0) + gangs * 2 + synd * 3;
-    if (ret) { this.meter('retaliation', ret); lines.push('Out there, the people who got away are talking about you.'); }
-    if (atLarge + gangs * 2 + synd * 3 >= 4) { this.meter('pressure', 1); lines.push('The newspapers count the criminals at large, and print the number on the front page.'); }
+    if (ret) { this.meter('retaliation', ret); lines.push('Out there, the people who walked are talking about you.'); }
+    if (atLarge + gangs * 2 + synd * 3 >= 4) { this.meter('pressure', 1); lines.push('The broadsheet-sellers count the thieves abroad, and sing the number in the Market.'); }
     this.organise();
     lines = lines.concat(this.criminalsAct());
 
@@ -966,14 +966,14 @@
     // Temptation.
     if (!this.countOf('bribe') && this.rng() < 0.15 + 0.1 * (gangs + synd * 2)) {
       this.create('bribe');
-      lines.push('There is an envelope on your desk. Nobody saw who left it.');
+      lines.push('There is a purse on your desk. Nobody saw who left it.');
     }
 
     // Transfers.
     if (s.meters.reputation >= 2 && this.countOf('personnel') < 2 && this.rng() < 0.25) {
       var pk = U.pick(this.rng, ['rookie', 'tech', 'interviewer', 'analyst', 'veteran']);
       this.create('personnel', this.personnelSpec(pk));
-      lines.push('A transfer request lands on your desk: ' + CF.PERSONNEL[pk].label + '.');
+      lines.push('A letter of service lands on your desk: ' + CF.PERSONNEL[pk].label + '.');
     }
 
     // A calm city under a senior officer is Power; it counts every other calm week.
@@ -982,8 +982,8 @@
       if (s.calmWeeks % 2 === 0) this.pathGain('commissioner', 1, 'a calm fortnight');
     }
     this.checkDrift();
-    if (s.meters.scrutiny >= 7) lines.push('Internal Affairs has started asking your colleagues about you. They are not subtle about it.');
-    if (s.meters.pressure >= 7) lines.push('The Commissioner calls you in to ask why the city is burning. It is not a question.');
+    if (s.meters.scrutiny >= 7) lines.push('The Council\'s clerks have started asking your watchmen about you. They are not subtle about it.');
+    if (s.meters.pressure >= 7) lines.push('The Burgomaster calls you in to ask why the city is burning. It is not a question.');
 
     this.story('Week ' + s.week, lines.join(' '), 'week');
   };
@@ -1000,31 +1000,31 @@
       members.forEach(function (c) { self.remove(c); self.criminalJoins(c.data.name, 'gang'); });
       var front = this.newFront(name);
       this.create('gang', {
-        label: 'Gang: ' + name.replace(/^the /, 'The '),
+        label: 'Band: ' + name.replace(/^the /, 'The '),
         data: { name: name, members: names, front: front.id },
-        desc: 'Formed by ' + names.join(', ') + ', who all got away from you. They feed Retaliation every week. Go Undercover to build a case against them.',
+        desc: 'Sworn together by ' + names.join(', ') + ', who all walked from you. They feed the Vendetta every week. Go in Disguise to build a case against them.',
       });
       this.meter('pressure', 1);
-      this.story('They Found Each Other', names.join(', ') + ': every one of them walked away from one of your cases. Now they drink in the same bar, and call themselves ' + name + '.', 'major');
+      this.story('They Found Each Other', names.join(', ') + ': every one of them walked away from one of your cases. Now they drink in the same cellar, and call themselves ' + name + '.', 'major');
     }
     var gangs = this.cardsOf('gang').filter(function (c) { return c.loc.t === 'table'; });
     if (gangs.length >= 2 && !this.countOf('syndicate') && !s.flags.syndicateFallen) {
       gangs.slice(0, 2).forEach(function (c) { self.remove(c); });
-      this.spawnSyndicate('The gangs have stopped fighting each other. Someone Uptown has put them on a payroll. They call it, simply, the Syndicate.');
+      this.spawnSyndicate('The bands have stopped fighting each other. Someone under the Warrens has sworn them to one shell, and sits on a barrel in a cellar where the lame walk and the blind see. They call him the King of Thunes, and his kingdom the Coquille.');
     }
     // The Crusader's enemy doesn't wait to be built from your failures.
     if (s.calling === 'crusader' && (s.week >= 6 || this.countOf('ledger') >= 3) && !this.countOf('syndicate') && !s.flags.syndicateFallen) {
-      this.spawnSyndicate('You have seen the same lawyers at every bail hearing, the same car outside every gang\'s clubhouse. Behind the city\'s crime there is a board, a long table, and very good chairs. They call it the Syndicate. Go Undercover to get at their books.');
+      this.spawnSyndicate('You have seen the same advocate at every hearing, the same faces at every cellar door. Behind the city\'s crime there is a court, a barrel for a throne, and a king. They call it the Coquille. Go in Disguise to get at its books.');
     }
   };
 
   P.spawnSyndicate = function (text) {
     var s = this.s;
     for (var k in s.criminals) if (s.criminals[k].organization === 'gang') s.criminals[k].organization = 'syndicate';
-    this.newFront('the Syndicate', 'uptown');
+    this.newFront('the Coquille', 'warrens');
     this.create('syndicate');
     this.meter('retaliation', 2);
-    this.story('The Syndicate', text, 'major');
+    this.story('The Coquille', text, 'major');
   };
 
   // Retaliation lands on someone close to you.
@@ -1052,14 +1052,14 @@
         this.remove(c);
         this.meter('pressure', 1);
         this.create('obsession');
-        this.story('Officer Down', this.labelOf(c) + ' was shot on their way home. The funeral is on Thursday. The whole precinct goes. You carry the coffin.', 'danger');
+        this.story('A Watchman Dead', this.labelOf(c) + ' was stabbed on their way home. The burial is on Thursday. The whole Watch-house goes. You carry the coffin.', 'danger');
       } else {
         this.remove(c);
-        this.create('injured', { label: 'Injured: ' + this.labelOf(c), data: { teammate: { label: c.label, desc: c.desc, aspects: c.aspects, data: c.data } } });
-        this.story('Officer Hurt', this.labelOf(c) + ' was jumped outside the precinct. They will be in hospital for a while.', 'danger');
+        this.create('injured', { label: 'Hurt: ' + this.labelOf(c), data: { teammate: { label: c.label, desc: c.desc, aspects: c.aspects, data: c.data } } });
+        this.story('A Watchman Hurt', this.labelOf(c) + ' was set upon outside the Watch-house. They will be in the Abbey hospital for a while.', 'danger');
       }
     } else {
-      this.hurtYou('Someone was waiting in the stairwell of your building. You remember the first punch and not much after.');
+      this.hurtYou('Someone was waiting on the stair of your lodging. You remember the first blow of the cudgel and not much after.');
     }
   };
 
@@ -1071,7 +1071,7 @@
       this.create('wound');
       this.story('Wounded', text, 'danger');
     } else {
-      this.story('In the Line of Duty', text, 'danger');
+      this.story('In the Council\'s Service', text, 'danger');
       this.gameOver('death');
     }
   };
@@ -1090,7 +1090,7 @@
       if (this.countOf('burnout')) { this.gameOver('collapse'); return; }
       fat.slice(0, 3).forEach(function (c) { self.remove(c); });
       this.create('burnout');
-      this.story('Burnout', 'You sit in the car outside the precinct for an hour and cannot make yourself go in. Your hands will not stop shaking. You need rest, and soon.', 'danger');
+      this.story('Fever', 'You stand in the Market outside the Watch-house for an hour and cannot make yourself go in. Your hands will not stop shaking. You need rest, and soon.', 'danger');
     }
 
     var obs = free('obsession');
@@ -1098,7 +1098,7 @@
       if (this.countOf('tunnel')) { this.gameOver('consumed'); return; }
       obs.slice(0, 3).forEach(function (c) { self.remove(c); });
       this.create('tunnel');
-      this.story('Tunnel Vision', 'The walls of your flat are covered in string and photographs. You are certain you are right. You are certain of everything now. That should frighten you more than it does.', 'danger');
+      this.story('Fixation', 'The walls of your study are covered in string and paper. You are certain you are right. You are certain of everything now. That should frighten you more than it does.', 'danger');
     }
 
     if (s.meters.pressure >= this.meterMax('pressure')) { this.gameOver('dismissed'); return; }
@@ -1107,26 +1107,26 @@
     // Promotion boards.
     if (s.rank < CF.TOP_RANK && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
       var next = CF.RANK_DEFS[s.rank + 1];
-      this.create('promotion', { label: 'Promotion Board: ' + next.label, desc: next.text + ' Attend the board in Duty.', data: { rank: s.rank + 1 } });
-      this.story('The Brass Take Notice', 'A memo, on heavy paper: a promotion board has been convened. Your attendance is expected.', 'major');
+      this.create('promotion', { label: 'The Council\'s Letter: ' + next.label, desc: next.text + ' Attend on the Council.', data: { rank: s.rank + 1 } });
+      this.story('The Council Takes Notice', 'A letter, on heavy paper, under the city\'s seal: the Council will see you. Your attendance is expected.', 'major');
     }
     if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && s.meters.reputation >= CF.COMMISSIONER_REP && !this.countOf('chair') && !s.flags.chairCooldown) {
       this.create('chair');
-      this.story('The Chair Is Empty', 'The Commissioner has resigned. The council will choose a successor, and your name is on the list.', 'major');
+      this.story('The Seat Is Empty', 'The Burgomaster is dead of a stone. The Council will choose a successor, and your name is on the list.', 'major');
     }
   };
 
   // ---- Endings -------------------------------------------------------------
   CF.ENDINGS = {
-    dismissed: { win: false, title: 'Dismissed', text: 'The city lost patience. Too many names on the front page, too many of them walking free. The Commissioner takes your badge in front of the whole squad room and does not meet your eyes.' },
-    burnout: { win: false, title: 'Burnt Out', text: 'One morning you simply do not go in. Or the next. The resignation letter is two lines long. Someone else sits at your desk now, and the phone keeps ringing.' },
-    collapse: { win: false, title: 'Collapse', text: 'You collapse on the precinct stairs. The doctors use words like "exhaustion" and "cardiac event" and "early retirement". The city does not send flowers.' },
-    consumed: { win: false, title: 'Lost in the Case', text: 'You stop going home. You stop shaving. You stop answering to your name. When they finally open the door to your flat, every wall is covered, and none of it makes sense to anyone but you.' },
-    corruption: { win: false, title: 'Corruption Charges', text: 'Internal Affairs comes for you at dawn, with a warrant and a box for your things. The coerced statements, the envelopes, the evidence that appeared from nowhere. They kept a list too.' },
-    death: { win: false, title: 'Killed in the Line of Duty', text: 'They give you a flag, a bagpiper and a paragraph in the morning paper. The people who did it are drinking to your memory in a bar on the Docks.' },
-    commissioner: { win: true, title: 'The Commissioner', text: 'The council votes, and it is not close. You take the chair, the corner office and the city\'s police force, and you begin, slowly, to rebuild it in your own image. Somewhere a new detective sits at your old desk. You make sure they have what you did not.' },
-    master: { win: true, title: 'The Master Detective', text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their fingerprints on it, if you knew where to look. You did. The newspapers call you the best detective the city has ever had. You fold a paper crane, and throw it away.' },
-    crusader: { win: true, title: 'The Crusader', text: 'The long table Uptown is empty. The chairs are sold at auction. It cost you more than you will ever say, and the city will grow new criminals like weeds through concrete. But for one bright season, nobody is above the law.' },
+    dismissed: { win: false, title: 'Dismissed', text: 'The city lost patience. Too many names the crier sang, too many of them walking free. The Burgomaster takes your letter of office back in front of the whole Watch-house and does not meet your eyes.' },
+    burnout: { win: false, title: 'The Fever', text: 'One morning you simply do not come in. Or the next. The letter to the Council is two lines long. Someone else sits under the stair now, and the cases keep coming.' },
+    collapse: { win: false, title: 'Collapse', text: 'You fall on the Watch-house stair and do not get up. The barber-surgeon uses words like "a surfeit" and "the heart" and "rest, in the country". The city does not send flowers.' },
+    consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.' },
+    corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
+    death: { win: false, title: 'Killed in the Council\'s Service', text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
+    commissioner: { win: true, title: 'The Burgomaster', text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
+    master: { win: true, title: 'The Scholar', text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties. You fold a paper crane, and throw it in the fire.' },
+    crusader: { win: true, title: 'The Reformer', text: 'The Court of Miracles is a wet cellar with nobody in it. The King of Thunes hangs on the Ravenstone. It cost you more than you will ever say, and the city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law.' },
   };
 
   P.gameOver = function (id) {
@@ -1161,9 +1161,9 @@
     (L.atlarge || []).slice(0, 2).forEach(function (c) { self.create('atlarge', c); });
     (L.gangs || []).slice(0, 1).forEach(function (c) { self.create('gang', c); });
     if (L.syndicate) this.create('syndicate');
-    this.create('notes', { desc: 'The notebook of ' + L.predecessor + ' (' + L.ending + '). Half of it is illegible. Read it in Reflect.' });
+    this.create('notes', { desc: 'The casebook of ' + L.predecessor + ' (' + L.ending + '). Half of it is water-stained. Read it in Contemplate.' });
     this.meter('retaliation', Math.min(4, (L.atlarge || []).length + (L.gangs || []).length * 2));
-    this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their cold cases and their enemies. The enemies have already sent a welcome card.', 'major');
+    this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a dagger, on the pillow.', 'major');
   };
 
   // ---- Specs for generated cards ------------------------------------------
@@ -1184,7 +1184,7 @@
 
   P.personnelSpec = function (key) {
     var p = CF.PERSONNEL[key];
-    return { label: 'File: ' + p.label, desc: p.desc + ' Cost: ' + p.cost + ' Funds.', data: { personnel: key } };
+    return { label: 'Letter: ' + p.label, desc: p.desc + ' Costs ' + p.cost + ' Coin.', data: { personnel: key } };
   };
   P.teammateSpec = function (key) {
     var p = CF.PERSONNEL[key];
@@ -1217,8 +1217,8 @@
     var name = this.newName();
     var nick = U.pick(this.rng, ['Whistle', 'Two-Coats', 'Sparrow', 'Lucky', 'The Deacon', 'Moth', 'Rattle', 'Penny']);
     return {
-      label: 'Informant: ' + nick,
-      desc: name + ', known on the street as ' + nick + '. Works ' + CF.DISTRICTS[district].label + '. Meet them in Patrol with Funds for a tip.',
+      label: 'Informer: ' + nick,
+      desc: name + ', known in the taverns as ' + nick + '. Works ' + CF.DISTRICTS[district].label + '. Meet them on the Ward with Coin for a word.',
       data: { name: nick, district: district, heat: 0, trust: 1, tipT: CF.INFORMANT.firstTip },
     };
   };
@@ -1230,7 +1230,7 @@
       var o = CF.ORDERS[k];
       if (o.rank !== rank || bought[k]) return;
       var what = o.room ? CF.ROOMS[o.room].desc : CF.CARDS[o.give].desc;
-      self.create('order', { label: 'Order: ' + o.label, desc: what + ' Cost: ' + o.cost + ' Funds.', data: { order: k } });
+      self.create('order', { label: 'Petition: ' + o.label, desc: what + ' Costs ' + o.cost + ' Coin.', data: { order: k } });
     });
   };
   P.removeOrder = function (key) {
@@ -1271,7 +1271,7 @@
     if (!d) return null;
     rec.delegate = null;
     var back = this.create('teammate', d.card);
-    if (note !== false) this.story('Back from ' + rec.title, this.labelOf(back) + ' hands in a report on ' + rec.title + ' and goes back to their desk.', 'minor');
+    if (note !== false) this.story('Back from ' + rec.title, this.labelOf(back) + ' hands in a report on ' + rec.title + ' and goes back to the round.', 'minor');
     return back;
   };
   P.tickDelegates = function (dt) {
@@ -1297,7 +1297,7 @@
     if (item.type === 'clue') this.create('clue', this.clueSpec(rec, item, helpers));
     else {
       var needs = item.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[item.needs] + ' to analyse properly.' : '';
-      this.create('evidence', { label: item.label, desc: item.text + ' Take it to Analyze.' + needs + ' (Evidence in: ' + rec.title + ')', caseId: rec.id, data: { item: item } });
+      this.create('evidence', { label: item.label, desc: item.text + ' Take it to Study.' + needs + ' (Raw proof in: ' + rec.title + ')', caseId: rec.id, data: { item: item } });
     }
     return item;
   };
@@ -1312,7 +1312,7 @@
       var f = fronts[c.data.link];
       if (f && !f.known) {
         self.revealFront(f);
-        self.story('Intelligence Office', 'The office matches ' + self.labelOf(c) + ' to a known address: ' + f.name + '. ' + f.gang.replace(/^the /, 'The ') + ' works through it.', 'major');
+        self.story('The Informers\' Bench', 'Someone on the bench knows ' + self.labelOf(c) + ' at once: ' + f.name + '. ' + f.gang.replace(/^the /, 'The ') + ' works through it.', 'major');
       }
     }
   };
@@ -1430,7 +1430,7 @@
     }
     var spec = {
       label: (highProfile ? '★ ' : '') + rec.title,
-      desc: brief + ' (' + CF.DISTRICTS[district].label + ')' + (highProfile ? ' High-profile: the papers are watching.' : ''),
+      desc: brief + ' (' + CF.DISTRICTS[district].label + ')' + (highProfile ? ' The crier has sung it: the whole city is watching.' : ''),
       caseId: id, lifetime: life, data: { onExpire: 'cold' },
     };
     var card = opts.ctx ? opts.ctx.give('case', spec) : this.create('case', spec);
@@ -1463,7 +1463,7 @@
     var trait = CF.TRAITS.filter(function (t) { return t.id === sus.trait; })[0];
     var spec = {
       label: sus.name,
-      desc: U.fill('{name}, {role}. {trait}', { name: sus.name, role: sus.role, trait: trait.desc }) + ' (Suspect in: ' + rec.title + ')',
+      desc: U.fill('{name}, {role}. {trait}', { name: sus.name, role: sus.role, trait: trait.desc }) + ' (Accused in: ' + rec.title + ')',
       caseId: rec.id, data: { key: sus.key },
     };
     if (rec.identified === sus.key) spec.label = 'Prime Suspect: ' + sus.name;
@@ -1561,17 +1561,17 @@
 
     if (rec.template === 'gang') {
       this.meter('retaliation', 2);
-      this.story('The Operation Collapses', 'Your case against ' + rec.vars.gang + ' falls apart. They know who you are now.', 'danger');
+      this.story('The Disguise Slips', 'Your case against ' + rec.vars.gang + ' falls apart. They know who you are now.', 'danger');
       return;
     }
     if (rec.template === 'syndicate') {
       this.meter('retaliation', 3);
-      this.story('The Long Table Laughs', 'Your case against the Syndicate runs out of road. The chairman sends you a bottle of very expensive whisky, with his compliments.', 'danger');
+      this.story('The Court Laughs', 'Your case against the Coquille runs out of road. The King of Thunes sends you a cask of very good Rhenish, with his compliments.', 'danger');
       return;
     }
     if (rec.template === 'architect') {
       this.s.flags.architect = false;
-      this.story('The Architect Vanishes', 'By the time you get a warrant the house on the hill is empty, except for a paper crane on the mantelpiece. You will have to find the thread again.', 'danger');
+      this.story('The Architect Vanishes', 'By the time you get a writ the house on the Hill is empty, except for a paper crane on the mantel. You will have to find the thread again.', 'danger');
       return;
     }
     if (rec.template === 'manhunt') {
@@ -1584,16 +1584,16 @@
     if (al) this.refreshAtLarge(crim);
     else al = this.create('atlarge', {
       label: CF.Criminals.rankOf(crim).label + ': ' + culprit.name,
-      desc: culprit.name + ', ' + culprit.role + '. Got away with ' + rec.title + '. ' + this.criminalDesc(crim),
+      desc: culprit.name + ', ' + culprit.role + '. Walked from ' + rec.title + '. ' + this.criminalDesc(crim),
       data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crim.id },
     });
     this.create('coldcase', {
-      label: 'Cold: ' + rec.title,
-      desc: 'The trail went cold. ' + culprit.name + ' walked. With an Archive, this can be reopened in Analyze.',
+      label: 'Unanswered: ' + rec.title,
+      desc: 'The trail went cold. ' + culprit.name + ' walked. With the Rolls, this can be opened again in Study.',
       data: { template: rec.template, culpritName: culprit.name, culpritTrait: culprit.trait, atLargeUid: al.uid, title: rec.title },
     });
     this.story('The Trail Goes Cold', rec.title + ' goes into a box in the basement. Somewhere in ' + CF.DISTRICTS[rec.district].label +
-      ', ' + culprit.name + ' reads the newspaper and laughs.', 'danger');
+      ', ' + culprit.name + ' hears the crier and laughs.', 'danger');
   };
 
   // ---- Charges and trials ---------------------------------------------------
@@ -1628,18 +1628,18 @@
       if (rng() < 0.3) {
         p -= 0.25;
         this.meter('scrutiny', 1);
-        notes.push('The defence asks to see the warrant for the search. There is no warrant. The evidence is excluded.');
+        notes.push('The accused\'s advocate asks to see the writ for the search. There is no writ. The proof is struck out.');
       }
     }
     if (d.planted && rng() < 0.3) {
       p = 0.03;
       this.meter('scrutiny', 3);
-      notes.push('The defence\'s expert takes your planted evidence apart on the stand. The courtroom goes very quiet.');
+      notes.push('The accused\'s advocate takes your arranged proof apart before the sworn men. The court goes very quiet.');
     }
     for (var j = 0; j < (d.contradictions || 0); j++) {
       if (rng() < 0.35) {
         p -= 0.2;
-        notes.push('The defence reads your own evidence back to the jury: it describes somebody else entirely.');
+        notes.push('The advocate reads your own proof back to the sworn men: it describes somebody else entirely.');
       }
     }
     p = U.clamp(p, 0.02, 0.97);
@@ -1666,7 +1666,7 @@
       else if (ob) this.remove(ob);
       var pay = d.guilty ? (CF.ECONOMY.convictionPay[tier] || 0) + (hp ? CF.ECONOMY.highProfilePay : 0) : 0;
       for (var pi = 0; pi < pay; pi++) this.create('funds');
-      if (pay) notes.push(tier === 'strong' ? 'A commendation, with a cheque attached.' : 'The case closes, and a small bonus comes with it.');
+      if (pay) notes.push(tier === 'strong' ? 'The Council\'s thanks, with a purse attached.' : 'The case closes, and a small fee comes with it.');
       if (d.solid && d.guilty) {
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend');
@@ -1683,12 +1683,12 @@
           if (this.atLargeCardFor(crimW)) this.refreshAtLarge(crimW);
           else this.create('atlarge', {
             label: CF.Criminals.rankOf(crimW).label + ': ' + culprit.name,
-            desc: culprit.name + ', ' + culprit.role + '. Someone else went to prison for what they did. ' + this.criminalDesc(crimW),
+            desc: culprit.name + ', ' + culprit.role + '. Someone else went to the rope for what they did. ' + this.criminalDesc(crimW),
             data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crimW.id },
           });
         }
       }
-      this.story('Guilty: ' + d.name, 'The jury is out for ' + (d.solid ? 'forty minutes' : 'two days') + '. ' + d.name + ' is convicted for ' + rec.title + '. ' +
+      this.story('Guilty: ' + d.name, 'The sworn men are out for ' + (d.solid ? 'the length of a Paternoster' : 'two days') + '. ' + d.name + ' is convicted of ' + rec.title + ', and the judge breaks his staff. ' +
         (d.guilty ? '' : 'You tell yourself it was the right person. ') + notes.join(' '), 'victory');
     } else {
       s.stats.acquittals++;
@@ -1697,7 +1697,7 @@
       this.meter('reputation', -1);
       if (tier === 'weak' && rng() < 0.5) {
         this.meter('scrutiny', 1);
-        notes.push('The judge\'s remarks about a rushed charge reach Internal Affairs by lunchtime.');
+        notes.push('The judge\'s remarks about a thin charge reach the Council chamber by sext.');
       }
       if (!rec.special || rec.template === 'manhunt') {
         if (rec.template === 'manhunt' && rec.atLargeUid && this.card(rec.atLargeUid)) {
@@ -1707,15 +1707,15 @@
           var crimA = d.guilty ? this.criminalEscapes(rec, charged, 'acquitted') : null;
           if (crimA && this.atLargeCardFor(crimA)) this.refreshAtLarge(crimA);
           else this.create('atlarge', {
-            label: (crimA ? CF.Criminals.rankOf(crimA).label : 'At Large') + ': ' + d.name,
-            desc: d.name + ' walked out of court smiling. ' + (d.guilty ? 'They are guilty, and now they are careful. ' + this.criminalDesc(crimA) : 'They were innocent, and now they hate you.'),
+            label: (crimA ? CF.Criminals.rankOf(crimA).label : 'Abroad') + ': ' + d.name,
+            desc: d.name + ' walked out of the Blood Court smiling. ' + (d.guilty ? 'They are guilty, and now they are careful. ' + this.criminalDesc(crimA) : 'They were innocent, and now they hate you.'),
             data: { name: d.name, trait: charged.trait, careful: true, criminalId: crimA ? crimA.id : null },
           });
         }
       }
       if (rec.template === 'architect') s.flags.architect = false;
-      this.story('Not Guilty: ' + d.name, (notes.length ? notes.join(' ') + ' ' : '') + 'The jury acquits. ' + d.name +
-        ' walks down the courthouse steps into the flashbulbs and looks straight at you.', 'danger');
+      this.story('Not Guilty: ' + d.name, (notes.length ? notes.join(' ') + ' ' : '') + 'The sworn men acquit. ' + d.name +
+        ' walks down the court steps into the crowd\'s cheering and looks straight at you.', 'danger');
     }
   };
 
@@ -1725,7 +1725,7 @@
     // Reopened cases and manhunts put an at-large criminal away.
     if (rec.atLargeUid && this.card(rec.atLargeUid) && d.guilty) {
       this.remove(this.card(rec.atLargeUid));
-      notes.push('One less name on the list of those who got away.');
+      notes.push('One less name on the list of those who walked.');
       this.meter('retaliation', -1);
       this.pathGain('crusader', 1, 'put away someone at large');
       if (rec.reopened) this.pathGain('master', 1, 'closed a cold case');
@@ -1737,7 +1737,7 @@
         this.meter('retaliation', -4);
         this.pathGain('crusader', 2, 'broke a gang');
         this.create('ledger');
-        notes.push(rec.vars.gang + ' is finished. In the boss\'s safe: a ledger page, with numbers that lead further up.');
+        notes.push(rec.vars.gang + ' is finished. In the upright man\'s strongbox: a leaf of a ledger, with sums that lead further down.');
       }
     }
     if (rec.template === 'syndicate') {
@@ -1745,11 +1745,11 @@
       s.flags.syndicateFallen = true;
       this.meter('retaliation', -6);
       this.meter('reputation', 5);
-      this.pathGain('crusader', 3, 'broke the Syndicate');
+      this.pathGain('crusader', 3, 'broke the Coquille');
       // Breaking the Syndicate is the Crusader's ending for anyone whose
       // Justice is not clearly behind their current path.
       if (this.pathOpen('crusader')) { this.gameOver('crusader'); return; }
-      notes.push('The Syndicate is broken.');
+      notes.push('The Coquille is broken.');
     }
     if (rec.template === 'architect') {
       if (d.guilty && this.pathOpen('master')) { this.gameOver('master'); return; }

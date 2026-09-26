@@ -128,7 +128,7 @@ console.error = function (err) { throw err; };
   assert.ok(e.lockReason('investigate'));
   assert.ok(e.usableIn(kase).indexOf('investigate') < 0 && e.usableIn(kase).indexOf('reflect') >= 0);
   assert.ok(!e.unavailableReason(kase), 'still usable somewhere');
-  assert.ok(/burnt out/i.test(e.unavailableReason(instinct) || ''), 'the reason names the lock');
+  assert.ok(/fever/i.test(e.unavailableReason(instinct) || ''), 'the reason names the lock');
   e.cardsOf('burnout').forEach(function (c) { e.remove(c); });
   assert.ok(!e.unavailableReason(instinct));
 

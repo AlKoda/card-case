@@ -18,15 +18,15 @@
 
   var Crim = (CF.Criminals = {});
   CF.CRIMINAL_RANKS = [
-    { id: 'petty', label: 'Petty Criminal', crimes: 0 },
-    { id: 'repeat', label: 'Repeat Offender', crimes: 2 },
-    { id: 'member', label: 'Gang Member', crimes: 0, organization: 'gang' },
-    { id: 'lieutenant', label: 'Gang Lieutenant', crimes: 4, organization: 'gang' },
-    { id: 'syndicate', label: 'Syndicate Member', crimes: 0, organization: 'syndicate' },
+    { id: 'petty', label: 'Petty Thief', crimes: 0 },
+    { id: 'repeat', label: 'Old Offender', crimes: 2 },
+    { id: 'member', label: 'Sworn of a Band', crimes: 0, organization: 'gang' },
+    { id: 'lieutenant', label: 'Upright Man', crimes: 4, organization: 'gang' },
+    { id: 'syndicate', label: 'Of the Coquille', crimes: 0, organization: 'syndicate' },
   ];
   CF.CRIMINAL_TRAITS = {
-    careful: { label: 'Careful', desc: 'Has been to court once. Leaves less behind.' },
-    violent: { label: 'Violent', desc: 'Hurts people. Feeds Retaliation every week.' },
+    careful: { label: 'Careful', desc: 'Has stood before the Blood Court once. Leaves less behind.' },
+    violent: { label: 'Violent', desc: 'Hurts people. Feeds the Vendetta every week.' },
   };
   Crim.WEEKLY_CRIME = 0.2;
 
@@ -113,7 +113,7 @@
         c.heat++;
         var card = self.spawnCase(U.pick(self.rng, CF.ORDINARY_CASES), {
           culpritName: c.name, culpritTrait: c.trait, criminalId: c.id,
-          headline: c.name + ' Again', lead: 'The handwriting is familiar.',
+          headline: c.name + ' Again', lead: 'The hand is familiar.',
         });
         self.refreshAtLarge(c);
         lines.push(c.name + ' has done it again: ' + self.caseRec(card.caseId).title + '.');

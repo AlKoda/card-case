@@ -33,7 +33,7 @@ function run(e, verb, cards) {
 // ---- Ranks ----------------------------------------------------------------------
 (function ranks() {
   assert.strictEqual(CF.RANK_DEFS.length, 4);
-  assert.deepStrictEqual(CF.RANKS, ['Detective', 'Senior Detective', 'Inspector', 'Chief Inspector']);
+  assert.deepStrictEqual(CF.RANKS, ['Examiner', 'Sworn Examiner', 'Bailiff', 'Magistrate']);
   for (var i = 1; i < CF.RANK_DEFS.length; i++) {
     assert.ok(CF.RANK_DEFS[i].rep > CF.RANK_DEFS[i - 1].rep && CF.RANK_DEFS[i].salary > CF.RANK_DEFS[i - 1].salary, 'ranks climb');
   }
@@ -51,7 +51,7 @@ function run(e, verb, cards) {
   e.s.meters.reputation = CF.RANK_REP[1];
   e.checkThresholds();
   var board = byDef(e, 'promotion')[0];
-  assert.ok(board && board.data.rank === 1 && /Senior Detective/.test(e.labelOf(board)));
+  assert.ok(board && board.data.rank === 1 && /Sworn Examiner/.test(e.labelOf(board)));
   e.checkThresholds();
   assert.strictEqual(byDef(e, 'promotion').length, 1, 'one board at a time');
   var r = run(e, 'duty', [board]);
@@ -194,7 +194,7 @@ function run(e, verb, cards) {
   t.clearSlots('duty');
   t.s.rooms.training = true;
   t.autoSlot('duty', officer.uid); t.autoSlot('duty', byDef(t, 'funds')[0].uid);
-  assert.strictEqual(t.preview('duty').label, 'Train an Officer');
+  assert.strictEqual(t.preview('duty').label, 'Drill a Watchman');
   assert.ok(!t.preview('duty').blocked, 'one Fund with the room');
   var tr = run(t, 'duty', []);
   assert.strictEqual(tr.id, 'duty_train');

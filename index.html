@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <title>Case File</title>
-  <meta name="description" content="A detective card game in the style of Cultist Simulator.">
+  <title>Case File: The Free City</title>
+  <meta name="description" content="A card game of crime and law in a city of 1600, in the style of Cultist Simulator.">
   <meta name="theme-color" content="#0e1112">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,27 +12,18 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/art/ui.css">
-  <link rel="stylesheet" href="css/art/icons.css">
-  <link rel="stylesheet" href="css/art/frames.css">
-  <link rel="stylesheet" href="css/art/verbs.css">
-  <link rel="stylesheet" href="css/art/evidence.css">
-  <link rel="stylesheet" href="css/art/dossiers.css">
   <link rel="stylesheet" href="css/art/menu.css">
-  <link rel="stylesheet" href="css/art/table.css">
-  <link rel="stylesheet" href="css/art/cards.css">
-  <link rel="stylesheet" href="css/art/props.css">
-  <link rel="stylesheet" href="css/art/people.css">
-  <link rel="stylesheet" href="css/art/ranks.css">
-  <link rel="stylesheet" href="css/art/hud.css">
-  <link rel="stylesheet" href="css/art/buttons.css">
-  <link rel="stylesheet" href="css/art/dialogs.css">
+  <link rel="stylesheet" href="css/art/city-cards.css">
+  <link rel="stylesheet" href="css/art/city-scenes.css">
+  <link rel="stylesheet" href="css/art/city-ui.css">
+  <link rel="stylesheet" href="css/art/city-icons.css">
+  <link rel="stylesheet" href="css/art/city-tables.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="app">
     <header id="topbar">
-      <div class="brand">Case File</div>
+      <div class="brand">The Free City</div>
       <div id="rank-badge" title="Rank"></div>
       <div class="rank" id="rank"></div>
       <div id="weekbar" title="The week"><div class="wb-shade"></div></div>
@@ -45,7 +36,7 @@
           <button class="ctl" data-speed="3" title="Fastest (3)">3×</button>
         </div>
         <button class="ctl" id="btn-journal" title="Journal">📖</button>
-        <button class="ctl" id="btn-precinct" title="Your precinct">⌂</button>
+        <button class="ctl" id="btn-precinct" title="The Watch-house">⌂</button>
         <button class="ctl" id="btn-help" title="How to play">?</button>
         <button class="ctl" id="btn-menu" title="Menu">☰</button>
       </div>
@@ -80,11 +71,11 @@
   <!-- Title screen -->
   <div class="modal screen hidden" id="title">
     <div class="title-wrap">
-      <div class="title-logo" role="img" aria-label="Case File: Detective Card Game"></div>
+      <div class="title-logo" role="img" aria-label="Case File: The Free City"></div>
       <div class="title-buttons">
         <button class="plate-btn gold" id="t-new">New Game</button>
         <button class="plate-btn red" id="t-continue">Continue</button>
-        <button class="plate-btn teal" id="t-archive">Case Archive</button>
+        <button class="plate-btn teal" id="t-archive">The Rolls</button>
         <button class="plate-btn grey" id="t-settings">Settings</button>
         <button class="plate-btn red" id="t-help">How to Play</button>
       </div>
@@ -94,20 +85,20 @@
   <!-- New game -->
   <div class="modal screen hidden" id="start">
     <div class="screen-box">
-      <div class="banner"><span>New Case File</span></div>
-      <p class="lead">You have just been assigned to the precinct on the edge of the Old Market. Crime never stops here, and the cases pile up faster than anyone can close them. Every criminal who walks free makes the city a little darker, and remembers your name.</p>
+      <div class="banner"><span>A Letter of Office</span></div>
+      <p class="lead">The Council has made you Examiner of the Watch-house on the Market, with a stipend, a desk under the stair and the Emperor's law to work by. The cases come faster than anyone can answer them. Every name the crier sings that walks free makes the city a little darker, and remembers yours.</p>
       <div class="field">
         <label for="name">Your name</label>
-        <input type="text" id="name" maxlength="24" value="Marlowe">
+        <input type="text" id="name" maxlength="24" value="Kessler">
       </div>
       <div class="callings" id="callings"></div>
       <div class="field hidden" id="legacy-row">
         <input type="checkbox" id="legacy">
-        <label for="legacy" id="legacy-label">Succeed your predecessor</label>
+        <label for="legacy" id="legacy-label">Take up your predecessor's desk</label>
       </div>
       <div class="row center">
         <button class="plate-btn dark" id="start-back">Back</button>
-        <button class="plate-btn redfill" id="btn-new">Take the Badge</button>
+        <button class="plate-btn redfill" id="btn-new">Take the Letter</button>
       </div>
     </div>
   </div>
@@ -158,7 +149,7 @@
   <!-- Case Archive -->
   <div class="modal screen hidden" id="archive">
     <div class="screen-box wide">
-      <div class="banner"><span>Case Archive</span></div>
+      <div class="banner"><span>The Rolls</span></div>
       <div class="archive-body">
         <div>
           <div class="archive-grid" id="archive-grid"></div>
@@ -182,8 +173,8 @@
         <button class="plate-btn teal" id="m-save">Save Now</button>
         <button class="plate-btn grey" id="m-tidy">Tidy the Table</button>
         <button class="plate-btn grey" id="m-settings">Settings</button>
-        <button class="plate-btn teal" id="m-precinct">Precinct</button>
-        <button class="plate-btn teal" id="m-archive">Case Archive</button>
+        <button class="plate-btn teal" id="m-precinct">The Watch-house</button>
+        <button class="plate-btn teal" id="m-archive">The Rolls</button>
         <button class="plate-btn grey" id="m-title">Main Menu</button>
         <button class="plate-btn red" id="m-new">Abandon File</button>
       </div>
@@ -193,7 +184,7 @@
   <!-- Precinct -->
   <div class="modal hidden" id="precinct">
     <div class="modal-box" style="max-width:860px">
-      <h1 style="font-size:24px">The Precinct</h1>
+      <h1 style="font-size:24px">The Watch-house</h1>
       <h2 id="precinct-sub"></h2>
       <div id="precinct-grid" class="precinct-grid"></div>
       <div class="row"><button class="btn" id="precinct-close">Back to work</button></div>
@@ -209,27 +200,27 @@
           <h4>Cards and verbs</h4>
           <p>Everything is a card. You act by dragging cards onto the <b>verbs</b> along the top. Tap a verb to open it: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
           <h4>Your table</h4>
-          <p>Move any card or stack. Drop a card on its own kind to stack it; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the felt to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. Windows can be dragged by their title and close when you touch the felt.</p>
+          <p>Move any card or stack. Drop a card on its own kind to stack it; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. Windows can be dragged by their title and close when you touch the table.</p>
           <h4>Time</h4>
           <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. Clues and witnesses warn you half a minute before they fade; tap the warning to find them.</p>
           <h4>Keys</h4>
           <p><b>S</b> or <b>Enter</b> starts the open verb (or collects its results). <b>Esc</b> closes it. <b>Tab</b> stacks, <b>T</b> tidies, <b>Z</b> undoes that, <b>J</b> opens the journal, <b>+</b> and <b>−</b> zoom.</p>
           <h4>Cases</h4>
-          <p>Cases arrive on their own and count down. When one hits zero it goes <b>cold</b>, the criminal is <b>At Large</b>, and Public Pressure rises. You can't close everything.</p>
-          <h4>Detective work</h4>
-          <p><b>Investigate</b> a case to search the scene, or with its District to canvass. <b>Analyze</b> evidence. <b>Interrogate</b> witnesses and suspects with Focus, Instinct or Health. <b>Reflect</b> on a case with its clues and see what they add up to.</p>
-          <h4>Charges</h4>
-          <p>Clues carry aspects: Forensic, Testimony, Motive, Opportunity, Digital, Financial. <b>Arrest</b> a suspect with clues from their case. The right aspects in enough weight make a solid charge. A thin one may walk, and they won't forget you.</p>
+          <p>Cases arrive on the city's clock and count down. When one runs out it goes <b>Unanswered</b>, the culprit is <b>Abroad</b>, and the Crowd grows louder. You cannot answer everything.</p>
+          <h4>The Examiner's work</h4>
+          <p><b>Examine</b> a case to search the scene, or with its Quarter to go door to door. Take raw proof to <b>Study</b> to make it speak. <b>Question</b> witnesses and the accused with Wit, Instinct or Health. <b>Contemplate</b> a case with its tokens and see what they add up to.</p>
+          <h4>Indictments</h4>
+          <p>Tokens carry proof of six kinds: Body, Word, Motive, Presence, Writ, Coin. <b>Indict</b> the accused with tokens from their case. The right kinds in enough weight make full proof. Indicia alone will not convict; on half proof the accused may walk, and they will not forget you.</p>
         </div>
         <div>
           <h4>Read everything</h4>
-          <p>Suspects have traits. Clues sometimes leak the culprit's. A careful reader can catch the culprit before the mind palace does.</p>
+          <p>The accused have their marks. Tokens sometimes betray the culprit's. A careful reader can name the culprit before the casebook does.</p>
           <h4>Threats</h4>
-          <p><b>Fatigue</b> ×3 becomes Burnout. <b>Obsession</b> ×3 becomes Tunnel Vision, and you misread clues. <b>Public Pressure</b>, <b>Scrutiny</b> (Internal Affairs) and <b>Retaliation</b> build up at the top. Rest in Reflect. Close cases. Keep your hands clean, or don't.</p>
-          <h4>Growing</h4>
-          <p>Spend Funds in <b>Requisition</b> on equipment, precinct rooms and new officers. Reputation brings promotion boards. Each rank changes the game: Senior Detective (Warrant, more cases), Inspector (Stakeout, Delegate, Undercover), Chief Inspector (Task Force, Major Crimes). The ⌂ button shows your precinct: rooms that change how the verbs work.</p>
+          <p><b>Weariness</b> ×3 becomes Fever. <b>Obsession</b> ×3 becomes Fixation, and you misread proof. The <b>Crowd</b>, the Council's <b>Suspicion</b> and the underworld's <b>Vendetta</b> build up at the top. Rest in Contemplate. Answer cases. Keep your hands clean, or don't.</p>
+          <h4>Rising</h4>
+          <p>Spend Coin in <b>Petition</b> on instruments, Watch-house rooms and watchmen. Standing brings the Council's letters. Each office changes the game: Sworn Examiner (Writ, more cases), Bailiff (Watch, Deputise, Disguise), Magistrate (Muster, Proclamation). The ⌂ button shows your Watch-house: rooms that change how the verbs work.</p>
           <h4>Winning</h4>
-          <p>Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Rent comes out every week. Don't go broke.</p>
+          <p>Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Lodging and dues come out at every bell. Do not run dry.</p>
         </div>
       </div>
       <div class="row"><button class="btn" id="help-close">Back to work</button></div>
@@ -264,9 +255,9 @@
         <p class="lead" id="end-text"></p>
         <div class="stats" id="end-stats"></div>
         <div class="row">
-          <button class="plate-btn redfill" id="end-successor">Start as Their Successor</button>
-          <button class="plate-btn gold" id="end-new">New Case File</button>
-          <button class="plate-btn teal" id="end-archive">Case Archive</button>
+          <button class="plate-btn redfill" id="end-successor">Take Up Their Desk</button>
+          <button class="plate-btn gold" id="end-new">A New Letter</button>
+          <button class="plate-btn teal" id="end-archive">The Rolls</button>
           <button class="plate-btn grey" id="end-look">Look at the Table</button>
         </div>
       </div>

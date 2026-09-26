@@ -111,12 +111,12 @@
     clues.forEach(function (c) { if (c.data.link) links[c.data.link] = (links[c.data.link] || 0) + 1; });
     var fid = Object.keys(links).sort(function (a, b) { return links[b] - links[a]; })[0];
     var front = e.fronts()[fid];
-    if (!front) return { title: 'Nothing There', text: 'The address leads to a building that was pulled down last year.' };
+    if (!front) return { title: 'Nothing There', text: 'The door leads to a house that was pulled down last year.' };
     var titles = [];
     clues.forEach(function (c) { var r = e.caseRec(c.caseId); if (r && titles.indexOf(r.title) < 0) titles.push(r.title); });
     ctx.give('thread', {
       label: 'Thread: ' + front.name,
-      desc: titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Reflect with a Gang or Syndicate card to close in.',
+      desc: titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Contemplate with a Band or Coquille card to close in.',
       data: { front: front.id, cases: titles },
     });
     e.revealFront(front);

@@ -1,49 +1,51 @@
 // Static card definitions: the data half of the card system (see
-// docs/DESIGN.md, "Cards are data"). A definition has
+// docs/DESIGN.md, "Cards are data"; the setting is docs/CITY.md). A
+// definition has
 //   label, kind, aspects, tags, decay (seconds; omitted = permanent),
 //   image (an --art-* key; omitted = the UI picks one), onExpire, stackable.
 // A card instance may override label/desc/aspects/tags/image (clues, suspects
 // and cases are generated), but its def supplies kind, colour and behaviour.
+// Keys never change: a save from the modern city loads into the Free City.
 (function (G) {
   var CF = G.CF;
 
-  // The six clue aspects that build a Charge.
+  // The six kinds of proof that build a charge before the Blood Court.
   CF.ASPECTS = {
-    forensic: { label: 'Forensic', short: 'FOR', color: '#3fb6a8', meaning: 'Physical evidence: prints, fibres, tool marks, blood.' },
-    testimony: { label: 'Testimony', short: 'TES', color: '#e0a84a', meaning: 'What people say they saw, heard or did.' },
-    motive: { label: 'Motive', short: 'MOT', color: '#d8605a', meaning: 'Why anyone would want this done.' },
-    opportunity: { label: 'Opportunity', short: 'OPP', color: '#a07ae0', meaning: 'Who could have been there, then, with the means.' },
-    digital: { label: 'Digital', short: 'DIG', color: '#4f95e6', meaning: 'Cameras, phones, computers, records that time-stamp themselves.' },
-    financial: { label: 'Financial', short: 'FIN', color: '#62bd5c', meaning: 'Money moving: payments, debts, insurance, who profits.' },
+    forensic: { label: 'Body', short: 'BOD', color: '#3fb6a8', meaning: 'What the corpse, the wound, the ground and the thing itself will say: marks, blood, poison, a chipped blade.' },
+    testimony: { label: 'Word', short: 'WRD', color: '#e0a84a', meaning: 'What someone will swear to. Two credible witnesses are full proof; one is half.' },
+    motive: { label: 'Motive', short: 'MOT', color: '#d8605a', meaning: 'Why anyone would want it done.' },
+    opportunity: { label: 'Presence', short: 'PRE', color: '#a07ae0', meaning: 'Who could have been there, then, with the means.' },
+    digital: { label: 'Writ', short: 'WRT', color: '#4f95e6', meaning: 'Paper that dates itself: a ledger, a letter, a seal, the parish register, a forged hand.' },
+    financial: { label: 'Coin', short: 'CN', color: '#62bd5c', meaning: 'Money moving: debts, dowries, pledges, a man spending beyond his station.' },
   };
   CF.CLUE_ASPECTS = Object.keys(CF.ASPECTS);
 
   // Kinds control colour and which slots a card fits (kind is also an aspect).
   CF.KINDS = {
-    ability: { label: 'Ability', color: '#c9b37e' },
-    funds: { label: 'Funds', color: '#b9a24a' },
-    threat: { label: 'Threat', color: '#9c3b3b' },
+    ability: { label: 'Yourself', color: '#c9b37e' },
+    funds: { label: 'Coin', color: '#b9a24a' },
+    threat: { label: 'Affliction', color: '#9c3b3b' },
     case: { label: 'Case', color: '#c0392b' },
-    coldcase: { label: 'Cold Case', color: '#5a6f86' },
-    clue: { label: 'Clue', color: '#d8cfb8' },
-    evidence: { label: 'Evidence', color: '#8a6a45' },
+    coldcase: { label: 'Unanswered', color: '#5a6f86' },
+    clue: { label: 'Token', color: '#d8cfb8' },
+    evidence: { label: 'Raw Proof', color: '#8a6a45' },
     witness: { label: 'Witness', color: '#6f9bbd' },
-    suspect: { label: 'Suspect', color: '#b86b3c' },
-    district: { label: 'District', color: '#4f7a5a' },
-    equipment: { label: 'Equipment', color: '#7f8c8d' },
-    order: { label: 'Requisition', color: '#95876a' },
-    room: { label: 'Precinct Room', color: '#56606e' },
-    personnel: { label: 'Personnel File', color: '#8a8f6a' },
-    teammate: { label: 'Team', color: '#3d7ea6' },
+    suspect: { label: 'Accused', color: '#b86b3c' },
+    district: { label: 'Quarter', color: '#4f7a5a' },
+    equipment: { label: 'Instrument', color: '#7f8c8d' },
+    order: { label: 'Petition', color: '#95876a' },
+    room: { label: 'Watch-house', color: '#56606e' },
+    personnel: { label: 'Letter of Service', color: '#8a8f6a' },
+    teammate: { label: 'Watch', color: '#3d7ea6' },
     hospital: { label: 'Hospital', color: '#6b6f78' },
-    informant: { label: 'Informant', color: '#7a5c8a' },
-    intel: { label: 'Intelligence', color: '#8a6f9c' },
+    informant: { label: 'Informer', color: '#7a5c8a' },
+    intel: { label: 'Whisper', color: '#8a6f9c' },
     place: { label: 'Place', color: '#4f7a5a' },
-    criminal: { label: 'Criminal', color: '#5b1f1f' },
+    criminal: { label: 'Coquille', color: '#5b1f1f' },
     court: { label: 'Court', color: '#8e7cc3' },
-    paper: { label: 'Paperwork', color: '#a8a290' },
+    paper: { label: 'The Rolls', color: '#a8a290' },
     temptation: { label: 'Temptation', color: '#c7a13b' },
-    career: { label: 'Career', color: '#d4af37' },
+    career: { label: 'Office', color: '#d4af37' },
     insight: { label: 'Insight', color: '#b48ede' },
     calling: { label: 'Calling', color: '#e6d3a3' },
   };
@@ -51,206 +53,206 @@
   CF.CARDS = {
     // --- You -----------------------------------------------------------
     health: { label: 'Health', kind: 'ability', tags: ['you', 'body'], image: 'icon-health', aspects: { health: 1 },
-      desc: 'Your body: stamina for a beat shift, fists for a hard interrogation, legs for a long night.' },
-    focus: { label: 'Focus', kind: 'ability', tags: ['you', 'mind'], image: 'icon-focus', aspects: { focus: 1 },
-      desc: 'Patience and method. Good for desk work, careful interviews and quiet evenings in the mind palace.' },
+      desc: 'Your body. It walks the ward at night, holds a man against a wall, and stands in the rain outside a door until the door opens.' },
+    focus: { label: 'Wit', kind: 'ability', tags: ['you', 'mind'], image: 'icon-focus', aspects: { focus: 1 },
+      desc: 'Patience and method. The ledger read twice, the witness let talk, the long evening with the candle and the casebook.' },
     instinct: { label: 'Instinct', kind: 'ability', tags: ['you', 'street'], image: 'icon-instinct', aspects: { instinct: 1 },
-      desc: 'The hunch, the bluff, the itch between the shoulder blades. It walks the streets with you.' },
+      desc: 'The itch between the shoulder blades. It knows which tavern, which door, which face is lying before the face has finished.' },
     wound: { label: 'Wound', kind: 'threat', tags: ['you', 'injury'], image: 'icon-health', aspects: { wound: 1 }, decay: 150, onExpire: 'heal',
-      desc: 'Stitches and bruises. When it heals you get your Health back. Get hurt again before then and you may not get up.' },
-    funds: { label: 'Funds', kind: 'funds', tags: ['money'], image: 'icon-funds', aspects: { funds: 1 }, stackable: true,
-      desc: 'Money. Rent comes out of it every week. So does everything else.' },
+      desc: 'Stitched by the barber-surgeon and bound in linen. When it knits you have your Health back. Take another before then and you may not get up.' },
+    funds: { label: 'Coin', kind: 'funds', tags: ['money'], image: 'icon-funds', aspects: { funds: 1 }, stackable: true,
+      desc: 'Silver. Lodging and dues come out of it at every bell. So does everything else, and everyone.' },
 
-    // --- Threats -------------------------------------------------------
-    fatigue: { label: 'Fatigue', kind: 'threat', tags: ['strain'], image: 'icon-fatigue', aspects: { fatigue: 1 }, stackable: true,
-      desc: 'Too many hours. Three of these and you burn out. Sleep it off in Reflect.' },
-    burnout: { label: 'Burnout', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
-      desc: 'You cannot face the street. Duty, Patrol, Investigate and Interrogate are closed to you. Rest in Reflect before this runs out, or you are finished.' },
+    // --- Afflictions ------------------------------------------------------
+    fatigue: { label: 'Weariness', kind: 'threat', tags: ['strain'], image: 'icon-fatigue', aspects: { fatigue: 1 }, stackable: true,
+      desc: 'Too many nights. Three of these and the fever takes you. Sleep it off in Contemplate.' },
+    burnout: { label: 'Fever', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
+      desc: 'You cannot face the street. Attend, Walk the Ward, Examine and Question are shut to you. Rest in Contemplate before this runs out, or they carry you to the pesthouse.' },
     obsession: { label: 'Obsession', kind: 'threat', tags: ['strain'], image: 'icon-obsession', aspects: { obsession: 1 }, stackable: true,
-      desc: 'A case is under your skin. Three of these harden into Tunnel Vision. Closing a case eases it; so does letting go in Reflect.' },
-    tunnel: { label: 'Tunnel Vision', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-redeye', aspects: { tunnel: 1 },
-      desc: 'You see what you want to see. Some clues you find now are misread and will not hold up. A conviction, or a long night in Reflect, clears it. More Obsession on top of this will swallow you.' },
+      desc: 'A case has got under your skin. Three of these harden into Fixation. Closing the case eases it; so does letting go in Contemplate.' },
+    tunnel: { label: 'Fixation', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-redeye', aspects: { tunnel: 1 },
+      desc: 'You see what you want to see. Some tokens you find now are misread and will not hold before the Court. A conviction, or a long night in Contemplate, clears it. More Obsession on top of this will swallow you.' },
 
     // --- Casework ------------------------------------------------------
     case: { label: 'Case', kind: 'case', tags: ['casework'], aspects: { case: 1 }, onExpire: 'cold',
-      desc: 'An open case.' },
-    coldcase: { label: 'Cold Case', kind: 'coldcase', tags: ['casework', 'cold'], aspects: { coldcase: 1 },
-      desc: 'A case that went cold. Someone walked. With an Archive, it can be reopened in Analyze.' },
-    clue: { label: 'Clue', kind: 'clue', tags: ['casework', 'proof'], aspects: { clue: 1 }, decay: 300, onExpire: 'vanish',
-      desc: 'A clue.' },
-    evidence: { label: 'Evidence', kind: 'evidence', tags: ['casework', 'raw'], aspects: { evidence: 1 }, decay: 260, onExpire: 'vanish',
-      desc: 'Unprocessed evidence. Take it to Analyze.' },
+      desc: 'A crime the Council wants answered.' },
+    coldcase: { label: 'Unanswered', kind: 'coldcase', tags: ['casework', 'cold'], aspects: { coldcase: 1 },
+      desc: 'A case that went unanswered. Somebody walked. With the Rolls, it can be opened again in Study.' },
+    clue: { label: 'Token', kind: 'clue', tags: ['casework', 'proof'], aspects: { clue: 1 }, decay: 300, onExpire: 'vanish',
+      desc: 'A token: a thing found, a thing said, a thing that points.' },
+    evidence: { label: 'Raw Proof', kind: 'evidence', tags: ['casework', 'raw'], aspects: { evidence: 1 }, decay: 260, onExpire: 'vanish',
+      desc: 'Something carried away from a scene that has not yet said what it means. Take it to Study.' },
     witness: { label: 'Witness', kind: 'witness', tags: ['casework', 'person'], aspects: { witness: 1 }, decay: 170, onExpire: 'vanish',
-      desc: 'Someone who saw something. They will not stay around forever.' },
-    suspect: { label: 'Suspect', kind: 'suspect', tags: ['casework', 'person'], aspects: { suspect: 1 },
-      desc: 'A person of interest.' },
-    district: { label: 'District', kind: 'district', tags: ['place'], aspects: { district: 1 },
-      desc: 'A part of the city.' },
+      desc: 'Someone who saw something. Witnesses leave town, forget, or are reminded to forget.' },
+    suspect: { label: 'Accused', kind: 'suspect', tags: ['casework', 'person'], aspects: { suspect: 1 },
+      desc: 'A name the case has thrown up.' },
+    district: { label: 'Quarter', kind: 'district', tags: ['place'], aspects: { district: 1 },
+      desc: 'A quarter of the city.' },
 
-    // --- Equipment (slot into Investigate / Analyze) --------------------
-    // Equipment changes what recipes do (see docs/DESIGN.md, "Equipment"):
-    //   boost:   { tags, aspects }  adds aspects to clues found from items with one of the tags
-    //   gate:    'prints'|'bio'|'lab'  evidence that "needs" this analyses properly with it
+    // --- Instruments (slot into Examine / Study) --------------------
+    // Instruments change what recipes do (see docs/DESIGN.md, "Equipment"):
+    //   boost:   { tags, aspects }  adds aspects to tokens found from items with one of the tags
+    //   gate:    'prints'|'bio'|'lab'  raw proof that "needs" this is read properly with it
     //   unlocks: a recipe id it makes possible; unlocksVerb: a verb it opens
-    camera: { label: 'Camera', kind: 'equipment', tags: ['tool'], image: 'icon-camera', aspects: { tool: 1 },
+    camera: { label: 'Sketch-book', kind: 'equipment', tags: ['tool'], image: 'icon-camera', aspects: { tool: 1 },
       mods: { unlocks: 'inv_photograph', boost: { tags: ['watching'], aspects: { opportunity: 1 } } },
-      desc: 'Photographs don\'t forget. Put it in Investigate with a case to photograph the scene: what you have found stops degrading, and the pictures are evidence. On a Stakeout it catches what you saw.' },
-    prints: { label: 'Fingerprint Set', kind: 'equipment', tags: ['tool', 'kit', 'surfaces'], image: 'aspect-forensic', aspects: { tool: 1, kit_prints: 1 },
+      desc: 'Charcoal and good paper. Put it in Examine with a case to draw the scene before it is tidied: what you have found there stops fading, and the drawings are proof. On a Watch, it catches faces.' },
+    prints: { label: 'Vinegar and Umbrella', kind: 'equipment', tags: ['tool', 'kit', 'surfaces'], image: 'aspect-forensic', aspects: { tool: 1, kit_prints: 1 },
       mods: { gate: 'prints', boost: { tags: ['surfaces'], aspects: { forensic: 1 } } },
-      desc: 'Powder, brush, lifting tape. Reads latent prints properly, and sharpens anything found on a surface.' },
-    kit: { label: 'Forensic Kit', kind: 'equipment', tags: ['tool', 'kit', 'biology'], image: 'icon-search', aspects: { tool: 1, kit_bio: 1 },
+      desc: 'The coroner\'s trick from the old book: wash a surface with vinegar and wine, and read it under a red umbrella in sunlight. Old wounds, old blood and the marks of a hand come up plain.' },
+    kit: { label: 'Physician\'s Case', kind: 'equipment', tags: ['tool', 'kit', 'biology'], image: 'icon-search', aspects: { tool: 1, kit_bio: 1 },
       mods: { gate: 'bio', boost: { tags: ['biology', 'physical'], aspects: { forensic: 1 } }, extraEvidence: true },
-      desc: 'Swabs, vials and a UV lamp. Needed for blood and fibres, sharpens physical evidence, and finds more of it at a scene.' },
-    surveillance: { label: 'Surveillance Gear', kind: 'equipment', tags: ['tool', 'watching'], image: 'icon-binoculars', aspects: { tool: 1 },
+      desc: 'Lancets, a silver needle, dried herbs in paper twists. Needed for blood and poison, sharpens anything of the body, and finds more of it at a scene.' },
+    surveillance: { label: 'Lantern and Cloak', kind: 'equipment', tags: ['tool', 'watching'], image: 'icon-binoculars', aspects: { tool: 1 },
       mods: { unlocksVerb: 'stakeout', boost: { tags: ['watching'], aspects: { opportunity: 1, digital: 1 } } },
-      desc: 'Long lenses and wire taps. Opens the Stakeout, whatever your rank, and turns a night\'s watching into photographs and transcripts.' },
-    labpass: { label: 'Lab Access', kind: 'equipment', tags: ['tool', 'access'], image: 'icon-mind', aspects: { tool: 1, kit_lab: 1 },
+      desc: 'A dark lantern with a shutter, a cloak that is nobody\'s. Opens the Watch whatever your office, and turns a night in a doorway into names and hours written down.' },
+    labpass: { label: 'The Apothecary\'s Key', kind: 'equipment', tags: ['tool', 'access'], image: 'icon-mind', aspects: { tool: 1, kit_lab: 1 },
       mods: { gate: 'lab', unlocks: 'an_enhance', boost: { tags: ['records'], aspects: { digital: 1 } } },
-      desc: 'A badge for the city lab. Needed for phones, ledgers and anything under a microscope, and lets you take a clue back to the bench to get more out of it.' },
+      desc: 'A key to the apothecary\'s back room and his patience. Needed for ledgers, letters and anything under the glass, and lets you take a token back to the bench once for more.' },
 
-    // --- Requisitions --------------------------------------------------
-    order: { label: 'Requisition Form', kind: 'order', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { order: 1 },
-      desc: 'Put this into Requisition with enough Funds.' },
-    room: { label: 'Precinct Room', kind: 'room', tags: ['precinct'], image: 'icon-court', aspects: { room: 1 }, desc: 'Part of your precinct.' },
-    personnel: { label: 'Personnel File', kind: 'personnel', tags: ['precinct', 'person'], aspects: { personnel: 1 },
-      desc: 'Someone who could join your team. Put this into Requisition with Funds to hire them.' },
-    teammate: { label: 'Officer', kind: 'teammate', tags: ['team', 'person'], aspects: { teammate: 1 },
-      desc: 'A member of your team. Slot them in to help work a case. Train them in Duty.' },
-    injured: { label: 'Injured Officer', kind: 'hospital', tags: ['team', 'person', 'injury'], aspects: { injured: 1 }, decay: 150, onExpire: 'recover',
-      desc: 'In hospital. They will be back, if nothing else happens to them.' },
-    informant: { label: 'Informant', kind: 'informant', tags: ['street', 'person'], aspects: { informant: 1 },
-      desc: 'A street contact. Left on the table they bring rumours, sightings and warnings on their own time; pay them in Patrol for a proper tip and their trust. Every meeting warms them up: at three they are compromised and go quiet. Protect them in Duty with an officer.' },
-    intel: { label: 'Intelligence', kind: 'intel', tags: ['street'], image: 'icon-binoculars', aspects: { intel: 1 }, decay: 100, onExpire: 'ignored',
-      desc: 'Something an informant heard. It will not stay true for long.' },
+    // --- Petitions --------------------------------------------------
+    order: { label: 'Petition', kind: 'order', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { order: 1 },
+      desc: 'A petition to the Council\'s treasury. Put it into Petition with enough Coin.' },
+    room: { label: 'Watch-house Room', kind: 'room', tags: ['precinct'], image: 'icon-court', aspects: { room: 1 }, desc: 'Part of the Watch-house.' },
+    personnel: { label: 'Letter of Service', kind: 'personnel', tags: ['precinct', 'person'], aspects: { personnel: 1 },
+      desc: 'Someone who would serve under you. Put this into Petition with Coin to take them on.' },
+    teammate: { label: 'Watchman', kind: 'teammate', tags: ['team', 'person'], aspects: { teammate: 1 },
+      desc: 'One of your Watch. Slot them in beside you to work a case. Drill them in Attend.' },
+    injured: { label: 'Hurt Watchman', kind: 'hospital', tags: ['team', 'person', 'injury'], aspects: { injured: 1 }, decay: 150, onExpire: 'recover',
+      desc: 'In the hospital of the Abbey. They will be back, if nothing else finds them there.' },
+    informant: { label: 'Informer', kind: 'informant', tags: ['street', 'person'], aspects: { informant: 1 },
+      desc: 'Someone who hears things before the Council does. Left on the table they bring rumours, sightings and warnings on their own time; pay them on the Ward for a proper word and their trust. Every meeting warms them: at three they are marked and go quiet. Guard them in Attend with a watchman.' },
+    intel: { label: 'Whisper', kind: 'intel', tags: ['street'], image: 'icon-binoculars', aspects: { intel: 1 }, decay: 100, onExpire: 'ignored',
+      desc: 'Something an informer heard. It will not stay true for long.' },
 
     front: { label: 'Front', kind: 'place', tags: ['place', 'crime'], image: 'icon-court', aspects: { front: 1 },
-      desc: 'A place the network works through.' },
+      desc: 'A place the Coquille works through.' },
     thread: { label: 'Thread', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { thread: 1 },
-      desc: 'Two cases that touch the same place. They are connected, and now you know it.' },
+      desc: 'Two cases that touch the same door. They are one case, and now you know it.' },
 
-    // --- The criminal ecosystem ----------------------------------------
-    atlarge: { label: 'At Large', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
-      desc: 'Someone who got away. Every week they are out there, Retaliation grows. Three of them will find each other.' },
-    gang: { label: 'Gang', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
-      desc: 'Criminals who got away and found each other. They feed Retaliation every week. Go Undercover to build a case against them.' },
-    syndicate: { label: 'The Syndicate', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-pyramid', aspects: { syndicate: 1, criminal: 1 },
-      desc: 'The gangs have a board of directors now. Retaliation surges every week. Only a deep Undercover operation can reach them.' },
+    // --- The underworld ----------------------------------------------
+    atlarge: { label: 'Abroad', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
+      desc: 'Someone who walked. Every week they are out there, the Vendetta grows. Three of them will find each other.' },
+    gang: { label: 'Band', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
+      desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Go in Disguise to build a case against them.' },
+    syndicate: { label: 'The Coquille', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-pyramid', aspects: { syndicate: 1, criminal: 1 },
+      desc: 'The bands have sworn to one shell now, and the shell has a king. The Vendetta surges every week. Only a long Disguise reaches the Court of Miracles.' },
 
-    // --- Court and paperwork -------------------------------------------
-    trial: { label: 'Trial', kind: 'court', tags: ['court'], image: 'icon-gavel', aspects: { trial: 1 }, decay: 45, onExpire: 'verdict',
-      desc: 'The case is before a judge. The verdict comes when this runs out.' },
-    paperwork: { label: 'Paperwork', kind: 'paper', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { paperwork: 1 }, stackable: true,
-      desc: 'Reports, forms, statements. Filing it properly in Duty (with Focus) soothes Internal Affairs.' },
-    bribe: { label: 'An Envelope', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
-      desc: 'Thick, unmarked, left on your desk. Put it in Duty to pocket it. Or let it sit until someone takes it back.' },
+    // --- Court and paper -------------------------------------------
+    trial: { label: 'The Blood Court', kind: 'court', tags: ['court'], image: 'icon-gavel', aspects: { trial: 1 }, decay: 45, onExpire: 'verdict',
+      desc: 'The case is before the judge and the sworn men. The verdict comes when the sand runs out.' },
+    paperwork: { label: 'The Rolls', kind: 'paper', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { paperwork: 1 }, stackable: true,
+      desc: 'Depositions, examinations, the day-book. Entered fair in Attend (with Wit) they soothe the Council\'s eye.' },
+    bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
+      desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 
-    // --- Career ----------------------------------------------------------
-    promotion: { label: 'Promotion Board', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
-      desc: 'The brass have noticed you. Attend the board in Duty.' },
+    // --- Office ----------------------------------------------------------
+    promotion: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
+      desc: 'The Council has noticed you. Attend on them.' },
     // Kept for older saves; the generic `promotion` card replaced them.
-    promo_inspector: { label: 'Promotion Board: Inspector', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
-      desc: 'The brass have noticed you. Attend the board in Duty.' },
-    promo_chief: { label: 'Promotion Board: Chief', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
-      desc: 'They want you running the precinct. Attend the board in Duty.' },
-    chair: { label: 'The Commissioner\'s Chair', kind: 'career', tags: ['career'], image: 'icon-court', aspects: { chair: 1 },
-      desc: 'The council meets to choose a new Commissioner. Bring this to Duty. They will look hard at Public Pressure and Scrutiny.' },
+    promo_inspector: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
+      desc: 'The Council has noticed you. Attend on them.' },
+    promo_chief: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
+      desc: 'They want you to hold the Watch-house. Attend on them.' },
+    chair: { label: 'The Burgomaster\'s Seat', kind: 'career', tags: ['career'], image: 'icon-court', aspects: { chair: 1 },
+      desc: 'The Council meets to choose a Burgomaster. Bring this to Attend. They will look hard at the Crowd and at Suspicion.' },
 
     // --- Insight (victory paths) ---------------------------------------
     looseend: { label: 'Loose End', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { looseend: 1 }, stackable: true,
-      desc: 'A detail that belongs to no case. The same shape keeps appearing. Three of these, together in Reflect, might show you who is drawing it.' },
-    ledger: { label: 'Ledger Page', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { ledger: 1 }, stackable: true,
-      desc: 'A page from the syndicate\'s books: payments, names, dates. Enough of these and the Syndicate cannot hide.' },
-    notes: { label: 'Predecessor\'s Notes', kind: 'insight', tags: ['insight'], image: 'icon-folder', aspects: { notes: 1 },
-      desc: 'Your predecessor\'s notebook. Half of it is illegible. Read it in Reflect.' },
+      desc: 'A detail that belongs to no case. The same shape keeps turning up. Three of these, together in Contemplate, might show you the hand that draws it.' },
+    ledger: { label: 'A Leaf of the Ledger', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { ledger: 1 }, stackable: true,
+      desc: 'A page from the Coquille\'s book: payments, names, dates. Enough of these and the King of Thunes cannot hide.' },
+    notes: { label: 'The Last Examiner\'s Casebook', kind: 'insight', tags: ['insight'], image: 'icon-folder', aspects: { notes: 1 },
+      desc: 'Your predecessor\'s casebook. Half of it is water-stained. Read it in Contemplate.' },
 
-    calling_commissioner: { label: 'Calling: The Commissioner', kind: 'calling', tags: ['calling'], image: 'icon-star', aspects: { calling: 1 },
-      desc: 'Power. Climb to Chief, earn a great Reputation, then take the Commissioner\'s Chair and remake the force.' },
-    calling_master: { label: 'Calling: The Master Detective', kind: 'calling', tags: ['calling'], image: 'icon-mind', aspects: { calling: 1 },
-      desc: 'Knowledge. Solid convictions and cold cases leave Loose Ends. Bring three to Reflect, find the Architect behind them, and convict them.' },
-    calling_crusader: { label: 'Calling: The Crusader', kind: 'calling', tags: ['calling'], image: 'icon-scales', aspects: { calling: 1 },
-      desc: 'Justice. Go Undercover against the gangs (you will need to be Inspector), take their Ledger Pages, drag the Syndicate into the light and convict it. Whatever it costs.' },
+    calling_commissioner: { label: 'Calling: The Burgomaster', kind: 'calling', tags: ['calling'], image: 'icon-star', aspects: { calling: 1 },
+      desc: 'Power. Rise to Magistrate, earn a great Standing, then take the Burgomaster\'s Seat and remake the Watch in your own image.' },
+    calling_master: { label: 'Calling: The Scholar', kind: 'calling', tags: ['calling'], image: 'icon-mind', aspects: { calling: 1 },
+      desc: 'Knowledge. Sound convictions and unanswered cases leave Loose Ends. Bring three to Contemplate, find the Architect behind them, and convict them.' },
+    calling_crusader: { label: 'Calling: The Reformer', kind: 'calling', tags: ['calling'], image: 'icon-scales', aspects: { calling: 1 },
+      desc: 'Justice. Go in Disguise among the bands (you will need to be Bailiff), take leaves from their ledger, drag the Coquille into the square and convict its king. Whatever it costs.' },
   };
 
-  // Things you can requisition. rank = minimum rank index to see the form.
+  // Things the Council's treasury will buy. rank = minimum office to see the petition.
   CF.ORDERS = {
-    camera: { label: 'Camera', cost: 2, give: 'camera', rank: 0 },
-    prints: { label: 'Fingerprint Set', cost: 3, give: 'prints', rank: 0 },
-    kit: { label: 'Forensic Kit', cost: 4, give: 'kit', rank: 0 },
-    locker: { label: 'Evidence Locker', cost: 4, room: 'locker', rank: 0 },
-    suite: { label: 'Interview Room', cost: 5, room: 'suite', rank: 1 },
-    labpass: { label: 'Lab Access', cost: 5, give: 'labpass', rank: 1 },
-    archive: { label: 'Archive', cost: 5, room: 'archive', rank: 1 },
-    surveillance: { label: 'Surveillance Gear', cost: 6, give: 'surveillance', rank: 2 },
-    intel: { label: 'Intelligence Office', cost: 6, room: 'intel', rank: 2 },
-    training: { label: 'Training Room', cost: 5, room: 'training', rank: 2 },
-    lab: { label: 'Crime Lab', cost: 9, room: 'lab', rank: 3 },
-    survroom: { label: 'Surveillance Room', cost: 8, room: 'survroom', rank: 3 },
+    camera: { label: 'Sketch-book', cost: 2, give: 'camera', rank: 0 },
+    prints: { label: 'Vinegar and Umbrella', cost: 3, give: 'prints', rank: 0 },
+    kit: { label: 'Physician\'s Case', cost: 4, give: 'kit', rank: 0 },
+    locker: { label: 'Strongroom', cost: 4, room: 'locker', rank: 0 },
+    suite: { label: 'The Hole', cost: 5, room: 'suite', rank: 1 },
+    labpass: { label: 'The Apothecary\'s Key', cost: 5, give: 'labpass', rank: 1 },
+    archive: { label: 'The Rolls', cost: 5, room: 'archive', rank: 1 },
+    surveillance: { label: 'Lantern and Cloak', cost: 6, give: 'surveillance', rank: 2 },
+    intel: { label: 'The Informers\' Bench', cost: 6, room: 'intel', rank: 2 },
+    training: { label: 'The Drill Yard', cost: 5, room: 'training', rank: 2 },
+    lab: { label: 'The Apothecary', cost: 9, room: 'lab', rank: 3 },
+    survroom: { label: 'The Belfry', cost: 8, room: 'survroom', rank: 3 },
   };
 
-  // The precinct: a second board. Each room changes a system (see
-  // docs/DESIGN.md, "The precinct"); `order` is the requisition that builds it.
+  // The Watch-house: a second board. Each room changes a system (see
+  // docs/DESIGN.md, "The precinct"); `order` is the petition that builds it.
   CF.ROOMS = {
-    locker: { label: 'Evidence Locker', order: 'locker', desc: 'Clues and evidence keep twice as long.' },
-    suite: { label: 'Interview Room', order: 'suite', desc: 'Interrogations are faster and draw out more Testimony.' },
-    archive: { label: 'Archive', order: 'archive', desc: 'Cold Cases can be reopened in Analyze.' },
-    intel: { label: 'Intelligence Office', order: 'intel', desc: 'A clue that points at a front reveals the front at once; the network shows itself.' },
-    training: { label: 'Training Room', order: 'training', desc: 'Training an officer costs 1 Fund instead of 2, and at level 3 they learn a new trait.' },
-    lab: { label: 'Crime Lab', order: 'lab', desc: 'Analysis is faster, and no evidence needs special equipment.' },
-    survroom: { label: 'Surveillance Room', order: 'survroom', desc: 'Stakeouts take half the night and never tire you.' },
+    locker: { label: 'Strongroom', order: 'locker', desc: 'Tokens and raw proof keep twice as long behind an iron door.' },
+    suite: { label: 'The Hole', order: 'suite', desc: 'A cell under the Watch-house with a table and one candle. Questioning is faster and draws out more Word.' },
+    archive: { label: 'The Rolls', order: 'archive', desc: 'The court\'s old books, shelved and indexed. Unanswered cases can be opened again in Study.' },
+    intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. A token that points at a front names it at once; the Coquille shows itself.' },
+    training: { label: 'The Drill Yard', order: 'training', desc: 'Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.' },
+    lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, and no raw proof needs a special instrument.' },
+    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you.' },
   };
   CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'lab', 'survroom'];
 
-  // Officer traits change what a verb does when the officer is in it.
+  // A watchman's traits change what a verb does when they are in it.
   CF.OFFICER_TRAITS = {
     thorough: { label: 'Thorough', desc: 'Finds one more thing at every scene.' },
-    streetwise: { label: 'Streetwise', desc: 'Doors open for them. A canvass turns up one more person.' },
-    empathetic: { label: 'Empathetic', desc: 'Witnesses trust them. A bluff never scares anyone off.' },
-    sharp: { label: 'Sharp', desc: 'Reads evidence properly even without the right kit.' },
-    patient: { label: 'Patient', desc: 'Analysis and stakeouts take a fifth less time.' },
+    streetwise: { label: 'Known', desc: 'Doors open for them. A canvass turns up one more person.' },
+    empathetic: { label: 'Gentle', desc: 'Witnesses trust them. A bluff never frightens anyone off.' },
+    sharp: { label: 'Sharp', desc: 'Reads raw proof properly even without the right instrument.' },
+    patient: { label: 'Patient', desc: 'Study and the Watch take a fifth less time.' },
     steady: { label: 'Steady', desc: 'Working beside them, you do not tire.' },
   };
 
-  // Personnel you can hire. aspects are what they bring to a case; traits
-  // are drawn from the pool when they are hired.
+  // People you can take into service. aspects are what they bring to a case;
+  // traits are drawn from the pool when they are hired.
   CF.PERSONNEL = {
-    rookie: { label: 'Rookie Officer', cost: 1, role: 'Officer', aspects: { testimony: 1, opportunity: 1 }, traits: ['thorough', 'streetwise', 'steady'],
-      desc: 'Eager, green, and cheap. Knocks on doors without complaining.' },
-    tech: { label: 'Forensic Technician', cost: 3, role: 'Technician', aspects: { forensic: 2 }, traits: ['sharp', 'patient', 'thorough'],
-      desc: 'Talks to microscopes more than people. The microscopes talk back.' },
-    interviewer: { label: 'Interviewer', cost: 3, role: 'Sergeant', aspects: { testimony: 2, motive: 1 }, traits: ['empathetic', 'patient', 'streetwise'],
-      desc: 'Makes tea. Listens. People tell her things they have never told anyone.' },
-    analyst: { label: 'Analyst', cost: 4, role: 'Analyst', aspects: { digital: 2, financial: 2 }, traits: ['sharp', 'patient'],
-      desc: 'Reads bank statements like novels and phone records like poetry.' },
-    veteran: { label: 'Veteran Detective', cost: 5, role: 'Detective', aspects: { opportunity: 2, motive: 2, testimony: 1 }, traits: ['thorough', 'streetwise', 'steady', 'empathetic'], nTraits: 2,
-      desc: 'Thirty years on the job. Has seen this before. Has seen everything before.' },
+    rookie: { label: 'Beadle', cost: 1, role: 'Beadle', aspects: { testimony: 1, opportunity: 1 }, traits: ['thorough', 'streetwise', 'steady'],
+      desc: 'A parish beadle with a staff and a loud voice. Knocks on doors without complaining and whips beggars without being asked.' },
+    tech: { label: 'Apothecary\'s Boy', cost: 3, role: 'Apothecary\'s Boy', aspects: { forensic: 2 }, traits: ['sharp', 'patient', 'thorough'],
+      desc: 'Talks to jars more than people. Knows the taste of every powder in the shop and which ones he should not have tasted.' },
+    interviewer: { label: 'Confessor', cost: 3, role: 'Confessor', aspects: { testimony: 2, motive: 1 }, traits: ['empathetic', 'patient', 'streetwise'],
+      desc: 'A priest without a parish. Sits. Listens. People tell him things they have never told God.' },
+    analyst: { label: 'Clerk', cost: 4, role: 'Clerk', aspects: { digital: 2, financial: 2 }, traits: ['sharp', 'patient'],
+      desc: 'Reads a ledger like a romance and a forged hand like a confession. Ink under every nail.' },
+    veteran: { label: 'Sergeant of the Watch', cost: 5, role: 'Sergeant', aspects: { opportunity: 2, motive: 2, testimony: 1 }, traits: ['thorough', 'streetwise', 'steady', 'empathetic'], nTraits: 2,
+      desc: 'Thirty years with a halberd. Has seen this before. Has seen everything before, and hanged some of it.' },
   };
 
-  // Ranks change the game: the verbs you have, the caseload the city hands
-  // you, your salary, and which requisitions the brass will sign.
+  // Offices change the game: the verbs you have, the caseload the Council
+  // hands you, your stipend, and which petitions the treasury will sign.
   CF.RANK_DEFS = [
-    { id: 'detective', label: 'Detective', rep: 0, salary: 1, maxCases: 3, badge: 1, dispatch: 0,
-      text: 'A desk, a caseload, and the street.' },
-    { id: 'senior', label: 'Senior Detective', rep: 4, salary: 2, maxCases: 4, badge: 1, dispatch: 0,
-      text: 'You can get a judge to sign a Warrant, and the city sends you more.' },
-    { id: 'inspector', label: 'Inspector', rep: 9, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
-      text: 'Stakeouts, Undercover work, and officers you can Delegate a case to.' },
-    { id: 'chief', label: 'Chief Inspector', rep: 15, salary: 4, maxCases: 5, badge: 3, dispatch: 10,
-      text: 'Task Forces, Major Crimes, and a city that expects everything of you.' },
+    { id: 'detective', label: 'Examiner', rep: 0, salary: 1, maxCases: 3, badge: 1, dispatch: 0,
+      text: 'A desk in the Watch-house, a caseload, and the street.' },
+    { id: 'senior', label: 'Sworn Examiner', rep: 4, salary: 2, maxCases: 4, badge: 1, dispatch: 0,
+      text: 'A magistrate will seal a Writ for you, and the Council sends you more.' },
+    { id: 'inspector', label: 'Bailiff', rep: 9, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
+      text: 'The Watch, Disguise, and watchmen you can Deputise with a case.' },
+    { id: 'chief', label: 'Magistrate', rep: 15, salary: 4, maxCases: 5, badge: 3, dispatch: 10,
+      text: 'Musters, Proclamations, and a city that expects everything of you.' },
   ];
   CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
-  CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // reputation needed for the board to convene
+  CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // standing needed for the Council to write
   CF.TOP_RANK = CF.RANK_DEFS.length - 1;
   CF.COMMISSIONER_REP = 24;
 
   CF.CALLINGS = {
-    commissioner: { card: 'calling_commissioner', label: 'The Commissioner', theme: 'Power',
-      blurb: 'Climb the ranks. Reshape the city\'s police force from the top.',
-      bonus: 'Start with an extra Funds and a Rookie Officer already hired.' },
-    master: { card: 'calling_master', label: 'The Master Detective', theme: 'Knowledge',
-      blurb: 'Trace every small crime back to the hidden mastermind behind them.',
-      bonus: 'Start with a Camera. Loose Ends appear on solid convictions.' },
-    crusader: { card: 'calling_crusader', label: 'The Crusader', theme: 'Justice',
-      blurb: 'Dismantle the syndicate by any means, even if it costs your badge.',
-      bonus: 'Start with an Informant. Internal Affairs looks the other way a little longer.' },
+    commissioner: { card: 'calling_commissioner', label: 'The Burgomaster', theme: 'Power',
+      blurb: 'Rise through the offices. Remake the city\'s Watch from the Council chamber.',
+      bonus: 'Begin with an extra Coin and a Beadle already in service.' },
+    master: { card: 'calling_master', label: 'The Scholar', theme: 'Knowledge',
+      blurb: 'Trace every small crime back to the hidden hand that drew it.',
+      bonus: 'Begin with a Sketch-book. Loose Ends appear on sound convictions.' },
+    crusader: { card: 'calling_crusader', label: 'The Reformer', theme: 'Justice',
+      blurb: 'Break the Coquille by any means, even if it costs your office.',
+      bonus: 'Begin with an Informer. The Council\'s eye looks away a little longer.' },
   };
 })(typeof window !== 'undefined' ? window : globalThis);

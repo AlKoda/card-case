@@ -52,13 +52,13 @@ function officer(e, key, traits) {
 
   // The camera: photograph the scene, and what you found stops degrading.
   run(e, 'investigate', [kase]);
-  var frame = byLabel(e, /Pried Window/)[0];
+  var frame = byLabel(e, /Pried Shutter/)[0];
   assert.ok(frame.maxLife, 'evidence decays');
   var cam = e.create('camera');
   var r = run(e, 'investigate', [kase, cam]);
   assert.strictEqual(r.id, 'inv_photograph');
   assert.ok(!frame.maxLife && frame.life === undefined, 'photographed: it keeps');
-  var photos = byLabel(e, /Scene Photographs/)[0];
+  var photos = byLabel(e, /The Scene Drawn/)[0];
   assert.ok(photos && !photos.maxLife);
   assert.ok(rec.photographed);
   e.autoSlot('investigate', kase.uid); e.autoSlot('investigate', cam.uid);
@@ -98,7 +98,7 @@ function officer(e, key, traits) {
   for (var i = funds.length; i < 6; i++) h.create('funds');
   r = run(h, 'requisition', [order].concat(byDef(h, 'funds').slice(0, 6)));
   assert.ok(h.verb('stakeout').unlocked, 'Stakeout opened by the gear');
-  assert.ok(/Stakeout/.test(r.story.text));
+  assert.ok(/Watch/.test(r.story.text));
   var gear = byDef(h, 'surveillance')[0];
   var kh = byDef(h, 'case')[0], rh = h.caseRec(kh.caseId);
   var cul = rh.suspects.filter(function (x) { return x.guilty; })[0];
@@ -147,7 +147,7 @@ function officer(e, key, traits) {
   var h = game(32);
   var kh = byDef(h, 'case')[0];
   run(h, 'investigate', [kh]);
-  var ev = byLabel(h, /Pried Window/)[0];
+  var ev = byLabel(h, /Pried Shutter/)[0];
   h.autoSlot('analyze', ev.uid);
   var slow = h.preview('analyze').duration;
   h.autoSlot('analyze', officer(h, 'tech', ['patient']).uid);

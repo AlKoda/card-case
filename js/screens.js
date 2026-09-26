@@ -74,7 +74,7 @@
     var room = CF.ROOMS[key], order = CF.ORDERS[room.order];
     if (e.s.rooms[key] || e.s.rank < order.rank) return false;
     if (e.cardsOf('order', true).some(function (c) { return c.data.order === room.order; })) return false;
-    e.create('order', { label: 'Order: ' + order.label, desc: room.desc + ' Cost: ' + order.cost + ' Funds.', data: { order: room.order } });
+    e.create('order', { label: 'Petition: ' + order.label, desc: room.desc + ' Costs ' + order.cost + ' Coin.', data: { order: room.order } });
     e.dirty = true;
     return true;
   };
@@ -93,26 +93,25 @@
       var d = document.createElement('div');
       d.className = 'room ' + t.state;
       d.innerHTML = '<div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
-        '<div class="rm-foot">' + (t.state === 'owned' ? 'Built' : t.state === 'locked' ? 'Needs ' + esc(CF.RANKS[t.rank]) : t.state === 'ordered' ? 'Form on the table' : t.cost + ' Funds') + '</div>';
+        '<div class="rm-foot">' + (t.state === 'owned' ? 'Built' : t.state === 'locked' ? 'Needs ' + esc(CF.RANKS[t.rank]) : t.state === 'ordered' ? 'Petition on the table' : t.cost + ' Coin') + '</div>';
       if (t.state === 'open') {
         var b = document.createElement('button');
         b.className = 'plate-btn teal small';
-        b.textContent = 'Requisition';
+        b.textContent = 'Petition';
         b.addEventListener('click', function () { Precinct.order(e, t.key); CF.Audio.play('start'); Precinct.render(); });
         d.appendChild(b);
       }
       grid.appendChild(d);
     });
-    $('precinct-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ' · ' + owned + ' of ' + CF.ROOM_ORDER.length + ' rooms built · up to ' + e.maxOpenCases() + ' open cases · salary ' + e.rankDef().salary + ' a week';
+    $('precinct-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ' · ' + owned + ' of ' + CF.ROOM_ORDER.length + ' rooms built · up to ' + e.maxOpenCases() + ' open cases · stipend ' + e.rankDef().salary + ' a week';
   };
 
   // ------------------------------------------------------------ Archive
   var KEY = 'casefile.archive.v1';
   var OPENED = 'casefile.archive.opened.v1';
   var PER_PAGE = 8;
-  var CARD_ART = { burglary: 'house', missing: 'woman', harbor: 'crow', arson: 'city', fraud: 'letter', extortion: 'smoker',
-    manhunt: 'map', gang: 'board', syndicate: 'eye', architect: 'tentacles' };
-  var OUTCOMES = { convicted: 'Solved', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Gone Cold' };
+  var CARD_ART = { convicted: 'back-sun', wrongful: 'back-key', acquitted: 'back-snake', cold: 'back-moon' };
+  var OUTCOMES = { convicted: 'Answered', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Unanswered' };
 
   function readList(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (err) { return []; } }
   function writeList(key, list) { try { localStorage.setItem(key, JSON.stringify(list)); } catch (err) { /* storage unavailable */ } }
@@ -139,12 +138,12 @@
     Archive.page = Math.min(Archive.page, pages - 1);
     var grid = $('archive-grid');
     grid.innerHTML = '';
-    if (!list.length) grid.innerHTML = '<p class="archive-empty">No cases yet. Every case you close, or lose, is filed here.</p>';
+    if (!list.length) grid.innerHTML = '<p class="archive-empty">Nothing in the Rolls yet. Every case you answer, or lose, is entered here.</p>';
     list.slice(Archive.page * PER_PAGE, (Archive.page + 1) * PER_PAGE).forEach(function (rec, i) {
       var idx = Archive.page * PER_PAGE + i;
       var b = document.createElement('button');
       b.className = 'pcard' + (idx === Archive.selected ? ' on' : '') + ' o-' + rec.outcome;
-      b.style.backgroundImage = 'var(--art-pcard-' + (CARD_ART[rec.template] || 'hourglass') + ')';
+      b.style.backgroundImage = 'var(--art-' + (CARD_ART[rec.outcome] || 'back-moon') + ')';
       b.innerHTML = '<span class="pc-top">' + esc(rec.title) + '</span><span class="pc-bottom">' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</span>';
       b.addEventListener('click', function () { Archive.selected = idx; Archive.render(); });
       grid.appendChild(b);
@@ -159,17 +158,17 @@
 
   function renderDetail(rec) {
     var box = $('archive-detail');
-    if (!rec) { box.innerHTML = '<div class="a-title"><span>The Archive</span></div><p class="a-empty">Select a case file.</p>'; $('arc-open').disabled = true; return; }
+    if (!rec) { box.innerHTML = '<div class="a-title"><span>The Rolls</span></div><p class="a-empty">Choose a case.</p>'; $('arc-open').disabled = true; return; }
     var opened = isOpened(rec);
     var cul = rec.culprit || {};
     var truth;
-    if (!opened) truth = '<i>Sealed. Open the file to learn the truth.</i>';
-    else if (rec.outcome === 'wrongful') truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + ', did it, and someone else went to prison for it. ' + esc(cul.motive || '');
+    if (!opened) truth = '<i>Sealed. Break the seal to learn the truth.</i>';
+    else if (rec.outcome === 'wrongful') truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + ', did it, and someone else went to the rope for it. ' + esc(cul.motive || '');
     else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
-    var portrait = cul.name ? 'portrait-' + [0, 1, 3, 4, 5, 6, 7, 8][hash(cul.name) % 8] : 'portrait-0';
+    var portrait = cul.name ? 'face-' + (hash(cul.name) % 44) : 'face-0';
     box.innerHTML = '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
       '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
-      row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>, week ' + rec.week + (rec.highProfile ? ' · high-profile' : '') + '<br><span class="a-dim">Detective ' + esc(rec.detective) + '</span>') +
+      row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>, week ' + rec.week + (rec.highProfile ? ' · the city watched' : '') + '<br><span class="a-dim">Examiner ' + esc(rec.detective) + '</span>') +
       row('pin', esc(rec.scene) + '<br><span class="a-dim">' + esc((CF.DISTRICTS[rec.district] || {}).label || '') + '</span>') +
       row('person', 'Victim: ' + esc(rec.victim) + (rec.charged ? '<br>Charged: ' + esc(rec.charged) : '<br><span class="a-dim">Nobody was charged.</span>')) +
       row('eye', truth);

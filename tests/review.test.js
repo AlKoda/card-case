@@ -51,7 +51,7 @@ function run(e, verb, cards) {
   var again = e.spawnCase('burglary', { quiet: true, culpritName: culprit.name, culpritTrait: culprit.trait, criminalId: crim.id });
   again.life = 0.1; e.tick(1);
   assert.strictEqual(byDef(e, 'atlarge').length, 1, 'one card per person');
-  assert.ok(/^Repeat Offender/.test(e.labelOf(byDef(e, 'atlarge')[0])), 'and it follows the record');
+  assert.ok(/^Old Offender/.test(e.labelOf(byDef(e, 'atlarge')[0])), 'and it follows the record');
   // A conviction on a later case with no atLargeUid still removes the card.
   var third = e.spawnCase('burglary', { quiet: true, culpritName: culprit.name, culpritTrait: culprit.trait, criminalId: crim.id });
   var r3 = e.caseRec(third.caseId);
@@ -99,14 +99,14 @@ function run(e, verb, cards) {
   var prints = e.create('prints');
   run(e, 'investigate', [kase]);
   run(e, 'investigate', [kase, prints]);
-  var partial = e.tableCards().filter(function (c) { return /Partial Fingerprint/.test(e.labelOf(c)); })[0];
+  var partial = e.tableCards().filter(function (c) { return /Half a Hand/.test(e.labelOf(c)); })[0];
   e.remove(prints);
   var r = run(e, 'analyze', [partial]);
   var clue = r.out.filter(function (c) { return c.def === 'clue'; })[0];
   var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
   assert.ok(clue && e.labelOf(clue).indexOf(culprit.name) < 0 && clue.desc.indexOf(culprit.name) < 0, 'no spoiler: ' + e.labelOf(clue));
   // And the scene pool does not repeat the written leads.
-  assert.ok(!rec.items.some(function (it) { return /Pried Window|Inventory Discrepancy|Pawn Ticket|The Timing/.test(it.label); }));
+  assert.ok(!rec.items.some(function (it) { return /Pried Shutter|The Inventory|Pawnbroker's Chit|The Hours/.test(it.label); }));
   console.log('print: ok');
 })();
 
@@ -115,7 +115,7 @@ function run(e, verb, cards) {
   var e = game(96);
   var clue = e.create('clue', { label: 'x', caseId: byDef(e, 'case')[0].caseId, aspects: { forensic: 1 } });
   e.autoSlot('analyze', clue.uid);
-  assert.ok(/Lab Access/.test(e.preview('analyze').blocked || ''), 'a clue in Analyze without the lab');
+  assert.ok(/Apothecary/.test(e.preview('analyze').blocked || ''), 'a token in Study without the apothecary');
   e.clearSlots('analyze');
   var warn = e.create('intel', { label: 'Warning: x', data: { kind: 'warning', template: 'arson', district: 'canal' } });
   e.autoSlot('reflect', warn.uid);
