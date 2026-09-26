@@ -18,7 +18,7 @@
       { id: 'inside_key', vars: { time: ['overnight', 'during the lunch hour', 'on the one evening the shop closes early'], entry: ['the front door, with a key', 'the staff entrance', 'the connecting door from the flat upstairs'], item: ['the safe\'s contents', 'the stock book and the stock', 'three watches and a ledger'], detail: ['nothing at all, which is the strange part', 'the lights go on and off again, as if someone knew the switches', 'a familiar coat in the doorway'] },
         brief: 'No broken glass at {victim}\'s. Whoever came in {time} used {entry}, and left with {item}. A neighbour reports seeing {detail}.',
         items: [
-          { type: 'clue', label: 'No Forced Entry', text: '{entry}: no marks, no damage. Whoever came in was expected, or had a key.', aspects: { opportunity: 2 } },
+          { type: 'clue', label: 'A Key, Not a Crowbar', text: '{entry}: no marks, no damage. Whoever came in was expected, or had a key.', aspects: { opportunity: 2 } },
           { type: 'evidence', label: 'The Key Log', text: 'Who has keys, and since when. Someone has crossed a name out.', needs: null,
             result: { label: 'Key Holders', text: 'Four keys. Three are accounted for. The fourth was "lost" a month ago by someone who still comes and goes.', aspects: { opportunity: 2, testimony: 1 } } },
         ] },

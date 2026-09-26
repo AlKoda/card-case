@@ -144,14 +144,9 @@
         { role: 'the owner\'s business partner', motive: 'The partnership is drowning in debt and the insurance would clear it.' },
         { role: 'a former employee', motive: 'Let go without a reference, and still talking about it in every bar in town.' },
       ],
-      items: [
-        { type: 'evidence', label: 'Pried Window Frame', text: 'Tool marks on the frame, a flat blade.', needs: 'bio',
-          result: { label: 'Tool Mark Analysis', text: 'The blade was a specific chisel, chipped at one corner. Find the chisel, find the burglar.', aspects: { forensic: 2, opportunity: 1 } } },
-        { type: 'clue', label: 'Inventory Discrepancy', text: 'The list of what was stolen does not match the insurance schedule. Someone knew what was worth taking.', aspects: { financial: 2 } },
-        { type: 'evidence', label: 'Pawn Ticket', text: 'A ticket from another shop, dated the morning after.', needs: null,
-          result: { label: 'Pawned Goods', text: 'A ring from the safe turned up in a pawn shop across town within hours. The clerk kept a description.', aspects: { financial: 2, testimony: 1 } } },
-        { type: 'clue', label: 'The Timing', text: 'The alarm was switched off at 2:14 and back on at 2:41. Twenty-seven minutes, and they knew the code.', aspects: { opportunity: 2 } },
-      ],
+      // The written leads below give the scene; the generic search draws
+      // from the structure, the generic pool and the trait clue afterwards.
+      items: [],
       witnesses: ['a baker starting the ovens', 'a night-shift tram driver', 'the woman in the flat opposite'],
       hints: ['I saw someone at the back gate. They had a bad leg, or maybe a heavy bag.', 'There was a van. I didn\'t see the colour, it was dark.', 'The dog next door never barked. Never. It knew whoever it was.'],
       // The written case (docs/DESIGN.md, "The first playable case"). Three
@@ -173,7 +168,7 @@
           preview: 'Powder on the window frame, the safe dial, the door handle. Somebody touched all three.',
           gives: [
             { type: 'evidence', key: 'print', label: 'Partial Fingerprint', text: 'Lifted from the safe dial. Half a thumb, maybe. Needs a name to match it against.', needs: 'prints',
-              result: { label: 'Matched Print', text: 'The ridge detail on the safe dial matches {culprit}. Not the owner, not the staff. {culprit}.', aspects: { forensic: 3 } } },
+              result: { label: 'Partial Print', text: 'Half a thumb. Without a set to lift it properly it is only half a clue.', aspects: { forensic: 1 } } },
           ],
           fatigue: 0.25,
           story: { title: 'Prints', text: 'The powder finds a partial on the safe dial where a thumb pressed hard, turning it. Whoever it belongs to was not wearing gloves when it mattered.' } },

@@ -310,7 +310,7 @@ built on a wrong description still contradicts the right suspect.
 
 ## 8. Time
 
-Every verb takes seconds (Patrol 25, Investigate 30, Analyze 25, Interrogate
+Every verb takes seconds (Patrol 25–30, Investigate 30, Analyze 25, Interrogate
 20–25, Reflect 15–60, Arrest 15); a week is 60 seconds and takes the rent.
 Cases carry their own clock (250–400 seconds by type) and are shown in the
 city's days (a week is seven). The **Time** window lists every open case,
@@ -351,7 +351,7 @@ The detective wears out on the same clock as the cases.
 
 ## 10. Money
 
-Sources: the weekly salary (1, 2 or 3 Funds by rank), Duty shifts,
+Sources: the weekly salary (1 to 4 Funds by rank, §17), Duty shifts,
 convictions (1 for a reasonable charge, 2 for a strong one, +1
 high-profile), promotions, informants' side-effects and the occasional
 envelope. Expenses: rent (1 a week, before salary is counted; miss it and

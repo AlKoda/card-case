@@ -120,6 +120,9 @@
     UI.selected = null;
     UI.hover = null;
     UI.lifted = null;
+    UI.hoverSlot = null;
+    UI.drag = null;
+    UI.typing = null;
     UI.spawn = {};
     UI.winPos = {};
     UI.seenVerbs = {};
@@ -177,6 +180,7 @@
       Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
       if (UI.e) UI.e.dirty = true;
     });
+    window.addEventListener('blur', cancelDrag);
     document.addEventListener('visibilitychange', function () {
       if (document.hidden && CF.Settings.get('pauseOnBlur') && UI.e && !UI.e.s.over) UI.setPaused(true);
     });
@@ -187,14 +191,19 @@
       var dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       var e = UI.e;
-      if (e) {
-        if (!e.s.over && !UI.paused && !UI.modal) {
-          e.tick(dt * UI.speed);
-          saveT += dt;
-          if (saveT > 8 && UI.onSave) { saveT = 0; UI.onSave(); }
+      // One bad frame must never stop the clock: log it and keep going.
+      try {
+        if (e) {
+          if (!e.s.over && !UI.paused && !UI.modal) {
+            e.tick(dt * UI.speed);
+            saveT += dt;
+            if (saveT > 8 && UI.onSave) { saveT = 0; UI.onSave(); }
+          }
+          if (e.dirty) { e.dirty = false; render(); }
+          updateLive();
         }
-        if (e.dirty) { e.dirty = false; render(); }
-        updateLive();
+      } catch (err) {
+        if (typeof console !== 'undefined') console.error(err);
       }
       requestAnimationFrame(frame);
     }
@@ -280,7 +289,7 @@
     $('#meters').innerHTML = mm('pressure', 'Pressure') + mm('scrutiny', 'Scrutiny') + mm('retaliation', 'Retaliation') +
       meter('reputation', 'Reputation', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
     $('#rank').textContent = s.detective + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
-    $('#rank-badge').style.backgroundImage = art('rank-' + (CF.RANK_DEFS[s.rank] || {}).badge || 1);
+    $('#rank-badge').style.backgroundImage = art('rank-' + ((CF.RANK_DEFS[s.rank] || {}).badge || 1));
     $('#rank-badge').title = CF.RANKS[s.rank];
     if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
     UI.lastRank = s.rank;
@@ -409,7 +418,17 @@
     v.x = px - (px - v.x) * (z / v.z);
     v.y = py - (py - v.y) * (z / v.z);
     v.z = z;
+    clampView();
     applyView();
+  }
+
+  // Never let the whole board leave the table area: some of it stays in view.
+  function clampView() {
+    if (!UI.e) return;
+    var r = $('#table').getBoundingClientRect(), v = UI.view, b = boardBounds();
+    var margin = 80;
+    v.x = U.clamp(v.x, margin - (b.x + b.w) * v.z, r.width - margin - b.x * v.z);
+    v.y = U.clamp(v.y, margin - (b.y + b.h) * v.z, r.height - margin - b.y * v.z);
   }
 
   function toBoard(cx, cy) {
@@ -1000,6 +1019,7 @@
 
   function onPointerDown(ev) {
     if (UI.modal || (ev.button !== 0 && ev.button !== 1)) return;
+    if (UI.drag) cancelDrag(); // a second pointer, or a pointerup we never saw
     var t = ev.target;
     var winHead = t.closest && t.closest('.vw-head');
     var win = t.closest && t.closest('.vwin');
@@ -1054,6 +1074,7 @@
       d.started = true;
       UI.view.x = d.vx + dx;
       UI.view.y = d.vy + dy;
+      clampView();
       $('#table').classList.add('panning');
       applyView();
       return;

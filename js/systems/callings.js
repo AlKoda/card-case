@@ -66,6 +66,15 @@
     return true;
   };
 
+  // Is a path's ending open? Its own calling, or a path not clearly behind
+  // the current one: a run that broke the Syndicate ends as the Crusader
+  // even if promotions had nudged it toward the Chair.
+  P.pathOpen = function (path) {
+    this.initPaths();
+    var p = this.s.paths;
+    return this.s.calling === path || p[path] >= p[this.s.calling] - Callings.MARGIN;
+  };
+
   Callings.summary = function (e) {
     var p = e.s.paths;
     return Object.keys(CF.PATHS).map(function (k) { return CF.PATHS[k].label + ' ' + (p[k] || 0); }).join(' · ');
