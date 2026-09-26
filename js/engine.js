@@ -27,6 +27,19 @@
   CF.TABLE = T;
 
   // ---- Card helpers shared with data files --------------------------------
+  // A card definition is data: label, kind, aspects, tags, decay (seconds of
+  // lifetime, 0 = permanent), image (an --art-* key) and onExpire. `decay` and
+  // `lifetime` are the same field; either spelling is accepted.
+  (function normaliseDefs() {
+    for (var id in CF.CARDS) {
+      var d = CF.CARDS[id];
+      d.id = id;
+      if (d.decay !== undefined && d.lifetime === undefined) d.lifetime = d.decay;
+      if (d.lifetime !== undefined && d.decay === undefined) d.decay = d.lifetime;
+      d.aspects = d.aspects || {};
+      d.tags = d.tags || [];
+    }
+  })();
   CF.aspectsOf = function (card) {
     var def = CF.CARDS[card.def];
     var res = {};
@@ -41,6 +54,16 @@
     CF.CLUE_ASPECTS.forEach(function (k) { if (a[k]) out[k] = a[k]; });
     return out;
   };
+  // Tags are free-form labels used by recipes and highlights ("kit",
+  // "surface", "burglary"...). An instance's tags add to its definition's.
+  CF.tagsOf = function (card) {
+    var out = (CF.CARDS[card.def].tags || []).slice();
+    (card.tags || []).forEach(function (t) { if (out.indexOf(t) < 0) out.push(t); });
+    return out;
+  };
+  CF.hasTag = function (card, tag) { return CF.tagsOf(card).indexOf(tag) >= 0; };
+  // The art key for a card's picture, if the data names one (else the UI picks).
+  CF.imageOf = function (card) { return card.image || CF.CARDS[card.def].image || null; };
   CF.costOf = function (card) {
     if (!card || !card.data) return 0;
     if (card.data.order) return CF.ORDERS[card.data.order].cost;
@@ -155,8 +178,10 @@
     if (spec.label) card.label = spec.label;
     if (spec.desc) card.desc = spec.desc;
     if (spec.aspects) card.aspects = spec.aspects;
+    if (spec.tags) card.tags = spec.tags.slice();
+    if (spec.image) card.image = spec.image;
     if (spec.caseId) card.caseId = spec.caseId;
-    var life = spec.lifetime !== undefined ? spec.lifetime : def.lifetime;
+    var life = spec.lifetime !== undefined ? spec.lifetime : spec.decay !== undefined ? spec.decay : def.lifetime;
     if (life) { card.life = life; card.maxLife = life; }
     this.s.cards[card.uid] = card;
     return card;
@@ -168,6 +193,59 @@
     this.placeOnTable(card, prefer);
     this.dirty = true;
     return card;
+  };
+
+  // Turn a card into another card in place: same uid, same spot on the table
+  // (or the same slot). Used when evidence becomes a clue, a witness becomes
+  // a suspect, a case goes cold...
+  P.transform = function (card, defId, spec) {
+    if (typeof card === 'number') card = this.card(card);
+    var def = CF.CARDS[defId];
+    if (!card || !def) throw new Error('Cannot transform into ' + defId);
+    spec = spec || {};
+    card.def = defId;
+    card.data = spec.data || {};
+    ['label', 'desc', 'aspects', 'tags', 'image', 'caseId'].forEach(function (k) {
+      if (spec[k] !== undefined) card[k] = k === 'tags' ? spec[k].slice() : spec[k]; else delete card[k];
+    });
+    var life = spec.lifetime !== undefined ? spec.lifetime : spec.decay !== undefined ? spec.decay : def.lifetime;
+    if (life) { card.life = life; card.maxLife = life; } else { delete card.life; delete card.maxLife; }
+    card.fresh = true;
+    this.dirty = true;
+    return card;
+  };
+
+  // The verbs this card could go into right now: unlocked, not running, not
+  // locked, with any slot (visible now or once a primary is placed) that
+  // takes it. A card that fits nowhere is shown as unavailable on the board.
+  P.usableIn = function (card) {
+    var self = this, out = [];
+    CF.VERB_ORDER.forEach(function (vid) {
+      var v = self.verb(vid), def = CF.VERBS[vid];
+      if (!v || !v.unlocked || def.auto || v.status === 'running' || self.lockReason(vid)) return;
+      if (def.slots.some(function (sl) { return self.slotAccepts(sl, card); })) out.push(vid);
+    });
+    return out;
+  };
+
+  // Does any unlocked verb have a slot that takes this card at all (ignoring
+  // whether it is busy or locked right now)?
+  P.fitsAny = function (card) {
+    var self = this;
+    return CF.VERB_ORDER.some(function (vid) {
+      var v = self.verb(vid), def = CF.VERBS[vid];
+      return v && v.unlocked && !def.auto && def.slots.some(function (sl) { return self.slotAccepts(sl, card); });
+    });
+  };
+  // Why a card cannot be used right now, or null if it can (or never could).
+  P.unavailableReason = function (card) {
+    if (this.usableIn(card).length || !this.fitsAny(card)) return null;
+    var self = this, locked = CF.VERB_ORDER.filter(function (vid) {
+      var v = self.verb(vid);
+      return v && v.unlocked && self.lockReason(vid) && CF.VERBS[vid].slots.some(function (sl) { return self.slotAccepts(sl, card); });
+    });
+    if (locked.length) return this.lockReason(locked[0]);
+    return 'Everything that takes this is busy.';
   };
 
   P.labelOf = function (card) { return card.label || this.def(card).label; };

@@ -2,6 +2,10 @@
 
 A detective card game in the style of *Cultist Simulator*. You are a newly assigned detective in a restless city. Cases arrive on their own clock, the trail goes cold if you're slow, and every criminal who walks free comes back as part of the city's growing underworld.
 
+## Design
+
+The fixed rules, the engine decision and the roadmap-to-code map are in [`docs/DESIGN.md`](docs/DESIGN.md). Read that before adding content or systems.
+
 ## Play
 
 Open `index.html` in a browser. There's no build step and nothing to install. The game autosaves to your browser's local storage.
