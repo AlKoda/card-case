@@ -1,11 +1,12 @@
 // Service worker: the whole game is cached on first visit, so it opens
 // offline and installs to a tablet's home screen. Bump VERSION on release.
-var VERSION = 'casefile-v4';
+var VERSION = 'casefile-v5';
 var FILES = [
   "index.html",
   "manifest.webmanifest",
   "icons/icon.svg",
   "css/style.css",
+  "css/fonts.css",
   "css/art/menu.css",
   "css/art/city-cards.css",
   "css/art/city-scenes.css",

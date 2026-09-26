@@ -388,6 +388,28 @@
     return rec ? rec.title : '';
   }
 
+  // The few words on the face of a card. The full label and the exposition
+  // live in the dossier: a person's card is their name, a token's card is
+  // what kind of token it is, a case's card is the crime.
+  var PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, personnel: 1 };
+  var SHORTS = [
+    [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
+    [/^Found at .*House$/, 'The House'], [/^Corroborated: /, 'Corroborated'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
+    [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
+  ];
+  function cardTitle(card) {
+    var e = UI.e, def = CF.CARDS[card.def], label = e.labelOf(card);
+    if (def.kind === 'case') { var rec = e.caseRec(card.caseId); return (rec && rec.highProfile ? '★ ' : '') + (rec ? rec.short : label); }
+    for (var i = 0; i < SHORTS.length; i++) if (SHORTS[i][0].test(label)) return SHORTS[i][1];
+    var at = label.indexOf(': ');
+    if (at < 0) return label;
+    var head = label.slice(0, at), tail = label.slice(at + 2);
+    if (PERSONS[card.def]) return (head === 'Prime Suspect' ? '★ ' : '') + tail;
+    if (card.def === 'order' || card.def === 'personnel' || def.kind === 'calling' || card.def === 'gang') return tail;
+    return head;
+  }
+  UI.cardTitle = cardTitle;
+
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
     return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife,
@@ -422,12 +444,8 @@
     var body = h('div', 'c-body');
     var banded = pic.fam === 'portrait' || pic.fam === 'ev';
     var band = banded ? h('div', 'c-band') : null;
-    body.appendChild(h('div', 'c-kind', kind.label));
-    body.appendChild(h('div', 'c-title', e.labelOf(card)));
-    var sub = '';
-    if (card.caseId && def.kind !== 'case') sub = 're: ' + caseTitle(card);
-    else if (def.kind === 'case') { var r = e.caseRec(card.caseId); sub = r ? CF.DISTRICTS[r.district].label : ''; }
-    if (sub) body.appendChild(h('div', 'c-sub', sub));
+    body.appendChild(h('div', 'c-title', cardTitle(card)));
+    void kind;
     var asp = h('div', 'c-aspects');
     var a = CF.aspectsOf(card);
     CF.CLUE_ASPECTS.forEach(function (k) { if (a[k]) asp.appendChild(aspectChip(k, a[k])); });
@@ -1202,11 +1220,10 @@
     var html = '';
     if (dz) {
       html += '<div class="dossier dossier-' + dz + '" style="background-image:' + art('dlg-star') + '">' +
-        '<div class="d-plate"><span>' + esc(e.labelOf(card)) + '</span></div>' +
+        '<div class="d-plate"><span>' + esc(cardTitle(card)) + '</span></div>' +
         '<div class="d-lines">' + dossierNotes(card).map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div></div>';
-    } else {
-      html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     }
+    html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
       return '<span class="chip big" title="' + esc(CF.ASPECTS[k].meaning) + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'aspect-' + k) + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
