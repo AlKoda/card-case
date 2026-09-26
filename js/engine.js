@@ -100,7 +100,7 @@
       version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 55, nextUid: 1,
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
-      counts: { cruelty: 0, mercy: 0, purse: 0 },
+      counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
       rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', detective: opts.name || 'Examiner',
       over: null,
       stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0 },
@@ -152,7 +152,8 @@
     s.origin = s.origin || s.calling;
     s.rooms = s.rooms || {};
     s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
-    s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0 };
+    s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
+    s.counts.debt = s.counts.debt || 0;
     // Verbs added since the save was written.
     CF.VERB_ORDER.forEach(function (id) {
       if (!s.verbs[id]) s.verbs[id] = { id: id, status: 'idle', slots: {}, held: [], ctxSlots: {}, out: [], recipe: null,
@@ -988,6 +989,7 @@
     this.organise();
     lines = lines.concat(this.criminalsAct());
     if (this.banishedReturn) lines = lines.concat(this.banishedReturn());
+    if (this.purseWeek) lines = lines.concat(this.purseWeek());
 
     // Retaliation strikes.
     var r = s.meters.retaliation;
@@ -1020,6 +1022,7 @@
     if (s.meters.pressure >= 7) lines.push('The Burgomaster calls you in to ask why the city is burning. It is not a question.');
 
     this.story('Week ' + s.week, lines.join(' '), 'week');
+    if (this.checkPurseEndings) this.checkPurseEndings();
   };
 
   // At-large criminals find each other; gangs merge into a syndicate.
@@ -1158,6 +1161,8 @@
     collapse: { win: false, title: 'Collapse', text: 'You fall on the Watch-house stair and do not get up. The barber-surgeon uses words like "a surfeit" and "the heart" and "rest, in the country". The city does not send flowers.' },
     consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.' },
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
+    thieftaker: { win: true, title: 'The Thief-taker General', text: 'The city has never had an officer so effective, or so rich. Every fence in the Free City pays you, every victim thanks you, and the Council votes you a chain of office without asking where the goods you recover come from. You know. You are the only one who does. It will hold for years, if nobody ever reads the ledger.' },
+    oldbailey: { win: false, title: 'The Old Bailey', text: 'Somebody you hanged had a brother, and the brother had a ledger. The Council makes a new law with your trade in it, word for word, and tries you under it in the same court where you sent so many. Two witnesses. Your own men. The ballad is already printed.' },
     riot: { win: false, title: 'The Crowd Turns', text: 'The next execution is meant to be a lesson. The crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You get out of the city by the Harbour gate with what you are wearing. The Council does not send after you.' },
     death: { win: false, title: 'Killed in the Council\'s Service', text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     commissioner: { win: true, title: 'The Burgomaster', text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
@@ -1718,6 +1723,13 @@
       var pay = d.guilty ? (CF.ECONOMY.convictionPay[tier] || 0) + (hp ? CF.ECONOMY.highProfilePay : 0) : 0;
       for (var pi = 0; pi < pay; pi++) this.create('funds');
       if (pay) notes.push(tier === 'strong' ? 'The Council\'s thanks, with a purse attached.' : 'The case closes, and a small fee comes with it.');
+      if (d.guilty && !rec.special && rng() < 0.35) { this.create('funds'); notes.push('At the court door ' + rec.victim + ' presses a coin into your hand and will not take it back. An honest fee.'); }
+      if (d.framed) {
+        for (var fi = 0; fi < 3; fi++) this.create('funds');
+        this.count('purse', 2);
+        s.stats.frames = (s.stats.frames || 0) + 1;
+        notes.push('The reward for the conviction is paid out, and the thief-takers take their share of it at the Red Ox. Blood money, the ballad-sellers will call it later.');
+      }
       if (d.solid && d.guilty) {
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend');

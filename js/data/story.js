@@ -64,6 +64,14 @@
       { when: function (st) { return st.attacks >= 2; }, text: 'They came for you twice and warned you both times. The third time there was no warning. They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     ],
+    thieftaker: [
+      { when: function (st) { return (st.frames || 0) >= 1; }, text: 'The city has never had an officer so effective, or so rich. Every fence pays you, every victim thanks you, and the Council votes you a chain of office. There is one name in your ledger that should not be there, one man who hanged on two witnesses who would swear to anything, and you have stopped thinking about him. Mostly.' },
+      { text: 'The city has never had an officer so effective, or so rich. Every fence in the Free City pays you, every victim thanks you, and the Council votes you a chain of office without asking where the goods you recover come from. You know. You are the only one who does. It will hold for years, if nobody ever reads the ledger.' },
+    ],
+    oldbailey: [
+      { when: function (st) { return st.wrongful >= 3; }, text: 'Three names on the gallows that should not have been there, and the third had a brother with a ledger. The Council makes a new law with your trade in it, word for word, and tries you under it in the same court where you sent so many. Two witnesses. Your own men.' },
+      { text: 'Somebody you hanged had a brother, and the brother had a ledger. The Council makes a new law with your trade in it, word for word, and tries you under it in the same court where you sent so many. Two witnesses. Your own men. The ballad is already printed.' },
+    ],
     riot: [
       { when: function (st, s) { return (s.counts || {}).cruelty >= 6; }, text: 'You put too many of them to the question, and the quarters counted. The next execution is meant to be a lesson; the crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You leave by the Harbour gate with what you are wearing.' },
       { text: 'The next execution is meant to be a lesson. The crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You get out of the city by the Harbour gate with what you are wearing. The Council does not send after you.' },

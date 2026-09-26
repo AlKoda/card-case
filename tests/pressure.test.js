@@ -8,7 +8,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -172,9 +172,11 @@ function run(e, verb, cards) {
     }
     throw new Error('never convicted');
   }
-  assert.strictEqual(payFor('strong', false), CF.ECONOMY.convictionPay.strong);
-  assert.strictEqual(payFor('reasonable', false), CF.ECONOMY.convictionPay.reasonable);
-  assert.strictEqual(payFor('strong', true), CF.ECONOMY.convictionPay.strong + CF.ECONOMY.highProfilePay);
-  assert.strictEqual(payFor('weak', false), 0);
+  // A grateful victim sometimes adds an honest coin at the court door (Part II §7).
+  function about(got, want, label) { assert.ok(got === want || got === want + 1, label + ': ' + got + ' vs ' + want); }
+  about(payFor('strong', false), CF.ECONOMY.convictionPay.strong, 'strong');
+  about(payFor('reasonable', false), CF.ECONOMY.convictionPay.reasonable, 'reasonable');
+  about(payFor('strong', true), CF.ECONOMY.convictionPay.strong + CF.ECONOMY.highProfilePay, 'high profile');
+  about(payFor('weak', false), 0, 'weak');
   console.log('economy: ok');
 })();

@@ -107,6 +107,40 @@
     ],
   });
   R.push({
+    id: 'duty_writsale', verb: 'duty', label: 'Sell a Writ', duration: 15,
+    preview: function (ctx) { var d = ctx.primary.data; return 'Find cause where there is none and have ' + d.rival + '\'s house turned over at first light. Three Coin, and a patrician who owes you.' + (d.council ? ' The rival is a Council family; the Council will hear of it.' : ''); },
+    danger: function (ctx) { return 'Purse +1 · Suspicion +' + (ctx.primary.data.council ? 2 : 1); },
+    requires: ['writsale'],
+    run: function (ctx) {
+      var e = ctx.e, d = ctx.primary.data;
+      ctx.consume(ctx.primary);
+      for (var i = 0; i < 3; i++) ctx.give('funds');
+      e.count('purse', 1);
+      e.meter('scrutiny', d.council ? 2 : 1);
+      return { title: 'The Writ Is Sold', text: 'A sergeant breaks ' + d.rival + '\'s door at first light on a writ that names no crime. Nothing is found, because there was nothing to find. The patrician sends three Coin and a haunch of venison.' + (d.council ? ' Somebody on the Council asks who sealed the writ.' : '') };
+    },
+  });
+  R.push({
+    id: 'duty_thieftakers', verb: 'duty', label: 'Hire the Thief-takers', duration: 25,
+    preview: function (ctx) {
+      var rec = ctx.caseOf(ctx.primary);
+      return 'For 2 Coin the thief-takers get the goods back' + (rec ? ' from ' + rec.title.toLowerCase() : '') + ' and name a culprit, without a trial. They know every fence in the city; that is the trouble with them. Some of what they bring back is a frame.';
+    },
+    danger: 'Purse +1 · Underworld Debt +1',
+    blocked: function (ctx) {
+      if (!ctx.e.s.rooms.thieftakers) return 'Petition for the Thief-takers\' Office first.';
+      return ctx.count('funds') >= 2 ? null : 'This takes 2 Coin.';
+    },
+    requires: ['case'],
+    run: function (ctx) {
+      var e = ctx.e;
+      var rec = openRec(ctx, ctx.primary);
+      if (!rec) return closed();
+      ctx.with('funds').slice(0, 2).forEach(ctx.consume);
+      return e.thieftakersSettle(rec, ctx);
+    },
+  });
+  R.push({
     id: 'duty_train', verb: 'duty', label: 'Drill a Watchman', duration: 40,
     preview: 'The yard, the halberd, the sergeant\'s tongue. They will come back sharper.',
     blocked: { funds: function (ctx) { return ctx.e.s.rooms.training ? 1 : 2; } },
@@ -964,7 +998,7 @@
         label: 'Blood Court: ' + sus.name,
         desc: sus.name + ' stands before the Blood Court for ' + rec.title + '. The charge looked like ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '.',
         data: { caseId: rec.id, name: sus.name, guilty: sus.guilty, solid: a.solid, tier: a.realTier, real: a.real, need: a.need,
-          coerced: a.coerced, planted: a.planted, illegal: a.unwarranted, contradictions: a.contradictions, confession: a.confession, checked: a.checked },
+          coerced: a.coerced, planted: a.planted, illegal: a.unwarranted, contradictions: a.contradictions, confession: a.confession, checked: a.checked, framed: a.framed },
       });
       ctx.give('paperwork');
       return { title: 'Taken: ' + sus.name, text: 'The sergeants take them at ' + U.pick(ctx.rng, ['first light, on their doorstep', 'their shop, in front of everyone', 'the Red Ox, mid-sentence', 'the city gate, one foot on the carrier\'s wagon']) +

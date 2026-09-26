@@ -17,10 +17,10 @@
       label: 'Attend', rank: 0, lockedBy: 'burnout',
       desc: 'Your hours at the Watch-house. Put in Health to walk a hard round for pay, or Wit to sit with the day-book. Also: the Council\'s letters, drilling your watchmen, guarding an informer with a watchman, and purses left on your desk.',
       slots: [
-        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'promotion', 'chair', 'informant'], primary: true },
+        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'promotion', 'chair', 'informant', 'case'], primary: true },
         { key: 'extra', label: 'Rolls / Coin', accepts: ['paperwork', 'funds'],
-          when: function (p) { return any(p, ['focus', 'teammate']); } },
-        { key: 'extra2', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'teammate'); } },
+          when: function (p) { return any(p, ['focus', 'teammate', 'case']); } },
+        { key: 'extra2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['teammate', 'case']); } },
         { key: 'guard', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'informant'); } },
       ],
     },

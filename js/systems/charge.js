@@ -37,7 +37,7 @@
   // Tunnel Vision made you misread, giving the charge's real strength.
   function score(rec, sus, clues, profile, skipMisread) {
     var res = { strength: 0, diversity: 0, corroboration: 0, contradictions: 0, illegal: 0, have: {}, notes: [], n: 0,
-      witnesses: 0, stakes: {}, fingerpost: false, sameStake: false, againstInterest: 0, confession: null, checked: false, bodyOrWrit: false };
+      witnesses: 0, stakes: {}, fingerpost: false, sameStake: false, againstInterest: 0, confession: null, checked: false, bodyOrWrit: false, framed: 0 };
     var seen = {};
     clues.forEach(function (c) {
       if (skipMisread && c.data.misread) return;
@@ -57,6 +57,7 @@
       if (c.data.coerced) res.illegal++;
       if (c.data.planted) res.illegal++;
       if (c.data.illegal) res.illegal++;
+      if (c.data.frame) res.framed++;
       if (a.forensic || a.digital) res.bodyOrWrit = true;
       // Word from a witness: credible only if it was not beaten out of them.
       if (c.data.stake && !c.data.coerced) {
@@ -119,7 +120,7 @@
       contradictions: apparent.contradictions, illegal: apparent.illegal, coerced: 0, planted: 0, unwarranted: 0,
       score: apparent.score, apparent: apparent.score, real: real.score, covered: apparent.covered,
       witnesses: apparent.witnesses, fingerpost: apparent.fingerpost, sameStake: apparent.sameStake, againstInterest: apparent.againstInterest,
-      confession: apparent.confession, checked: apparent.checked,
+      confession: apparent.confession, checked: apparent.checked, framed: apparent.framed,
     };
     own.forEach(function (c) { if (c.data.coerced) res.coerced++; if (c.data.planted) res.planted++; if (c.data.illegal) res.unwarranted++; });
     res.tier = tierOf(apparent, need);
