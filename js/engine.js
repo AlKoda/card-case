@@ -1027,6 +1027,18 @@
     }
   };
 
+  // A record of how a case ended, for the Case Archive.
+  P.caseRecord = function (rec, outcome, charged) {
+    var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+    var trait = cul && CF.TRAITS.filter(function (t) { return t.id === cul.trait; })[0];
+    return {
+      id: rec.id + '-' + this.s.seed, title: rec.title, template: rec.template, district: rec.district, scene: rec.scene,
+      victim: rec.victim, outcome: outcome, charged: charged || null, week: this.s.week, highProfile: !!rec.highProfile,
+      culprit: cul ? { name: cul.name, role: cul.role, motive: cul.motive, trait: trait ? trait.desc : '' } : null,
+      detective: this.s.detective, calling: this.s.calling,
+    };
+  };
+
   P.goCold = function (caseId) {
     var rec = this.caseRec(caseId);
     var card = this.caseCard(caseId);
@@ -1034,6 +1046,7 @@
     if (!rec || rec.status !== 'open') return;
     rec.status = 'cold';
     this.s.stats.cold++;
+    this.emit('resolved', this.caseRecord(rec, 'cold'));
     this.clearCaseCards(caseId);
     var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
     this.meter('pressure', rec.highProfile ? 2 : 1);
@@ -1132,6 +1145,7 @@
     }
     var convicted = rng() < p;
     rec.status = convicted ? 'closed' : 'acquitted';
+    this.emit('resolved', this.caseRecord(rec, convicted ? (d.guilty ? 'convicted' : 'wrongful') : 'acquitted', d.name));
     var hp = rec.highProfile;
 
     if (convicted) {

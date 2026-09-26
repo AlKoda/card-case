@@ -18,6 +18,12 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 - **Hover or click** a card to read it. **Double-click** a card to send it to the open verb.
 - **Space** pauses, **1/2/3** set the speed, **J** opens the journal, and **Esc** closes the verb window.
 
+### Menus and settings
+
+- **Title screen:** start a new case file, continue a saved one, open the Case Archive or change settings.
+- **Settings:** master, music and sound-effect volume; fullscreen; text speed (how fast story text types itself out); window shake on bad news; language (English for now). All sound is synthesized in the browser, so there are no audio files.
+- **Case Archive:** every case you close or lose is filed here, across all your detectives. Open a file to learn the truth: who really did it.
+
 ## How it plays
 
 | Verb | What it does |
@@ -56,7 +62,10 @@ When a run ends, your successor can inherit your cold cases and your enemies.
 
 - `js/data/`: cards, case templates and prose, verbs, and recipes (what each verb does)
 - `js/engine.js`: game state, time, the criminal ecosystem, charges and trials. It doesn't touch the DOM.
-- `js/ui.js`, `js/main.js`: rendering, drag and drop, and menus
+- `js/ui.js`: table rendering, drag and drop, the verb windows and inspector
+- `js/main.js`, `js/screens.js`: title, new game, settings, archive and ending screens
+- `js/settings.js`, `js/audio.js`: saved settings and synthesized sound
+- `css/art/`: the art, embedded as text by `tools/build_art.py` (see the script for the sheet names it expects)
 
 Most content lives in `js/data/`. To add a case type, add a template to `CF.CASE_TEMPLATES` in `cases.js` and list it in `CF.ORDINARY_CASES`.
 
