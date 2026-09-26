@@ -1,0 +1,9 @@
+{
+  "name": "case-file",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A detective card game in the style of Cultist Simulator.",
+  "scripts": {
+    "test": "node tests/sim.test.js && node tests/bot.test.js 30"
+  }
+}

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Case File</title>
+  <meta name="description" content="A detective card game in the style of Cultist Simulator.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">Case File</div>
+      <div class="rank" id="rank"></div>
+      <div id="meters"></div>
+      <div id="controls">
+        <button class="ctl" data-speed="0" title="Pause (Space)">❚❚</button>
+        <button class="ctl" data-speed="1" title="Normal speed (1)">▶</button>
+        <button class="ctl" data-speed="2" title="Fast (2)">▶▶</button>
+        <button class="ctl" data-speed="3" title="Fastest (3)">▶▶▶</button>
+        <button class="ctl" id="btn-help" title="How to play">?</button>
+        <button class="ctl" id="btn-menu" title="Menu">☰</button>
+      </div>
+    </header>
+    <div id="main">
+      <section id="board">
+        <div id="verbs"></div>
+        <div id="table"><div id="table-inner"></div></div>
+      </section>
+      <aside id="side">
+        <div id="tabs">
+          <button data-tab="desk" class="on">Desk</button>
+          <button data-tab="journal">Journal</button>
+        </div>
+        <div id="pane"></div>
+        <div id="inspector"></div>
+      </aside>
+    </div>
+  </div>
+  <div id="toasts"></div>
+
+  <!-- Start screen -->
+  <div class="modal hidden" id="start">
+    <div class="modal-box">
+      <h1>Case File</h1>
+      <h2>A restless city. A new detective. Too many cases.</h2>
+      <p class="lead">You have just been assigned to the precinct on the edge of the Old Market. Crime never stops here, and the cases pile up faster than anyone can close them. Every criminal who walks free makes the city a little darker, and remembers your name.</p>
+      <div class="field">
+        <label for="name">Your name</label>
+        <input type="text" id="name" maxlength="24" value="Marlowe">
+      </div>
+      <div class="callings" id="callings"></div>
+      <div class="field hidden" id="legacy-row">
+        <input type="checkbox" id="legacy">
+        <label for="legacy" id="legacy-label">Succeed your predecessor</label>
+      </div>
+      <div class="row">
+        <button class="btn" id="btn-new">Take the Badge</button>
+        <button class="btn ghost hidden" id="btn-continue">Continue</button>
+        <button class="btn ghost" id="btn-help2">How to Play</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div class="modal hidden" id="menu">
+    <div class="modal-box" style="max-width:420px">
+      <h1 style="font-size:24px">Paused</h1>
+      <div class="row" style="flex-direction:column">
+        <button class="btn" id="m-resume">Resume</button>
+        <button class="btn ghost" id="m-save">Save now</button>
+        <button class="btn ghost" id="m-new">Abandon and start a new file</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help -->
+  <div class="modal hidden" id="help">
+    <div class="modal-box">
+      <h1 style="font-size:24px">How to Play</h1>
+      <div class="help-grid">
+        <div>
+          <h4>Cards and verbs</h4>
+          <p>Everything is a card. You act by dragging cards into the <b>verbs</b> along the top. Each verb has a first slot; filling it reveals the others. When the verb says what it will do, press Begin.</p>
+          <h4>Cases</h4>
+          <p>Cases arrive on their own and count down. When one hits zero it goes <b>cold</b>, the criminal is <b>At Large</b>, and Public Pressure rises. You can't close everything.</p>
+          <h4>Detective work</h4>
+          <p><b>Investigate</b> a case to search the scene, or with its District to canvass. <b>Analyze</b> evidence. <b>Interrogate</b> witnesses and suspects with Focus, Instinct or Health. <b>Reflect</b> on a case with its clues and see what they add up to.</p>
+          <h4>Charges</h4>
+          <p>Clues carry aspects: Forensic, Testimony, Motive, Opportunity, Digital, Financial. <b>Arrest</b> a suspect with clues from their case. The right aspects in enough weight make a solid charge. A thin one may walk, and they won't forget you.</p>
+        </div>
+        <div>
+          <h4>Read everything</h4>
+          <p>Suspects have traits. Clues sometimes leak the culprit's. A careful reader can catch the culprit before the mind palace does.</p>
+          <h4>Threats</h4>
+          <p><b>Fatigue</b> ×3 becomes Burnout. <b>Obsession</b> ×3 becomes Tunnel Vision, and you misread clues. <b>Public Pressure</b>, <b>Scrutiny</b> (Internal Affairs) and <b>Retaliation</b> build up at the top. Rest in Reflect. Close cases. Keep your hands clean, or don't.</p>
+          <h4>Growing</h4>
+          <p>Spend Funds in <b>Requisition</b> on equipment, precinct rooms and new officers. Reputation brings promotion boards, and new verbs: Warrant, Stakeout, Undercover, Task Force.</p>
+          <h4>Winning</h4>
+          <p>Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Rent comes out every week. Don't go broke.</p>
+        </div>
+      </div>
+      <div class="row"><button class="btn" id="help-close">Back to work</button></div>
+    </div>
+  </div>
+
+  <!-- Ending -->
+  <div class="modal hidden" id="end">
+    <div class="modal-box">
+      <h1 id="end-title"></h1>
+      <h2 id="end-sub"></h2>
+      <p class="lead" id="end-text"></p>
+      <div class="stats" id="end-stats"></div>
+      <div class="row">
+        <button class="btn" id="end-successor">Start as Their Successor</button>
+        <button class="btn ghost" id="end-new">New Case File</button>
+        <button class="btn ghost" id="end-look">Look at the Table</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script src="js/data/cards.js"></script>
+  <script src="js/data/cases.js"></script>
+  <script src="js/data/verbs.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/data/recipes.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
