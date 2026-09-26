@@ -468,7 +468,7 @@ Two phases at a time, each a pull request, tests first, as before.
 | **C. Sentence** (done) | The Condemned card, the Sentence verb and the ladder; petitions; Mercy and Cruelty counts; Dread meter; reformed and spared criminals in the network | B |
 | **D. The question and the purse** (done) | The question with false confessions and the Council's charge (B); the temptations; the Purse count; the Thief-takers' Office with frames; Underworld Debt; the Thief-taker General and the Old Bailey | C |
 | **E. Origins** (done) | The five origins, their cards, bent rules and shut doors; five openings | A |
-| **F. Patrons** | Commissions with desired verdicts; Council, Bishop and Guild favour; elections; the Inquisitor | B, C |
+| **F. Patrons** (done) | Commissions with desired verdicts; Council, Bishop and Guild favour; elections; the Inquisitor | B, C |
 | **G. The Court of Miracles** (done) | Coquille roles on records; the King of Thunes; the three stances (Eradicate, Rule, Treaty) with their verbs and cards; tribute; Closed-by-the-Court cases; the King of Thunes and Treaty City endings | D |
 | **H. New crimes** | Poisoning, Coining, the Locked Scriptorium, the Contract, the Witch Mark, the Pattern, the Highway, the Three Days; structures and leads for each | B |
 | **I. Endings and societies** | The ten new endings with variants; the Eumenides; the Order of the Mountain | all |

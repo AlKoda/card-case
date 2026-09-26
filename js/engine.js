@@ -152,6 +152,7 @@
     s.network = s.network || { fronts: {} };
     s.origin = s.origin || s.calling;
     s.who = s.who || null;
+    s.favour = s.favour || { council: 0, bishop: 0, guild: 0 };
     s.rooms = s.rooms || {};
     s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
     s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
@@ -994,6 +995,7 @@
     if (this.banishedReturn) lines = lines.concat(this.banishedReturn());
     if (this.purseWeek) lines = lines.concat(this.purseWeek());
     if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
+    if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
     if (s.over) return;
 
     // Retaliation strikes.
@@ -1150,7 +1152,7 @@
     if (s.meters.scrutiny >= this.meterMax('scrutiny')) { this.gameOver('corruption'); return; }
 
     // Promotion boards.
-    if (s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
+    if (s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length && !(s.favour && s.favour.council <= -2)) {
       var next = CF.RANK_DEFS[s.rank + 1];
       this.create('promotion', { label: 'The Council\'s Letter: ' + next.label, desc: next.text + ' Attend on the Council.', data: { rank: s.rank + 1 } });
       this.story('The Council Takes Notice', 'A letter, on heavy paper, under the city\'s seal: the Council will see you. Your attendance is expected.', 'major');
@@ -1465,6 +1467,7 @@
       reopened: !!opts.reopened, criminalId: opts.criminalId || null,
       structure: structure ? structure.id : null, front: front ? front.id : null,
     };
+    if (this.commissionFor) rec.commission = this.commissionFor(rec, T);
     s.cases[id] = rec;
     s.stats.cases++;
 
@@ -1481,14 +1484,14 @@
     }
     var spec = {
       label: (highProfile ? '★ ' : '') + rec.title,
-      desc: brief + ' (' + CF.DISTRICTS[district].label + ')' + (highProfile ? ' The crier has sung it: the whole city is watching.' : ''),
+      desc: brief + ' (' + CF.DISTRICTS[district].label + ')' + (highProfile ? ' The crier has sung it: the whole city is watching.' : '') + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''),
       caseId: id, lifetime: life, data: { onExpire: 'cold' },
     };
     var card = opts.ctx ? opts.ctx.give('case', spec) : this.create('case', spec);
     if (warning) this.revealSuspect(rec, null);
     if (known && known.traits.indexOf('pilloried') >= 0 && !warning) { this.revealSuspect(rec, null, { key: rec.culprit }); }
     if (!opts.quiet) {
-      this.story(opts.headline || 'New Case: ' + rec.title, (opts.lead ? opts.lead + ' ' : '') + brief, 'case');
+      this.story(opts.headline || (rec.commission ? 'A Commission from ' + CF.PATRONS[rec.commission.from].label + ': ' : 'New Case: ') + rec.title, (opts.lead ? opts.lead + ' ' : '') + brief + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''), 'case');
     }
     return card;
   };
@@ -1607,6 +1610,7 @@
     if (card) this.remove(card);
     if (!rec || rec.status !== 'open') return;
     rec.status = 'cold';
+    if (this.commissionCold) this.commissionCold(rec);
     this.releaseDelegate(rec);
     this.s.stats.cold++;
     this.emit('resolved', this.caseRecord(rec, 'cold'));
@@ -1711,6 +1715,7 @@
     p = U.clamp(p, 0.02, 0.97);
     var convicted = rng() < p;
     rec.status = convicted ? 'closed' : 'acquitted';
+    if (this.commissionVerdict) this.commissionVerdict(rec, d, convicted, notes);
     this.emit('resolved', this.caseRecord(rec, convicted ? (d.guilty ? 'convicted' : 'wrongful') : 'acquitted', d.name));
     var hp = rec.highProfile;
 

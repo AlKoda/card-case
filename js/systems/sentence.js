@@ -133,6 +133,7 @@
     pleas.forEach(function (p) {
       self.create('plea', { label: p.label, desc: p.text + ' Put it in Sentence with a lighter rung and it counts as a reason.', caseId: rec.id, data: { from: p.from, purse: !!p.purse, condemned: cond.uid } });
     });
+    if (this.inquisitorTakes && this.inquisitorTakes(cond)) return null;
     this.story('Condemned: ' + d.name, d.name + ' goes down to the Hole to wait. The ladder is on your desk: ' + rungs.map(function (r) { return Sen.rungShort(rec.template, r); }).join(', ') + '. The Council will follow your word, or its custom.' +
       (pleas.length ? ' Pleas arrive with the morning: ' + pleas.map(function (p) { return p.label; }).join(', ') + '.' : ''), 'major');
     return cond;
@@ -246,6 +247,7 @@
       notes.push('Somebody in the crowd shouts that the wrong one is dying. Somebody always does. This time they are right.');
     }
     c.history.push({ week: s.week, how: 'sentence:' + rung });
+    if (this.commissionSentence && !byCouncil) this.commissionSentence(this.caseRec(d.caseId), rung, notes);
     if (byCouncil) notes.unshift('You said nothing, so the Council said it for you.');
 
     // The ladder, the pleas and the poor sinner leave the table together.

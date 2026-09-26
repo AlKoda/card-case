@@ -356,8 +356,9 @@
       var got = [];
       var n = (ctx.has('teammate') ? 2 : 1) + (e.teamHas(ctx, 'streetwise') ? 1 : 0);
       var afraid = 0;
+      var quiet = rec.district === 'market' && e.s.flags.marketQuietUntil && e.s.week <= e.s.flags.marketQuietUntil;
       for (var i = 0; i < n; i++) {
-        if (rec.witnesses.length && e.s.meters.dread >= 5 && ctx.rng() < e.s.meters.dread * 0.08) { rec.witnesses.shift(); afraid++; continue; }
+        if (rec.witnesses.length && (quiet || (e.s.meters.dread >= 5 && ctx.rng() < e.s.meters.dread * 0.08))) { rec.witnesses.shift(); afraid++; continue; }
         if (rec.witnesses.length) got.push(ctx.give('witness', e.witnessSpec(rec)).label);
         var sc = e.revealSuspect(rec, ctx);
         if (sc) got.push(sc.label + ' (accused)');
