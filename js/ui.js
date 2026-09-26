@@ -132,6 +132,7 @@
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     ['#board', '#windows', '#dock'].forEach(function (sel) { $(sel).innerHTML = ''; });
     UI.journalSeen = engine.s.journal.length;
+    UI.hintMode = null;
     $('#btn-journal').classList.remove('unread');
     $('#journal-drawer').classList.remove('open');
     $('#peek').classList.remove('open');
@@ -283,12 +284,23 @@
     if (open) { UI.journalSeen = UI.e ? UI.e.s.journal.length : 0; $('#btn-journal').classList.remove('unread'); }
   };
 
-  // A line under the dock that tells a new player what to try next.
+  // A line under the dock that tells a new player what to try next: the
+  // guided start's hint while it runs, then the plain how-to until the
+  // player has moved something (remembered across games).
+  var PLAIN_HINT = 'Drag cards onto the verbs above. Drag the felt to look around, pinch or scroll to zoom. Drag a stack by its number to move all of it.';
   function renderHint() {
     var e = UI.e, hint = $('#hint');
     var text = e.introHint ? e.introHint() : null;
-    if (text) { hint.textContent = text; hint.classList.remove('gone'); }
-    else if (!hint.classList.contains('gone') && !hint.dataset.plain) { hint.textContent = 'Drag cards onto the verbs above. Drag the felt to look around, pinch or scroll to zoom. Drag a stack by its number to move all of it.'; hint.dataset.plain = '1'; }
+    if (text) {
+      if (UI.hintMode !== 'intro' || hint.textContent !== text) { hint.textContent = text; hint.classList.remove('gone'); UI.hintMode = 'intro'; }
+      return;
+    }
+    if (UI.hintMode === 'plain' || UI.hintMode === 'gone') return;
+    UI.hintMode = 'plain';
+    var seen = false;
+    try { seen = !!localStorage.getItem('casefile.hinted'); } catch (err) { /* ignore */ }
+    hint.textContent = PLAIN_HINT;
+    hint.classList.toggle('gone', seen);
   }
 
   function renderControls() {
@@ -1066,12 +1078,11 @@
   // The how-to hint goes away for good once the player has moved something.
   function hideHint() {
     var hint = $('#hint');
-    if (hint && !hint.classList.contains('gone')) {
-      hint.classList.add('gone');
-      try { localStorage.setItem('casefile.hinted', '1'); } catch (err) { /* ignore */ }
-    }
+    if (UI.hintMode === 'intro') return; // the guided start's hints stay until the step is done
+    if (hint && !hint.classList.contains('gone')) hint.classList.add('gone');
+    UI.hintMode = 'gone';
+    try { localStorage.setItem('casefile.hinted', '1'); } catch (err) { /* ignore */ }
   }
-  try { if (localStorage.getItem('casefile.hinted')) document.addEventListener('DOMContentLoaded', hideHint); } catch (err) { /* ignore */ }
   UI.hideHint = hideHint;
 
   // Touch: every active pointer, so two fingers on the felt can pinch.
