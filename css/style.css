@@ -131,6 +131,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card .c-under.u2 { transform: translate(8px, 8px); }
 .card:hover .c-face { transform: translateY(-4px); filter: drop-shadow(0 9px 10px rgba(0, 0, 0, 0.65)); }
 #board .card:hover { z-index: 3; }
+.card.unavailable .c-face { filter: saturate(0.35) brightness(0.72) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+.card.unavailable:hover .c-face { filter: saturate(0.5) brightness(0.85) drop-shadow(0 9px 10px rgba(0, 0, 0, 0.65)); }
+#inspector .i-note.i-unavailable { color: #b7654f; }
 .card.selected .c-face { filter: drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 7px rgba(212, 162, 76, 0.75)); }
 .card.fits .c-face { filter: drop-shadow(0 0 5px rgba(212, 162, 76, 0.85)) drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5)); }
 .card.fits-strong .c-face { filter: drop-shadow(0 0 10px rgba(255, 210, 110, 1)); transform: translateY(-5px); }

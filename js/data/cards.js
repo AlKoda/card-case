@@ -1,6 +1,9 @@
-// Static card definitions. A card instance may override label/desc/aspects
-// (clues, suspects and cases are generated), but its def supplies the kind,
-// colour, default lifetime and behaviour on expiry.
+// Static card definitions: the data half of the card system (see
+// docs/DESIGN.md, "Cards are data"). A definition has
+//   label, kind, aspects, tags, decay (seconds; omitted = permanent),
+//   image (an --art-* key; omitted = the UI picks one), onExpire, stackable.
+// A card instance may override label/desc/aspects/tags/image (clues, suspects
+// and cases are generated), but its def supplies kind, colour and behaviour.
 (function (G) {
   var CF = G.CF;
 
@@ -45,105 +48,105 @@
 
   CF.CARDS = {
     // --- You -----------------------------------------------------------
-    health: { label: 'Health', kind: 'ability', aspects: { health: 1 },
+    health: { label: 'Health', kind: 'ability', tags: ['you', 'body'], image: 'icon-health', aspects: { health: 1 },
       desc: 'Your body: stamina for a beat shift, fists for a hard interrogation, legs for a long night.' },
-    focus: { label: 'Focus', kind: 'ability', aspects: { focus: 1 },
+    focus: { label: 'Focus', kind: 'ability', tags: ['you', 'mind'], image: 'icon-focus', aspects: { focus: 1 },
       desc: 'Patience and method. Good for desk work, careful interviews and quiet evenings in the mind palace.' },
-    instinct: { label: 'Instinct', kind: 'ability', aspects: { instinct: 1 },
+    instinct: { label: 'Instinct', kind: 'ability', tags: ['you', 'street'], image: 'icon-instinct', aspects: { instinct: 1 },
       desc: 'The hunch, the bluff, the itch between the shoulder blades. It walks the streets with you.' },
-    wound: { label: 'Wound', kind: 'threat', aspects: { wound: 1 }, lifetime: 150, onExpire: 'heal',
+    wound: { label: 'Wound', kind: 'threat', tags: ['you', 'injury'], image: 'icon-health', aspects: { wound: 1 }, decay: 150, onExpire: 'heal',
       desc: 'Stitches and bruises. When it heals you get your Health back. Get hurt again before then and you may not get up.' },
-    funds: { label: 'Funds', kind: 'funds', aspects: { funds: 1 }, stackable: true,
+    funds: { label: 'Funds', kind: 'funds', tags: ['money'], image: 'icon-funds', aspects: { funds: 1 }, stackable: true,
       desc: 'Money. Rent comes out of it every week. So does everything else.' },
 
     // --- Threats -------------------------------------------------------
-    fatigue: { label: 'Fatigue', kind: 'threat', aspects: { fatigue: 1 }, stackable: true,
+    fatigue: { label: 'Fatigue', kind: 'threat', tags: ['strain'], image: 'icon-fatigue', aspects: { fatigue: 1 }, stackable: true,
       desc: 'Too many hours. Three of these and you burn out. Sleep it off in Reflect.' },
-    burnout: { label: 'Burnout', kind: 'threat', aspects: { burnout: 1 }, lifetime: 120, onExpire: 'burnout',
+    burnout: { label: 'Burnout', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
       desc: 'You cannot face the street. Duty, Patrol, Investigate and Interrogate are closed to you. Rest in Reflect before this runs out, or you are finished.' },
-    obsession: { label: 'Obsession', kind: 'threat', aspects: { obsession: 1 }, stackable: true,
+    obsession: { label: 'Obsession', kind: 'threat', tags: ['strain'], image: 'icon-obsession', aspects: { obsession: 1 }, stackable: true,
       desc: 'A case is under your skin. Three of these harden into Tunnel Vision. Closing a case eases it; so does letting go in Reflect.' },
-    tunnel: { label: 'Tunnel Vision', kind: 'threat', aspects: { tunnel: 1 },
+    tunnel: { label: 'Tunnel Vision', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-redeye', aspects: { tunnel: 1 },
       desc: 'You see what you want to see. Some clues you find now are misread and will not hold up. A conviction, or a long night in Reflect, clears it. More Obsession on top of this will swallow you.' },
 
     // --- Casework ------------------------------------------------------
-    case: { label: 'Case', kind: 'case', aspects: { case: 1 }, onExpire: 'cold',
+    case: { label: 'Case', kind: 'case', tags: ['casework'], aspects: { case: 1 }, onExpire: 'cold',
       desc: 'An open case.' },
-    coldcase: { label: 'Cold Case', kind: 'coldcase', aspects: { coldcase: 1 },
+    coldcase: { label: 'Cold Case', kind: 'coldcase', tags: ['casework', 'cold'], aspects: { coldcase: 1 },
       desc: 'A case that went cold. Someone walked. With an Archive, it can be reopened in Analyze.' },
-    clue: { label: 'Clue', kind: 'clue', aspects: { clue: 1 }, lifetime: 300, onExpire: 'vanish',
+    clue: { label: 'Clue', kind: 'clue', tags: ['casework', 'proof'], aspects: { clue: 1 }, decay: 300, onExpire: 'vanish',
       desc: 'A clue.' },
-    evidence: { label: 'Evidence', kind: 'evidence', aspects: { evidence: 1 }, lifetime: 260, onExpire: 'vanish',
+    evidence: { label: 'Evidence', kind: 'evidence', tags: ['casework', 'raw'], aspects: { evidence: 1 }, decay: 260, onExpire: 'vanish',
       desc: 'Unprocessed evidence. Take it to Analyze.' },
-    witness: { label: 'Witness', kind: 'witness', aspects: { witness: 1 }, lifetime: 170, onExpire: 'vanish',
+    witness: { label: 'Witness', kind: 'witness', tags: ['casework', 'person'], aspects: { witness: 1 }, decay: 170, onExpire: 'vanish',
       desc: 'Someone who saw something. They will not stay around forever.' },
-    suspect: { label: 'Suspect', kind: 'suspect', aspects: { suspect: 1 },
+    suspect: { label: 'Suspect', kind: 'suspect', tags: ['casework', 'person'], aspects: { suspect: 1 },
       desc: 'A person of interest.' },
-    district: { label: 'District', kind: 'district', aspects: { district: 1 },
+    district: { label: 'District', kind: 'district', tags: ['place'], aspects: { district: 1 },
       desc: 'A part of the city.' },
 
     // --- Equipment (slot into Investigate / Analyze) --------------------
-    camera: { label: 'Camera', kind: 'equipment', aspects: { tool: 1, forensic: 1, opportunity: 1 },
+    camera: { label: 'Camera', kind: 'equipment', tags: ['tool'], image: 'icon-camera', aspects: { tool: 1, forensic: 1, opportunity: 1 },
       desc: 'Photographs don\'t forget. Adds Forensic and Opportunity to what you find.' },
-    prints: { label: 'Fingerprint Set', kind: 'equipment', aspects: { tool: 1, forensic: 2, kit_prints: 1 },
+    prints: { label: 'Fingerprint Set', kind: 'equipment', tags: ['tool', 'kit', 'surfaces'], image: 'aspect-forensic', aspects: { tool: 1, forensic: 2, kit_prints: 1 },
       desc: 'Powder, brush, lifting tape. Needed to read latent prints properly.' },
-    kit: { label: 'Forensic Kit', kind: 'equipment', aspects: { tool: 1, forensic: 2, kit_bio: 1 },
+    kit: { label: 'Forensic Kit', kind: 'equipment', tags: ['tool', 'kit', 'biology'], image: 'icon-search', aspects: { tool: 1, forensic: 2, kit_bio: 1 },
       desc: 'Swabs, vials and a UV lamp. Needed for blood and fibres.' },
-    surveillance: { label: 'Surveillance Gear', kind: 'equipment', aspects: { tool: 1, opportunity: 2, digital: 1 },
+    surveillance: { label: 'Surveillance Gear', kind: 'equipment', tags: ['tool', 'watching'], image: 'icon-binoculars', aspects: { tool: 1, opportunity: 2, digital: 1 },
       desc: 'Long lenses and wire taps. Makes a Stakeout far more productive.' },
-    labpass: { label: 'Lab Access', kind: 'equipment', aspects: { tool: 1, digital: 2, kit_lab: 1 },
+    labpass: { label: 'Lab Access', kind: 'equipment', tags: ['tool', 'access'], image: 'icon-mind', aspects: { tool: 1, digital: 2, kit_lab: 1 },
       desc: 'A badge for the city lab. Needed for phones, ledgers and anything under a microscope.' },
 
     // --- Requisitions --------------------------------------------------
-    order: { label: 'Requisition Form', kind: 'order', aspects: { order: 1 },
+    order: { label: 'Requisition Form', kind: 'order', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { order: 1 },
       desc: 'Put this into Requisition with enough Funds.' },
-    room: { label: 'Precinct Room', kind: 'room', aspects: { room: 1 }, desc: 'Part of your precinct.' },
-    personnel: { label: 'Personnel File', kind: 'personnel', aspects: { personnel: 1 },
+    room: { label: 'Precinct Room', kind: 'room', tags: ['precinct'], image: 'icon-court', aspects: { room: 1 }, desc: 'Part of your precinct.' },
+    personnel: { label: 'Personnel File', kind: 'personnel', tags: ['precinct', 'person'], aspects: { personnel: 1 },
       desc: 'Someone who could join your team. Put this into Requisition with Funds to hire them.' },
-    teammate: { label: 'Officer', kind: 'teammate', aspects: { teammate: 1 },
+    teammate: { label: 'Officer', kind: 'teammate', tags: ['team', 'person'], aspects: { teammate: 1 },
       desc: 'A member of your team. Slot them in to help work a case. Train them in Duty.' },
-    injured: { label: 'Injured Officer', kind: 'hospital', aspects: { injured: 1 }, lifetime: 150, onExpire: 'recover',
+    injured: { label: 'Injured Officer', kind: 'hospital', tags: ['team', 'person', 'injury'], aspects: { injured: 1 }, decay: 150, onExpire: 'recover',
       desc: 'In hospital. They will be back, if nothing else happens to them.' },
-    informant: { label: 'Informant', kind: 'informant', aspects: { informant: 1 },
+    informant: { label: 'Informant', kind: 'informant', tags: ['street', 'person'], aspects: { informant: 1 },
       desc: 'A street contact. Meet them in Patrol with Funds for a tip. The more you lean on them, the more exposed they are.' },
 
     // --- The criminal ecosystem ----------------------------------------
-    atlarge: { label: 'At Large', kind: 'criminal', aspects: { atlarge: 1, criminal: 1 },
+    atlarge: { label: 'At Large', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
       desc: 'Someone who got away. Every week they are out there, Retaliation grows. Three of them will find each other.' },
-    gang: { label: 'Gang', kind: 'criminal', aspects: { gang: 1, criminal: 1 },
+    gang: { label: 'Gang', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
       desc: 'Criminals who got away and found each other. They feed Retaliation every week. Go Undercover to build a case against them.' },
-    syndicate: { label: 'The Syndicate', kind: 'criminal', aspects: { syndicate: 1, criminal: 1 },
+    syndicate: { label: 'The Syndicate', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-pyramid', aspects: { syndicate: 1, criminal: 1 },
       desc: 'The gangs have a board of directors now. Retaliation surges every week. Only a deep Undercover operation can reach them.' },
 
     // --- Court and paperwork -------------------------------------------
-    trial: { label: 'Trial', kind: 'court', aspects: { trial: 1 }, lifetime: 45, onExpire: 'verdict',
+    trial: { label: 'Trial', kind: 'court', tags: ['court'], image: 'icon-gavel', aspects: { trial: 1 }, decay: 45, onExpire: 'verdict',
       desc: 'The case is before a judge. The verdict comes when this runs out.' },
-    paperwork: { label: 'Paperwork', kind: 'paper', aspects: { paperwork: 1 }, stackable: true,
+    paperwork: { label: 'Paperwork', kind: 'paper', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { paperwork: 1 }, stackable: true,
       desc: 'Reports, forms, statements. Filing it properly in Duty (with Focus) soothes Internal Affairs.' },
-    bribe: { label: 'An Envelope', kind: 'temptation', aspects: { bribe: 1 }, lifetime: 50, onExpire: 'vanish',
+    bribe: { label: 'An Envelope', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Thick, unmarked, left on your desk. Put it in Duty to pocket it. Or let it sit until someone takes it back.' },
 
     // --- Career ----------------------------------------------------------
-    promo_inspector: { label: 'Promotion Board: Inspector', kind: 'career', aspects: { promotion: 1 },
+    promo_inspector: { label: 'Promotion Board: Inspector', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The brass have noticed you. Attend the board in Duty.' },
-    promo_chief: { label: 'Promotion Board: Chief', kind: 'career', aspects: { promotion: 1 },
+    promo_chief: { label: 'Promotion Board: Chief', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'They want you running the precinct. Attend the board in Duty.' },
-    chair: { label: 'The Commissioner\'s Chair', kind: 'career', aspects: { chair: 1 },
+    chair: { label: 'The Commissioner\'s Chair', kind: 'career', tags: ['career'], image: 'icon-court', aspects: { chair: 1 },
       desc: 'The council meets to choose a new Commissioner. Bring this to Duty. They will look hard at Public Pressure and Scrutiny.' },
 
     // --- Insight (victory paths) ---------------------------------------
-    looseend: { label: 'Loose End', kind: 'insight', aspects: { looseend: 1 }, stackable: true,
+    looseend: { label: 'Loose End', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { looseend: 1 }, stackable: true,
       desc: 'A detail that belongs to no case. The same shape keeps appearing. Three of these, together in Reflect, might show you who is drawing it.' },
-    ledger: { label: 'Ledger Page', kind: 'insight', aspects: { ledger: 1 }, stackable: true,
+    ledger: { label: 'Ledger Page', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { ledger: 1 }, stackable: true,
       desc: 'A page from the syndicate\'s books: payments, names, dates. Enough of these and the Syndicate cannot hide.' },
-    notes: { label: 'Predecessor\'s Notes', kind: 'insight', aspects: { notes: 1 },
+    notes: { label: 'Predecessor\'s Notes', kind: 'insight', tags: ['insight'], image: 'icon-folder', aspects: { notes: 1 },
       desc: 'Your predecessor\'s notebook. Half of it is illegible. Read it in Reflect.' },
 
-    calling_commissioner: { label: 'Calling: The Commissioner', kind: 'calling', aspects: { calling: 1 },
+    calling_commissioner: { label: 'Calling: The Commissioner', kind: 'calling', tags: ['calling'], image: 'icon-star', aspects: { calling: 1 },
       desc: 'Power. Climb to Chief, earn a great Reputation, then take the Commissioner\'s Chair and remake the force.' },
-    calling_master: { label: 'Calling: The Master Detective', kind: 'calling', aspects: { calling: 1 },
+    calling_master: { label: 'Calling: The Master Detective', kind: 'calling', tags: ['calling'], image: 'icon-mind', aspects: { calling: 1 },
       desc: 'Knowledge. Solid convictions and cold cases leave Loose Ends. Bring three to Reflect, find the Architect behind them, and convict them.' },
-    calling_crusader: { label: 'Calling: The Crusader', kind: 'calling', aspects: { calling: 1 },
+    calling_crusader: { label: 'Calling: The Crusader', kind: 'calling', tags: ['calling'], image: 'icon-scales', aspects: { calling: 1 },
       desc: 'Justice. Go Undercover against the gangs (you will need to be Inspector), take their Ledger Pages, drag the Syndicate into the light and convict it. Whatever it costs.' },
   };
 

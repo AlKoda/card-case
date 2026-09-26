@@ -70,6 +70,8 @@
   }
   function cardPicture(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind;
+    var named = CF.imageOf(card);
+    if (named) return /^icon-|^aspect-/.test(named) ? { art: named, fit: 'icon', gray: card.def === 'wound' } : pictureOf(named, k === 'hospital' || k === 'coldcase');
     if (k === 'case') { var r = e.caseRec(card.caseId); return pictureOf(CASE_ART[r && r.template] || 'pic-mansion'); }
     if (k === 'coldcase') return pictureOf(CASE_ART[card.data.template] || 'pic-mansion', true);
     if (k === 'clue' || k === 'evidence') {
@@ -420,9 +422,10 @@
   function syncBoard() {
     var e = UI.e, board = $('#board');
     var lifted = UI.lifted || {};
-    var groups = {};
+    var groups = {}, usable = {};
     e.tableCards().forEach(function (c) {
       if (lifted[c.uid]) return;
+      usable[c.uid] = !e.unavailableReason(c);
       var k = c.loc.x + ',' + c.loc.y;
       (groups[k] = groups[k] || []).push(c);
     });
@@ -455,6 +458,7 @@
       }
       if (el.parentNode === board) place(el, top.loc.x, top.loc.y);
       el.classList.toggle('selected', UI.selected === top.uid);
+      el.classList.toggle('unavailable', usable[top.uid] === false);
       if (top.maxLife) liveCards.push([el, top.uid]);
       list.forEach(function (c) { c.fresh = false; });
     });
@@ -899,6 +903,8 @@
     if (badges && !dz) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
     if (!dz && card.maxLife) html += '<div class="i-note">Time left: ' + U.fmtTime(card.life) + '</div>';
+    var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
+    if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     box.innerHTML = html;
   }
 
