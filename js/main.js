@@ -45,6 +45,7 @@
   click('promo-box', function () { show('promo', false); });
 
   var chosen = 'master';
+  var chosenWho = 'clerk';
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
 
@@ -68,7 +69,7 @@
     $('end-card-top').textContent = over.title;
     $('end-card-bottom').textContent = e.s.detective;
     $('end-title').textContent = over.title;
-    $('end-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ', week ' + over.week +
+    $('end-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + (e.s.who && CF.ORIGINS[e.s.who] ? ', once ' + CF.ORIGINS[e.s.who].label.toLowerCase() : '') + ', week ' + over.week +
       (over.origin && over.calling && over.origin !== over.calling ? ' · set out as ' + CF.CALLINGS[over.origin].label + ', ended as ' + CF.CALLINGS[over.calling].label : '');
     $('end-text').textContent = over.text;
     $('end-stats').innerHTML = [
@@ -84,7 +85,21 @@
     only('title');
   }
 
+  function buildOrigins() {
+    var box = $('origins');
+    if (!box) return;
+    box.innerHTML = '';
+    CF.ORIGIN_ORDER.forEach(function (k) {
+      var o = CF.ORIGINS[k];
+      var b = document.createElement('button');
+      b.className = 'origin' + (k === chosenWho ? ' on' : '');
+      b.innerHTML = '<div class="o-face" style="background-image:var(--art-' + o.art + ')"></div><h3>' + o.label + '</h3><p>' + o.blurb + '</p><div class="bonus">' + o.bends + '</div><div class="shut">' + o.shut + '</div>';
+      b.addEventListener('click', function () { chosenWho = k; CF.Audio.play('pick'); buildOrigins(); });
+      box.appendChild(b);
+    });
+  }
   function buildCallings() {
+    buildOrigins();
     var box = $('callings');
     box.innerHTML = '';
     Object.keys(CF.CALLINGS).forEach(function (k) {
@@ -117,7 +132,7 @@
     var legacy = null;
     if (useLegacy) { try { legacy = JSON.parse(load(LEGACY_KEY)); } catch (err) { legacy = null; } }
     var name = $('name').value.trim().slice(0, 24) || 'Kessler';
-    var e = CF.Engine.newGame({ calling: chosen, name: name, legacy: legacy, guided: !!CF.Settings.get('guided') });
+    var e = CF.Engine.newGame({ calling: chosen, who: chosenWho, name: name, legacy: legacy, guided: !!CF.Settings.get('guided') });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);
     inGame = true;

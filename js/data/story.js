@@ -93,9 +93,17 @@
     ],
   };
 
+  // Five first mornings, one per origin (docs/CITY.md §2).
+  CF.OPENINGS_WHO = {
+    advocate: { title: 'The Commission', text: 'Ten years you stood before the Blood Court and argued the Carolina at the sworn men; this morning the Council hands you the other side of the table. A commission under the city\'s seal, a stipend, a desk under the stair. Your old clients are already asking one another what you know.' },
+    hangman: { title: 'Summoned from the Ravenstone', text: 'The Council\'s clerk would not come down to your house outside the walls; he sent a boy. You are to examine for the city, because you have read more bodies than any physician in it. You are not to sit at any patrician\'s table. Nobody needed to write that part down.' },
+    monk: { title: 'Out of the Garden', text: 'The Abbot lent you to the Council with a letter that praised your knowledge of herbs, wounds and hearts, and did not mention that he wanted you out of his garden. You may not carry a sword. You may carry a case of instruments, and you do.' },
+    watchman: { title: 'The Last Night Round', text: 'Twenty years you cried the hours with a cudgel and a lantern, and this morning the Council makes you Examiner because the last one is dead and you were standing nearest. You cannot read the letter. The sergeant reads it to you, slowly, and does not smile.' },
+    clerk: { title: 'The Rolls in Your Hand', text: 'You copied the last Examiner\'s day-book for six years and know every form, fee and seal in the city. Now the day-book is yours. You have never walked a round, questioned a thief or been in a fight. The first case on the desk does not know that.' },
+  };
   Story.opening = function (e) {
     var list = CF.OPENINGS[e.s.origin] || CF.OPENINGS.master;
-    var op = list[e.s.seed % list.length];
+    var op = e.s.who && CF.OPENINGS_WHO[e.s.who] ? CF.OPENINGS_WHO[e.s.who] : list[e.s.seed % list.length];
     if (e.s.legacyFrom) return { title: op.title, text: op.text + ' Your predecessor, ' + e.s.legacyFrom + ', left you their unanswered cases and their enemies.' };
     return op;
   };

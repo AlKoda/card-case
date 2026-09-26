@@ -385,6 +385,7 @@
       var first = rec.searches === 0;
       rec.searches++;
       e.caseWork(rec, ctx);
+      var read = e.readFile && e.readFile(rec);
       var n = 1 + (ctx.has('teammate') ? 1 : 0) + (ctx.has('focus') ? 1 : 0) + (first ? 1 : 0) + (e.teamHas(ctx, 'thorough') ? 1 : 0);
       var found = [];
       for (var i = 0; i < n; i++) {
@@ -409,10 +410,12 @@
       maybe(ctx, 0.25, 'fatigue');
       if (!found.length) {
         ctx.give('obsession');
-        return { title: 'Nothing Left', text: rec.scene + ' has given up everything it is going to. You stand in the middle of it anyway, staring, for a long time. ' + extra.join(' ') };
+        var told = { title: 'Nothing Left', text: rec.scene + ' has given up everything it is going to. You stand in the middle of it anyway, staring, for a long time. ' + extra.join(' ') };
+      if (read) told.text += ' You read the file before you went in, as an advocate does, and knew what to look for.';
+      return told;
       }
       return { title: first ? 'At the Scene' : 'Back at the Scene',
-        text: (first ? 'You go in past the beadle at ' + rec.scene + '. ' : 'You go back over ' + rec.scene + '. ') + 'You find: ' + found.join(', ') + '. ' + extra.join(' ') };
+        text: (first ? 'You go in past the beadle at ' + rec.scene + '. ' : 'You go back over ' + rec.scene + '. ') + 'You find: ' + found.join(', ') + '. ' + extra.join(' ') + (read ? ' You read the file before you went in, as an advocate does, and knew what to look for.' : '') };
     },
   });
 

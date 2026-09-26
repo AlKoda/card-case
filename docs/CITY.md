@@ -467,7 +467,7 @@ Two phases at a time, each a pull request, tests first, as before.
 | **B. Proof and the Court** (done) | The Carolina ladder in `charge.js`; witness motive tags; the Fingerpost corroboration rule; confession as a Question outcome; the Blood Court verdicts for half and full proof; the Dread meter and the riot | A |
 | **C. Sentence** (done) | The Condemned card, the Sentence verb and the ladder; petitions; Mercy and Cruelty counts; Dread meter; reformed and spared criminals in the network | B |
 | **D. The question and the purse** (done) | The question with false confessions and the Council's charge (B); the temptations; the Purse count; the Thief-takers' Office with frames; Underworld Debt; the Thief-taker General and the Old Bailey | C |
-| **E. Origins** | The five origins, their cards, bent rules and shut doors; five guided openings | A |
+| **E. Origins** (done) | The five origins, their cards, bent rules and shut doors; five openings | A |
 | **F. Patrons** | Commissions with desired verdicts; Council, Bishop and Guild favour; elections; the Inquisitor | B, C |
 | **G. The Court of Miracles** | Coquille roles on records; the King of Thunes; the three stances (Eradicate, Rule, Treaty) with their verbs and cards; tribute; Closed-by-the-Court cases | D |
 | **H. New crimes** | Poisoning, Coining, the Locked Scriptorium, the Contract, the Witch Mark, the Pattern, the Highway, the Three Days; structures and leads for each | B |

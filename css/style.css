@@ -349,7 +349,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .modal h1 { font-family: var(--black); letter-spacing: 0.08em; color: var(--accent); margin: 0 0 4px; font-size: 38px; font-weight: 400; }
 .modal h2 { font-family: var(--serif); font-weight: 400; margin: 0 0 18px; color: var(--ink-dim); font-size: 18px; }
 .modal .lead { font-family: var(--serif); font-size: 16px; line-height: 1.6; color: var(--ink); }
-.callings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+.pick-head { margin: 16px 0 6px; font-family: var(--display); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); text-align: center; }
+.origins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 6px 0 4px; }
+.origin { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 8px; background: rgba(20, 24, 26, 0.85); cursor: pointer; text-align: center; transition: border-color 0.15s, transform 0.15s; color: var(--ink); }
+.origin:hover { border-color: #7d6a45; transform: translateY(-2px); }
+.origin.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212, 162, 76, 0.35); }
+.origin .o-face { width: 64px; height: 88px; background: center / 100% 100% no-repeat; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6)); }
+.origin h3 { margin: 4px 0 2px; font-family: var(--display); font-size: 12.5px; }
+.origin p { margin: 0 0 4px; font-size: 11px; color: var(--ink-dim); line-height: 1.4; font-family: var(--serif); }
+.origin .bonus { font-size: 10.5px; color: #a8c29a; line-height: 1.35; }
+.origin .shut { font-size: 10.5px; color: #c48a7a; line-height: 1.35; margin-top: 2px; }
+.callings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 6px 0 18px; }
 .calling { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: rgba(20, 24, 26, 0.85); cursor: pointer; text-align: left; transition: border-color 0.15s, transform 0.15s; }
 .calling:hover { border-color: #7d6a45; transform: translateY(-2px); }
 .calling.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212, 162, 76, 0.35); }
@@ -513,6 +523,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 @media (max-width: 980px) {
   .callings { grid-template-columns: 1fr; }
+  .origins { grid-template-columns: repeat(2, 1fr); }
   .settings-body { grid-template-columns: 1fr; }
   .settings-tabs { flex-direction: row; flex-wrap: wrap; gap: 8px; }
   .settings-tabs button { font-size: 12px; padding: 6px 10px; gap: 6px; }
