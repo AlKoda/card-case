@@ -131,7 +131,9 @@
 
     if (opts.legacy) e.applyLegacy(opts.legacy);
 
-    e.spawnCase('burglary', { lifetime: 300 });
+    e.spawnCase('burglary', { lifetime: 300, quiet: !!opts.guided });
+    if (opts.guided && e.setupIntro) { e.setupIntro(); return e; }
+    if (CF.Story) { var op = CF.Story.opening(e); e.story(op.title, op.text, 'major'); return e; }
     e.story('Your First Day',
       'The desk is yours now, along with the cold coffee, the ringing phone and the file already waiting in the tray. ' +
       'The last detective to sit here left in a hurry. The city did not stop to notice. ' +
@@ -304,6 +306,7 @@
       out.push(self.cardRect(c));
     });
     for (var id in this.s.verbs) {
+      if (!T.verbsOnBoard) break; // the verbs live in the dock, not on the felt
       var v = this.s.verbs[id];
       if (!v.unlocked || v.x === undefined || id === skipVerb) continue;
       out.push(this.verbRect(v));
@@ -716,6 +719,7 @@
     v.ctxSlots = {};
     v.status = 'done';
     v.story = result;
+    if (this.s.intro) (this.s.intro.done = this.s.intro.done || {})[verbId] = true;
     this.layoutVerbs();
     this.story(result.title, result.text, result.kind || 'verb');
     this.emit('complete', { verb: verbId });
@@ -740,8 +744,23 @@
 
   // Where a verb's output lands: back where it came from, or beside the verb.
   P.outputSpot = function (verbId, card) {
-    var v = this.verb(verbId);
-    return card.lastPos || { x: v.x, y: v.y + T.VH + 12 };
+    return card.lastPos || null; // else placeOnTable finds a spot by kind
+  };
+
+  // Tidy the table: every card back to a spot its kind prefers, with the
+  // current spacing, keeping stacks together.
+  P.tidy = function () {
+    var self = this, cards = this.tableCards().sort(function (a, b) { return a.uid - b.uid; });
+    var done = {};
+    cards.forEach(function (c) { c.loc = null; });
+    cards.forEach(function (c) {
+      if (done[c.uid]) return;
+      var key = self.stackKey(c);
+      var mates = key ? cards.filter(function (o) { return !done[o.uid] && self.stackKey(o) === key; }) : [c];
+      var spot = self.layoutSpot(ZONE_ROWS[self.kindOf(c)] || 0, T.CW, T.CH, self.obstacles());
+      mates.forEach(function (m) { m.loc = { t: 'table', x: spot.x, y: spot.y }; m.lastPos = null; done[m.uid] = true; });
+    });
+    this.dirty = true;
   };
 
   P.collect = function (verbId) {
@@ -795,6 +814,7 @@
       if (s.over) return;
     }
 
+    if (s.intro && !s.intro.finished) this.introTick();
     this.tickInformants(dt);
     this.tickDelegates(dt);
     if (s.rooms.intel) this.tickIntelOffice();
@@ -867,6 +887,7 @@
     var s = this, self = this;
     s = this.s;
     s.week++;
+    if (s.intro && !s.intro.finished) this.introFinish('The week turns.');
     var lines = [];
 
     // Rent first, out of what is on the table; then the salary.
@@ -1068,8 +1089,9 @@
     var s = this.s;
     if (s.over) return;
     var end = CF.ENDINGS[id];
-    s.over = { id: id, win: end.win, title: end.title, text: end.text, week: s.week, origin: s.origin, calling: s.calling };
-    this.story(end.title, end.text, end.win ? 'victory' : 'defeat');
+    var text = CF.Story ? CF.Story.ending(this, id) : end.text;
+    s.over = { id: id, win: end.win, title: end.title, text: text, week: s.week, origin: s.origin, calling: s.calling };
+    this.story(end.title, text, end.win ? 'victory' : 'defeat');
     s.legacy = this.buildLegacy();
     this.emit('over', s.over);
   };
