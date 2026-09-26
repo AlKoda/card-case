@@ -89,6 +89,7 @@
     if (card.def === 'rung') return plain((CF.RUNGS[card.data.rung] || {}).icon || 'icon-scales');
     if (card.def === 'plea') return illus('ev-letter');
     if (card.def === 'writsale') return illus('ev2-letter');
+    if (card.def === 'tribute') return plain('coin-heart');
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
       return illus(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length]);
     }
@@ -1171,6 +1172,7 @@
       lines.push(CF.Callings.summary(e));
       var cnt = e.s.counts || {};
       lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0) + (cnt.debt ? ' · Debt ' + cnt.debt : ''));
+      if (e.s.court && e.s.court.stance) lines.push(e.s.court.stance === 'treaty' ? 'A Treaty with the Court' : 'Inside the Court, week ' + e.s.court.insideWeeks);
       lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
       if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
       if (e.s.who && CF.ORIGINS[e.s.who]) lines.push('Once ' + CF.ORIGINS[e.s.who].label.toLowerCase());

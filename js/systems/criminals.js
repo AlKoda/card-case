@@ -60,7 +60,7 @@
   P.criminalEscapes = function (rec, sus, how) {
     var c = this.criminalByName(sus.name);
     if (!c) {
-      c = { id: 'k' + this.s.nextUid++, name: sus.name, trait: sus.trait, crimes: 0, heat: 0, organization: 'none', traits: [], status: 'at_large', history: [] };
+      c = { id: 'k' + this.s.nextUid++, name: sus.name, trait: sus.trait, crimes: 0, heat: 0, organization: 'none', traits: [], status: 'at_large', history: [], role: rec.template };
       if (this.rng() < 0.3) c.traits.push('violent');
       this.s.criminals[c.id] = c;
     }
@@ -86,7 +86,9 @@
   P.criminalDesc = function (c) {
     var rank = Crim.rankOf(c);
     var trait = CF.TRAITS.filter(function (t) { return t.id === c.trait; })[0];
-    var bits = [rank.label + '.', c.crimes + ' crime' + (c.crimes === 1 ? '' : 's') + ' on the record.'];
+    var role = CF.Coquille && CF.Coquille.roleOf(c);
+    var bits = [rank.label + (role ? ', ' + role.role.toLowerCase() : '') + '.', c.crimes + ' crime' + (c.crimes === 1 ? '' : 's') + ' on the record.'];
+    if (c.king) bits.push('The King of Thunes.');
     if (trait) bits.push(trait.desc);
     c.traits.forEach(function (t) { bits.push(CF.CRIMINAL_TRAITS[t].desc); });
     return bits.join(' ');

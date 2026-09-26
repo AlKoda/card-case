@@ -111,7 +111,7 @@
   var OPENED = 'casefile.archive.opened.v1';
   var PER_PAGE = 8;
   var CARD_ART = { convicted: 'back-sun', wrongful: 'back-key', acquitted: 'back-snake', cold: 'back-moon' };
-  var OUTCOMES = { convicted: 'Answered', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Unanswered', settled: 'Settled' };
+  var OUTCOMES = { convicted: 'Answered', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Unanswered', settled: 'Settled', court: 'Closed by the Court' };
 
   function readList(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (err) { return []; } }
   function writeList(key, list) { try { localStorage.setItem(key, JSON.stringify(list)); } catch (err) { /* storage unavailable */ } }
