@@ -7,8 +7,8 @@
 
   // ------------------------------------------------------------ Settings
   var SettingsUI = (CF.SettingsUI = {});
-  var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap'];
-  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided'];
+  var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap', 'uiScale'];
+  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag'];
 
   function showValue(input) { input.nextElementSibling.textContent = input.value + (input.id === 's-gap' ? 'px' : '%'); }
 
@@ -24,7 +24,8 @@
     TOGGLES.forEach(function (k) { vals[k] = $('s-' + k).checked; });
     RANGES.forEach(function (k) { vals[k] = +$('s-' + k).value; });
     CF.Settings.save(vals);
-    if (CF.UI && CF.UI.e) { CF.TABLE.GAP = vals.gap; CF.UI.e.tidy(); }
+    if (CF.UI && CF.UI.applyScale) CF.UI.applyScale();
+    if (CF.UI && CF.UI.e && CF.TABLE.GAP !== vals.gap) { CF.TABLE.GAP = vals.gap; CF.UI.tidy ? CF.UI.tidy() : CF.UI.e.tidy(); }
     var fs = $('s-fullscreen').checked;
     try {
       if (fs && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
@@ -39,7 +40,7 @@
     $('s-' + k).addEventListener('input', function (ev) {
       showValue(ev.target);
       // Preview volume changes live.
-      if (k !== 'textSpeed' && CF.Audio.ready) {
+      if (k !== 'textSpeed' && k !== 'gap' && k !== 'uiScale' && CF.Audio.ready) {
         var preview = {}; for (var x in CF.Settings.values) preview[x] = CF.Settings.values[x];
         preview[k] = +ev.target.value;
         CF.Audio.apply(preview);

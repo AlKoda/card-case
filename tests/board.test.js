@@ -151,3 +151,46 @@ console.error = function (err) { throw err; };
   assert.deepStrictEqual(CF.tagsOf(e2.card(clue.uid)), CF.tagsOf(clue));
   console.log('board: spawn, move, stack, consume, transform, create, compatibility, unavailable, decay, save all OK');
 })();
+
+// ---- Table tools: stack like cards, remember and restore positions --------
+(function tableTools() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Tools' });
+  var funds = e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; });
+  assert.ok(funds.length >= 2, 'a new game has funds to stack');
+  // Pull one fund away from its stack, then stack everything again.
+  var loose = funds[0];
+  e.moveCard(loose.uid, loose.loc.x + 3 * (T.CW + T.GAP), loose.loc.y + 2 * (T.CH + T.GAP));
+  assert.ok(e.stackOf(loose).length === 1, 'the fund is on its own');
+  var before = e.snapshotTable();
+  var moved = e.mergeStacks();
+  assert.ok(moved.length >= 1, 'stacking moved the loose fund');
+  assert.strictEqual(e.stackOf(loose).length, funds.length, 'every fund is in one stack again');
+  assert.deepStrictEqual(e.mergeStacks(), [], 'a second stack has nothing to do');
+  // Undo puts it back exactly.
+  var n = e.restoreTable(before);
+  assert.ok(n >= funds.length, 'restore touched the table cards');
+  assert.strictEqual(e.stackOf(loose).length, 1, 'the fund is loose again after the undo');
+  assert.strictEqual(loose.loc.x, before[loose.uid].x, 'restored x');
+  assert.strictEqual(loose.loc.y, before[loose.uid].y, 'restored y');
+  // Cards that left the table since the snapshot are ignored, not resurrected.
+  var fake = {}; fake[999999] = { x: 0, y: 0 };
+  assert.strictEqual(e.restoreTable(fake), 0, 'unknown uids are skipped');
+  console.log('table tools: stack, snapshot and restore');
+})();
+
+// ---- A fading clue warns once, half a minute out ------------------------------
+(function fadeWarning() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Fade' });
+  var seen = [];
+  e.on(function (type, p) { if (type === 'expiring') seen.push(p); });
+  var clue = e.create('clue', { label: 'Muddy Print', lifetime: 40 });
+  assert.ok(clue.loc && clue.loc.t === 'table', 'the clue is on the table');
+  e.tick(5);
+  assert.strictEqual(seen.length, 0, 'no warning at 35s');
+  e.tick(6);
+  assert.strictEqual(seen.length, 1, 'one warning under 30s');
+  assert.strictEqual(seen[0].uid, clue.uid, 'the warning names the clue');
+  e.tick(5);
+  assert.strictEqual(seen.length, 1, 'the warning is not repeated');
+  console.log('fade warning: once, at 30s');
+})();
