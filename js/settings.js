@@ -2,7 +2,7 @@
 (function () {
   var CF = window.CF;
   var KEY = 'casefile.settings.v1';
-  var DEFAULTS = { master: 80, music: 60, sfx: 70, textSpeed: 50, shake: true, lang: 'en' };
+  var DEFAULTS = { master: 80, music: 60, sfx: 70, textSpeed: 50, shake: true, lang: 'en', pauseOnCase: false, pauseOnVerb: false, pauseOnBlur: true };
 
   var Settings = (CF.Settings = { values: {}, listeners: [] });
 

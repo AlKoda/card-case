@@ -6,9 +6,16 @@
   var U = CF.util;
 
   var WEEK = 60;          // seconds of game time per week
-  var COLS = 8;           // logical table width in cells
   var MAX_OPEN_CASES = 4;
-  var ZONE_ROWS = {       // table row each kind prefers
+  // The table is a free board measured in board pixels. Cards and verbs can
+  // sit anywhere; placement keeps them from covering each other.
+  var T = {
+    CW: 116, CH: 158, GAP: 14,   // card footprint
+    VW: 92, VH: 104,             // verb token footprint
+    COLS: 8,                     // width of the automatic layout, in cards
+    TOP: 136,                    // cards start below the row of verbs
+  };
+  var ZONE_ROWS = {       // layout row each kind prefers
     ability: 0, funds: 0, threat: 0, calling: 0, insight: 0, career: 0,
     case: 1, coldcase: 1, court: 1,
     clue: 2, evidence: 2, witness: 2, suspect: 2,
@@ -17,7 +24,7 @@
   };
 
   CF.WEEK = WEEK;
-  CF.COLS = COLS;
+  CF.TABLE = T;
 
   // ---- Card helpers shared with data files --------------------------------
   CF.aspectsOf = function (card) {
@@ -68,6 +75,7 @@
       s.verbs[id] = { id: id, status: 'idle', slots: {}, held: [], ctxSlots: {}, out: [], recipe: null,
         elapsed: 0, duration: 0, story: null, unlocked: CF.VERBS[id].rank === 0 };
     });
+    e.layoutVerbs();
 
     e.create('health');
     e.create('focus');
@@ -94,14 +102,24 @@
     e.story('Your First Day',
       'The desk is yours now, along with the cold coffee, the ringing phone and the file already waiting in the tray. ' +
       'The last detective to sit here left in a hurry. The city did not stop to notice. ' +
-      'Drag cards into the verbs above to act. Open a verb to see what it wants.', 'major');
+      'Drag cards onto the verbs on your table to act. Click a verb to open it and see what it wants.', 'major');
     e.dirty = true;
     return e;
   };
 
   Engine.load = function (json) {
     var s = typeof json === 'string' ? JSON.parse(json) : json;
-    return new Engine(s);
+    // Saves from the grid-table days stored a cell index instead of x/y.
+    for (var k in s.cards) {
+      var c = s.cards[k];
+      if (c.loc && c.loc.t === 'table' && c.loc.cell !== undefined) {
+        c.loc = { t: 'table', x: (c.loc.cell % T.COLS) * (T.CW + T.GAP), y: T.TOP + Math.floor(c.loc.cell / T.COLS) * (T.CH + T.GAP) };
+      }
+      delete c.lastCell;
+    }
+    var e = new Engine(s);
+    e.layoutVerbs();
+    return e;
   };
 
   P.save = function () {
@@ -145,9 +163,9 @@
   };
 
   // Create a card directly on the table.
-  P.create = function (defId, spec, preferCell) {
+  P.create = function (defId, spec, prefer) {
     var card = this.make(defId, spec);
-    this.placeOnTable(card, preferCell);
+    this.placeOnTable(card, prefer);
     this.dirty = true;
     return card;
   };
@@ -166,51 +184,160 @@
     return out;
   };
 
-  P.findCell = function (card, prefer) {
-    var occ = {};
-    var key = this.stackKey(card);
-    var table = this.tableCards();
-    for (var i = 0; i < table.length; i++) {
-      var c = table[i];
-      if (c === card) continue;
-      if (key && this.stackKey(c) === key) return c.loc.cell;
-      occ[c.loc.cell] = c;
+  // ---- Board geometry ------------------------------------------------------
+  function overlaps(a, b) {
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  }
+  P.cardRect = function (c) { return { x: c.loc.x, y: c.loc.y, w: T.CW, h: T.CH }; };
+  P.verbRect = function (v) { return { x: v.x, y: v.y, w: T.VW, h: T.VH }; };
+
+  // Everything on the board that a placement must not cover. `skip` is a
+  // predicate for cards/verbs that are moving (and so don't count).
+  P.obstacles = function (skipCard, skipVerb) {
+    var out = [], seen = {};
+    var self = this;
+    this.tableCards().forEach(function (c) {
+      if (skipCard && skipCard(c)) return;
+      var k = c.loc.x + ',' + c.loc.y;
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push(self.cardRect(c));
+    });
+    for (var id in this.s.verbs) {
+      var v = this.s.verbs[id];
+      if (!v.unlocked || v.x === undefined || id === skipVerb) continue;
+      out.push(this.verbRect(v));
     }
-    if (prefer !== undefined && prefer !== null && prefer >= 0 && !occ[prefer]) return prefer;
-    var start = (ZONE_ROWS[this.kindOf(card)] || 0) * COLS;
-    for (var j = start; j < 1000; j++) if (!occ[j]) return j;
-    return 0;
+    return out;
   };
 
-  P.placeOnTable = function (card, prefer) {
-    if (prefer === undefined && card.lastCell !== undefined) prefer = card.lastCell;
-    card.loc = { t: 'table', cell: this.findCell(card, prefer) };
-  };
-
-  // Move a table card to another cell; swaps with a lone occupant.
-  P.moveCard = function (uid, cell) {
-    var card = this.card(uid);
-    if (!card || !card.loc || card.loc.t !== 'table' || cell < 0) return false;
-    var from = card.loc.cell;
-    var key = this.stackKey(card);
-    var here = this.tableCards().filter(function (c) { return c.loc.cell === cell && c !== card; });
-    if (here.length) {
-      var hk = this.stackKey(here[0]);
-      if (key && hk === key) { card.loc.cell = cell; this.dirty = true; return true; }
-      var fromStack = this.tableCards().filter(function (c) { return c.loc.cell === from && c !== card; }).length > 0;
-      if (fromStack) return false;
-      here.forEach(function (c) { c.loc.cell = from; });
-    }
-    card.loc.cell = cell;
-    this.dirty = true;
+  function isFree(r, obs) {
+    if (r.x < 0 || r.y < 0) return false;
+    for (var i = 0; i < obs.length; i++) if (overlaps(r, obs[i])) return false;
     return true;
+  }
+
+  // The free spot closest to (x, y) for a w x h footprint.
+  P.nearestFree = function (x, y, w, h, obs) {
+    x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+    if (isFree({ x: x, y: y, w: w, h: h }, obs)) return { x: x, y: y };
+    var step = 12;
+    for (var r = 1; r <= 90; r++) {
+      var best = null, bestD = Infinity;
+      for (var i = -r; i <= r; i++) {
+        var pts = [[i, -r], [i, r], [-r, i], [r, i]];
+        for (var j = 0; j < 4; j++) {
+          var px = x + pts[j][0] * step, py = y + pts[j][1] * step;
+          var d = (px - x) * (px - x) + (py - y) * (py - y);
+          if (d < bestD && isFree({ x: px, y: py, w: w, h: h }, obs)) { best = { x: px, y: py }; bestD = d; }
+        }
+      }
+      if (best) return best;
+    }
+    return this.layoutSpot(0, w, h, obs);
+  };
+
+  // The first free slot in the automatic layout, from a given row down.
+  P.layoutSpot = function (row, w, h, obs) {
+    for (var r = row; r < row + 200; r++) {
+      for (var c = 0; c < T.COLS; c++) {
+        var p = { x: c * (T.CW + T.GAP), y: T.TOP + r * (T.CH + T.GAP), w: w, h: h };
+        if (isFree(p, obs)) return { x: p.x, y: p.y };
+      }
+    }
+    return { x: 0, y: T.TOP };
+  };
+
+  // The stack a card would join: another table card with the same stack key.
+  P.stackFor = function (card, near) {
+    var key = this.stackKey(card);
+    if (!key) return null;
+    var best = null, bestD = Infinity;
+    var self = this;
+    this.tableCards().forEach(function (c) {
+      if (c === card || self.stackKey(c) !== key) return;
+      if (near) {
+        var r = self.cardRect(c);
+        if (!overlaps(r, { x: near.x + T.CW * 0.3, y: near.y + T.CH * 0.3, w: T.CW * 0.4, h: T.CH * 0.4 })) return;
+      }
+      var d = near ? Math.abs(c.loc.x - near.x) + Math.abs(c.loc.y - near.y) : 0;
+      if (d < bestD) { best = c; bestD = d; }
+    });
+    return best;
+  };
+
+  // The other cards sharing this card's stack.
+  P.stackOf = function (card) {
+    if (!card.loc || card.loc.t !== 'table') return [card];
+    var key = this.stackKey(card);
+    if (!key) return [card];
+    var self = this;
+    return this.tableCards().filter(function (c) { return c.loc.x === card.loc.x && c.loc.y === card.loc.y && self.stackKey(c) === key; });
+  };
+
+  // Put a card on the table: join its stack, else the spot asked for (or the
+  // one it last had), else the first free place in its kind's layout row.
+  P.placeOnTable = function (card, prefer) {
+    card.loc = null;
+    var join = this.stackFor(card);
+    if (join) { card.loc = { t: 'table', x: join.loc.x, y: join.loc.y }; return; }
+    if (!prefer && card.lastPos) prefer = card.lastPos;
+    var obs = this.obstacles(function (c) { return c === card; });
+    var p = prefer ? this.nearestFree(prefer.x, prefer.y, T.CW, T.CH, obs)
+      : this.layoutSpot(ZONE_ROWS[this.kindOf(card)] || 0, T.CW, T.CH, obs);
+    card.loc = { t: 'table', x: p.x, y: p.y };
+  };
+
+  // Drop a card (or its whole stack) at a board position. Dropping a stackable
+  // card onto its own kind joins that stack; otherwise it settles at the
+  // nearest free spot. Returns the final position.
+  P.moveCard = function (uid, x, y, wholeStack) {
+    var card = this.card(uid);
+    if (!card || !card.loc || card.loc.t !== 'table') return null;
+    var moving = wholeStack ? this.stackOf(card) : [card];
+    var join = this.stackFor(card, { x: x, y: y });
+    if (join && moving.indexOf(join) >= 0) join = null;
+    var p;
+    if (join) p = { x: join.loc.x, y: join.loc.y };
+    else {
+      var obs = this.obstacles(function (c) { return moving.indexOf(c) >= 0; });
+      p = this.nearestFree(x, y, T.CW, T.CH, obs);
+    }
+    moving.forEach(function (c) { c.loc = { t: 'table', x: p.x, y: p.y }; });
+    this.dirty = true;
+    return p;
+  };
+
+  P.moveVerb = function (vid, x, y) {
+    var v = this.verb(vid);
+    if (!v || !v.unlocked) return null;
+    var p = this.nearestFree(x, y, T.VW, T.VH, this.obstacles(null, vid));
+    v.x = p.x; v.y = p.y;
+    this.dirty = true;
+    return p;
+  };
+
+  // Give every unlocked verb a place on the board (a row along the top).
+  P.layoutVerbs = function () {
+    var self = this;
+    CF.VERB_ORDER.forEach(function (id) {
+      var v = self.s.verbs[id];
+      if (!v.unlocked || v.x !== undefined) return;
+      var obs = self.obstacles(null, id);
+      for (var i = 0; i < 40; i++) {
+        var r = { x: i * (T.VW + T.GAP), y: 0, w: T.VW, h: T.VH };
+        if (isFree(r, obs)) { v.x = r.x; v.y = r.y; return; }
+      }
+      var p = self.nearestFree(0, 0, T.VW, T.VH, obs);
+      v.x = p.x; v.y = p.y;
+    });
   };
 
   // Detach a card from wherever it currently sits (table, slot, verb).
   P.detach = function (card) {
     var loc = card.loc;
     if (!loc) return;
-    if (loc.t === 'table') card.lastCell = loc.cell;
+    if (loc.t === 'table') card.lastPos = { x: loc.x, y: loc.y };
     var v = loc.verb ? this.s.verbs[loc.verb] : null;
     if (loc.t === 'slot' && v && v.slots[loc.slot] === card.uid) delete v.slots[loc.slot];
     if (loc.t === 'held' && v) {
@@ -471,6 +598,7 @@
     v.ctxSlots = {};
     v.status = 'done';
     v.story = result;
+    this.layoutVerbs();
     this.story(result.title, result.text, result.kind || 'verb');
     this.emit('complete', { verb: verbId });
     if (v.out.length === 0 && !result.keepOpen) {
@@ -481,15 +609,21 @@
   };
 
   // Drag a single output card out of a finished verb onto the table.
-  P.takeOutput = function (verbId, uid, cell) {
+  P.takeOutput = function (verbId, uid, pos) {
     var v = this.verb(verbId);
     var card = this.card(uid);
     if (!card || !card.loc || card.loc.t !== 'out' || card.loc.verb !== verbId) return false;
     this.detach(card);
-    this.placeOnTable(card, cell);
+    this.placeOnTable(card, pos || this.outputSpot(verbId, card));
     if (!v.out.length && v.status === 'done') { v.status = 'idle'; v.story = null; }
     this.dirty = true;
     return true;
+  };
+
+  // Where a verb's output lands: back where it came from, or beside the verb.
+  P.outputSpot = function (verbId, card) {
+    var v = this.verb(verbId);
+    return card.lastPos || { x: v.x, y: v.y + T.VH + 12 };
   };
 
   P.collect = function (verbId) {
@@ -499,7 +633,7 @@
       var c = self.card(uid);
       if (!c) return;
       c.loc = null;
-      self.placeOnTable(c);
+      self.placeOnTable(c, self.outputSpot(verbId, c));
     });
     v.out = [];
     if (v.status === 'done') v.status = 'idle';

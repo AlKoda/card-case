@@ -3,7 +3,6 @@
 (function () {
   var CF = window.CF;
   var U = CF.util;
-  var CW = 116, CH = 158, GAP = 10;
 
   // Art lives in css/art/*.css as --art-* custom properties (see tools/build_art.py).
   function art(name) { return 'var(--art-' + name + ')'; }
@@ -91,10 +90,17 @@
   }
 
   var UI = (CF.UI = {
-    e: null, openVerb: null, selected: null, hover: null, tab: 'desk',
-    speed: 1, paused: false, modal: false, scale: 1, drag: null, unreadJournal: false,
+    e: null, openVerbs: [], selected: null, hover: null, hoverSlot: null,
+    speed: 1, paused: false, modal: false, drag: null,
+    view: { x: 16, y: 16, z: 1 }, winPos: {}, lifted: null, spawn: {},
     onGameOver: null, onSave: null,
   });
+
+  var T = CF.TABLE;
+  var cardEls = {};   // top card uid -> board element
+  var verbEls = {};   // verb id -> token element
+  var winEls = {};    // verb id -> window element
+  var liveCards = []; // [el, uid] for cards with timers
 
   function $(sel) { return document.querySelector(sel); }
   function h(tag, cls, text) {
@@ -108,52 +114,75 @@
   // ---------------------------------------------------------------- Setup
   UI.attach = function (engine) {
     UI.e = engine;
-    UI.openVerb = null;
+    UI.openVerbs = [];
     UI.selected = null;
-    UI.tab = 'desk';
+    UI.hover = null;
+    UI.lifted = null;
+    UI.spawn = {};
+    UI.winPos = {};
     UI.seenVerbs = {};
-    UI.lastRank = engine.s.rank;
     UI.newVerbs = {};
+    UI.lastRank = engine.s.rank;
+    UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
+    ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
+    cardEls = {}; verbEls = {}; winEls = {}; liveCards = [];
     engine.on(onEvent);
     engine.dirty = true;
+    requestAnimationFrame(UI.fitView);
   };
 
+  UI.setPaused = function (p) { UI.paused = p; renderControls(); };
+  UI.setSpeed = function (sp) { UI.speed = sp; UI.paused = false; renderControls(); };
+
   UI.init = function () {
-    $('#tabs').addEventListener('click', function (ev) {
-      var b = ev.target.closest('button[data-tab]');
-      if (!b) return;
-      UI.tab = b.dataset.tab;
-      if (UI.tab === 'journal') UI.unreadJournal = false;
-      renderSide();
-      renderTabs();
-    });
     $('#controls').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-speed]');
       if (!b) return;
       var sp = +b.dataset.speed;
-      if (sp === 0) UI.paused = !UI.paused;
-      else { UI.speed = sp; UI.paused = false; }
-      renderControls();
+      if (sp === 0) UI.setPaused(!UI.paused); else UI.setSpeed(sp);
+    });
+    $('#zoom').addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-zoom]');
+      if (!b) return;
+      var r = $('#table').getBoundingClientRect();
+      if (b.dataset.zoom === 'fit') UI.fitView();
+      else zoomAt(r.left + r.width / 2, r.top + r.height / 2, b.dataset.zoom === 'in' ? 1.15 : 1 / 1.15);
     });
     document.addEventListener('keydown', function (ev) {
       if (UI.modal || ev.target.tagName === 'INPUT') return;
-      if (ev.code === 'Space') { ev.preventDefault(); UI.paused = !UI.paused; renderControls(); }
-      else if (ev.key === '1' || ev.key === '2' || ev.key === '3') { UI.speed = +ev.key; UI.paused = false; renderControls(); }
-      else if (ev.key === 'Escape') { UI.openVerb = null; UI.e.dirty = true; }
-      else if (ev.key === 'j' || ev.key === 'J') { UI.tab = UI.tab === 'journal' ? 'desk' : 'journal'; UI.unreadJournal = false; UI.e.dirty = true; }
+      if (ev.code === 'Space') { ev.preventDefault(); UI.setPaused(!UI.paused); }
+      else if (ev.key === '1' || ev.key === '2' || ev.key === '3') UI.setSpeed(+ev.key);
+      else if (ev.key === 'Escape') { if (UI.drag) cancelDrag(); else if (UI.openVerbs.length) closeWindow(UI.openVerbs[UI.openVerbs.length - 1]); }
+      else if (ev.key === '+' || ev.key === '=') $('#zoom [data-zoom=in]').click();
+      else if (ev.key === '-') $('#zoom [data-zoom=out]').click();
+      else if (ev.key === '0') UI.fitView();
     });
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', cancelDrag);
+    document.addEventListener('pointercancel', function () { cancelDrag(); });
     document.addEventListener('dblclick', onDoubleClick);
-    window.addEventListener('resize', function () { if (UI.e) UI.e.dirty = true; });
+    $('#table').addEventListener('wheel', function (ev) {
+      if (UI.modal) return;
+      // Inside a verb window the wheel scrolls the window, not the table.
+      if (ev.target.closest && ev.target.closest('.vwin')) return;
+      ev.preventDefault();
+      zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015));
+    }, { passive: false });
+    window.addEventListener('resize', function () {
+      // Keep open windows inside the (possibly smaller) table.
+      Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
+      if (UI.e) UI.e.dirty = true;
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && CF.Settings.get('pauseOnBlur') && UI.e && !UI.e.s.over) UI.setPaused(true);
+    });
 
     var last = performance.now();
     var saveT = 0;
     function frame(now) {
-      var dt = Math.min(0.25, (now - last) / 1000);
+      var dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       var e = UI.e;
       if (e) {
@@ -163,13 +192,14 @@
           if (saveT > 8 && UI.onSave) { saveT = 0; UI.onSave(); }
         }
         if (e.dirty) { e.dirty = false; render(); }
-        else updateLive();
+        updateLive();
       }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   };
 
+  // ---------------------------------------------------------------- Events
   var STORY_SOUNDS = { case: 'case', danger: 'danger', week: 'week', major: 'complete', victory: 'complete' };
   function shake() {
     if (!CF.Settings.get('shake')) return;
@@ -182,16 +212,17 @@
   function onEvent(type, payload) {
     if (type === 'resolved' && UI.onResolved) UI.onResolved(payload);
     if (type === 'story') {
-      if (UI.tab !== 'journal') UI.unreadJournal = true;
       var k = payload.kind;
       if (!UI.modal && STORY_SOUNDS[k]) CF.Audio.play(STORY_SOUNDS[k]);
       if (!UI.modal && k === 'danger') shake();
       if (k === 'case' || k === 'danger' || k === 'major' || k === 'victory' || k === 'week') toast(payload);
+      if (k === 'case' && CF.Settings.get('pauseOnCase')) UI.setPaused(true);
     }
-    if (type === 'complete') CF.Audio.play('complete');
-    if (type === 'complete' && payload.verb !== UI.openVerb) {
+    if (type === 'complete') {
+      CF.Audio.play('complete');
       var v = UI.e.verb(payload.verb);
-      if (v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
+      if (UI.openVerbs.indexOf(payload.verb) < 0 && v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
+      if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
     }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
   }
@@ -203,33 +234,32 @@
     t.style.backgroundImage = art(TOAST_BARS[entry.kind] || 'bar-search');
     t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
     t.addEventListener('click', function () {
-      if (entry.verb) { UI.openVerb = entry.verb; UI.tab = 'desk'; }
-      else { UI.tab = 'journal'; UI.unreadJournal = false; }
-      UI.e.dirty = true;
+      if (entry.verb) openWindow(entry.verb);
+      else $('#journal').scrollTop = 0;
       t.remove();
     });
     box.appendChild(t);
     while (box.children.length > 3) box.removeChild(box.firstChild);
-    setTimeout(function () { t.remove(); }, 6000);
+    setTimeout(function () { t.classList.add('leaving'); setTimeout(function () { t.remove(); }, 300); }, 6000);
   }
 
-  // --------------------------------------------------------------- Render
+  // ---------------------------------------------------------------- Render
   function render() {
     renderTop();
-    renderVerbs();
-    renderTable();
-    renderTabs();
-    renderSide();
+    syncBoard();
+    syncWindows();
+    markFits();
+    renderJournal();
     renderInspector();
     renderControls();
   }
 
   function renderControls() {
-    var btns = document.querySelectorAll('#controls button[data-speed]');
-    btns.forEach(function (b) {
+    document.querySelectorAll('#controls button[data-speed]').forEach(function (b) {
       var sp = +b.dataset.speed;
       b.classList.toggle('on', sp === 0 ? UI.paused : !UI.paused && UI.speed === sp);
     });
+    $('#table').classList.toggle('paused', !!UI.paused);
   }
 
   function meter(key, label, val, max, shown) {
@@ -255,62 +285,6 @@
     updateWeekBar();
   }
 
-  function verbStatus(vid) {
-    var e = UI.e, v = e.verb(vid);
-    if (vid === 'time') return 'Week ' + e.s.week;
-    if (v.status === 'running') return U.fmtTime(v.duration - v.elapsed);
-    if (v.status === 'done') return 'Ready';
-    if (e.lockReason(vid)) return 'Locked';
-    var n = Object.keys(v.slots).length;
-    return n ? n + ' card' + (n > 1 ? 's' : '') : '';
-  }
-
-  function renderVerbs() {
-    var e = UI.e;
-    var box = $('#verbs');
-    box.innerHTML = '';
-    CF.VERB_ORDER.forEach(function (vid) {
-      var v = e.verb(vid);
-      if (!v.unlocked) return;
-      var def = CF.VERBS[vid];
-      var n = h('div', 'verb ' + vid + ' ' + v.status + (UI.openVerb === vid ? ' open' : '') + (e.lockReason(vid) && v.status === 'idle' ? ' locked' : '') + (def.auto ? ' time' : ''));
-      n.dataset.verb = vid;
-      n.title = def.desc;
-      var tok = h('div', 'v-token');
-      tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'token-' + vid);
-      tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" /></svg>');
-      if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
-      else tok.appendChild(h('div', 'v-plate', def.label));
-      n.appendChild(tok);
-      if (vid === 'time') n.appendChild(h('div', 'v-name', def.label));
-      n.appendChild(h('div', 'v-status', verbStatus(vid)));
-      if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; UI.newVerbs[vid] = true; }
-      if (UI.newVerbs[vid]) n.classList.add('new');
-      box.appendChild(n);
-    });
-    updateVerbBars();
-  }
-
-  function updateVerbBars() {
-    var e = UI.e;
-    document.querySelectorAll('#verbs .verb').forEach(function (n) {
-      var vid = n.dataset.verb;
-      var v = e.verb(vid);
-      var ring = n.querySelector('.v-ring circle');
-      var pct = vid === 'time' ? e.s.weekT / CF.WEEK : v.status === 'running' ? v.elapsed / v.duration : v.status === 'done' ? 1 : 0;
-      ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
-      n.querySelector('.v-status').textContent = vid === 'time' ? '' : verbStatus(vid);
-      var wk = n.querySelector('.v-week');
-      if (wk) wk.textContent = 'Wk ' + e.s.week;
-    });
-  }
-
-  function caseTitle(card) {
-    var rec = card.caseId && UI.e.caseRec(card.caseId);
-    return rec ? rec.title : '';
-  }
-
-  // Build a card element. opts: {count, mini}
   function aspectChip(k, v) {
     var b = h('span', 'chip');
     b.title = CF.ASPECTS[k].label;
@@ -321,16 +295,43 @@
     return b;
   }
 
-  // Build a card element. opts: {count, mini}
-  function cardEl(card, opts) {
-    opts = opts || {};
+  // ---------------------------------------------------------------- Cards
+  function caseTitle(card) {
+    var rec = card.caseId && UI.e.caseRec(card.caseId);
+    return rec ? rec.title : '';
+  }
+
+  // What a card looks like; if this string changes the face is rebuilt.
+  function cardSig(card, count) {
+    return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife,
+      card.def === 'coldcase' ? card.data.template : ''].join('|');
+  }
+
+  // A card element: shadow cards underneath (for stacks) and the face.
+  function buildCard(card, count, mini) {
+    var n = h('div', 'card' + (mini ? ' mini' : ''));
+    n.dataset.uid = card.uid;
+    fillCard(n, card, count);
+    return n;
+  }
+
+  function fillCard(n, card, count) {
     var e = UI.e;
     var def = CF.CARDS[card.def];
-    var kind = CF.KINDS[def.kind] || { label: def.kind, color: '#777' };
+    var kind = CF.KINDS[def.kind] || { label: def.kind };
     var frame = FRAME_COLOR[def.kind] || 'gold';
-    var n = h('div', 'card frame-' + frame + ' kind-' + def.kind + (opts.mini ? ' mini' : '') + (card.fresh ? ' fresh' : '') + (UI.selected === card.uid ? ' selected' : ''));
+    n.dataset.sig = cardSig(card, count);
     n.dataset.uid = card.uid;
-    n.style.backgroundImage = art('cardframe-' + frame);
+    n.className = n.className.replace(/\b(frame|kind)-\S+/g, '').replace(/\bstack-\d\b/g, '').trim() +
+      ' frame-' + frame + ' kind-' + def.kind + (count > 1 ? ' stack-' + Math.min(3, count) : '');
+    n.innerHTML = '';
+    for (var i = Math.min(2, count - 1); i > 0; i--) {
+      var u = h('div', 'c-under u' + i);
+      u.style.backgroundImage = art('cardframe-' + frame);
+      n.appendChild(u);
+    }
+    var face = h('div', 'c-face');
+    face.style.backgroundImage = art('cardframe-' + frame);
     var body = h('div', 'c-body');
     var pic = cardPicture(card);
     if (pic) {
@@ -355,15 +356,13 @@
         body.appendChild(h('div', 'c-timer', U.fmtTime(card.life)));
       }
       var life = h('div', 'c-life');
-      var lf = h('div');
-      lf.style.width = Math.max(0, (card.life / card.maxLife) * 100) + '%';
-      life.appendChild(lf);
+      life.appendChild(h('div'));
       body.appendChild(life);
-      if (def.kind === 'case' && card.life < 45) n.classList.add('urgent');
     }
-    n.appendChild(body);
-    if (opts.count > 1) n.appendChild(h('div', 'c-count', '×' + opts.count));
-    return n;
+    face.appendChild(body);
+    n.appendChild(face);
+    if (count > 1) n.appendChild(h('div', 'c-count', '×' + count));
+    updateCardLive(n, card);
   }
 
   function updateCardLive(n, card) {
@@ -372,7 +371,159 @@
     if (t) t.textContent = U.fmtTime(card.life);
     var lf = n.querySelector('.c-life > div');
     if (lf) lf.style.width = Math.max(0, (card.life / card.maxLife) * 100) + '%';
-    if (CF.CARDS[card.def].kind === 'case') n.classList.toggle('urgent', card.life < 45);
+    n.classList.toggle('urgent', CF.CARDS[card.def].kind === 'case' && card.life < 45);
+  }
+
+  // ---------------------------------------------------------------- Board
+  function applyView() {
+    var v = UI.view;
+    $('#board').style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')';
+    $('#table').style.setProperty('--z', v.z);
+  }
+
+  function boardBounds() {
+    var e = UI.e, x0 = 0, y0 = 0, x1 = T.COLS * (T.CW + T.GAP), y1 = T.TOP + 3 * (T.CH + T.GAP);
+    e.tableCards().forEach(function (c) { x1 = Math.max(x1, c.loc.x + T.CW); y1 = Math.max(y1, c.loc.y + T.CH); });
+    CF.VERB_ORDER.forEach(function (id) { var v = e.verb(id); if (v.unlocked) { x1 = Math.max(x1, v.x + T.VW); y1 = Math.max(y1, v.y + T.VH); } });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  // Fit the whole board into the table area.
+  UI.fitView = function () {
+    if (!UI.e) return;
+    var r = $('#table').getBoundingClientRect();
+    var b = boardBounds();
+    // Fit the width; the board can be panned vertically.
+    var z = U.clamp((r.width - 40) / b.w, 0.5, 1);
+    UI.view = { x: Math.max(20, (r.width - b.w * z) / 2) - b.x * z, y: 16 - b.y * z, z: z };
+    applyView();
+  };
+
+  function zoomAt(cx, cy, factor) {
+    var r = $('#table').getBoundingClientRect();
+    var v = UI.view, z = U.clamp(v.z * factor, 0.4, 1.6);
+    var px = cx - r.left, py = cy - r.top;
+    v.x = px - (px - v.x) * (z / v.z);
+    v.y = py - (py - v.y) * (z / v.z);
+    v.z = z;
+    applyView();
+  }
+
+  function toBoard(cx, cy) {
+    var r = $('#table').getBoundingClientRect();
+    return { x: (cx - r.left - UI.view.x) / UI.view.z, y: (cy - r.top - UI.view.y) / UI.view.z };
+  }
+
+  function place(el, x, y) { el.style.transform = 'translate3d(' + Math.round(x) + 'px,' + Math.round(y) + 'px,0)'; }
+
+  // Keep one element per stack on the board, moving (not rebuilding) them.
+  function syncBoard() {
+    var e = UI.e, board = $('#board');
+    var lifted = UI.lifted || {};
+    var groups = {};
+    e.tableCards().forEach(function (c) {
+      if (lifted[c.uid]) return;
+      var k = c.loc.x + ',' + c.loc.y;
+      (groups[k] = groups[k] || []).push(c);
+    });
+    var keep = {};
+    liveCards = [];
+    Object.keys(groups).forEach(function (k) {
+      var list = groups[k].sort(function (a, b) { return a.uid - b.uid; });
+      var top = list[0];
+      keep[top.uid] = true;
+      var el = cardEls[top.uid];
+      var sig = cardSig(top, list.length);
+      if (!el) {
+        el = buildCard(top, list.length);
+        cardEls[top.uid] = el;
+        var sp = UI.spawn[top.uid];
+        if (sp) {
+          // Fly in from where it came from (a verb window, the drag layer...).
+          var p0 = toBoard(sp.cx, sp.cy);
+          place(el, p0.x - sp.gx, p0.y - sp.gy);
+          el.classList.add('flying');
+          delete UI.spawn[top.uid];
+        } else {
+          place(el, top.loc.x, top.loc.y);
+          if (top.fresh) el.classList.add('arrive');
+        }
+        board.appendChild(el);
+        if (sp) { void el.offsetWidth; }
+      } else if (el.dataset.sig !== sig) {
+        fillCard(el, top, list.length);
+      }
+      if (el.parentNode === board) place(el, top.loc.x, top.loc.y);
+      el.classList.toggle('selected', UI.selected === top.uid);
+      if (top.maxLife) liveCards.push([el, top.uid]);
+      list.forEach(function (c) { c.fresh = false; });
+    });
+    Object.keys(cardEls).forEach(function (uid) {
+      if (keep[uid] || lifted[uid]) return;
+      var el = cardEls[uid];
+      delete cardEls[uid];
+      if (el.parentNode !== board) return;
+      el.classList.add('leaving');
+      setTimeout(function () { el.remove(); }, 220);
+    });
+    syncVerbs();
+  }
+
+  function verbStatus(vid) {
+    var e = UI.e, v = e.verb(vid);
+    if (vid === 'time') return 'Week ' + e.s.week;
+    if (v.status === 'running') return U.fmtTime(v.duration - v.elapsed);
+    if (v.status === 'done') return 'Ready';
+    if (e.lockReason(vid)) return 'Locked';
+    var n = Object.keys(v.slots).length;
+    return n ? n + ' card' + (n > 1 ? 's' : '') : '';
+  }
+
+  function syncVerbs() {
+    var e = UI.e, board = $('#board');
+    CF.VERB_ORDER.forEach(function (vid) {
+      var v = e.verb(vid);
+      var el = verbEls[vid];
+      if (!v.unlocked) { if (el) { el.remove(); delete verbEls[vid]; } return; }
+      var def = CF.VERBS[vid];
+      if (!el) {
+        el = h('div', 'verb ' + vid + (def.auto ? ' time' : ''));
+        el.dataset.verb = vid;
+        el.title = def.desc;
+        var tok = h('div', 'v-token');
+        tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'token-' + vid);
+        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" /></svg>');
+        if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
+        else tok.appendChild(h('div', 'v-plate', def.label));
+        el.appendChild(tok);
+        if (vid === 'time') el.appendChild(h('div', 'v-name', def.label));
+        el.appendChild(h('div', 'v-status'));
+        el.appendChild(h('div', 'v-badge', '!'));
+        place(el, v.x, v.y);
+        board.appendChild(el);
+        verbEls[vid] = el;
+        if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; el.classList.add('new'); }
+      }
+      if (!(UI.drag && UI.drag.verb === vid)) place(el, v.x, v.y);
+      el.classList.toggle('running', v.status === 'running');
+      el.classList.toggle('done', v.status === 'done');
+      el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
+      el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
+      el.classList.toggle('loaded', v.status === 'idle' && Object.keys(v.slots).length > 0);
+    });
+  }
+
+  function updateVerbRings() {
+    var e = UI.e;
+    Object.keys(verbEls).forEach(function (vid) {
+      var el = verbEls[vid], v = e.verb(vid);
+      var pct = vid === 'time' ? e.s.weekT / CF.WEEK : v.status === 'running' ? v.elapsed / v.duration : v.status === 'done' ? 1 : 0;
+      var ring = el.querySelector('.v-ring circle');
+      ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
+      el.querySelector('.v-status').textContent = vid === 'time' ? '' : verbStatus(vid);
+      var wk = el.querySelector('.v-week');
+      if (wk) wk.textContent = 'Wk ' + e.s.week;
+    });
   }
 
   // The sun-to-moon bar: six dots light up as the week passes.
@@ -385,71 +536,253 @@
     var e = UI.e;
     updateWeekBar();
     advanceTyping();
-    updateVerbBars();
-    document.querySelectorAll('.card[data-uid]').forEach(function (n) {
-      if (n.classList.contains('ghost')) return;
-      updateCardLive(n, e.card(+n.dataset.uid));
-    });
-    var pr = document.querySelector('#pane .progress > div');
-    if (pr && UI.openVerb) {
-      var v = e.verb(UI.openVerb);
+    updateVerbRings();
+    for (var i = 0; i < liveCards.length; i++) updateCardLive(liveCards[i][0], e.card(liveCards[i][1]));
+    UI.openVerbs.forEach(function (vid) {
+      var w = winEls[vid], v = e.verb(vid);
+      if (!w) return;
       if (v.status === 'running') {
-        pr.style.width = (v.elapsed / v.duration) * 100 + '%';
-        var tl = document.querySelector('#pane .p-time');
+        var pr = w.querySelector('.progress > div');
+        if (pr) pr.style.width = (v.elapsed / v.duration) * 100 + '%';
+        var tl = w.querySelector('.p-time');
         if (tl) tl.textContent = U.fmtTime(v.duration - v.elapsed) + ' remaining';
       }
-    }
-  }
-
-  function renderTable() {
-    var e = UI.e;
-    var inner = $('#table-inner');
-    inner.innerHTML = '';
-    var groups = {};
-    e.tableCards().forEach(function (c) { (groups[c.loc.cell] = groups[c.loc.cell] || []).push(c); });
-    var maxRow = 0;
-    Object.keys(groups).forEach(function (cell) {
-      var list = groups[cell];
-      list.sort(function (a, b) { return (a.life || 1e9) - (b.life || 1e9); });
-      var top = list[0];
-      var col = cell % CF.COLS, row = Math.floor(cell / CF.COLS);
-      maxRow = Math.max(maxRow, row);
-      var n = cardEl(top, { count: list.length });
-      n.style.left = col * (CW + GAP) + 'px';
-      n.style.top = row * (CH + GAP) + 'px';
-      inner.appendChild(n);
+      w.querySelectorAll('.card[data-uid]').forEach(function (n) { updateCardLive(n, e.card(+n.dataset.uid)); });
     });
-    var w = CF.COLS * (CW + GAP);
-    inner.style.width = w + 'px';
-    inner.style.height = (maxRow + 2) * (CH + GAP) + 'px';
-    var avail = $('#table').clientWidth - 32;
-    UI.scale = Math.max(0.45, Math.min(1, avail / w));
-    inner.style.transform = 'scale(' + UI.scale + ')';
-    // Fresh highlight only plays once.
-    e.tableCards().forEach(function (c) { c.fresh = false; });
   }
 
-  function renderTabs() {
-    var tabs = $('#tabs');
-    tabs.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === UI.tab); });
-    var jb = tabs.querySelector('[data-tab=journal]');
-    jb.innerHTML = 'Journal' + (UI.unreadJournal ? '<span class="dot"></span>' : '');
+  // Cards on the table that could go into an open window's empty slots.
+  function slotFits(vid, slotKey) {
+    var e = UI.e, out = {};
+    var sl = CF.VERBS[vid].slots.filter(function (x) { return x.key === slotKey; })[0];
+    if (!sl) return out;
+    e.tableCards().forEach(function (c) { if (e.slotAccepts(sl, c)) out[c.uid] = true; });
+    return out;
+  }
+  function markFits() {
+    var e = UI.e;
+    var soft = {}, strong = UI.hoverSlot ? slotFits(UI.hoverSlot.verb, UI.hoverSlot.slot) : {};
+    if (!UI.drag) {
+      UI.openVerbs.forEach(function (vid) {
+        var v = e.verb(vid);
+        if (v.status !== 'idle' || CF.VERBS[vid].auto) return;
+        var pk = e.primaryKey(vid);
+        var slots = v.slots[pk] ? e.visibleSlots(vid).filter(function (sl) { return !v.slots[sl.key]; }) : [CF.VERBS[vid].slots[0]];
+        slots.forEach(function (sl) { var f = slotFits(vid, sl.key); for (var k in f) soft[k] = true; });
+      });
+    }
+    Object.keys(cardEls).forEach(function (uid) {
+      var el = cardEls[uid], c = e.card(+uid);
+      var stackUids = c ? e.stackOf(c).map(function (x) { return x.uid; }) : [+uid];
+      el.classList.toggle('fits', stackUids.some(function (u) { return soft[u]; }));
+      el.classList.toggle('fits-strong', stackUids.some(function (u) { return strong[u]; }));
+    });
   }
 
-  function renderSide() {
-    var pane = $('#pane');
-    var keep = pane.scrollTop;
-    pane.innerHTML = '';
-    if (UI.tab === 'journal') { renderJournal(pane); pane.scrollTop = keep; return; }
-    if (!UI.openVerb) {
-      pane.innerHTML = '<div class="empty-pane"><p><b>Your desk.</b> Click a verb above to open it, then drag cards into its slots. ' +
-        'Or drag a card straight onto a verb.</p><p>Hover or click any card to read it. Double-click a card to send it to the open verb.</p>' +
-        '<p>Cases have a countdown. When it runs out, the trail goes cold and the criminal walks. You cannot solve everything. Choose.</p>' +
-        '<p style="color:var(--ink-faint);font-size:13px">Space: pause · 1/2/3: speed · J: journal · Esc: close</p></div>';
+  // ---------------------------------------------------------------- Windows
+  function openWindow(vid) {
+    var i = UI.openVerbs.indexOf(vid);
+    if (i >= 0) UI.openVerbs.splice(i, 1);
+    UI.openVerbs.push(vid);
+    if (verbEls[vid]) verbEls[vid].classList.remove('new');
+    UI.e.dirty = true;
+  }
+  function closeWindow(vid) {
+    UI.openVerbs = UI.openVerbs.filter(function (x) { return x !== vid; });
+    UI.hoverSlot = null;
+    UI.e.dirty = true;
+  }
+  UI.openWindow = openWindow;
+
+  function windowSig(vid) {
+    var e = UI.e, v = e.verb(vid), pv = v.status === 'idle' ? e.preview(vid) : null;
+    return [v.status, JSON.stringify(v.slots), v.out.join(','), v.held.join(','), v.story ? v.story.title : '',
+      pv ? pv.label + '|' + pv.blocked + '|' + pv.text : '', e.lockReason(vid) || '', v.recipe || '',
+      vid === 'time' ? e.s.week : ''].join('#');
+  }
+
+  function syncWindows() {
+    var e = UI.e, layer = $('#windows');
+    Object.keys(winEls).forEach(function (vid) {
+      if (UI.openVerbs.indexOf(vid) < 0 || !e.verb(vid).unlocked) {
+        var w = winEls[vid];
+        delete winEls[vid];
+        w.classList.add('closing');
+        setTimeout(function () { w.remove(); }, 160);
+      }
+    });
+    UI.openVerbs = UI.openVerbs.filter(function (vid) { return e.verb(vid).unlocked; });
+    UI.openVerbs.forEach(function (vid, i) {
+      var w = winEls[vid];
+      if (!w) {
+        w = h('div', 'vwin');
+        w.dataset.win = vid;
+        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-close" title="Close (Esc)">×</button></div><div class="divider"></div><div class="vw-body"></div>';
+        w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'token-' + vid);
+        w.querySelector('h3').textContent = CF.VERBS[vid].label;
+        w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
+        layer.appendChild(w);
+        winEls[vid] = w;
+        positionWindow(vid, w);
+      }
+      w.style.zIndex = 10 + i;
+      var sig = windowSig(vid);
+      if (w.dataset.sig !== sig) {
+        w.dataset.sig = sig;
+        var body = w.querySelector('.vw-body');
+        body.innerHTML = '';
+        buildWindowBody(body, vid);
+      }
+    });
+  }
+
+  function positionWindow(vid, w) {
+    var tr = $('#table').getBoundingClientRect();
+    var W = 356, pos = UI.winPos[vid];
+    if (!pos) {
+      var tok = verbEls[vid] && verbEls[vid].getBoundingClientRect();
+      var x = tok ? tok.right - tr.left + 14 : 40, y = tok ? tok.top - tr.top : 40;
+      if (x + W > tr.width - 8 && tok) x = tok.left - tr.left - W - 14;
+      // Stagger below any open window whose title bar this one would cover,
+      // so every window can still be grabbed.
+      for (var i = 0; i < 10; i++) {
+        var over = UI.openVerbs.filter(function (o) {
+          var q = UI.winPos[o];
+          return o !== vid && winEls[o] && q && x < q.x + W && q.x < x + W && y < q.y + 46 && q.y < y + 46;
+        })[0];
+        if (!over) break;
+        y = UI.winPos[over].y + 50;
+      }
+      pos = { x: x, y: y };
+    }
+    pos.x = U.clamp(pos.x, 4, Math.max(4, tr.width - W - 4));
+    pos.y = U.clamp(pos.y, 4, Math.max(4, tr.height - 120));
+    UI.winPos[vid] = pos;
+    w.style.left = pos.x + 'px';
+    w.style.top = pos.y + 'px';
+  }
+
+  function miniCard(card) {
+    var wrap = h('div', 'mini-wrap');
+    wrap.appendChild(buildCard(card, 1, true));
+    return wrap;
+  }
+
+  function buildWindowBody(pane, vid) {
+    var e = UI.e;
+    var v = e.verb(vid);
+    var def = CF.VERBS[vid];
+
+    if (def.auto) {
+      pane.appendChild(h('p', 'vw-desc', def.desc));
+      var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+      if (wk) pane.appendChild(storyBox(wk));
+      pane.appendChild(h('p', 'vw-desc', 'Open cases: ' + e.openCases().length + '. Rent is due at the end of every week.'));
       return;
     }
-    renderVerbWindow(pane, UI.openVerb);
-    pane.scrollTop = keep;
+
+    if (v.status === 'running') {
+      var rec = CF.RECIPES_BY_ID[v.recipe];
+      var ctx = e.makeCtx(vid, v.ctxSlots);
+      var r = h('div', 'recipe');
+      r.innerHTML = '<h5>' + esc(typeof rec.label === 'function' ? rec.label(ctx) : rec.label) + '</h5>';
+      pane.appendChild(r);
+      var pr = h('div', 'progress');
+      var fill = h('div');
+      fill.style.width = (v.elapsed / v.duration) * 100 + '%';
+      pr.appendChild(fill);
+      pane.appendChild(pr);
+      pane.appendChild(h('div', 'vw-desc p-time', U.fmtTime(v.duration - v.elapsed) + ' remaining'));
+      var held = h('div', 'held');
+      v.held.forEach(function (u) { var c = e.card(u); if (c) held.appendChild(miniCard(c)); });
+      pane.appendChild(held);
+      return;
+    }
+
+    if (v.status === 'done') {
+      if (v.story) pane.appendChild(storyBox(v.story));
+      var outs = h('div', 'outputs');
+      outs.dataset.verb = vid;
+      v.out.forEach(function (u) { var c = e.card(u); if (c) outs.appendChild(miniCard(c)); });
+      pane.appendChild(outs);
+      var act = h('div', 'actions');
+      var col = h('button', 'plate-btn gold', 'Collect all');
+      col.addEventListener('click', function () { collectAll(vid); });
+      act.appendChild(col);
+      act.appendChild(h('span', 'vw-desc', 'or drag them out'));
+      pane.appendChild(act);
+      return;
+    }
+
+    // Idle.
+    if (v.story) pane.appendChild(storyBox(v.story));
+    var primaryCard = v.slots[e.primaryKey(vid)];
+    if (!primaryCard) pane.appendChild(h('p', 'vw-desc', def.desc));
+    var lock = e.lockReason(vid);
+    var slots = h('div', 'slots');
+    e.visibleSlots(vid).forEach(function (sl) {
+      var s = h('div', 'slot' + (sl.primary ? ' primary' : ''));
+      s.dataset.verb = vid;
+      s.dataset.slot = sl.key;
+      var box = h('div', 's-box');
+      var uid = v.slots[sl.key];
+      if (uid && e.card(uid)) box.appendChild(miniCard(e.card(uid)));
+      else box.appendChild(h('div', 's-hint', sl.accepts.map(prettyAspect).join(' / ')));
+      s.appendChild(box);
+      s.appendChild(h('div', 's-label', sl.label));
+      s.addEventListener('pointerenter', function () { UI.hoverSlot = { verb: vid, slot: sl.key }; markFits(); });
+      s.addEventListener('pointerleave', function () { UI.hoverSlot = null; markFits(); });
+      slots.appendChild(s);
+    });
+    pane.appendChild(slots);
+
+    var pv = e.preview(vid);
+    var rbox = h('div', 'recipe');
+    if (pv) {
+      rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
+        (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
+        (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');
+    } else if (primaryCard) {
+      // The slots took the cards, but no recipe wants them. Say so, vaguely.
+      rbox.classList.add('mystery');
+      rbox.innerHTML = '<p class="r-none">' + esc(U.pick(Math.random, ['The pieces sit there. Nothing comes of it. Not yet.',
+        'You turn it over and over. Something is missing.', 'It feels like the start of something. Just not this.'])) + '</p>';
+    } else {
+      rbox.innerHTML = '<p class="r-none">' + (lock ? esc(lock) : 'Drag a card into the first slot.') + '</p>';
+    }
+    pane.appendChild(rbox);
+
+    var act2 = h('div', 'actions');
+    var go = h('button', 'plate-btn redfill', pv ? 'Begin · ' + Math.round(pv.duration) + 's' : 'Begin');
+    go.disabled = !pv || !!pv.blocked;
+    go.addEventListener('click', function () { if (e.start(vid)) { CF.Audio.play('start'); e.dirty = true; } });
+    act2.appendChild(go);
+    if (Object.keys(v.slots).length) {
+      var clr = h('button', 'plate-btn dark', 'Clear');
+      clr.addEventListener('click', function () { returnSlots(vid); });
+      act2.appendChild(clr);
+    }
+    pane.appendChild(act2);
+  }
+
+  // Cards leaving a window fly from where they are to where they land.
+  function markSpawn(uid, fromEl) {
+    if (!fromEl) return;
+    var r = fromEl.getBoundingClientRect();
+    UI.spawn[uid] = { cx: r.left, cy: r.top, gx: 0, gy: 0 };
+  }
+  function collectAll(vid) {
+    var e = UI.e, w = winEls[vid];
+    e.verb(vid).out.forEach(function (u) { markSpawn(u, w && w.querySelector('.card[data-uid="' + u + '"]')); });
+    e.collect(vid);
+    CF.Audio.play('drop');
+    e.dirty = true;
+  }
+  function returnSlots(vid) {
+    var e = UI.e, w = winEls[vid], v = e.verb(vid);
+    Object.keys(v.slots).forEach(function (k) { markSpawn(v.slots[k], w && w.querySelector('.card[data-uid="' + v.slots[k] + '"]')); });
+    e.clearSlots(vid);
+    e.dirty = true;
   }
 
   // Story text types itself out at the player's chosen text speed.
@@ -480,106 +813,6 @@
     t.el.textContent = t.story.text.slice(0, n);
   }
 
-  function renderVerbWindow(pane, vid) {
-    var e = UI.e;
-    var v = e.verb(vid);
-    var def = CF.VERBS[vid];
-    var head = h('div', 'vw-head');
-    head.appendChild(h('h3', null, def.label));
-    var close = h('button', 'close', '×');
-    close.title = 'Close';
-    close.addEventListener('click', function () { UI.openVerb = null; e.dirty = true; });
-    head.appendChild(close);
-    pane.appendChild(head);
-    pane.appendChild(h('div', 'divider'));
-
-    if (def.auto) {
-      pane.appendChild(h('p', 'vw-desc', def.desc));
-      var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
-      if (wk) pane.appendChild(storyBox(wk));
-      var nextRent = CF.WEEK - e.s.weekT;
-      pane.appendChild(h('p', 'vw-desc', 'Next rent in ' + U.fmtTime(nextRent) + '. Open cases: ' + e.openCases().length + '.'));
-      return;
-    }
-
-    if (v.status === 'running') {
-      var rec = CF.RECIPES_BY_ID[v.recipe];
-      var ctx = e.makeCtx(vid, v.ctxSlots);
-      var r = h('div', 'recipe');
-      r.innerHTML = '<h5>' + esc(typeof rec.label === 'function' ? rec.label(ctx) : rec.label) + '</h5>';
-      pane.appendChild(r);
-      var pr = h('div', 'progress');
-      var fill = h('div');
-      fill.style.width = (v.elapsed / v.duration) * 100 + '%';
-      pr.appendChild(fill);
-      pane.appendChild(pr);
-      pane.appendChild(h('div', 'vw-desc p-time', U.fmtTime(v.duration - v.elapsed) + ' remaining'));
-      var held = h('div', 'held');
-      v.held.forEach(function (u) { var c = e.card(u); if (c) held.appendChild(cardEl(c, { mini: true })); });
-      pane.appendChild(held);
-      return;
-    }
-
-    if (v.status === 'done') {
-      if (v.story) pane.appendChild(storyBox(v.story));
-      var outs = h('div', 'outputs');
-      v.out.forEach(function (u) { var c = e.card(u); if (c) outs.appendChild(cardEl(c, { mini: true })); });
-      pane.appendChild(outs);
-      var act = h('div', 'actions');
-      var col = h('button', 'btn', 'Collect all');
-      col.addEventListener('click', function () { e.collect(vid); e.dirty = true; });
-      act.appendChild(col);
-      act.appendChild(h('span', 'vw-desc', 'or drag cards out'));
-      pane.appendChild(act);
-      return;
-    }
-
-    // Idle.
-    if (v.story) pane.appendChild(storyBox(v.story));
-    var primaryCard = v.slots[e.primaryKey(vid)];
-    if (!primaryCard) pane.appendChild(h('p', 'vw-desc', def.desc));
-    var lock = e.lockReason(vid);
-    var slots = h('div', 'slots');
-    e.visibleSlots(vid).forEach(function (sl) {
-      var s = h('div', 'slot' + (sl.primary ? ' primary' : ''));
-      s.dataset.verb = vid;
-      s.dataset.slot = sl.key;
-      var box = h('div', 's-box');
-      var uid = v.slots[sl.key];
-      if (uid && e.card(uid)) box.appendChild(cardEl(e.card(uid), { mini: true }));
-      else box.appendChild(h('div', 's-hint', sl.accepts.map(prettyAspect).join(' / ')));
-      s.appendChild(box);
-      s.appendChild(h('div', 's-label', sl.label));
-      slots.appendChild(s);
-    });
-    pane.appendChild(slots);
-
-    var pv = e.preview(vid);
-    var rbox = h('div', 'recipe');
-    if (pv) {
-      rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
-        (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
-        (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');
-    } else if (primaryCard) {
-      rbox.innerHTML = '<p class="r-none">Nothing comes of this combination.</p>';
-    } else {
-      rbox.innerHTML = '<p class="r-none">' + (lock ? esc(lock) : 'Drag a card into the first slot.') + '</p>';
-    }
-    pane.appendChild(rbox);
-
-    var act2 = h('div', 'actions');
-    var go = h('button', 'btn', pv ? 'Begin (' + Math.round(pv.duration) + 's)' : 'Begin');
-    go.disabled = !pv || !!pv.blocked;
-    go.addEventListener('click', function () { if (e.start(vid)) { CF.Audio.play('start'); e.dirty = true; } });
-    act2.appendChild(go);
-    if (Object.keys(v.slots).length) {
-      var clr = h('button', 'btn ghost', 'Clear');
-      clr.addEventListener('click', function () { e.clearSlots(vid); e.dirty = true; });
-      act2.appendChild(clr);
-    }
-    pane.appendChild(act2);
-  }
-
   function prettyAspect(a) {
     var map = { tool: 'Equipment', teammate: 'Officer', atlarge: 'At Large', coldcase: 'Cold Case', looseend: 'Loose End', promotion: 'Promotion', chair: 'The Chair' };
     if (map[a]) return map[a];
@@ -589,11 +822,17 @@
     return a.charAt(0).toUpperCase() + a.slice(1);
   }
 
-  function renderJournal(pane) {
-    var e = UI.e;
-    e.s.journal.slice(0, 120).forEach(function (j) {
-      var d = h('div', 'journal-entry k-' + j.kind);
-      d.innerHTML = '<div class="j-meta">Week ' + j.week + '</div><h6>' + esc(j.title) + '</h6><p>' + esc(j.text) + '</p>';
+  var shownJournal = null;
+  function renderJournal() {
+    var e = UI.e, j = e.s.journal;
+    if (shownJournal === j[0] && UI.journalLen === j.length) return;
+    shownJournal = j[0];
+    UI.journalLen = j.length;
+    var pane = $('#journal');
+    pane.innerHTML = '';
+    j.slice(0, 120).forEach(function (x) {
+      var d = h('div', 'journal-entry k-' + x.kind);
+      d.innerHTML = '<div class="j-meta">Week ' + x.week + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
       pane.appendChild(d);
     });
   }
@@ -664,37 +903,68 @@
   }
 
   // ---------------------------------------------------------------- Input
-  function cardAt(target) {
-    var n = target.closest && target.closest('.card[data-uid]');
-    return n && !n.classList.contains('ghost') ? n : null;
-  }
+  // Drags: a card (from the table, a slot, or a verb's output), a verb token,
+  // a window, or the table itself (panning). Cards are lifted into a layer
+  // above everything, tilt as they move, and settle when dropped.
+  function cardAt(target) { return target.closest && target.closest('.card[data-uid]'); }
 
-  function onPointerDown(ev) {
-    if (UI.modal || ev.button > 0) return;
-    var n = cardAt(ev.target);
-    var verbN = ev.target.closest && ev.target.closest('.verb[data-verb]');
-    if (!n) {
-      if (verbN) {
-        var vid = verbN.dataset.verb;
-        UI.openVerb = UI.openVerb === vid && !ev.shiftKey ? null : vid;
-        if (UI.openVerb) UI.tab = 'desk';
-        if (UI.newVerbs) delete UI.newVerbs[vid];
-        UI.e.dirty = true;
-      }
-      return;
-    }
-    var uid = +n.dataset.uid;
-    var card = UI.e.card(uid);
-    if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
-    UI.drag = { uid: uid, x0: ev.clientX, y0: ev.clientY, src: n, started: false, ghost: null };
-    ev.preventDefault();
+  function canTake(vid, card) {
+    var e = UI.e, v = e.verb(vid);
+    if (!v.unlocked || CF.VERBS[vid].auto || v.status === 'running') return false;
+    var slots = v.status === 'done' ? [CF.VERBS[vid].slots[0]] : e.visibleSlots(vid);
+    return slots.some(function (sl) { return e.slotAccepts(sl, card); }) || e.slotAccepts(CF.VERBS[vid].slots[0], card);
   }
 
   function select(uid) {
     UI.selected = uid;
     renderInspector();
-    document.querySelectorAll('.card.selected').forEach(function (x) { x.classList.remove('selected'); });
-    document.querySelectorAll('.card[data-uid="' + uid + '"]').forEach(function (x) { if (!x.classList.contains('ghost')) x.classList.add('selected'); });
+    Object.keys(cardEls).forEach(function (k) { cardEls[k].classList.toggle('selected', +k === uid); });
+  }
+
+  // The how-to hint goes away for good once the player has moved something.
+  function hideHint() {
+    var hint = $('#hint');
+    if (hint && !hint.classList.contains('gone')) {
+      hint.classList.add('gone');
+      try { localStorage.setItem('casefile.hinted', '1'); } catch (err) { /* ignore */ }
+    }
+  }
+  try { if (localStorage.getItem('casefile.hinted')) document.addEventListener('DOMContentLoaded', hideHint); } catch (err) { /* ignore */ }
+  UI.hideHint = hideHint;
+
+  function onPointerDown(ev) {
+    if (UI.modal || (ev.button !== 0 && ev.button !== 1)) return;
+    var t = ev.target;
+    var winHead = t.closest && t.closest('.vw-head');
+    var win = t.closest && t.closest('.vwin');
+    if (win) {
+      var wid = win.dataset.win;
+      if (UI.openVerbs[UI.openVerbs.length - 1] !== wid) { openWindow(wid); }
+      if (winHead && !t.closest('.vw-close')) {
+        UI.drag = { kind: 'window', verb: wid, el: win, x0: ev.clientX, y0: ev.clientY, px: UI.winPos[wid].x, py: UI.winPos[wid].y, started: true };
+        ev.preventDefault();
+        return;
+      }
+    }
+    var n = cardAt(t);
+    if (n && ev.button === 0) {
+      var uid = +n.dataset.uid;
+      var card = UI.e.card(uid);
+      if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
+      UI.drag = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: ev.shiftKey };
+      ev.preventDefault();
+      return;
+    }
+    var vn = t.closest && t.closest('.verb[data-verb]');
+    if (vn && ev.button === 0) {
+      UI.drag = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
+      ev.preventDefault();
+      return;
+    }
+    if (t.closest && t.closest('#table') && !win && !t.closest('#zoom')) {
+      UI.drag = { kind: 'pan', x0: ev.clientX, y0: ev.clientY, vx: UI.view.x, vy: UI.view.y, started: false };
+      ev.preventDefault();
+    }
   }
 
   function onPointerMove(ev) {
@@ -705,23 +975,81 @@
       if (uid !== UI.hover) { UI.hover = uid; renderInspector(); }
       return;
     }
-    if (!d.started) {
-      if (Math.abs(ev.clientX - d.x0) + Math.abs(ev.clientY - d.y0) < 6) return;
-      d.started = true;
-      var card = UI.e.card(d.uid);
-      d.ghost = cardEl(card);
-      d.ghost.classList.add('ghost');
-      d.ghost.classList.remove('fresh', 'selected');
-      document.body.appendChild(d.ghost);
-      d.src.classList.add('dragging-src');
-      CF.Audio.play('pick');
-      markDropTargets(card);
+    var dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+    if (!d.started && Math.abs(dx) + Math.abs(dy) < 5) return;
+    if (d.kind === 'window') {
+      var tr = $('#table').getBoundingClientRect();
+      UI.winPos[d.verb] = { x: U.clamp(d.px + dx, 4 - 300, tr.width - 60), y: U.clamp(d.py + dy, 4, tr.height - 40) };
+      d.el.style.left = UI.winPos[d.verb].x + 'px';
+      d.el.style.top = UI.winPos[d.verb].y + 'px';
+      return;
     }
-    d.ghost.style.left = ev.clientX - CW / 2 + 'px';
-    d.ghost.style.top = ev.clientY - 24 + 'px';
+    if (d.kind === 'pan') {
+      d.started = true;
+      UI.view.x = d.vx + dx;
+      UI.view.y = d.vy + dy;
+      $('#table').classList.add('panning');
+      applyView();
+      return;
+    }
+    if (d.kind === 'verb') {
+      if (!d.started) { d.started = true; d.el.classList.add('dragging'); d.b0 = { x: UI.e.verb(d.verb).x, y: UI.e.verb(d.verb).y }; }
+      place(d.el, d.b0.x + dx / UI.view.z, d.b0.y + dy / UI.view.z);
+      return;
+    }
+    if (!d.started) liftCard(d, ev);
+    moveLifted(d, ev);
+  }
+
+  // Pick a card up: move its element into the drag layer, lifted and tilting.
+  function liftCard(d, ev) {
+    var e = UI.e;
+    hideHint();
+    var card = e.card(d.uid);
+    d.started = true;
+    d.from = card.loc.t;
+    d.fromVerb = card.loc.verb;
+    var r = d.src.getBoundingClientRect();
+    var z = d.from === 'table' ? UI.view.z : Math.max(UI.view.z, 0.7);
+    d.z = z;
+    d.gx = (d.x0 - r.left) / (r.width / T.CW);
+    d.gy = (d.y0 - r.top) / (r.height / T.CH);
+    d.origin = { left: r.left, top: r.top, w: r.width, h: r.height };
+    if (d.from === 'table') {
+      d.uids = d.whole ? e.stackOf(card).map(function (c) { return c.uid; }) : [d.uid];
+      UI.lifted = {};
+      d.uids.forEach(function (u) { UI.lifted[u] = true; });
+      d.el = d.src;
+      if (d.uids.length !== e.stackOf(card).length || d.uids.length > 1) fillCard(d.el, card, d.uids.length);
+      syncBoard();
+    } else {
+      d.uids = [d.uid];
+      d.el = buildCard(card, 1);
+      d.src.classList.add('dragging-src');
+    }
+    d.el.classList.remove('arrive', 'leaving', 'flying', 'fits', 'fits-strong');
+    d.el.classList.add('lifted');
+    d.el.style.transformOrigin = d.gx + 'px ' + d.gy + 'px';
+    $('#drag-layer').appendChild(d.el);
+    d.rot = 0;
+    d.lastX = ev.clientX;
+    CF.Audio.play('pick');
+    markDropTargets(card);
+  }
+
+  function moveLifted(d, ev) {
+    d.lastEv = { clientX: ev.clientX, clientY: ev.clientY };
+    var vx = ev.clientX - d.lastX;
+    d.lastX = ev.clientX;
+    d.rot = U.clamp(d.rot * 0.7 + vx * 0.9, -14, 14);
+    d.el.style.left = (ev.clientX - d.gx) + 'px';
+    d.el.style.top = (ev.clientY - d.gy) + 'px';
+    d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(' + d.rot.toFixed(1) + 'deg)';
     document.querySelectorAll('.drop-hover').forEach(function (x) { x.classList.remove('drop-hover'); });
     var t = dropTarget(ev);
-    if (t && (t.slot || t.verb)) t.node.classList.add('drop-hover');
+    if (t && t.node) t.node.classList.add('drop-hover');
+    clearTimeout(d.settleT);
+    d.settleT = setTimeout(function () { if (UI.drag === d) { d.rot = 0; d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(0deg)'; } }, 90);
   }
 
   function dropTarget(ev) {
@@ -729,90 +1057,179 @@
     if (!under) return null;
     var slot = under.closest('.slot[data-slot]');
     if (slot) return { slot: slot.dataset.slot, verb: slot.dataset.verb, node: slot };
+    var win = under.closest('.vwin');
+    if (win) return { verb: win.dataset.win, node: win, window: true };
     var verb = under.closest('.verb[data-verb]');
     if (verb) return { verb: verb.dataset.verb, node: verb, token: true };
+    var c = under.closest('#board .card[data-uid]');
+    if (c && c.classList.contains('can-stack')) return { table: true, node: c };
     if (under.closest('#table')) return { table: true };
     return null;
   }
 
-  function canTake(vid, card) {
-    var e = UI.e, v = e.verb(vid);
-    if (!v.unlocked || CF.VERBS[vid].auto || v.status === 'running') return false;
-    var slots = v.status === 'done' ? [CF.VERBS[vid].slots[0]] : e.visibleSlots(vid);
-    return slots.some(function (sl) { return e.slotAccepts(sl, card); }) || e.slotAccepts(CF.VERBS[vid].slots[0], card);
-  }
-
   function markDropTargets(card) {
     var e = UI.e;
-    document.querySelectorAll('#verbs .verb').forEach(function (n) { if (canTake(n.dataset.verb, card)) n.classList.add('can-drop'); });
-    document.querySelectorAll('#pane .slot').forEach(function (n) {
+    Object.keys(verbEls).forEach(function (vid) { if (canTake(vid, card)) verbEls[vid].classList.add('can-drop'); });
+    document.querySelectorAll('#windows .slot').forEach(function (n) {
       var sl = CF.VERBS[n.dataset.verb].slots.filter(function (x) { return x.key === n.dataset.slot; })[0];
-      if (sl && e.slotAccepts(sl, card)) n.classList.add('can-drop');
+      if (sl && e.slotAccepts(sl, card) && e.verb(n.dataset.verb).status === 'idle') n.classList.add('can-drop');
     });
+    var key = e.stackKey(card);
+    if (key) Object.keys(cardEls).forEach(function (uid) { var c = e.card(+uid); if (c && e.stackKey(c) === key) cardEls[uid].classList.add('can-stack'); });
+  }
+
+  function clearMarks() {
+    document.querySelectorAll('.can-drop, .drop-hover, .can-stack, .dragging-src').forEach(function (x) { x.classList.remove('can-drop', 'drop-hover', 'can-stack', 'dragging-src'); });
+    $('#table').classList.remove('panning');
+  }
+
+  // Put a lifted table element back on the board and glide it to (x, y).
+  function settleOnBoard(d, x, y, ev) {
+    var el = d.el, board = $('#board');
+    var p = toBoard(ev ? ev.clientX : d.origin.left, ev ? ev.clientY : d.origin.top);
+    el.classList.remove('lifted');
+    el.style.left = el.style.top = '';
+    el.style.transformOrigin = '';
+    el.classList.add('no-anim');
+    place(el, ev ? p.x - d.gx : x, ev ? p.y - d.gy : y);
+    board.appendChild(el);
+    void el.offsetWidth;
+    el.classList.remove('no-anim');
+    el.classList.add('settle');
+    place(el, x, y);
+    setTimeout(function () { el.classList.remove('settle'); }, 400);
+  }
+
+  // Send a dragged card back where it came from.
+  function flyBack(d) {
+    if (d.from === 'table') {
+      var c = UI.e.card(d.uid);
+      UI.lifted = null;
+      if (c && c.loc && c.loc.t === 'table') settleOnBoard(d, c.loc.x, c.loc.y, d.lastEv);
+      else d.el.remove();
+    } else {
+      var el = d.el;
+      el.classList.add('returning');
+      el.style.left = d.origin.left + 'px';
+      el.style.top = d.origin.top + 'px';
+      el.style.transform = 'scale(' + (d.origin.w / T.CW) + ')';
+      el.style.transformOrigin = '0 0';
+      setTimeout(function () { el.remove(); }, 260);
+    }
   }
 
   function cancelDrag() {
     var d = UI.drag;
     UI.drag = null;
+    clearMarks();
     if (!d) return;
-    if (d.ghost) d.ghost.remove();
-    if (d.src) d.src.classList.remove('dragging-src');
-    document.querySelectorAll('.can-drop, .drop-hover').forEach(function (x) { x.classList.remove('can-drop', 'drop-hover'); });
+    if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
+    if (d.kind === 'verb' && d.started) { d.el.classList.remove('dragging'); UI.e.dirty = true; }
   }
 
   function onPointerUp(ev) {
     var d = UI.drag;
     if (!d) return;
     var e = UI.e;
+    UI.drag = null;
+    clearMarks();
+    if (d.kind === 'window') return;
+    if (d.kind === 'pan') { if (!d.started) select(null); return; }
+    if (d.kind === 'verb') {
+      d.el.classList.remove('dragging');
+      if (!d.started) {
+        if (UI.openVerbs.indexOf(d.verb) >= 0 && UI.openVerbs[UI.openVerbs.length - 1] === d.verb) closeWindow(d.verb);
+        else openWindow(d.verb);
+        CF.Audio.play('click');
+      } else {
+        var v = e.verb(d.verb);
+        var p = toBoard(ev.clientX, ev.clientY);
+        e.moveVerb(d.verb, v.x + (p.x - toBoard(d.x0, d.y0).x), v.y + (p.y - toBoard(d.x0, d.y0).y));
+        CF.Audio.play('drop');
+      }
+      e.dirty = true;
+      return;
+    }
+    // Card.
     var card = e.card(d.uid);
     if (!d.started) {
-      cancelDrag();
       select(d.uid);
-      // Clicking a slotted card sends it back to the table.
-      if (card && card.loc && card.loc.t === 'slot' && ev.target.closest('#pane')) { e.unslot(card.loc.verb, card.loc.slot); e.dirty = true; }
+      // Clicking a card in a slot sends it back to the table.
+      if (card && card.loc && card.loc.t === 'slot' && ev.target.closest('.vwin')) {
+        markSpawn(card.uid, d.src);
+        e.unslot(card.loc.verb, card.loc.slot);
+        e.dirty = true;
+      }
       return;
     }
     var t = dropTarget(ev);
-    cancelDrag();
-    if (!card || !t) { e.dirty = true; return; }
+    if (!card || !t) { flyBack(d); e.dirty = true; return; }
     var loc = card.loc;
-    if (t.slot) {
-      if (e.slotCard(t.verb, t.slot, card.uid)) { UI.openVerb = t.verb; CF.Audio.play('drop'); }
-    } else if (t.token) {
-      if (loc.t === 'out') {
-        // Dragging an output back onto its own verb: just leave it.
-      } else if (e.autoSlot(t.verb, card.uid)) { UI.openVerb = t.verb; UI.tab = 'desk'; CF.Audio.play('drop'); }
+    var ok = false;
+    if (t.slot || t.verb) {
+      if (loc.t === 'out') { e.takeOutput(loc.verb, card.uid); }
+      if (t.slot) ok = e.slotCard(t.verb, t.slot, card.uid);
+      else ok = !!e.autoSlot(t.verb, card.uid);
+      if (ok) {
+        openWindow(t.verb);
+        CF.Audio.play('drop');
+        absorb(d, t);
+      } else {
+        if (card.loc.t === 'table' && d.from === 'out') {
+          // It left the verb's output but found no slot: drop it by the pointer.
+          UI.spawn[card.uid] = { cx: ev.clientX, cy: ev.clientY, gx: d.gx, gy: d.gy };
+          d.el.remove();
+        } else flyBack(d);
+      }
     } else if (t.table) {
-      var inner = $('#table-inner').getBoundingClientRect();
-      var x = (ev.clientX - inner.left) / UI.scale, y = (ev.clientY - inner.top) / UI.scale;
-      var col = U.clamp(Math.floor(x / (CW + GAP)), 0, CF.COLS - 1);
-      var row = Math.max(0, Math.floor(y / (CH + GAP)));
-      var cell = row * CF.COLS + col;
-      if (loc.t === 'table') e.moveCard(card.uid, cell);
-      else if (loc.t === 'slot') { e.unslot(loc.verb, loc.slot); e.moveCard(card.uid, cell); }
-      else if (loc.t === 'out') e.takeOutput(loc.verb, card.uid, cell);
+      var p = toBoard(ev.clientX, ev.clientY);
+      var target = { x: p.x - d.gx, y: p.y - d.gy };
+      var fin;
+      if (loc.t === 'table') {
+        fin = e.moveCard(card.uid, target.x, target.y, d.uids.length > 1);
+        UI.lifted = null;
+        settleOnBoard(d, fin.x, fin.y, ev);
+      } else {
+        if (loc.t === 'slot') { e.unslot(loc.verb, loc.slot); fin = e.moveCard(card.uid, target.x, target.y); }
+        else if (loc.t === 'out') { e.takeOutput(loc.verb, card.uid, target); }
+        UI.spawn[card.uid] = { cx: ev.clientX, cy: ev.clientY, gx: d.gx, gy: d.gy };
+        d.el.remove();
+      }
+      CF.Audio.play('drop');
     }
+    UI.lifted = null;
     e.dirty = true;
+  }
+
+  // A card dropped into a slot shrinks into it.
+  function absorb(d, t) {
+    var el = d.el;
+    UI.lifted = null;
+    if (d.from === 'table') delete cardEls[d.uid];
+    var r = t.node.getBoundingClientRect();
+    el.classList.add('absorbing');
+    el.style.left = (r.left + r.width / 2 - T.CW / 2) + 'px';
+    el.style.top = (r.top + r.height / 2 - T.CH / 2) + 'px';
+    el.style.transformOrigin = '50% 50%';
+    el.style.transform = 'scale(0.4)';
+    el.style.opacity = '0';
+    setTimeout(function () { el.remove(); }, 240);
   }
 
   function onDoubleClick(ev) {
     if (UI.modal) return;
     var n = cardAt(ev.target);
-    if (!n) return;
     var e = UI.e;
+    if (!n) return;
     var card = e.card(+n.dataset.uid);
     if (!card || !card.loc) return;
-    if (card.loc.t === 'out') { e.takeOutput(card.loc.verb, card.uid); e.dirty = true; return; }
+    if (card.loc.t === 'out') { markSpawn(card.uid, n); e.takeOutput(card.loc.verb, card.uid); e.dirty = true; return; }
     if (card.loc.t !== 'table') return;
-    var vid = UI.openVerb;
-    if (vid && e.autoSlot(vid, card.uid)) { e.dirty = true; return; }
-    // Otherwise, find the first verb that will take it.
-    for (var i = 0; i < CF.VERB_ORDER.length; i++) {
-      var id = CF.VERB_ORDER[i];
-      var v = e.verb(id);
-      if (v.status === 'idle' && !Object.keys(v.slots).length && canTake(id, card) && e.autoSlot(id, card.uid)) {
-        UI.openVerb = id; UI.tab = 'desk'; e.dirty = true; return;
-      }
+    var tries = UI.openVerbs.slice().reverse().concat(CF.VERB_ORDER);
+    for (var i = 0; i < tries.length; i++) {
+      var id = tries[i], v = e.verb(id);
+      var fresh = UI.openVerbs.indexOf(id) >= 0 || (v.status === 'idle' && !Object.keys(v.slots).length);
+      if (fresh && canTake(id, card) && e.autoSlot(id, card.uid)) { openWindow(id); CF.Audio.play('drop'); e.dirty = true; return; }
     }
   }
 })();
