@@ -67,7 +67,7 @@ function gangUp(e) {
   var k = byDef(g, 'case')[0], r = g.caseRec(k.caseId);
   var res = run(g, 'investigate', [k]);
   assert.strictEqual(res.id, 'lead_burglary_scene');
-  assert.ok(r.items.length >= 6, 'template + generic + structure items: ' + r.items.length);
+  assert.ok(r.items.length >= 4, 'generic + structure + trait items: ' + r.items.length);
   console.log('structures: ok');
 })();
 

@@ -145,9 +145,17 @@
     s.criminals = s.criminals || {}; // older saves had no criminal records
     s.network = s.network || { fronts: {} };
     s.origin = s.origin || s.calling;
-    // Saves from the grid-table days stored a cell index instead of x/y.
+    s.rooms = s.rooms || {};
+    // Verbs added since the save was written.
+    CF.VERB_ORDER.forEach(function (id) {
+      if (!s.verbs[id]) s.verbs[id] = { id: id, status: 'idle', slots: {}, held: [], ctxSlots: {}, out: [], recipe: null,
+        elapsed: 0, duration: 0, story: null, unlocked: CF.VERBS[id].rank <= (s.rank || 0) };
+    });
+    // Saves from the grid-table days stored a cell index instead of x/y;
+    // cards whose definition has gone are dropped rather than crashing.
     for (var k in s.cards) {
       var c = s.cards[k];
+      if (!CF.CARDS[c.def]) { delete s.cards[k]; continue; }
       if (c.loc && c.loc.t === 'table' && c.loc.cell !== undefined) {
         c.loc = { t: 'table', x: (c.loc.cell % T.COLS) * (T.CW + T.GAP), y: T.TOP + Math.floor(c.loc.cell / T.COLS) * (T.CH + T.GAP) };
       }
@@ -795,8 +803,10 @@
     s.dispatchT -= dt;
     if (s.dispatchT <= 0) {
       var open = this.openCases().length;
-      var next = s.nextCase; s.nextCase = null;
-      if (open < this.maxOpenCases()) this.spawnCase(next ? next.template : null, next ? { district: next.district, extraTime: next.extraTime || 0 } : {});
+      if (open < this.maxOpenCases()) {
+        var next = s.nextCase; s.nextCase = null;
+        this.spawnCase(next ? next.template : null, next ? { district: next.district, extraTime: next.extraTime || 0 } : {});
+      }
       var base = U.randInt(this.rng, 70, 105) - Math.min(30, s.week * 2) - (CF.RANK_DEFS[s.rank] || {}).dispatch || 0;
       if (this.countOf('syndicate')) base -= 10;
       s.dispatchT = Math.max(40, base);
@@ -859,14 +869,16 @@
     s.week++;
     var lines = [];
 
-    // Salary, then rent.
+    // Rent first, out of what is on the table; then the salary.
     var salary = (CF.RANK_DEFS[s.rank] || {}).salary || CF.ECONOMY.salary[s.rank] || 1;
-    for (var si = 0; si < salary; si++) this.create('funds');
     var funds = this.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; });
-    if (funds.length >= CF.ECONOMY.rent) {
+    var paid = funds.length >= CF.ECONOMY.rent;
+    if (paid) {
       funds.slice(0, CF.ECONOMY.rent).forEach(function (c) { self.remove(c); });
-      lines.push('Payday: ' + salary + ' Funds. Rent takes ' + CF.ECONOMY.rent + '.');
-    } else {
+      lines.push('Rent takes ' + CF.ECONOMY.rent + '. Payday: ' + salary + ' Funds.');
+    }
+    for (var si = 0; si < salary; si++) this.create('funds');
+    if (!paid) {
       this.create('fatigue');
       this.create('fatigue');
       lines.push('You cannot make rent. The landlord bangs on the door at six in the morning. You sleep in the car.');
@@ -1316,7 +1328,7 @@
     var known = opts.criminalId && this.criminal(opts.criminalId);
 
     // Scene pool: template items + generic items + the culprit's trait clue.
-    var pool = T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1));
+    var pool = T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1)).map(function (it) { return fillItem(it, vars); });
     if (structure) pool = pool.concat(structure.items.map(function (it) { return fillItem(it, vars); }));
     var items = U.shuffle(rng, pool);
     if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
@@ -1502,7 +1514,9 @@
     }
 
     var crim = this.criminalEscapes(rec, culprit, 'cold');
-    var al = this.create('atlarge', {
+    var al = this.atLargeCardFor(crim);
+    if (al) this.refreshAtLarge(crim);
+    else al = this.create('atlarge', {
       label: CF.Criminals.rankOf(crim).label + ': ' + culprit.name,
       desc: culprit.name + ', ' + culprit.role + '. Got away with ' + rec.title + '. ' + this.criminalDesc(crim),
       data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crim.id },
@@ -1573,6 +1587,8 @@
       if (!d.guilty) s.stats.wrongful++;
       if (d.guilty) {
         var caught = this.criminalCaught(d.name);
+        var alc = caught && this.atLargeCardFor(caught);
+        if (alc) { this.remove(alc); notes.push('Their name comes off the wall.'); }
         if (caught && caught.crimes >= 2) this.pathGain('crusader', 1, 'put away a repeat offender');
         if (d.solid && rec.identified === rec.culprit && !rec.special) this.pathGain('master', 1, 'reasoned to the right name');
       }
@@ -1598,7 +1614,8 @@
         this.meter('scrutiny', 1);
         if (!rec.special) {
           var crimW = this.criminalEscapes(rec, culprit, 'wrongful');
-          this.create('atlarge', {
+          if (this.atLargeCardFor(crimW)) this.refreshAtLarge(crimW);
+          else this.create('atlarge', {
             label: CF.Criminals.rankOf(crimW).label + ': ' + culprit.name,
             desc: culprit.name + ', ' + culprit.role + '. Someone else went to prison for what they did. ' + this.criminalDesc(crimW),
             data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crimW.id },
@@ -1622,7 +1639,8 @@
         } else {
           var charged = rec.suspects.filter(function (x) { return x.name === d.name; })[0] || { name: d.name, trait: null };
           var crimA = d.guilty ? this.criminalEscapes(rec, charged, 'acquitted') : null;
-          this.create('atlarge', {
+          if (crimA && this.atLargeCardFor(crimA)) this.refreshAtLarge(crimA);
+          else this.create('atlarge', {
             label: (crimA ? CF.Criminals.rankOf(crimA).label : 'At Large') + ': ' + d.name,
             desc: d.name + ' walked out of court smiling. ' + (d.guilty ? 'They are guilty, and now they are careful. ' + this.criminalDesc(crimA) : 'They were innocent, and now they hate you.'),
             data: { name: d.name, trait: charged.trait, careful: true, criminalId: crimA ? crimA.id : null },

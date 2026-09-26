@@ -109,7 +109,8 @@
   R.push({
     id: 'duty_train', verb: 'duty', label: 'Train an Officer', duration: 40,
     preview: 'Courses, drills, a mentor. They will come back sharper.',
-    requires: { aspects: { teammate: 1 }, when: function (ctx) { return ctx.count('funds') >= (ctx.e.s.rooms.training ? 1 : 2); } },
+    blocked: { funds: function (ctx) { return ctx.e.s.rooms.training ? 1 : 2; } },
+    requires: ['teammate', 'funds'],
     run: function (ctx) {
       var e = ctx.e, t = ctx.primary;
       ctx.with('funds').slice(0, e.s.rooms.training ? 1 : 2).forEach(ctx.consume);
@@ -146,7 +147,7 @@
   R.push({
     id: 'duty_team', verb: 'duty', label: 'Put Them on Shift', duration: 30,
     preview: 'They work a shift in your name. The overtime comes to you.',
-    requires: ['teammate'], forbids: ['funds', 'paperwork'],
+    requires: ['teammate'], forbids: ['funds'],
     effects: [
       { give: 'funds' },
       { story: { title: 'A Shift Covered', text: function (ctx) { return ctx.primary.data.name + ' works the shift without complaint. The budget line reads your name.'; } } },
@@ -164,7 +165,7 @@
   R.push({
     id: 'duty_desk', verb: 'duty', label: 'Desk Shift', duration: 30,
     preview: 'Answer phones. Take statements. Earns a little, costs little.',
-    requires: { aspects: ['focus'], when: function (ctx) { return ctx.cards.length === 1; } },
+    requires: ['focus'],
     effects: [
       { give: 'funds' },
       { story: { title: 'Desk Shift', text: ['A woman reports her husband missing. He is at the pub. You find him in ten minutes.',
@@ -204,7 +205,7 @@
       e.trustInformant(inf, 1);
       var nick = inf.data.name;
       var open = e.openCases().filter(function (r) { return !r.identified && !r.special; });
-      var al = e.cardsOf('atlarge');
+      var al = e.cardsOf('atlarge').filter(function (c) { return !c.data.hunted || !e.caseRec(c.data.hunted) || e.caseRec(c.data.hunted).status !== 'open'; });
       if (open.length && ctx.rng() < 0.7) {
         var rec = U.pick(ctx.rng, open);
         var cul = culpritOf(rec);
@@ -218,8 +219,9 @@
       }
       if (al.length && ctx.rng() < 0.5) {
         var target = U.pick(ctx.rng, al);
-        e.spawnCase('manhunt', { ctx: ctx, culpritName: target.data.name, culpritTrait: target.data.trait, atLargeUid: target.uid,
+        var hunt = e.spawnCase('manhunt', { ctx: ctx, culpritName: target.data.name, culpritTrait: target.data.trait, atLargeUid: target.uid, criminalId: target.data.criminalId,
           headline: 'Sighting: ' + target.data.name, lead: nick + ' has seen ' + target.data.name + '.' });
+        target.data.hunted = hunt.caseId;
         return { title: 'A Sighting', text: nick + ' leans in. "' + target.data.name + '. I know where they sleep."' };
       }
       e.spawnCase(null, { ctx: ctx, extraTime: 90, headline: 'Tip-off', lead: nick + ' tells you about it before the call even comes in.' });
@@ -474,6 +476,12 @@
     },
   });
   R.push({
+    id: 'an_clue_none', verb: 'analyze', label: 'Back to the Bench', duration: 10,
+    preview: 'A clue is not evidence. Only the city lab can get more out of it.',
+    blocked: 'Only the city lab gets more out of a clue. Requisition Lab Access.',
+    requires: { primary: 'clue' }, forbids: { cards: ['labpass'] },
+  });
+  R.push({
     id: 'an_reopen', verb: 'analyze', label: 'Reopen the Case', duration: 40,
     preview: 'Pull the boxes from the Archive. Read everything again with fresh eyes.',
     blocked: function (ctx) { return ctx.e.s.rooms.archive ? null : 'You need an Archive to reopen cold cases.'; },
@@ -483,7 +491,9 @@
       var e = ctx.e, cc = ctx.primary, d = cc.data;
       ctx.consume(cc);
       var tid = CF.CASE_TEMPLATES[d.template] ? d.template : U.pick(ctx.rng, CF.ORDINARY_CASES);
+      var alCard = d.atLargeUid && e.card(d.atLargeUid);
       e.spawnCase(tid, { ctx: ctx, culpritName: d.culpritName, culpritTrait: d.culpritTrait, atLargeUid: d.atLargeUid, reopened: true,
+        criminalId: (alCard && alCard.data.criminalId) || (e.criminalByName(d.culpritName) || {}).id || null,
         lifetime: 320, headline: 'Reopened', lead: 'The file on ' + (d.title || 'an old case') + ' is open on your desk again.' });
       return { title: 'Reopened', text: 'Dust, faded photographs, a witness list with half the names crossed out. But the answer was always in here somewhere.' };
     },
@@ -725,7 +735,7 @@
   });
   R.push({
     id: 'stakeout_front', verb: 'stakeout', label: 'Watch the Front',
-    duration: function (ctx) { return ctx.e.s.rooms.survroom ? 30 : ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60; },
+    duration: function (ctx) { return Math.round((ctx.e.s.rooms.survroom ? 30 : ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
     preview: function (ctx) { return 'Sit across the road from ' + ctx.e.labelOf(ctx.primary) + ' and write down who comes and goes.'; },
     blocked: function (ctx) { return ctx.slots.mind ? null : 'Someone has to watch: you (Instinct) or an officer.'; },
     requires: { primary: 'front' },
@@ -758,6 +768,7 @@
     requires: { primary: 'intel', when: function (ctx) { return ctx.primary.data.kind === 'sighting'; } },
     run: function (ctx) {
       var e = ctx.e, al = ctx.first('atlarge');
+      if (!al) return { title: 'Gone Again', text: 'By the time you get there, whoever was seen has moved on, or been moved.' };
       ctx.consume(ctx.primary);
       var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid, criminalId: al.data.criminalId,
         headline: 'Manhunt: ' + al.data.name, lead: 'An informant\'s word and a map.' });
@@ -766,6 +777,12 @@
       if (crim) crim.status = 'hunted';
       return { title: 'The Same Bar Every Night', text: 'You sit across the road from it for two nights. On the second, ' + al.data.name + ' walks in.' };
     },
+  });
+  R.push({
+    id: 'ref_intel_none', verb: 'reflect', label: 'A Warning', duration: 10,
+    preview: 'Nothing to reason about yet.',
+    blocked: 'Keep this on the table. It pays off when the case comes in.',
+    requires: { primary: 'intel', when: function (ctx) { return ctx.primary.data.kind !== 'sighting'; } },
   });
   R.push({
     id: 'ref_cold', verb: 'reflect', label: 'Regret', duration: 15,

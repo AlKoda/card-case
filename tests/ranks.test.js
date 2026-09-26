@@ -190,11 +190,12 @@ function run(e, verb, cards) {
   var officer = t.create('teammate', t.teammateSpec('rookie'));
   officer.data.traits = ['steady']; officer.data.level = 2;
   t.autoSlot('duty', officer.uid); t.autoSlot('duty', byDef(t, 'funds')[0].uid);
-  assert.ok(!t.preview('duty') || t.preview('duty').label !== 'Train an Officer', 'two Funds without the room');
+  assert.ok(/Needs 2 Funds/.test(t.preview('duty').blocked || ''), 'two Funds without the room: ' + JSON.stringify(t.preview('duty')));
   t.clearSlots('duty');
   t.s.rooms.training = true;
   t.autoSlot('duty', officer.uid); t.autoSlot('duty', byDef(t, 'funds')[0].uid);
   assert.strictEqual(t.preview('duty').label, 'Train an Officer');
+  assert.ok(!t.preview('duty').blocked, 'one Fund with the room');
   var tr = run(t, 'duty', []);
   assert.strictEqual(tr.id, 'duty_train');
   assert.strictEqual(officer.data.level, 3);

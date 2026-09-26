@@ -116,7 +116,7 @@
   function newGame(useLegacy) {
     var legacy = null;
     if (useLegacy) { try { legacy = JSON.parse(load(LEGACY_KEY)); } catch (err) { legacy = null; } }
-    var name = ($('name').value || 'Marlowe').trim().slice(0, 24);
+    var name = $('name').value.trim().slice(0, 24) || 'Marlowe';
     var e = CF.Engine.newGame({ calling: chosen, name: name, legacy: legacy });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);
@@ -130,6 +130,9 @@
   function continueGame() {
     try {
       UI.attach(CF.Engine.load(load(SAVE_KEY)));
+      UI.paused = false;
+      UI.speed = 1;
+      UI.setSpeed && UI.setSpeed(1);
       inGame = true;
       only(null);
     } catch (err) {
