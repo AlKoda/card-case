@@ -40,7 +40,7 @@ moved for its own sake.
 | `js/core/GameState`, `TimerManager`, `SaveManager` | `js/engine.js` (state, `tick`, `save`/`load`) | the clock, the board, the save |
 | `js/core/CardManager` | `js/engine.js` (make/create/transform/move/stack/remove) | generic cards |
 | `js/core/VerbManager`, `RecipeManager` | `js/engine.js` (slots/start/complete) + `js/core/recipes.js` (the recipe engine) + `js/data/verbs.js`, `js/data/recipes.js` | verbs and recipes |
-| `js/systems/*` (Case, Evidence, Charge, Court, Pressure, Economy, Criminal, Team) | the second half of `js/engine.js` | split out as their phases arrive |
+| `js/systems/*` (Case, Evidence, Charge, Court, Pressure, Economy, Criminal, Team) | `js/systems/charge.js`; the rest is the second half of `js/engine.js` | split out as their phases arrive |
 | `js/ui/*` | `js/ui.js`, `js/screens.js`, `js/main.js` | rendering and input only, never rules |
 | `data/*.json` | `js/data/*.js` | content. Kept as JS-wrapped objects so the game opens from `file://` with no server. Recipes and case leads are declarative (see below); a few recipes with branching prose keep a `run()` callback. |
 
@@ -126,12 +126,12 @@ and the witness statement, so a careful reader can name the culprit before
 the mind palace confirms it.
 
 A **charge** is a Suspect plus up to four clues from the same case in Arrest.
-The burglary's key aspects are Forensic, Opportunity and Financial. A solid
-charge needs weight in at least two of the three and one clue that names the
-suspect (a matched print, a cracked confession, a corroborated sighting). A
-thin charge can still convict; an acquitted suspect walks and remembers you.
-Phase 4 (charge quality) refines this with diversity, corroboration,
-contradiction and illegal evidence; the rule above is the floor.
+The burglary's charge profile is Forensic 2, Opportunity 2, Financial 2. A
+strong charge needs weight in at least two of the three and no clue that
+describes somebody else; a clue that names the suspect (a matched print, a
+cracked confession, a corroborated sighting) helps. A weak charge can still
+convict; an acquitted suspect walks and remembers you. Section 6 has the
+scoring.
 
 Ways to win the case:
 
@@ -247,7 +247,43 @@ The burglary is the first written case (`js/data/cases.js`, `burglary.leads`)
 and `tests/case.test.js` proves each of its three routes ends in a solid
 charge and a conviction.
 
-## 6. What this phase does not decide
+## 6. Charges
+
+Every case carries a **charge profile**: the aspects a court will want
+proven and how much of each (`charge: { forensic: 2, opportunity: 2,
+financial: 2 }` on the template; a high-profile case wants one more point of
+its main aspect). Reflect's "Mull It Over" tells the player the profile;
+the suspect's dossier repeats it.
+
+A charge (`js/systems/charge.js`) is scored as
+
+    strength + diversity + corroboration − 2 × contradictions − illegal evidence
+
+- **Strength.** Profile aspects count in full up to what the case needs,
+  half for as much again, and nothing past that. Aspects the case does not
+  turn on count a quarter. Four Forensic clues cannot make a strong charge
+  on their own.
+- **Diversity.** +0.5 for every distinct aspect beyond the first (max 2.5).
+- **Corroboration.** +1 for a clue bound together in Reflect, +1 for a clue
+  that names the accused (a matched print), +0.5 for a clue whose trait
+  matches them.
+- **Contradictions.** A clue whose trait or identification belongs to
+  somebody else describes another person: −2 each, and the charge can never
+  be strong.
+- **Illegal evidence.** Coerced statements and planted evidence: −1 each,
+  and the defence may get them thrown out at trial.
+
+Three strengths, judged against the profile's total: **weak** (below 60%),
+**reasonable** (60% and up), **strong** (the total, at least two profile
+aspects touched, no contradictions). Misread clues (Tunnel Vision) count in
+the apparent strength but not the real one; the court judges the real one.
+In court a strong charge on the culprit convicts 92% of the time; a
+reasonable one 35–80%; a weak one 15–55%. Each contradiction gives the
+defence a 35% chance to knock 20 points off. Acquittal costs Reputation,
+and a weak charge that fails may draw Scrutiny. The Arrest window shows the
+whole breakdown before you commit.
+
+## 7. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and

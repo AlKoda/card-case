@@ -134,6 +134,7 @@
     burglary: {
       label: 'Burglary', title: 'Burglary at {scene}', lifetime: 250, difficulty: 5,
       keyAspects: ['forensic', 'opportunity', 'financial'], districts: ['market', 'uptown', 'canal'],
+      charge: { forensic: 2, opportunity: 2, financial: 2 },
       scenes: ['{last}\'s Pawnbrokers', 'the {last} Residence', '{last} & Sons Jewellers'],
       brief: '{victim} came in this morning to find the back window open and the safe empty. It was not a professional job, but it was not a nervous one either.',
       roles: [
@@ -212,6 +213,7 @@
     missing: {
       label: 'Missing Person', title: 'The Disappearance of {victim}', lifetime: 280, difficulty: 6,
       keyAspects: ['testimony', 'motive', 'digital'], districts: ['warrens', 'neon', 'uptown'],
+      charge: { testimony: 2, motive: 2, digital: 2 },
       scenes: ['{victim}\'s Flat', 'the Last Known Address', 'the Bus Shelter on {last} Street'],
       brief: '{victim} has not been seen for four days. Their bed has not been slept in. Their cat is very hungry. Nobody has asked for a ransom.',
       roles: [
@@ -235,6 +237,7 @@
     harbor: {
       label: 'Homicide', title: 'The Body in the Harbour', lifetime: 240, difficulty: 7, highProfile: true,
       keyAspects: ['forensic', 'motive', 'opportunity'], districts: ['docks', 'canal'],
+      charge: { forensic: 3, motive: 2, opportunity: 2 },
       scenes: ['Pier {n}', 'the {last} Dry Dock', 'the Harbour Steps'],
       brief: 'A dockworker\'s hook pulled {victim} out of the water at dawn. The coroner says they were dead before they went in. The newspapers have already given it a name.',
       roles: [
@@ -258,6 +261,7 @@
     arson: {
       label: 'Arson', title: 'Fire at {scene}', lifetime: 230, difficulty: 6,
       keyAspects: ['forensic', 'financial', 'testimony'], districts: ['canal', 'warrens', 'market'],
+      charge: { forensic: 2, financial: 2, testimony: 2 },
       scenes: ['the {last} Warehouse', 'the {last} Print Works', 'a Tenement on {last} Row'],
       brief: 'The fire brigade got there in time to save the walls and nothing else. The fire chief says it started in three places at once. Fires do not do that.',
       roles: [
@@ -281,6 +285,7 @@
     fraud: {
       label: 'Fraud', title: 'The {last} Account', lifetime: 300, difficulty: 7,
       keyAspects: ['financial', 'digital', 'motive'], districts: ['uptown', 'neon'],
+      charge: { financial: 3, digital: 2, motive: 2 },
       scenes: ['the {last} Savings Bank', '{last} Holdings', 'the {last} Trust'],
       brief: '{victim}, a retired schoolteacher, has lost her life savings to an investment that does not exist. She is not the only one. She is just the only one brave enough to come in.',
       roles: [
@@ -303,6 +308,7 @@
     extortion: {
       label: 'Extortion', title: 'Protection on {scene}', lifetime: 260, difficulty: 6,
       keyAspects: ['testimony', 'financial', 'opportunity'], districts: ['market', 'neon', 'warrens'],
+      charge: { testimony: 2, financial: 2, opportunity: 2 },
       scenes: ['{last} Street', 'the {last} Arcade', 'the Night Market'],
       brief: 'Shopkeepers have been paying for "protection" for months. Now {victim}\'s shop has had its windows broken for refusing. Nobody else will talk.',
       roles: [
@@ -326,6 +332,7 @@
     manhunt: {
       label: 'Manhunt', title: 'Manhunt: {culprit}', lifetime: 200, difficulty: 5, special: true,
       keyAspects: ['opportunity', 'testimony', 'forensic'], districts: ['docks', 'warrens', 'canal', 'neon'],
+      charge: { opportunity: 2, testimony: 2, forensic: 1 },
       scenes: ['a Safe House in {district}', 'a Rented Room in {district}'],
       brief: '{culprit} has been seen again. They got away once. The trail is warm, for now.',
       roles: [{ role: 'the fugitive', motive: 'They know you are coming. They have always known.' }],
@@ -341,6 +348,7 @@
     gang: {
       label: 'Gang Case', title: 'Operation: {gang}', lifetime: 320, difficulty: 9, special: true, highProfile: true,
       keyAspects: ['financial', 'testimony', 'digital', 'opportunity'], districts: ['docks', 'neon', 'warrens'],
+      charge: { financial: 3, testimony: 2, digital: 2, opportunity: 2 },
       scenes: ['{gang}\'s Clubhouse', 'a Warehouse used by {gang}'],
       brief: 'Undercover work has given you a way in to {gang}. Build a case against their leader. Solidly. They will buy any jury they can.',
       roles: [
@@ -361,6 +369,7 @@
     syndicate: {
       label: 'The Syndicate', title: 'The Syndicate', lifetime: 400, difficulty: 12, special: true, highProfile: true,
       keyAspects: ['financial', 'digital', 'testimony', 'motive', 'forensic'], districts: ['uptown'],
+      charge: { financial: 3, digital: 3, testimony: 2, motive: 2, forensic: 2 },
       scenes: ['the Boardroom Uptown'],
       brief: 'The ledgers point Uptown, to a room with a long table and very good chairs. Make it stick. You will not get a second chance.',
       roles: [
@@ -382,6 +391,7 @@
     architect: {
       label: 'The Architect', title: 'The Architect', lifetime: 400, difficulty: 11, special: true, highProfile: true,
       keyAspects: ['forensic', 'testimony', 'motive', 'opportunity', 'digital', 'financial'], districts: ['uptown', 'market'],
+      charge: { forensic: 2, testimony: 2, motive: 2, opportunity: 2, digital: 2, financial: 2 },
       scenes: ['a Quiet House on the Hill'],
       brief: 'The Loose Ends all lead to one person: someone who has been planning crimes for others to commit, and leaving the smallest of signatures. Prove it.',
       roles: [

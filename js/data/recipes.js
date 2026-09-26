@@ -627,12 +627,14 @@
       var rec = openRec(ctx, cl[0]);
       if (!rec) return closed();
       var aspects = {};
-      var data = { misread: false, coerced: false, planted: false };
+      var data = { misread: false, coerced: false, planted: false, corroborated: true, trait: null, points: null };
       cl.forEach(function (c) {
         U.addAspects(aspects, CF.clueAspects(c));
         data.misread = data.misread || !!c.data.misread;
         data.coerced = data.coerced || !!c.data.coerced;
         data.planted = data.planted || !!c.data.planted;
+        if (c.data.trait) data.trait = c.data.trait;
+        if (c.data.points) data.points = c.data.points;
       });
       var best = Object.keys(aspects).sort(function (a, b) { return aspects[b] - aspects[a]; })[0];
       if (best) aspects[best]++;
@@ -697,8 +699,10 @@
       if (!rec) return closed();
       e.caseWork(rec, ctx);
       var unmet = rec.suspects.filter(function (x) { return !x.revealed && !x.cleared; }).length;
-      var sure = rec.difficulty >= 9 ? 'It will take a mountain of proof.' : rec.difficulty >= 7 ? 'It will take a strong charge.' : 'A good charge should hold.';
-      return { title: 'Thinking It Through', text: 'This case will turn on ' + aspectList(rec.keyAspects) + '. ' + sure + ' ' +
+      var prof = CF.Charge.profileOf(rec), need = CF.Charge.needOf(prof);
+      var sure = need >= 9 ? 'It will take a mountain of proof.' : need >= 7 ? 'It will take a strong charge.' : 'A good charge should hold.';
+      var wants = Object.keys(prof).map(function (k) { return CF.ASPECTS[k].label + ' ' + prof[k]; }).join(', ');
+      return { title: 'Thinking It Through', text: 'This case will turn on ' + aspectList(rec.keyAspects) + ' (' + wants + '). ' + sure + ' ' +
         (unmet ? 'There is someone involved you have not met yet.' : 'You have met everyone who matters. One of them did it.') };
     },
   });
@@ -712,8 +716,11 @@
       var rec = ctx.caseOf(ctx.primary);
       if (!rec) return '';
       var a = e.assessCharge(ctx.primary, slotClues(ctx, ['c1', 'c2', 'c3', 'c4']));
-      var q = { thin: 'The charge is thin. A good lawyer will eat it alive.', fair: 'The charge is fair. It could go either way.', solid: 'The charge is solid. It should hold.' }[a.quality];
-      return q + (a.foreign ? ' Some of these clues have nothing to do with this case.' : '') + (a.coerced || a.planted ? ' Some of this will not stand up to scrutiny.' : '');
+      return 'The charge is ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '. ' + CF.Charge.TIERS[a.tier].text;
+    },
+    detail: function (ctx) {
+      var a = ctx.e.assessCharge(ctx.primary, slotClues(ctx, ['c1', 'c2', 'c3', 'c4']));
+      return { charge: CF.Charge.describe(a) };
     },
     requires: ['suspect'],
     run: function (ctx) {
@@ -730,12 +737,13 @@
       e.clearCaseCards(rec.id, clues.filter(function (c) { return c.caseId !== rec.id; }));
       ctx.give('trial', {
         label: 'Trial: ' + sus.name,
-        desc: sus.name + ' stands trial for ' + rec.title + '. The charge looked ' + a.quality + '.',
-        data: { caseId: rec.id, name: sus.name, guilty: sus.guilty, solid: a.solid, real: a.real, need: a.need, coerced: a.coerced, planted: a.planted },
+        desc: sus.name + ' stands trial for ' + rec.title + '. The charge looked ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '.',
+        data: { caseId: rec.id, name: sus.name, guilty: sus.guilty, solid: a.solid, tier: a.realTier, real: a.real, need: a.need,
+          coerced: a.coerced, planted: a.planted, contradictions: a.contradictions },
       });
       ctx.give('paperwork');
       return { title: 'Arrested: ' + sus.name, text: 'You make the arrest at ' + U.pick(ctx.rng, ['dawn, on their doorstep', 'their place of work, in front of everyone', 'a café, mid-sentence', 'the railway station, one foot on the train']) +
-        '. The charge is ' + a.quality + '. Now it is up to a jury.' };
+        '. The charge is ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '. Now it is up to a jury.' };
     },
   });
 

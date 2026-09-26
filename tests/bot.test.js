@@ -7,7 +7,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/engine.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/engine.js', 'js/systems/charge.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -65,7 +65,7 @@ function step(e) {
     var target = prime || (cc.life < 40 ? suspects[0] : null);
     if (target) {
       var a = e.assessCharge(target, clues.slice(0, 4));
-      if (a.quality === 'solid' || cc.life < 40) { tryRun(e, 'arrest', [target].concat(clues.slice(0, 4))); return; }
+      if (a.tier === 'strong' || cc.life < 40) { tryRun(e, 'arrest', [target].concat(clues.slice(0, 4))); return; }
     }
     // Theory once there are a few clues.
     if (!rec.identified && clues.length >= 2) tryRun(e, 'reflect', [cc].concat(clues.slice(0, 3)));

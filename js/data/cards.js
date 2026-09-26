@@ -9,12 +9,12 @@
 
   // The six clue aspects that build a Charge.
   CF.ASPECTS = {
-    forensic: { label: 'Forensic', short: 'FOR', color: '#3fb6a8' },
-    testimony: { label: 'Testimony', short: 'TES', color: '#e0a84a' },
-    motive: { label: 'Motive', short: 'MOT', color: '#d8605a' },
-    opportunity: { label: 'Opportunity', short: 'OPP', color: '#a07ae0' },
-    digital: { label: 'Digital', short: 'DIG', color: '#4f95e6' },
-    financial: { label: 'Financial', short: 'FIN', color: '#62bd5c' },
+    forensic: { label: 'Forensic', short: 'FOR', color: '#3fb6a8', meaning: 'Physical evidence: prints, fibres, tool marks, blood.' },
+    testimony: { label: 'Testimony', short: 'TES', color: '#e0a84a', meaning: 'What people say they saw, heard or did.' },
+    motive: { label: 'Motive', short: 'MOT', color: '#d8605a', meaning: 'Why anyone would want this done.' },
+    opportunity: { label: 'Opportunity', short: 'OPP', color: '#a07ae0', meaning: 'Who could have been there, then, with the means.' },
+    digital: { label: 'Digital', short: 'DIG', color: '#4f95e6', meaning: 'Cameras, phones, computers, records that time-stamp themselves.' },
+    financial: { label: 'Financial', short: 'FIN', color: '#62bd5c', meaning: 'Money moving: payments, debts, insurance, who profits.' },
   };
   CF.CLUE_ASPECTS = Object.keys(CF.ASPECTS);
 

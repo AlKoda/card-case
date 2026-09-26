@@ -8,7 +8,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/engine.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/engine.js', 'js/systems/charge.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -79,13 +79,13 @@ function checkInvariants(e) {
   var rec = e.caseRec(cs.caseId);
   var sus = e.make('suspect', { caseId: rec.id, data: { key: rec.culprit } });
   var clues = rec.keyAspects.slice(0, 2).map(function (k) {
-    var a = {}; a[k] = rec.difficulty; return e.make('clue', { caseId: rec.id, aspects: a });
+    var a = {}; a[k] = rec.charge[k] + 2; return e.make('clue', { caseId: rec.id, aspects: a });
   });
   var a = e.assessCharge(sus, clues);
-  assert.ok(a.solid && a.quality === 'solid', 'strong charge is solid');
+  assert.ok(a.solid && a.tier === 'strong', 'strong charge is solid');
   clues[0].data.misread = true; clues[1].data.misread = true;
   a = e.assessCharge(sus, clues);
-  assert.ok(!a.solid && a.quality === 'solid', 'misread clues look solid but are not');
+  assert.ok(!a.solid && a.tier === 'strong', 'misread clues look strong but are not');
   [sus].concat(clues).forEach(function (c) { delete e.s.cards[c.uid]; });
 
   // Three Fatigue become Burnout, which locks Duty.
