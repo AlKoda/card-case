@@ -54,7 +54,7 @@
   ];
   var EV_BY_ASPECT = { forensic: 'ev-glove', testimony: 'ev-quill', motive: 'ev-letter', opportunity: 'ev2-clock', digital: 'ev2-ledger', financial: 'ev2-signet' };
   var VERB_TOKENS = { time: 'scene-station', duty: 'scene-archive', patrol: 'scene-alley', investigate: 'act-body', analyze: 'act-study',
-    interrogate: 'act-question', reflect: 'scene-study', arrest: 'act-chase', requisition: 'act-deal', warrant: 'act-seal', stakeout: 'act-watch',
+    interrogate: 'act-question', reflect: 'scene-study', arrest: 'act-chase', sentence: 'scene-hole', requisition: 'act-deal', warrant: 'act-seal', stakeout: 'act-watch',
     undercover: 'act-rite', delegate: 'act-letter', taskforce: 'act-threat', majorcrimes: 'act-train' };
   var ASPECT_ART = { forensic: 'seal-hand', testimony: 'seal-crow', motive: 'seal-skull', opportunity: 'seal-eye', digital: 'wax-fleur', financial: 'wax-crown' };
   var METER_ICONS = { pressure: 'icon-person', scrutiny: 'icon-eye', retaliation: 'icon-skull', reputation: 'icon-crown', dread: 'icon-alert' };
@@ -86,7 +86,9 @@
     }
     if (k === 'district') return illus(DISTRICT_ART[card.data.district] || 'scene-station2');
     if (k === 'teammate' || k === 'personnel' || k === 'hospital') return illus(WATCH[hash(card.data.name || e.labelOf(card)) % WATCH.length], k === 'hospital');
-    if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge') {
+    if (card.def === 'rung') return plain((CF.RUNGS[card.data.rung] || {}).icon || 'icon-scales');
+    if (card.def === 'plea') return illus('ev-letter');
+    if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
       return illus(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length]);
     }
     if (ILLUS[card.def]) return illus(ILLUS[card.def]);
@@ -432,7 +434,7 @@
     var into = band || body;
     if (asp.children.length) into.appendChild(asp);
     if (card.maxLife) {
-      if (def.kind === 'case' || def.kind === 'court' || def.kind === 'threat' || card.def === 'witness' || card.def === 'bribe') {
+      if (def.kind === 'case' || def.kind === 'court' || def.kind === 'threat' || def.kind === 'condemned' || card.def === 'witness' || card.def === 'bribe') {
         into.appendChild(h('div', 'c-timer', U.fmtTime(card.life)));
       }
       var life = h('div', 'c-life');
@@ -644,7 +646,7 @@
   // always in view, whatever the zoom. Groups: the clock, the core verbs,
   // the office, and the verbs a rank opens. Dragging a token onto another
   // reorders them within the dock.
-  var DOCK_GROUPS = [['time'], ['duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest'], ['requisition'],
+  var DOCK_GROUPS = [['time'], ['duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest', 'sentence'], ['requisition'],
     ['warrant', 'stakeout', 'delegate', 'undercover', 'taskforce', 'majorcrimes']];
   function dockOrder() {
     var e = UI.e, order = (e.s.flags.dockOrder || []).filter(function (v) { return CF.VERBS[v]; });
@@ -1151,6 +1153,15 @@
       lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0));
       lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
       if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
+    } else if (card.def === 'condemned') {
+      lines.push(card.data.role ? card.data.role.charAt(0).toUpperCase() + card.data.role.slice(1) : 'Convicted');
+      lines.push('Custom: ' + CF.Sentence.rungLabel(card.data.template, card.data.custom));
+      lines.push((card.data.penitent ? 'Penitent · ' : '') + 'Council speaks in ' + U.fmtTime(card.life));
+    } else if (card.def === 'rung') {
+      lines.push((CF.RUNGS[card.data.rung] || {}).cost || '');
+    } else if (card.def === 'plea') {
+      lines.push({ church: 'From the Bishop', guild: 'From the Guild', family: 'From the family' }[card.data.from] || 'A plea');
+      lines.push('A reason for mercy');
     } else if (card.def === 'front') {
       var fr = e.fronts()[card.data.front];
       if (fr) {
