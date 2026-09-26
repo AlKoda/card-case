@@ -1080,12 +1080,29 @@
   P.teammateSpec = function (key) {
     var p = CF.PERSONNEL[key];
     var name = this.newName();
+    var traits = U.sample(this.rng, p.traits || [], p.nTraits || 1);
     return {
       label: p.role + ' ' + name.split(' ')[1],
-      desc: p.desc + ' Slot them into a verb to help.',
+      desc: p.desc + ' Slot them into a verb to help. ' + traits.map(function (t) { return CF.OFFICER_TRAITS[t].label + ': ' + CF.OFFICER_TRAITS[t].desc; }).join(' '),
       aspects: U.clone(p.aspects),
-      data: { personnel: key, name: name, level: 1, role: p.role },
+      data: { personnel: key, name: name, level: 1, role: p.role, traits: traits },
     };
+  };
+  // Is an officer with this trait among the cards in the verb?
+  P.teamHas = function (ctx, trait) {
+    return ctx.cards.some(function (c) { return c.def === 'teammate' && (c.data.traits || []).indexOf(trait) >= 0; });
+  };
+  // Equipment with this modifier among the cards in the verb.
+  P.gearWith = function (ctx, mod) {
+    return ctx.cards.filter(function (c) { var m = CF.CARDS[c.def].mods; return m && m[mod]; });
+  };
+  P.unlockVerb = function (id, why) {
+    var v = this.s.verbs[id];
+    if (!v || v.unlocked) return false;
+    v.unlocked = true;
+    this.layoutVerbs();
+    if (why) this.story('Unlocked: ' + CF.VERBS[id].label, why, 'major');
+    return true;
   };
   P.informantSpec = function (district) {
     var name = this.newName();
@@ -1241,15 +1258,30 @@
 
   // Build a clue spec. Helpers (equipment, team) sharpen what's found;
   // Tunnel Vision may silently misread it.
+  // What a scene item or evidence is made of, for equipment to act on.
+  CF.itemTags = function (item) {
+    if (!item) return [];
+    if (item.tags) return item.tags;
+    var needs = item.needs;
+    return needs === 'prints' ? ['surfaces'] : needs === 'bio' ? ['biology', 'physical'] : needs === 'lab' ? ['records'] : [];
+  };
   P.clueSpec = function (rec, item, helpers, flags) {
     flags = flags || {};
     var aspects = U.clone(item.aspects || {});
     var bonus = {};
-    (helpers || []).forEach(function (h) { U.addAspects(bonus, CF.clueAspects(h)); });
+    var tags = CF.itemTags(item);
+    (helpers || []).forEach(function (h) {
+      var mods = CF.CARDS[h.def].mods;
+      if (CF.aspectsOf(h).tool) {
+        // Equipment only sharpens what it is for.
+        if (mods && mods.boost && mods.boost.tags.some(function (t) { return tags.indexOf(t) >= 0; })) U.addAspects(bonus, mods.boost.aspects);
+      } else U.addAspects(bonus, CF.clueAspects(h));
+    });
+    // Helpers add up to 3 points in all, at most 2 to any one aspect.
     var total = 0;
-    for (var a in aspects) {
-      var add = Math.min(bonus[a] || 0, 2, 3 - total);
-      if (add > 0) { aspects[a] += add; total += add; }
+    for (var a in bonus) {
+      var add = Math.min(bonus[a], 2, 3 - total);
+      if (add > 0) { aspects[a] = (aspects[a] || 0) + add; total += add; }
     }
     var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null };
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
@@ -1486,8 +1518,8 @@
   P.hasTool = function (ctx, need) {
     if (!need) return true;
     if (this.s.rooms.lab) return true;
-    var map = { prints: 'kit_prints', bio: 'kit_bio', lab: 'kit_lab' };
-    return ctx.has(map[need]);
+    if (this.teamHas(ctx, 'sharp')) return true;
+    return ctx.cards.some(function (c) { var m = CF.CARDS[c.def].mods; return m && m.gate === need; });
   };
   P.helpers = function (ctx) {
     return ctx.cards.filter(function (c) { var a = CF.aspectsOf(c); return a.tool || a.teammate; });

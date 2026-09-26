@@ -86,16 +86,25 @@
       desc: 'A part of the city.' },
 
     // --- Equipment (slot into Investigate / Analyze) --------------------
-    camera: { label: 'Camera', kind: 'equipment', tags: ['tool'], image: 'icon-camera', aspects: { tool: 1, forensic: 1, opportunity: 1 },
-      desc: 'Photographs don\'t forget. Adds Forensic and Opportunity to what you find.' },
-    prints: { label: 'Fingerprint Set', kind: 'equipment', tags: ['tool', 'kit', 'surfaces'], image: 'aspect-forensic', aspects: { tool: 1, forensic: 2, kit_prints: 1 },
-      desc: 'Powder, brush, lifting tape. Needed to read latent prints properly.' },
-    kit: { label: 'Forensic Kit', kind: 'equipment', tags: ['tool', 'kit', 'biology'], image: 'icon-search', aspects: { tool: 1, forensic: 2, kit_bio: 1 },
-      desc: 'Swabs, vials and a UV lamp. Needed for blood and fibres.' },
-    surveillance: { label: 'Surveillance Gear', kind: 'equipment', tags: ['tool', 'watching'], image: 'icon-binoculars', aspects: { tool: 1, opportunity: 2, digital: 1 },
-      desc: 'Long lenses and wire taps. Makes a Stakeout far more productive.' },
-    labpass: { label: 'Lab Access', kind: 'equipment', tags: ['tool', 'access'], image: 'icon-mind', aspects: { tool: 1, digital: 2, kit_lab: 1 },
-      desc: 'A badge for the city lab. Needed for phones, ledgers and anything under a microscope.' },
+    // Equipment changes what recipes do (see docs/DESIGN.md, "Equipment"):
+    //   boost:   { tags, aspects }  adds aspects to clues found from items with one of the tags
+    //   gate:    'prints'|'bio'|'lab'  evidence that "needs" this analyses properly with it
+    //   unlocks: a recipe id it makes possible; unlocksVerb: a verb it opens
+    camera: { label: 'Camera', kind: 'equipment', tags: ['tool'], image: 'icon-camera', aspects: { tool: 1 },
+      mods: { unlocks: 'inv_photograph', boost: { tags: ['watching'], aspects: { opportunity: 1 } } },
+      desc: 'Photographs don\'t forget. Put it in Investigate with a case to photograph the scene: what you have found stops degrading, and the pictures are evidence. On a Stakeout it catches what you saw.' },
+    prints: { label: 'Fingerprint Set', kind: 'equipment', tags: ['tool', 'kit', 'surfaces'], image: 'aspect-forensic', aspects: { tool: 1, kit_prints: 1 },
+      mods: { gate: 'prints', boost: { tags: ['surfaces'], aspects: { forensic: 1 } } },
+      desc: 'Powder, brush, lifting tape. Reads latent prints properly, and sharpens anything found on a surface.' },
+    kit: { label: 'Forensic Kit', kind: 'equipment', tags: ['tool', 'kit', 'biology'], image: 'icon-search', aspects: { tool: 1, kit_bio: 1 },
+      mods: { gate: 'bio', boost: { tags: ['biology', 'physical'], aspects: { forensic: 1 } }, extraEvidence: true },
+      desc: 'Swabs, vials and a UV lamp. Needed for blood and fibres, sharpens physical evidence, and finds more of it at a scene.' },
+    surveillance: { label: 'Surveillance Gear', kind: 'equipment', tags: ['tool', 'watching'], image: 'icon-binoculars', aspects: { tool: 1 },
+      mods: { unlocksVerb: 'stakeout', boost: { tags: ['watching'], aspects: { opportunity: 1, digital: 1 } } },
+      desc: 'Long lenses and wire taps. Opens the Stakeout, whatever your rank, and turns a night\'s watching into photographs and transcripts.' },
+    labpass: { label: 'Lab Access', kind: 'equipment', tags: ['tool', 'access'], image: 'icon-mind', aspects: { tool: 1, kit_lab: 1 },
+      mods: { gate: 'lab', unlocks: 'an_enhance', boost: { tags: ['records'], aspects: { digital: 1 } } },
+      desc: 'A badge for the city lab. Needed for phones, ledgers and anything under a microscope, and lets you take a clue back to the bench to get more out of it.' },
 
     // --- Requisitions --------------------------------------------------
     order: { label: 'Requisition Form', kind: 'order', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { order: 1 },
@@ -170,17 +179,28 @@
     lab: { label: 'Crime Lab', desc: 'Analysis is faster, and no evidence needs special equipment.' },
   };
 
-  // Personnel you can hire. aspects are what they bring to a case.
+  // Officer traits change what a verb does when the officer is in it.
+  CF.OFFICER_TRAITS = {
+    thorough: { label: 'Thorough', desc: 'Finds one more thing at every scene.' },
+    streetwise: { label: 'Streetwise', desc: 'Doors open for them. A canvass turns up one more person.' },
+    empathetic: { label: 'Empathetic', desc: 'Witnesses trust them. A bluff never scares anyone off.' },
+    sharp: { label: 'Sharp', desc: 'Reads evidence properly even without the right kit.' },
+    patient: { label: 'Patient', desc: 'Analysis and stakeouts take a fifth less time.' },
+    steady: { label: 'Steady', desc: 'Working beside them, you do not tire.' },
+  };
+
+  // Personnel you can hire. aspects are what they bring to a case; traits
+  // are drawn from the pool when they are hired.
   CF.PERSONNEL = {
-    rookie: { label: 'Rookie Officer', cost: 1, role: 'Officer', aspects: { testimony: 1, opportunity: 1 },
+    rookie: { label: 'Rookie Officer', cost: 1, role: 'Officer', aspects: { testimony: 1, opportunity: 1 }, traits: ['thorough', 'streetwise', 'steady'],
       desc: 'Eager, green, and cheap. Knocks on doors without complaining.' },
-    tech: { label: 'Forensic Technician', cost: 3, role: 'Technician', aspects: { forensic: 2 },
+    tech: { label: 'Forensic Technician', cost: 3, role: 'Technician', aspects: { forensic: 2 }, traits: ['sharp', 'patient', 'thorough'],
       desc: 'Talks to microscopes more than people. The microscopes talk back.' },
-    interviewer: { label: 'Interviewer', cost: 3, role: 'Sergeant', aspects: { testimony: 2, motive: 1 },
+    interviewer: { label: 'Interviewer', cost: 3, role: 'Sergeant', aspects: { testimony: 2, motive: 1 }, traits: ['empathetic', 'patient', 'streetwise'],
       desc: 'Makes tea. Listens. People tell her things they have never told anyone.' },
-    analyst: { label: 'Analyst', cost: 4, role: 'Analyst', aspects: { digital: 2, financial: 2 },
+    analyst: { label: 'Analyst', cost: 4, role: 'Analyst', aspects: { digital: 2, financial: 2 }, traits: ['sharp', 'patient'],
       desc: 'Reads bank statements like novels and phone records like poetry.' },
-    veteran: { label: 'Veteran Detective', cost: 5, role: 'Detective', aspects: { opportunity: 2, motive: 2, testimony: 1 },
+    veteran: { label: 'Veteran Detective', cost: 5, role: 'Detective', aspects: { opportunity: 2, motive: 2, testimony: 1 }, traits: ['thorough', 'streetwise', 'steady', 'empathetic'], nTraits: 2,
       desc: 'Thirty years on the job. Has seen this before. Has seen everything before.' },
   };
 

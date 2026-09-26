@@ -362,7 +362,43 @@ window shows the balance and the terms. `CF.ECONOMY` holds the numbers.
 The test of the economy is the question it should keep asking: the
 investigation, the precinct, or yourself?
 
-## 11. What this phase does not decide
+## 11. Equipment changes recipes
+
+No "+10% investigation speed". Each piece of equipment carries `mods` on
+its card definition (`js/data/cards.js`) and the recipes read them:
+
+| Equipment | What it changes |
+|---|---|
+| Fingerprint Set | Reads evidence that needs it; Forensic +1 on anything found on a *surface* (and nothing else). |
+| Forensic Kit | Reads blood and fibres; Forensic +1 on *physical* evidence; a scene search with it finds one more piece of physical evidence. |
+| Camera | Unlocks *Photograph the Scene* (case + camera in Investigate, once per case): every clue and piece of evidence already found stops degrading, and the photographs are a permanent clue. On a Stakeout, Opportunity +1. |
+| Lab Access | Reads phones, ledgers and anything under a microscope; unlocks *Back to the Bench* (a clue + Lab Access in Analyze, once per clue: +1 to its main aspect); Digital +1 on records. |
+| Surveillance Gear | Opens the Stakeout verb at any rank; a stakeout with it is faster and yields photographs and a transcript (Opportunity +1, Digital +1). |
+
+Scene items carry tags (`surfaces`, `physical`, `biology`, `records`,
+`watching`); an item that says what it needs gets its tags from that.
+Equipment only sharpens what it is for; officers still add their own
+aspects to whatever they help with.
+
+## 12. Officers
+
+Officers are cards with aspects and one or two **traits**
+(`CF.OFFICER_TRAITS`), drawn from their role's pool when hired and printed
+on the card. Traits change verbs, not numbers:
+
+| Trait | Effect |
+|---|---|
+| Thorough | One more thing at every scene. |
+| Streetwise | A canvass turns up one more person. |
+| Empathetic | A bluff never scares a witness off. |
+| Sharp | Reads evidence properly without the right kit. |
+| Patient | Analysis and stakeouts take a fifth less time. |
+| Steady | You do not tire working beside them. |
+
+Fatigue, loyalty, personal events and promotions for officers wait for a
+later phase; injuries (Retaliation) already exist.
+
+## 13. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and

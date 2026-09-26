@@ -176,7 +176,7 @@
   // generic rules only fill in once the script runs out.
   //
   //   { id: 'scene', verb: 'investigate', label, duration, preview,
-  //     needs: { aspects, tags, after: ['lead ids'], item: 'evidence key',
+  //     needs: { aspects, without: [aspects that must be absent], tags, after: ['lead ids'], item: 'evidence key',
   //              tool: 'bio'|'prints'|'lab', suspects: 1, sameDistrict: true, when(ctx, rec) },
   //     once: true (default), consume: true (the primary evidence),
   //     gives: [ { type: 'clue', label, text, aspects, trait: true, points: 'culprit' },
@@ -201,6 +201,7 @@
   function needsMet(lead, ctx, rec) {
     var n = lead.needs || {}, e = ctx.e;
     if (n.aspects && !aspectsOk(ctx, n.aspects)) return false;
+    if (n.without && list(n.without).some(function (a) { return ctx.has(a); })) return false;
     if (n.tags && !tagsOk(ctx, n.tags)) return false;
     if (n.after && !list(n.after).every(function (id) { return (rec.leads || {})[id]; })) return false;
     if (n.item && !(ctx.primary.data && ctx.primary.data.item && ctx.primary.data.item.key === n.item)) return false;
@@ -216,14 +217,14 @@
     var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
     if (g.type === 'clue') {
       var flags = { points: g.points === 'culprit' ? rec.culprit : g.points || null, noMisread: !!g.noMisread };
-      var item = { label: fill(g.label), text: fill(g.text), aspects: g.aspects, trait: g.trait && cul ? cul.trait : null };
+      var item = { label: fill(g.label), text: fill(g.text), aspects: g.aspects, tags: g.tags, trait: g.trait && cul ? cul.trait : null };
       return ctx.give('clue', e.clueSpec(rec, item, e.helpers(ctx), flags));
     }
     if (g.type === 'evidence') {
       var needs = g.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[g.needs] + ' to analyse properly.' : '';
       var res = g.result ? { label: fill(g.result.label), text: fill(g.result.text), aspects: g.result.aspects } : null;
       return ctx.give('evidence', { label: fill(g.label), desc: fill(g.text) + ' Take it to Analyze.' + needs + ' (Evidence in: ' + rec.title + ')',
-        caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, result: res } } });
+        caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res } } });
     }
     if (g.type === 'witness') {
       var spec = e.witnessSpec(rec);

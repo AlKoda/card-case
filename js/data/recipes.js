@@ -14,7 +14,11 @@
   function closed(what) {
     return { title: 'Too Late', text: 'By the time you get to it, ' + (what || 'the case') + ' is no longer open. The moment has passed.' };
   }
-  function maybe(ctx, p, defId) { if (ctx.rng() < p) { ctx.give(defId); return true; } return false; }
+  function maybe(ctx, p, defId) {
+    if (defId === 'fatigue' && ctx.e.teamHas(ctx, 'steady')) return false;
+    if (ctx.rng() < p) { ctx.give(defId); return true; }
+    return false;
+  }
   function trait(id) { return CF.TRAITS.filter(function (t) { return t.id === id; })[0]; }
   function culpritOf(rec) { return rec.suspects.filter(function (x) { return x.guilty; })[0]; }
   function slotClues(ctx, keys) {
@@ -295,7 +299,7 @@
       }
       e.caseWork(rec, ctx);
       var got = [];
-      var n = ctx.has('teammate') ? 2 : 1;
+      var n = (ctx.has('teammate') ? 2 : 1) + (e.teamHas(ctx, 'streetwise') ? 1 : 0);
       for (var i = 0; i < n; i++) {
         if (rec.witnesses.length) got.push(ctx.give('witness', e.witnessSpec(rec)).label);
         var sc = e.revealSuspect(rec, ctx);
@@ -324,12 +328,16 @@
       var first = rec.searches === 0;
       rec.searches++;
       e.caseWork(rec, ctx);
-      var n = 1 + (ctx.has('teammate') ? 1 : 0) + (ctx.has('focus') ? 1 : 0) + (first ? 1 : 0);
+      var n = 1 + (ctx.has('teammate') ? 1 : 0) + (ctx.has('focus') ? 1 : 0) + (first ? 1 : 0) + (e.teamHas(ctx, 'thorough') ? 1 : 0);
       var found = [];
       for (var i = 0; i < n; i++) {
         var it = drawItem(ctx, rec, helpers);
         if (!it) break;
         found.push(it.label);
+      }
+      // A Forensic Kit finds physical evidence the eye misses.
+      if (e.gearWith(ctx, 'extraEvidence').length && rec.items[rec.found] && rec.items[rec.found].type === 'evidence') {
+        found.push(drawItem(ctx, rec, helpers).label);
       }
       var extra = [];
       if (first) {
@@ -351,6 +359,27 @@
     },
   });
 
+  R.push({
+    id: 'inv_photograph', verb: 'investigate', label: 'Photograph the Scene', duration: 15, priority: 20,
+    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return 'Every surface, every angle, before it fades. What you have found from ' + (rec ? rec.scene : 'the scene') + ' stops degrading, and the photographs are evidence.'; },
+    requires: { aspects: ['case'], cards: ['camera'], when: function (ctx) { var rec = ctx.caseOf(ctx.primary); return !!rec && !rec.photographed && ctx.with('tool').length === 1; } },
+    run: function (ctx) {
+      var e = ctx.e;
+      var rec = openRec(ctx, ctx.primary);
+      if (!rec) return closed();
+      rec.photographed = true;
+      e.caseWork(rec, ctx);
+      var kept = 0;
+      for (var k in e.s.cards) {
+        var c = e.s.cards[k];
+        if (c.caseId === rec.id && (c.def === 'clue' || c.def === 'evidence') && c.maxLife) { delete c.life; delete c.maxLife; kept++; }
+      }
+      var photos = e.clueSpec(rec, { label: 'Scene Photographs', text: 'Forty frames of ' + rec.scene + ', numbered and dated. The room as it was.', aspects: { forensic: 1, opportunity: 1 }, tags: ['physical'] }, [], { noMisread: true });
+      photos.lifetime = 0; // photographs do not fade
+      ctx.give('clue', photos);
+      return { title: 'Photographed', text: 'You shoot two rolls of ' + rec.scene + ' before anyone can tidy it. ' + (kept ? kept + ' thing' + (kept > 1 ? 's' : '') + ' you found there will keep now.' : 'Whatever you find there next will be on record.') };
+    },
+  });
   R.push({
     id: 'inv_illegal_search', verb: 'investigate', label: 'Search Without a Warrant', duration: 15,
     preview: function (ctx) { return 'Nobody home at ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', '') + '\'s place. A window is open, or could be. Quick, and nothing a judge signed.'; },
@@ -378,7 +407,7 @@
   // ================================================================== ANALYZE
   R.push({
     id: 'an_evidence', verb: 'analyze', label: 'Process Evidence',
-    duration: function (ctx) { return ctx.e.s.rooms.lab ? 15 : 25; },
+    duration: function (ctx) { return Math.round((ctx.e.s.rooms.lab ? 15 : 25) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
     preview: function (ctx) {
       var item = ctx.primary.data.item || {};
       var ok = ctx.e.hasTool(ctx, item.needs);
@@ -403,6 +432,26 @@
       ctx.consume(ev);
       ctx.give('clue', e.clueSpec(rec, spec, e.helpers(ctx)));
       return { title: ok ? 'Results' : 'Partial Results', text: spec.text };
+    },
+  });
+  R.push({
+    id: 'an_enhance', verb: 'analyze', label: 'Back to the Bench', duration: 20,
+    preview: function (ctx) { return 'Take ' + ctx.e.labelOf(ctx.primary) + ' to the city lab and get more out of it. Once.'; },
+    blocked: function (ctx) { return ctx.primary.data.enhanced ? 'The lab has already had everything it can get from this.' : null; },
+    requires: { primary: 'clue', cards: ['labpass'] },
+    run: function (ctx) {
+      var e = ctx.e, c = ctx.primary;
+      var rec = openRec(ctx, c);
+      if (!rec) return closed();
+      var a = CF.clueAspects(c), best = null;
+      for (var k in a) if (!best || a[k] > a[best]) best = k;
+      if (!best) best = 'forensic';
+      c.aspects = c.aspects || {};
+      c.aspects[best] = (c.aspects[best] || 0) + 1;
+      c.data.enhanced = true;
+      c.fresh = true;
+      e.dirty = true;
+      return { title: 'Lab Results', text: 'Under proper instruments ' + e.labelOf(c) + ' gives up one more detail. ' + CF.ASPECTS[best].label + ' +1.' };
     },
   });
   R.push({
@@ -472,7 +521,7 @@
       if (w.data.knows) aspects.opportunity = 1;
       var spec = { label: 'Statement: ' + name, text: '"' + hint + '"', aspects: aspects, trait: w.data.knows ? cul.trait : null };
       if (ctx.has('instinct')) {
-        if (ctx.rng() < 0.4) {
+        if (!e.teamHas(ctx, 'empathetic') && ctx.rng() < 0.4) {
           w.life = Math.max(20, (w.life || 60) - 60);
           return { title: 'The Bluff Fails', text: U.fill(U.pick(ctx.rng, P.witnessBluffFail), vars) };
         }
@@ -829,8 +878,10 @@
         ctx.give('room', { label: CF.ROOMS[o.room].label, desc: CF.ROOMS[o.room].desc });
         return { title: 'Precinct: ' + o.label, text: 'Builders, paint fumes and a ribbon nobody cuts. The ' + o.label + ' is open. ' + CF.ROOMS[o.room].desc };
       }
-      ctx.give(o.give);
-      return { title: 'Delivered: ' + o.label, text: 'It arrives in a wooden crate with the wrong name on it. It works perfectly.' };
+      var gear = ctx.give(o.give);
+      var mods = CF.CARDS[gear.def].mods;
+      var opened = mods && mods.unlocksVerb && e.unlockVerb(mods.unlocksVerb);
+      return { title: 'Delivered: ' + o.label, text: 'It arrives in a wooden crate with the wrong name on it. It works perfectly.' + (opened ? ' With it, you can run a Stakeout.' : '') };
     },
   });
 
@@ -871,7 +922,7 @@
   // ================================================================= STAKEOUT
   R.push({
     id: 'stakeout_watch', verb: 'stakeout', label: 'Stake Them Out',
-    duration: function (ctx) { return ctx.slots.tool && A(ctx.slots.tool).opportunity >= 2 ? 40 : 60; },
+    duration: function (ctx) { return Math.round((ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
     preview: 'Cold coffee, a steamed-up windscreen, and a long night watching one front door.',
     blocked: function (ctx) { return ctx.slots.mind ? null : 'Someone has to watch: you (Instinct) or an officer.'; },
     requires: ['suspect'],
@@ -887,7 +938,7 @@
         ctx.consume(sc);
         return { title: 'Cleared: ' + sus.name, text: 'All night, ' + sus.name + ' does nothing but sleep, feed a cat and water a window box. Whatever happened, it was not them.' };
       }
-      ctx.give('clue', e.clueSpec(rec, { label: 'Caught in the Act', text: 'At 3am, ' + sus.name + ' goes out, meets someone, and does exactly what you hoped they would. You have photographs.', aspects: { opportunity: 3 } }, e.helpers(ctx)));
+      ctx.give('clue', e.clueSpec(rec, { label: 'Caught in the Act', text: 'At 3am, ' + sus.name + ' goes out, meets someone, and does exactly what you hoped they would.' + (ctx.has('tool') ? ' You have photographs, and a transcript.' : ''), aspects: { opportunity: 3 }, tags: ['watching'] }, e.helpers(ctx)));
       return { title: 'Worth the Cold', text: 'Just before dawn, the door opens. ' + sus.name + ' looks both ways, and does not see you.' };
     },
   });

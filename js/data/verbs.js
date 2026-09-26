@@ -45,10 +45,10 @@
     },
     analyze: {
       label: 'Analyze', rank: 0,
-      desc: 'Process evidence into clues. Some evidence needs the right equipment. With an Archive, reopen Cold Cases here. Put a Suspect in with Funds and you can... arrange for evidence to exist.',
+      desc: 'Process evidence into clues. Some evidence needs the right equipment. With Lab Access, a clue can go back to the bench once for more. With an Archive, reopen Cold Cases here. Put a Suspect in with Funds and you can... arrange for evidence to exist.',
       slots: [
-        { key: 'main', label: 'Evidence', accepts: ['evidence', 'coldcase', 'suspect'], primary: true },
-        { key: 'tool', label: 'Equipment', accepts: ['tool'], when: function (p) { return has(p, 'evidence'); } },
+        { key: 'main', label: 'Evidence', accepts: ['evidence', 'coldcase', 'suspect', 'clue'], primary: true },
+        { key: 'tool', label: 'Equipment', accepts: ['tool'], when: function (p) { return any(p, ['evidence', 'clue']); } },
         { key: 'help', label: 'Team', accepts: ['teammate'], when: function (p) { return any(p, ['evidence', 'coldcase']); } },
         { key: 'pay', label: 'Funds', accepts: ['funds'], when: function (p) { return has(p, 'suspect'); } },
         { key: 'pay2', label: 'Funds', accepts: ['funds'], when: function (p) { return has(p, 'suspect'); } },

@@ -43,7 +43,7 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 | **Interrogate** | Question witnesses and suspects with Focus (empathy), Instinct (bluff) or Health (pressure). Confront a suspect with a clue to crack them. |
 | **Reflect** | Rest off Fatigue, Burnout, Obsession and Tunnel Vision. Lay clues side by side and reason: two descriptions of the same person become an identification, money and motive become a theory, and two descriptions of different people tell you one of them is wrong. Put a case with its clues here to see who it points to. |
 | **Arrest** | Charge a suspect with clues from their case. The trial resolves a little later. |
-| **Requisition** | Buy equipment and precinct rooms, and hire officers. |
+| **Requisition** | Buy equipment and precinct rooms, and hire officers. Equipment changes what verbs do: the Camera photographs a scene so its clues keep, Lab Access takes a clue back to the bench, Surveillance Gear opens the Stakeout. Officers come with traits (Thorough, Streetwise, Empathetic, Sharp, Patient, Steady) that change the verbs they help with. |
 | **Warrant / Stakeout / Undercover** | Unlocked at Inspector. |
 | **Task Force** | Unlocked at Chief. |
 

@@ -56,7 +56,7 @@
   var PEOPLE = ['pic-man', 'pic-woman', 'pic-glasses', 'pic-lady', 'pic-smoker', 'pic-hood', 'pic-youth', 'pic-fedora'];
   var CASE_DOSSIER = { burglary: 'house', missing: 'map', harbor: 'knife', arson: 'alley', fraud: 'city', extortion: 'redprint',
     manhunt: 'alley', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
-  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge',
+  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge', equipment: 'print',
     hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'city', court: 'knife' };
   var VERB_TOKENS = { time: 'token-time' };
   var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
@@ -896,7 +896,15 @@
     } else if (k === 'teammate' || k === 'personnel') {
       if (card.data.name) lines.push(card.data.name);
       if (asp) lines.push(asp);
+      if (card.data.traits && card.data.traits.length) lines.push(card.data.traits.map(function (t) { return CF.OFFICER_TRAITS[t].label; }).join(', '));
       if (card.data.level) lines.push('Level ' + card.data.level);
+    } else if (k === 'equipment') {
+      var m = def.mods || {};
+      if (m.boost) lines.push(Object.keys(m.boost.aspects).map(function (x) { return CF.ASPECTS[x].label + ' +' + m.boost.aspects[x]; }).join(', ') + ' on ' + m.boost.tags.join('/'));
+      if (m.gate) lines.push('Reads evidence that needs it');
+      if (m.extraEvidence) lines.push('Finds more physical evidence');
+      if (m.unlocks) lines.push('Opens: ' + ((CF.RECIPES_BY_ID[m.unlocks] || {}).label || m.unlocks));
+      if (m.unlocksVerb) lines.push('Opens the ' + CF.VERBS[m.unlocksVerb].label + ' verb');
     } else if (k === 'informant') {
       lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
       lines.push('Exposure: ' + (card.data.heat || 0));
