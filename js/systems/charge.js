@@ -36,7 +36,8 @@
   // Score one set of clues against a suspect. `skipMisread` drops the clues
   // Tunnel Vision made you misread, giving the charge's real strength.
   function score(rec, sus, clues, profile, skipMisread) {
-    var res = { strength: 0, diversity: 0, corroboration: 0, contradictions: 0, illegal: 0, have: {}, notes: [], n: 0 };
+    var res = { strength: 0, diversity: 0, corroboration: 0, contradictions: 0, illegal: 0, have: {}, notes: [], n: 0,
+      witnesses: 0, stakes: {}, fingerpost: false, sameStake: false, againstInterest: 0, confession: null, checked: false, bodyOrWrit: false };
     var seen = {};
     clues.forEach(function (c) {
       if (skipMisread && c.data.misread) return;
@@ -56,7 +57,24 @@
       if (c.data.coerced) res.illegal++;
       if (c.data.planted) res.illegal++;
       if (c.data.illegal) res.illegal++;
+      if (a.forensic || a.digital) res.bodyOrWrit = true;
+      // Word from a witness: credible only if it was not beaten out of them.
+      if (c.data.stake && !c.data.coerced) {
+        res.witnesses++;
+        res.stakes[c.data.stake] = (res.stakes[c.data.stake] || 0) + 1;
+        if (c.data.againstInterest) res.againstInterest++;
+      }
+      if (c.data.confession === 'free') res.confession = 'free';
+      else if (c.data.confession === 'question' && res.confession !== 'free') res.confession = 'question';
     });
+    // The Fingerpost rule: two witnesses who agree for different reasons
+    // establish a fact; two who want the same thing establish nothing.
+    var kinds = Object.keys(res.stakes).length;
+    if (res.witnesses >= 2 && kinds >= 2) { res.fingerpost = true; res.corroboration += 1.5; }
+    else if (res.witnesses >= 2 && kinds === 1) { res.sameStake = true; res.contradictions += 0; res.strength -= (res.witnesses - 1); }
+    res.corroboration += res.againstInterest;
+    // A confession under the question is checked against Body or Writ.
+    if (res.confession === 'question') res.checked = res.bodyOrWrit && res.contradictions === 0;
     // Strength: profile aspects count in full up to what the case needs,
     // half for as much again, nothing past that; aspects the case does not
     // turn on count a quarter. Piling one aspect up has a ceiling.
@@ -75,6 +93,11 @@
 
   function tierOf(r, need) {
     if (r.n === 0) return 'weak';
+    // Full proof by the Carolina's own routes: a free confession, or two
+    // credible witnesses who agree for different reasons.
+    if (r.confession === 'free' && r.contradictions === 0) return 'strong';
+    if (r.fingerpost && r.contradictions === 0 && r.covered >= 1) return 'strong';
+    if (r.confession === 'question' && r.contradictions === 0) return r.checked ? 'strong' : 'reasonable';
     if (r.score >= need && r.covered >= 2 && r.contradictions === 0) return 'strong';
     if (r.score >= need * 0.6) return 'reasonable';
     return 'weak';
@@ -95,6 +118,8 @@
       have: apparent.have, strength: apparent.strength, diversity: apparent.diversity, corroboration: apparent.corroboration,
       contradictions: apparent.contradictions, illegal: apparent.illegal, coerced: 0, planted: 0, unwarranted: 0,
       score: apparent.score, apparent: apparent.score, real: real.score, covered: apparent.covered,
+      witnesses: apparent.witnesses, fingerpost: apparent.fingerpost, sameStake: apparent.sameStake, againstInterest: apparent.againstInterest,
+      confession: apparent.confession, checked: apparent.checked,
     };
     own.forEach(function (c) { if (c.data.coerced) res.coerced++; if (c.data.planted) res.planted++; if (c.data.illegal) res.unwarranted++; });
     res.tier = tierOf(apparent, need);
@@ -116,6 +141,11 @@
     var notes = [];
     var extra = Object.keys(a.have).filter(function (k) { return !a.profile[k]; });
     if (extra.length) notes.push({ kind: 'dim', text: extra.map(function (k) { return CF.ASPECTS[k].label + ' ' + a.have[k]; }).join(', ') + ': not what this case turns on. Counts for little.' });
+    if (a.confession === 'free') notes.push({ kind: 'good', text: 'A confession, freely given: the king of proofs. Full proof unless something contradicts it.' });
+    if (a.confession === 'question') notes.push({ kind: a.checked ? 'good' : 'bad', text: a.checked ? 'A confession under the question, and Body or Writ that agrees with it. The Court will take it.' : 'A confession under the question and nothing of Body or Writ to check it against. Half proof, until it is repeated freely.' });
+    if (a.fingerpost) notes.push({ kind: 'good', text: 'Two witnesses who agree for different reasons: a fact. +1.5' });
+    if (a.sameStake) notes.push({ kind: 'bad', text: 'Your witnesses all want the same thing. Together they prove no more than one.' });
+    if (a.againstInterest) notes.push({ kind: 'good', text: 'A witness who spoke against their own interest: +' + a.againstInterest });
     if (a.diversity) notes.push({ kind: 'good', text: 'Independent kinds of proof: +' + a.diversity });
     if (a.corroboration) notes.push({ kind: 'good', text: 'Corroboration, or proof that names them: +' + a.corroboration });
     if (a.contradictions) notes.push({ kind: 'bad', text: a.contradictions + ' token' + (a.contradictions > 1 ? 's' : '') + ' describe' + (a.contradictions > 1 ? '' : 's') + ' somebody else: −' + a.contradictions * 2 });

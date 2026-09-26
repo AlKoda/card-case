@@ -57,7 +57,7 @@
     interrogate: 'act-question', reflect: 'scene-study', arrest: 'act-chase', requisition: 'act-deal', warrant: 'act-seal', stakeout: 'act-watch',
     undercover: 'act-rite', delegate: 'act-letter', taskforce: 'act-threat', majorcrimes: 'act-train' };
   var ASPECT_ART = { forensic: 'seal-hand', testimony: 'seal-crow', motive: 'seal-skull', opportunity: 'seal-eye', digital: 'wax-fleur', financial: 'wax-crown' };
-  var METER_ICONS = { pressure: 'icon-person', scrutiny: 'icon-eye', retaliation: 'icon-skull', reputation: 'icon-crown' };
+  var METER_ICONS = { pressure: 'icon-person', scrutiny: 'icon-eye', retaliation: 'icon-skull', reputation: 'icon-crown', dread: 'icon-alert' };
   var TOAST_BARS = { case: 'plate-seal', danger: 'plate-i-star', defeat: 'plate-i-star', major: 'plate-sun', victory: 'plate-moon', week: 'plate-i-moon', verb: 'plate-i-eye', minor: 'plate-i-dark' };
   var RING_LEN = 2 * Math.PI * 47;
 
@@ -360,7 +360,7 @@
     var e = UI.e, s = e.s, m = s.meters;
     var nextRep = s.rank < CF.TOP_RANK ? CF.RANK_REP[s.rank + 1] : (s.calling === 'commissioner' ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
-    $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') +
+    $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
       meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
     $('#rank').textContent = s.detective + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
     $('#rank-badge').style.backgroundImage = art(['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'medal-sun');
@@ -1124,6 +1124,8 @@
     } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
       if (rec) lines.push('Case: ' + rec.title);
       if (asp) lines.push(asp);
+      if (card.data.stake && CF.STAKES[card.data.stake]) lines.push(CF.STAKES[card.data.stake].label + (card.data.againstInterest ? ' · against interest' : '') + (card.data.coerced ? ' · not credible' : ''));
+      if (card.data.confession) lines.push(card.data.confession === 'free' ? 'Confessed freely' : 'Under the question');
       if (card.maxLife) lines.push('Keeps for ' + U.fmtTime(card.life));
       if (k === 'evidence' && card.data.item && card.data.item.needs) lines.push('Needs an instrument');
     } else if (k === 'teammate' || k === 'personnel') {
@@ -1145,6 +1147,8 @@
     } else if (k === 'calling') {
       e.initPaths();
       lines.push(CF.Callings.summary(e));
+      var cnt = e.s.counts || {};
+      lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0));
       lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
       if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
     } else if (card.def === 'front') {

@@ -321,7 +321,9 @@
       e.caseWork(rec, ctx);
       var got = [];
       var n = (ctx.has('teammate') ? 2 : 1) + (e.teamHas(ctx, 'streetwise') ? 1 : 0);
+      var afraid = 0;
       for (var i = 0; i < n; i++) {
+        if (rec.witnesses.length && e.s.meters.dread >= 5 && ctx.rng() < e.s.meters.dread * 0.08) { rec.witnesses.shift(); afraid++; continue; }
         if (rec.witnesses.length) got.push(ctx.give('witness', e.witnessSpec(rec)).label);
         var sc = e.revealSuspect(rec, ctx);
         if (sc) got.push(sc.label + ' (accused)');
@@ -329,9 +331,9 @@
       maybe(ctx, 0.25, 'fatigue');
       if (!got.length) {
         ctx.give('obsession');
-        return { title: 'Every Door Knocked', text: 'The quarter has told you everything it is going to. You go round again anyway.' };
+        return { title: afraid ? 'Doors Shut' : 'Every Door Knocked', text: afraid ? 'A shutter closes as you come up the lane. Nobody near ' + rec.scene + ' saw anything, and nobody will, while they are more afraid of you than of the thief.' : 'The quarter has told you everything it is going to. You go round again anyway.' };
       }
-      return { title: 'Door to Door', text: 'Around ' + rec.scene + ' people are frightened, and frightened people talk. You come away with: ' + got.join('; ') + '.' };
+      return { title: 'Door to Door', text: 'Around ' + rec.scene + ' people are frightened, and frightened people talk. You come away with: ' + got.join('; ') + '.' + (afraid ? ' One door stayed shut; they had heard what happens in the Hole.' : '') };
     },
   });
   R.push({
@@ -529,11 +531,11 @@
     label: function (ctx) { return ctx.has('health') ? 'Lean on the Witness' : ctx.has('instinct') ? 'Bluff the Witness' : 'Hear the Witness'; },
     duration: function (ctx) { return ctx.e.s.rooms.suite ? 12 : 20; },
     preview: function (ctx) {
-      if (ctx.has('health')) return 'Get it out of them, whatever it takes. A beaten witness is not credible before the Court, but the word is the word. The Council will hear of it.';
+      if (ctx.has('health')) return 'Get it out of them, whatever it takes. A beaten witness is not credible before the Court, but the word is the word. The Council will hear of it, and so will the quarter.';
       if (ctx.has('instinct')) return 'Pretend you already know. Might shake more loose. Might frighten them off.';
       return 'Small beer, patience, a kind word. Reliable.';
     },
-    danger: function (ctx) { return ctx.has('health') ? 'Suspicion +1' : null; },
+    danger: function (ctx) { return ctx.has('health') ? 'Suspicion +1 · Dread +1' : null; },
     requires: ['witness'],
     run: function (ctx) {
       var e = ctx.e, w = ctx.primary;
@@ -549,28 +551,30 @@
       var P = CF.PROSE;
       var aspects = { testimony: 2 };
       if (w.data.knows) aspects.opportunity = 1;
-      var spec = { label: 'Deposition: ' + name, text: '"' + hint + '"', aspects: aspects, trait: w.data.knows ? cul.trait : null };
+      var spec = { label: 'Deposition: ' + name, text: '"' + hint + '"' + (w.data.stake ? ' (' + CF.STAKES[w.data.stake].label + '.)' : ''), aspects: aspects, trait: w.data.knows ? cul.trait : null };
+      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against) };
       if (ctx.has('instinct')) {
         if (!e.teamHas(ctx, 'empathetic') && ctx.rng() < 0.4) {
           w.life = Math.max(20, (w.life || 60) - 60);
           return { title: 'The Bluff Fails', text: U.fill(U.pick(ctx.rng, P.witnessBluffFail), vars) };
         }
         ctx.consume(w);
-        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers)));
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, stakeFlags)));
         var s1 = e.revealSuspect(rec, ctx);
         return { title: 'The Bluff Works', text: U.fill(U.pick(ctx.rng, P.witnessBluff), vars) + (s1 ? ' And a name: ' + s1.label + '.' : '') };
       }
       if (ctx.has('health')) {
         ctx.consume(w);
         spec.aspects.testimony = 3;
-        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, { coerced: true })));
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, { stake: stakeFlags.stake, witness: stakeFlags.witness, againstInterest: stakeFlags.againstInterest, coerced: true })));
         e.meter('scrutiny', 1);
+        e.meter('dread', 1);
         e.revealSuspect(rec, ctx);
         maybe(ctx, 0.4, 'fatigue');
         return { title: 'Under Pressure', text: U.fill(U.pick(ctx.rng, P.witnessPressure), vars) };
       }
       ctx.consume(w);
-      ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers)));
+      ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, stakeFlags)));
       var s2 = ctx.rng() < 0.5 ? e.revealSuspect(rec, ctx) : null;
       return { title: 'A Deposition', text: U.fill(U.pick(ctx.rng, P.witnessEmpathy), vars) + (s2 ? ' They also mention ' + s2.label + '.' : '') };
     },
@@ -580,12 +584,20 @@
     label: function (ctx) { return ctx.has('health') ? 'Put Them to the Question' : ctx.has('clue') ? 'Confront the Accused' : ctx.has('instinct') ? 'Bluff the Accused' : 'Examine the Accused'; },
     duration: function (ctx) { return ctx.e.s.rooms.suite ? 15 : 25; },
     preview: function (ctx) {
-      if (ctx.has('health')) return 'The Hole, the thumbscrews, no clerk. You will get a confession. Whether it is true is another matter, and the Carolina asks that it be repeated freely.';
+      if (ctx.has('health')) {
+        var rec0 = ctx.caseOf(ctx.primary), ind = rec0 && ctx.e.indiciaOf(rec0);
+        return 'The Hole, the thumbscrews, the strappado. You will get a confession; everybody confesses. Whether it is true is another matter, and the Court will check it against Body or Writ. ' +
+          (ind && ind.sufficient ? 'The indicia are sufficient: the Carolina allows the question.' : 'The indicia are not sufficient (two kinds of proof, or a word against interest). The question without them is a crime the Council can charge you with.');
+      }
       if (ctx.has('clue')) return 'Put the token on the table and watch their face.';
       if (ctx.has('instinct')) return 'Pretend you have more than you do.';
       return 'Let them talk. People always say more than they mean to.';
     },
-    danger: function (ctx) { return ctx.has('health') ? 'Suspicion +1 to +2' : null; },
+    danger: function (ctx) {
+      if (!ctx.has('health')) return null;
+      var rec0 = ctx.caseOf(ctx.primary), ind = rec0 && ctx.e.indiciaOf(rec0);
+      return 'Dread +2 · Cruelty +1' + (ind && ind.sufficient ? '' : ' · Suspicion +2');
+    },
     requires: ['suspect'],
     run: function (ctx) {
       var e = ctx.e, sc = ctx.primary;
@@ -600,15 +612,16 @@
       var tunnel = e.countOf('tunnel') > 0;
 
       if (ctx.has('health')) {
+        // The question. Everybody confesses; only the guilty confess the truth.
         maybe(ctx, 0.5, 'fatigue');
-        if (sus.guilty || ctx.rng() < 0.4) {
-          e.meter('scrutiny', sus.guilty ? 1 : 2);
-          ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession Under the Question: ' + sus.name, text: sus.name + ' confessed, after eleven hours in the Hole with you.',
-            aspects: { testimony: 4 } }, [], { coerced: true, noMisread: true })));
-          return { title: 'A Confession', text: U.fill(U.pick(ctx.rng, P.suspectPressure), vars) };
-        }
-        e.meter('scrutiny', 2);
-        return { title: 'Nothing', text: sus.name + ' takes everything you give them and says nothing but "I didn\'t do it." Over and over. Their advocate is already before the Council.' };
+        var ind = e.indiciaOf(rec);
+        e.meter('dread', 2);
+        e.count('cruelty', 1);
+        if (!ind.sufficient) e.meter('scrutiny', 2);
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession Under the Question: ' + sus.name,
+          text: sus.name + ' confessed, after eleven hours in the Hole with you. ' + (ind.sufficient ? 'The indicia were sufficient; the Carolina is satisfied so far.' : 'There were no sufficient indicia. The clerk wrote that down too.') + ' To stand as full proof it must be repeated freely, or agree with Body or Writ.',
+          aspects: { testimony: 4 } }, [], { confession: 'question', falseConfession: !sus.guilty, illegal: !ind.sufficient, noMisread: true })));
+        return { title: 'A Confession', text: U.fill(U.pick(ctx.rng, P.suspectPressure), vars) + (ind.sufficient ? '' : ' There were no sufficient indicia for it. If the Council asks, and it will, you have no answer.') };
       }
 
       if (!sus.guilty) {
@@ -631,7 +644,7 @@
         var p = valid ? 0.5 + (weight >= 3 ? 0.2 : 0) + (ctx.has('focus') ? 0.1 : 0) : 0.05;
         if (ctx.rng() < p) {
           ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession: ' + sus.name, text: 'In their own words, written fair by the clerk, freely and out of the Hole. ' + sus.motive,
-            aspects: { testimony: 3, motive: 1 } }, helpers, { noMisread: true })));
+            aspects: { testimony: 3, motive: 1 } }, helpers, { noMisread: true, confession: 'free' })));
           return { title: sus.name + ' Cracks', text: U.fill(U.pick(ctx.rng, P.suspectCracks), { suspect: sus.name, clue: e.labelOf(confront) }) };
         }
         return { title: 'Stone', text: sus.name + ' looks at ' + e.labelOf(confront) + ', then at you, and asks what it has to do with them. ' + (valid ? 'Nearly. They nearly broke.' : 'It is a fair question.') };
@@ -951,7 +964,7 @@
         label: 'Blood Court: ' + sus.name,
         desc: sus.name + ' stands before the Blood Court for ' + rec.title + '. The charge looked like ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '.',
         data: { caseId: rec.id, name: sus.name, guilty: sus.guilty, solid: a.solid, tier: a.realTier, real: a.real, need: a.need,
-          coerced: a.coerced, planted: a.planted, illegal: a.unwarranted, contradictions: a.contradictions },
+          coerced: a.coerced, planted: a.planted, illegal: a.unwarranted, contradictions: a.contradictions, confession: a.confession, checked: a.checked },
       });
       ctx.give('paperwork');
       return { title: 'Taken: ' + sus.name, text: 'The sergeants take them at ' + U.pick(ctx.rng, ['first light, on their doorstep', 'their shop, in front of everyone', 'the Red Ox, mid-sentence', 'the city gate, one foot on the carrier\'s wagon']) +

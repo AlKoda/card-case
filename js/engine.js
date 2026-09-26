@@ -99,7 +99,8 @@
     var s = {
       version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 55, nextUid: 1,
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
-      meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0 },
+      meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
+      counts: { cruelty: 0, mercy: 0, purse: 0 },
       rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', detective: opts.name || 'Examiner',
       over: null,
       stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0 },
@@ -150,6 +151,8 @@
     s.network = s.network || { fronts: {} };
     s.origin = s.origin || s.calling;
     s.rooms = s.rooms || {};
+    s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
+    s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0 };
     // Verbs added since the save was written.
     CF.VERB_ORDER.forEach(function (id) {
       if (!s.verbs[id]) s.verbs[id] = { id: id, status: 'idle', slots: {}, held: [], ctxSlots: {}, out: [], recipe: null,
@@ -490,6 +493,30 @@
     var m = this.s.meters;
     m[name] = U.clamp((m[name] || 0) + delta, 0, this.meterMax(name));
     this.dirty = true;
+  };
+  // The counts on the Calling card that never go down: Cruelty, Mercy, Purse.
+  P.count = function (name, delta) {
+    var c = this.s.counts || (this.s.counts = { cruelty: 0, mercy: 0, purse: 0 });
+    c[name] = (c[name] || 0) + (delta === undefined ? 1 : delta);
+    this.dirty = true;
+  };
+
+  // The Carolina's threshold for the question: indicia in the case that
+  // amount to half proof. Two tokens of different kinds, or one word from a
+  // witness who spoke against their own interest.
+  P.indiciaOf = function (rec) {
+    var seen = {}, n = 0, against = false;
+    for (var k in this.s.cards) {
+      var c = this.s.cards[k];
+      if (c.caseId !== rec.id || (c.def !== 'clue' && c.def !== 'evidence') || !c.loc) continue;
+      if (c.def === 'clue' && c.data.misread) continue;
+      n++;
+      var a = CF.clueAspects(c);
+      for (var x in a) if (a[x]) seen[x] = true;
+      if (c.data.againstInterest) against = true;
+    }
+    var kinds = Object.keys(seen).length;
+    return { n: n, kinds: kinds, against: against, sufficient: kinds >= 2 || against };
   };
 
   // ---- Verbs --------------------------------------------------------------
@@ -873,6 +900,7 @@
       }
       var base = U.randInt(this.rng, 70, 105) - Math.min(30, s.week * 2) - (CF.RANK_DEFS[s.rank] || {}).dispatch || 0;
       if (this.countOf('syndicate')) base -= 10;
+      if (s.meters.dread >= 6) base += 15; // a frightened city commits fewer small crimes, or reports fewer
       s.dispatchT = Math.max(40, base);
     }
 
@@ -981,6 +1009,10 @@
       s.calmWeeks = (s.calmWeeks || 0) + 1;
       if (s.calmWeeks % 2 === 0) this.pathGain('commissioner', 1, 'a calm fortnight');
     }
+    // Fear fades, slowly, and while it lasts the Stews keep their heads down.
+    if (s.meters.dread > 0 && this.rng() < 0.5) this.meter('dread', -1);
+    if (s.meters.dread >= 6) { this.meter('pressure', -1); lines.push('The Stews are quiet. Nobody wants to be the next one you put to the question.'); }
+    if (s.meters.dread >= 8) lines.push('Doors close as you pass. The city is afraid of you now, and fear does not stay quiet forever.');
     this.checkDrift();
     if (s.meters.scrutiny >= 7) lines.push('The Council\'s clerks have started asking your watchmen about you. They are not subtle about it.');
     if (s.meters.pressure >= 7) lines.push('The Burgomaster calls you in to ask why the city is burning. It is not a question.');
@@ -1102,6 +1134,7 @@
     }
 
     if (s.meters.pressure >= this.meterMax('pressure')) { this.gameOver('dismissed'); return; }
+    if (s.meters.dread >= this.meterMax('dread')) { this.gameOver('riot'); return; }
     if (s.meters.scrutiny >= this.meterMax('scrutiny')) { this.gameOver('corruption'); return; }
 
     // Promotion boards.
@@ -1123,6 +1156,7 @@
     collapse: { win: false, title: 'Collapse', text: 'You fall on the Watch-house stair and do not get up. The barber-surgeon uses words like "a surfeit" and "the heart" and "rest, in the country". The city does not send flowers.' },
     consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.' },
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
+    riot: { win: false, title: 'The Crowd Turns', text: 'The next execution is meant to be a lesson. The crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You get out of the city by the Harbour gate with what you are wearing. The Council does not send after you.' },
     death: { win: false, title: 'Killed in the Council\'s Service', text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     commissioner: { win: true, title: 'The Burgomaster', text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
     master: { win: true, title: 'The Scholar', text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties. You fold a paper crane, and throw it in the fire.' },
@@ -1504,6 +1538,8 @@
       if (add > 0) { aspects[a] = (aspects[a] || 0) + add; total += add; }
     }
     var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null, link: item.link || null };
+    if (flags.stake) { data.stake = flags.stake; data.witness = flags.witness || null; data.againstInterest = !!flags.againstInterest; }
+    if (flags.confession) { data.confession = flags.confession; data.falseConfession = !!flags.falseConfession; }
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
     return {
       label: item.label,
@@ -1517,11 +1553,12 @@
   P.witnessSpec = function (rec) {
     var who = rec.witnesses.length ? rec.witnesses.shift() : 'a passer-by';
     var name = this.newName();
+    var stake = U.pick(this.rng, Object.keys(CF.STAKES));
     return {
       label: 'Witness: ' + name,
-      desc: name + ', ' + who + '. Saw something near ' + rec.scene + '. (Witness in: ' + rec.title + ')',
+      desc: name + ', ' + who + '. Saw something near ' + rec.scene + ', and ' + CF.STAKES[stake].desc + '. (Witness in: ' + rec.title + ')',
       caseId: rec.id,
-      data: { knows: this.rng() < 0.65 },
+      data: { knows: this.rng() < 0.65, stake: stake },
     };
   };
 
@@ -1617,6 +1654,17 @@
       if (d.coerced) p += 0.25;
       if (d.planted) p += 0.25;
     }
+    // A confession is the king of proofs. Given freely it convicts; given
+    // under the question it must be repeated freely a day later, and the
+    // Court checks it against the body of the thing. A false confession
+    // that nothing contradicts convicts all the same [Carolina].
+    if (d.confession === 'free') p = Math.max(p, 0.9);
+    else if (d.confession === 'question') {
+      if (d.guilty) p = d.checked ? Math.max(p, 0.9) : Math.max(p, 0.6);
+      else p = d.checked ? 0.12 : 0.8;
+      if (!d.checked && rng() < 0.4) notes.push(d.guilty ? d.name + ' repeats the confession before the judge, freely, as the Carolina asks.' : d.name + ' recants before the judge, then, shown the Hole again, confesses a second time.');
+      else if (d.checked && !d.guilty) notes.push('The confession says one thing and the body of the thing says another. The judge sees it.');
+    }
     for (var i = 0; i < d.coerced; i++) {
       if (rng() < 0.3) {
         p -= 0.25;
@@ -1688,6 +1736,9 @@
           });
         }
       }
+      var lesser = tier !== 'strong' && !d.solid && !rec.special && d.confession !== 'free';
+      var T = CF.CASE_TEMPLATES[rec.template];
+      if (lesser) notes.unshift('On half proof the Court convicts of the lesser crime only: ' + (T && T.lesser ? T.lesser : 'the lesser charge') + '.');
       this.story('Guilty: ' + d.name, 'The sworn men are out for ' + (d.solid ? 'the length of a Paternoster' : 'two days') + '. ' + d.name + ' is convicted of ' + rec.title + ', and the judge breaks his staff. ' +
         (d.guilty ? '' : 'You tell yourself it was the right person. ') + notes.join(' '), 'victory');
     } else {
