@@ -5,8 +5,9 @@
   var U = CF.util;
   var CW = 116, CH = 158, GAP = 10;
 
-  // Art lives in css/art.css as --art-* custom properties.
+  // Art lives in css/art/*.css as --art-* custom properties (see tools/build_art.py).
   function art(name) { return 'var(--art-' + name + ')'; }
+  function hash(str) { var x = 0; str = String(str); for (var i = 0; i < str.length; i++) x = (x * 31 + str.charCodeAt(i)) >>> 0; return x; }
   // Which frame each card kind is drawn in.
   var FRAMES = {
     case: 'case', coldcase: 'case', court: 'case',
@@ -15,26 +16,71 @@
     personnel: 'character', hospital: 'character', criminal: 'character',
     district: 'location', room: 'location',
   };
-  // Cards that get a big icon in the paper area.
+  // Icons shown in the medallion of cards that have no picture.
   var CARD_ICONS = {
     health: 'icon-health', wound: 'icon-health', focus: 'icon-focus', instinct: 'icon-instinct', funds: 'icon-funds',
-    fatigue: 'icon-fatigue', burnout: 'icon-burnout', obsession: 'icon-obsession', tunnel: 'icon-obsession',
-    bribe: 'icon-funds', atlarge: 'icon-retaliation', gang: 'icon-retaliation', syndicate: 'icon-retaliation',
-    promo_inspector: 'icon-reputation', promo_chief: 'icon-reputation', chair: 'icon-reputation',
-    looseend: 'aspect-motive', ledger: 'aspect-financial', trial: 'icon-scrutiny', paperwork: 'aspect-testimony',
-    camera: 'aspect-opportunity', prints: 'aspect-forensic', kit: 'aspect-forensic', surveillance: 'icon-focus', labpass: 'aspect-digital',
+    fatigue: 'icon-fatigue', burnout: 'icon-burnout', obsession: 'icon-obsession', tunnel: 'icon-redeye',
+    bribe: 'icon-handshake', gang: 'icon-roots', syndicate: 'icon-pyramid', trial: 'icon-gavel',
+    promo_inspector: 'icon-star', promo_chief: 'icon-star', chair: 'icon-court', room: 'icon-court',
+    looseend: 'icon-hook', ledger: 'icon-scales', paperwork: 'icon-folder', order: 'icon-folder', notes: 'icon-folder',
+    camera: 'icon-camera', prints: 'aspect-forensic', kit: 'icon-search', surveillance: 'icon-binoculars', labpass: 'icon-mind',
+    calling_commissioner: 'icon-star', calling_master: 'icon-mind', calling_crusader: 'icon-scales',
   };
-  // Verb art: the illustrated tokens, or a ring around one of the icons.
-  var VERB_ART = {
-    duty: { token: 'token-duty' }, patrol: { token: 'token-patrol' }, investigate: { token: 'token-investigate' },
-    analyze: { token: 'token-analyze' }, interrogate: { token: 'token-interrogate' }, reflect: { token: 'token-reflect' },
-    time: { token: 'token-time' },
-    arrest: { icon: 'icon-reputation', ring: '#d9b24a' }, requisition: { icon: 'icon-funds', ring: '#e2c14f' },
-    warrant: { icon: 'aspect-forensic', ring: '#56c7c0' }, stakeout: { icon: 'icon-focus', ring: '#5aa9e6' },
-    undercover: { icon: 'icon-instinct', ring: '#e8773a' }, taskforce: { icon: 'icon-pressure', ring: '#9aa3ad' },
-  };
-  var METER_ICONS = { pressure: 'icon-pressure', scrutiny: 'icon-scrutiny', retaliation: 'icon-retaliation', reputation: 'icon-reputation' };
-  var RING_R = 112, RING_LEN = 2 * Math.PI * RING_R;
+  // Evidence pictures, chosen by what a clue is about.
+  var EV_RULES = [
+    [/victim's account|statement|word from|confession|cover story|slip of|testimony/i, 'ev-memo'],
+    [/motive|hide|signature/i, 'ev-sketch'],
+    [/convenient|knife|weapon/i, 'ev-bloodtag'],
+    [/corroborated/i, 'ev-snapshots'],
+    [/finger|print|ink/i, 'ev-fingerprint'],
+    [/blood|fibre|stroke/i, 'ev-blood'],
+    [/accelerant|paraffin|residue|vial/i, 'ev-vial'],
+    [/call|phone|wiretap|record|cassette/i, 'ev-cassette'],
+    [/letter|correspondence|iou|diary|note/i, 'ev-letter'],
+    [/ledger|account|bank|money|payment|insurance|prospectus|shell|payroll|discrepanc|spending|books|owner/i, 'ev-documents'],
+    [/photo|caught|sighting|seen|ghost/i, 'ev-photos'],
+    [/window|glass|latch|frame|tool|scratch|dent|dust|room|paint/i, 'ev-glass'],
+    [/key|entry|found at|home/i, 'ev-key'],
+    [/timing|tide|timetable|schedule|pattern|suitcase/i, 'ev-notepad'],
+    [/pawn|gem|ring|goods|stock|wallet|chip/i, 'ev-gem'],
+    [/cigarette|wrapper|scent|butt|licorice|footprint|boot/i, 'ev-tag'],
+    [/file|typewriter|newspaper/i, 'ev-newspaper'],
+  ];
+  var EV_BY_ASPECT = { forensic: 'ev-fingerprint', testimony: 'ev-memo', motive: 'ev-letter', opportunity: 'ev-photos', digital: 'ev-cassette', financial: 'ev-documents' };
+  var CASE_ART = { burglary: 'ev-house', missing: 'ev-mugshot', harbor: 'ev-chalk', arson: 'ev-newspaper', fraud: 'ev-documents',
+    extortion: 'ev-bloodtag', manhunt: 'ev-pair', gang: 'ev-snapshots', syndicate: 'ev-badge', architect: 'ev-sketch' };
+  var DISTRICT_ART = { docks: 'ev-alley', market: 'ev-snapshots', neon: 'ev-cassette', uptown: 'ev-badge', warrens: 'ev-house', canal: 'ev-leaf' };
+  var CASE_DOSSIER = { burglary: 'house', missing: 'map', harbor: 'knife', arson: 'alley', fraud: 'city', extortion: 'redprint',
+    manhunt: 'tower', gang: 'redprint', syndicate: 'fedora', architect: 'man' };
+  var KIND_DOSSIER = { suspect: 'man', witness: 'woman', clue: 'print', evidence: 'print', teammate: 'badge', personnel: 'badge',
+    hospital: 'badge', informant: 'fedora', district: 'city', criminal: 'redprint', coldcase: 'tower', court: 'knife' };
+  var VERB_TOKENS = { time: 'token-time' };
+  var METER_ICONS = { pressure: 'icon-group', scrutiny: 'icon-search', retaliation: 'icon-retaliation', reputation: 'icon-star' };
+  var TOAST_ICONS = { case: 'toast-case', danger: 'toast-danger', major: 'toast-major', victory: 'toast-victory', defeat: 'toast-danger', week: 'token-time' };
+  var RING_LEN = 2 * Math.PI * 47;
+
+  // The picture in a card's medallion: {art, portrait?, gray?}
+  function cardPicture(card) {
+    var e = UI.e, def = CF.CARDS[card.def], k = def.kind;
+    if (k === 'case') { var r = e.caseRec(card.caseId); return { art: CASE_ART[r && r.template] || 'ev-house' }; }
+    if (k === 'coldcase') return { art: CASE_ART[card.data.template] || 'ev-house', gray: true };
+    if (k === 'clue' || k === 'evidence') {
+      var label = e.labelOf(card);
+      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return { art: EV_RULES[i][1] };
+      var a = CF.clueAspects(card), best = null;
+      for (var key in a) if (!best || a[key] > a[best]) best = key;
+      return { art: EV_BY_ASPECT[best] || 'ev-tag' };
+    }
+    if (k === 'district') return { art: DISTRICT_ART[card.data.district] || 'ev-alley' };
+    if (k === 'teammate' || k === 'personnel') return { art: 'portrait-2', portrait: true };
+    if (k === 'hospital') return { art: 'portrait-2', portrait: true, gray: true };
+    if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge') {
+      var n = [0, 1, 3, 4, 5, 6, 7, 8][hash(card.data.name || e.labelOf(card)) % 8];
+      return { art: 'portrait-' + n, portrait: true };
+    }
+    if (CARD_ICONS[card.def]) return { art: CARD_ICONS[card.def], icon: true, gray: card.def === 'wound' };
+    return null;
+  }
 
   var UI = (CF.UI = {
     e: null, openVerb: null, selected: null, hover: null, tab: 'desk',
@@ -132,6 +178,8 @@
     if (UI.modal) return;
     var box = $('#toasts');
     var t = h('div', 'toast k-' + (entry.kind || 'event'));
+    var ti = entry.verb ? (VERB_TOKENS[entry.verb] || 'token-' + entry.verb) : TOAST_ICONS[entry.kind];
+    if (ti) { t.classList.add('has-icon'); t.style.setProperty('--toast-icon', art(ti)); }
     t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
     t.addEventListener('click', function () {
       if (entry.verb) { UI.openVerb = entry.verb; UI.tab = 'desk'; }
@@ -140,8 +188,8 @@
       t.remove();
     });
     box.appendChild(t);
-    while (box.children.length > 4) box.removeChild(box.firstChild);
-    setTimeout(function () { t.remove(); }, 7000);
+    while (box.children.length > 3) box.removeChild(box.firstChild);
+    setTimeout(function () { t.remove(); }, 6000);
   }
 
   // --------------------------------------------------------------- Render
@@ -201,19 +249,13 @@
       var n = h('div', 'verb ' + vid + ' ' + v.status + (UI.openVerb === vid ? ' open' : '') + (e.lockReason(vid) && v.status === 'idle' ? ' locked' : '') + (def.auto ? ' time' : ''));
       n.dataset.verb = vid;
       n.title = def.desc;
-      var va = VERB_ART[vid] || { icon: 'icon-alert', ring: '#888' };
-      var tok = h('div', 'v-token' + (va.token ? '' : ' generic'));
-      if (va.token) tok.style.backgroundImage = art(va.token);
-      else {
-        tok.style.setProperty('--ring', va.ring);
-        var ic = h('div', 'v-icon');
-        ic.style.backgroundImage = art(va.icon);
-        tok.appendChild(ic);
-      }
-      tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 238 256"><circle cx="119" cy="139" r="' + RING_R + '" /></svg>');
+      var tok = h('div', 'v-token');
+      tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'token-' + vid);
+      tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" /></svg>');
       if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
+      else tok.appendChild(h('div', 'v-plate', def.label));
       n.appendChild(tok);
-      n.appendChild(h('div', 'v-name', def.label));
+      if (vid === 'time') n.appendChild(h('div', 'v-name', def.label));
       n.appendChild(h('div', 'v-status', verbStatus(vid)));
       if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; UI.newVerbs[vid] = true; }
       if (UI.newVerbs[vid]) n.classList.add('new');
@@ -262,14 +304,14 @@
     var n = h('div', 'card frame-' + frame + ' kind-' + def.kind + (opts.mini ? ' mini' : '') + (card.fresh ? ' fresh' : '') + (UI.selected === card.uid ? ' selected' : ''));
     n.dataset.uid = card.uid;
     n.style.backgroundImage = art('frame-' + frame);
+    var pic = cardPicture(card);
+    if (pic) {
+      var medal = h('div', 'c-medal' + (pic.portrait ? ' portrait' : pic.icon ? ' icon' : '') + (pic.gray ? ' gray' : ''));
+      medal.style.backgroundImage = art(pic.art);
+      n.appendChild(medal);
+    }
     var body = h('div', 'c-body');
     body.appendChild(h('div', 'c-kind', kind.label));
-    var iconName = CARD_ICONS[card.def];
-    if (iconName) {
-      var ic = h('div', 'c-icon' + (card.def === 'wound' ? ' hurt' : ''));
-      ic.style.backgroundImage = art(iconName);
-      body.appendChild(ic);
-    }
     body.appendChild(h('div', 'c-title', e.labelOf(card)));
     var sub = '';
     if (card.caseId && def.kind !== 'case') sub = 're: ' + caseTitle(card);
@@ -497,6 +539,41 @@
     });
   }
 
+  // Short handwritten notes for the inspector's dossier.
+  function dossierNotes(card) {
+    var e = UI.e, def = CF.CARDS[card.def], k = def.kind, lines = [];
+    var rec = card.caseId ? e.caseRec(card.caseId) : null;
+    var a = CF.clueAspects(card);
+    var asp = Object.keys(a).map(function (x) { return CF.ASPECTS[x].label + ' ' + a[x]; }).join(', ');
+    if (k === 'case' && rec) {
+      var met = rec.suspects.filter(function (x) { return x.revealed; });
+      lines.push(rec.scene + ', ' + CF.DISTRICTS[rec.district].label);
+      lines.push('Suspects met: ' + (met.length ? met.map(function (x) { return x.name.split(' ')[1] + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); }).join(', ') : 'none'));
+      lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched'));
+      lines.push('Time left: ' + U.fmtTime(card.life) + (rec.highProfile ? ' · high-profile' : ''));
+    } else if (card.def === 'suspect') {
+      var sus = e.suspectOf(card);
+      if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1));
+      if (rec) lines.push('Case: ' + rec.title);
+      if (rec && rec.identified === card.data.key) lines.push('Prime suspect');
+    } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
+      if (rec) lines.push('Case: ' + rec.title);
+      if (asp) lines.push(asp);
+      if (card.maxLife) lines.push('Keeps for ' + U.fmtTime(card.life));
+      if (k === 'evidence' && card.data.item && card.data.item.needs) lines.push('Needs special equipment');
+    } else if (k === 'teammate' || k === 'personnel') {
+      if (card.data.name) lines.push(card.data.name);
+      if (asp) lines.push(asp);
+      if (card.data.level) lines.push('Level ' + card.data.level);
+    } else if (k === 'informant') {
+      lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
+      lines.push('Exposure: ' + (card.data.heat || 0));
+    } else if (card.maxLife) {
+      lines.push('Time left: ' + U.fmtTime(card.life));
+    }
+    return lines.slice(0, 4);
+  }
+
   function renderInspector() {
     var e = UI.e;
     var box = $('#inspector');
@@ -507,27 +584,23 @@
       return;
     }
     var def = CF.CARDS[card.def];
-    var html = '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
+    var rec = card.caseId ? e.caseRec(card.caseId) : null;
+    var dz = def.kind === 'case' && rec ? CASE_DOSSIER[rec.template] : KIND_DOSSIER[def.kind] || (def.kind === 'criminal' ? 'redprint' : null);
+    var html = '';
+    if (dz) {
+      html += '<div class="dossier dossier-' + dz + '" style="background-image:' + art('dossier-' + dz) + '">' +
+        '<div class="d-plate"><span>' + esc(e.labelOf(card)) + '</span></div>' +
+        '<div class="d-lines">' + dossierNotes(card).map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div></div>';
+    } else {
+      html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
+    }
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
       return '<span class="chip big"><span class="chip-icon" style="background-image:' + art('aspect-' + k) + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
     }).join('');
-    if (badges) html += '<div class="i-aspects">' + badges + '</div>';
+    if (badges && !dz) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
-    if (card.maxLife) html += '<div class="i-note">Time left: ' + U.fmtTime(card.life) + '</div>';
-    if (def.kind === 'case') {
-      var rec = e.caseRec(card.caseId);
-      if (rec) {
-        var met = rec.suspects.filter(function (s) { return s.revealed; });
-        html += '<div class="i-note" style="margin-top:6px">Case notes:</div><ul class="i-list">' +
-          '<li>Scene: ' + esc(rec.scene) + ' (' + esc(CF.DISTRICTS[rec.district].label) + ')</li>' +
-          '<li>Suspects met: ' + (met.length ? met.map(function (s) { return esc(s.name) + (s.cleared ? ' (cleared)' : rec.identified === s.key ? ' (prime suspect)' : ''); }).join(', ') : 'none yet') + '</li>' +
-          '<li>Scene searched: ' + (rec.found >= rec.items.length ? 'exhausted' : rec.searches ? 'partly' : 'not yet') + '</li>' +
-          (rec.highProfile ? '<li>High-profile</li>' : '') + '</ul>';
-      }
-    }
-    if (def.kind === 'teammate' && card.data.level) html += '<div class="i-note">Level ' + card.data.level + '</div>';
-    if (def.kind === 'informant') html += '<div class="i-note">Exposure: ' + (card.data.heat || 0) + '</div>';
+    if (!dz && card.maxLife) html += '<div class="i-note">Time left: ' + U.fmtTime(card.life) + '</div>';
     box.innerHTML = html;
   }
 
