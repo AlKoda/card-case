@@ -998,6 +998,19 @@
     if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
     if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
+    // The Pattern: once a run, from week six, and every week it is open another girl.
+    if (s.week >= 6 && !s.flags.patternSeen && this.rng() < 0.2 && this.openCases().length < this.maxOpenCases()) {
+      s.flags.patternSeen = true;
+      this.spawnCase('pattern', { headline: 'The Pattern: ', lead: 'The first of them.' });
+    }
+    this.openCases().forEach(function (rec) {
+      if (rec.template !== 'pattern' || rec.patternRead) return;
+      rec.victims = (rec.victims || 1) + 1;
+      self.meter('pressure', 1);
+      var n = ['', 'first', 'second', 'third', 'fourth', 'fifth'][Math.min(5, rec.victims)];
+      self.create('clue', self.clueSpec(rec, { label: 'The ' + n.charAt(0).toUpperCase() + n.slice(1) + ' Door', text: 'Another girl of ' + rec.scene + ', another doorway, the hair cut close. The same lane runs down to the same river. ' + (rec.victims >= 3 ? 'The city has stopped sleeping.' : 'The quarter has begun to count.'), aspects: { opportunity: 1, forensic: 1 }, pattern: true }, []));
+      lines.push('Another girl in ' + rec.scene + '. The ' + n + '.');
+    });
     if (this.eumenidesWeek) lines = lines.concat(this.eumenidesWeek());
     if (s.flags.syndicateFallen && this.rng() < 0.25 && this.openCases().length < this.maxOpenCases() && !this.openCases().some(function (r) { return r.template === 'highway'; })) {
       this.spawnCase('highway', { headline: 'From the Roads: ', lead: 'The Court of Miracles is scattered, and its men have horses now.' });
@@ -1575,6 +1588,7 @@
     }
     var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null, link: item.link || null };
     if (flags.stake) { data.stake = flags.stake; data.witness = flags.witness || null; data.againstInterest = !!flags.againstInterest; }
+    if (item.pattern) data.pattern = true;
     if (flags.confession) { data.confession = flags.confession; data.falseConfession = !!flags.falseConfession; }
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
     return {

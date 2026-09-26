@@ -58,6 +58,8 @@
     coining: { rungs: ['pardon', 'fine', 'brand', 'wheel'], custom: 'wheel', capital: true, wheel: 'The Fire' },
     manhunt: { rungs: ['pardon', 'banish', 'rope'], custom: 'rope' },
     scriptorium: { rungs: ['pardon', 'banish', 'sword', 'rope'], custom: 'sword' },
+    pattern: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'wheel', capital: true },
+    threedays: { rungs: ['pardon', 'banish', 'sword', 'rope'], custom: 'sword' },
     witch: { rungs: ['pardon', 'banish', 'sword', 'wheel'], custom: 'wheel', capital: true, wheel: 'The Fire' },
     highway: { rungs: ['pardon', 'banish', 'rope', 'wheel'], custom: 'rope' },
     contract: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'wheel', capital: true },

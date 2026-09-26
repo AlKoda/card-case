@@ -39,6 +39,7 @@
       if (!Object.keys(links).some(function (l) { return links[l] >= 2; }) || Object.keys(cases).length < 2) return false;
     }
     if (n.points && !clues.some(function (c) { return c.data.points; })) return false;
+    if (n.pattern && clues.filter(function (c) { return c.data.pattern; }).length < n.pattern) return false;
     return true;
   };
 
@@ -61,6 +62,7 @@
     var traitDef = trait && CF.TRAITS.filter(function (t) { return t.id === trait; })[0];
     // Who does this describe? A revealed suspect with the trait, or one the clues name.
     var named = clues.map(function (c) { return c.data.points; }).filter(Boolean)[0] || null;
+    if (d.id === 'pattern') { named = rec.culprit; rec.identified = rec.culprit; rec.patternRead = true; }
     var fits = rec.suspects.filter(function (x) { return x.revealed && !x.cleared && (x.key === named || (trait && x.trait === trait)); })[0] || null;
     // Tunnel Vision: conflicting descriptions "identify" whoever is on the
     // board, and the result is a misreading that will not hold up.

@@ -252,6 +252,48 @@
             result: { label: 'The Blade\'s Owner', text: 'The Stews have a name for the man who carries this. So does the Coquille.', aspects: { forensic: 2, testimony: 1 } } },
         ] },
     ],
+    pattern: [
+      { id: 'fair', vars: { time: ['the night after the fair', 'the night the players left', 'the night of the guild dinner'], detail: ['her hair was fair', 'she had been asked her name the week before', 'a gentle voice was heard in the lane'], item: ['a strand of hair in a twist of paper', 'a phial of attar', 'a barber\'s cloth'] },
+        brief: 'The first girl was found {time}: {detail}. In the doorway, {item}.',
+        items: [
+          { type: 'clue', label: 'The Night After the Fair', text: '{detail}. He comes when the city is tired.', aspects: { opportunity: 2 }, pattern: true },
+          { type: 'evidence', label: '{item}', text: 'Left by a hand that did not think it was leaving anything.', needs: 'bio',
+            result: { label: 'The Scent Named', text: 'Attar of roses, and under it something the apothecary\'s boy knows from one shop only.', aspects: { forensic: 2, testimony: 1 } } },
+        ] },
+      { id: 'doors', vars: { time: ['before matins', 'in the fog', 'in the hour the lamps go out'], detail: ['every door faces the same way', 'every lane runs down to the river', 'every girl was found within a bell of the spinning-house'], item: ['a chalk mark on the lintel', 'a cut lock of hair returned, tied with ribbon', 'a coin under the tongue'] },
+        brief: 'A girl of {scene} found {time}, hair cut off. {detail}. On the doorpost, {item}.',
+        items: [
+          { type: 'clue', label: 'The Doors', text: '{detail}. He chooses the door before the girl.', aspects: { opportunity: 2 }, pattern: true },
+          { type: 'clue', label: '{item}', text: 'A signature, or a courtesy. He wants somebody to read it.', aspects: { motive: 1, forensic: 1 } },
+        ] },
+      { id: 'attar', vars: { time: ['the night the perfumer\'s shop stayed lit', 'the night of the rose fair', 'the night after the players'], detail: ['the smell of attar in the lane', 'a phial with a shop\'s mark', 'petals in the gutter under the door'], item: ['a stoppered phial', 'a receipt for civet', 'a barber\'s strop'] },
+        brief: 'A girl found {time} with her hair cut close, and in the doorway {detail}. Dropped nearby, {item}.',
+        items: [
+          { type: 'clue', label: 'The Scent', text: '{detail}. One shop in the city sells it.', aspects: { forensic: 2 }, pattern: true },
+          { type: 'evidence', label: '{item}', text: 'Not a thing the lane would drop.', needs: 'bio',
+            result: { label: 'The Shop Named', text: 'The apothecary\'s boy names the shop and the hand that buys there.', aspects: { testimony: 2, opportunity: 1 } } },
+        ] },
+    ],
+    threedays: [
+      { id: 'chest', vars: { time: ['at the Saturday auction', 'on market day', 'the day the Council sat'], detail: ['the chest was nailed shut from outside', 'the chest smelt of quicklime', 'the chest had a shipping mark from the Hill'], item: ['a bill of sale in a good hand', 'a nail from a Hill carpenter', 'a scrap of a woman\'s sleeve'] },
+        brief: 'The chest was sold {time} for a hundred gulden. {detail}. Under the lid, {item}.',
+        items: [
+          { type: 'clue', label: 'The Chest', text: '{detail}. Whoever sold it did not expect it to be opened in public.', aspects: { opportunity: 2, digital: 1 } },
+          { type: 'clue', label: '{item}', text: 'A man who cuts a woman in pieces and sells the chest signs his own name to the sale. He wanted to be found.', aspects: { digital: 2 } },
+        ] },
+      { id: 'brothers', vars: { time: ['on the same morning', 'within the hour', 'before the bell'], detail: ['each swore the other was at home', 'neither would look at the other', 'each described a different knife'], item: ['two confessions in two hands', 'a letter from one brother to the other, unsent', 'a knife that fits neither story'] },
+        brief: 'Two men came to the Watch-house {time}, each saying he did it: {detail}. On your desk, {item}.',
+        items: [
+          { type: 'clue', label: 'Two Confessions', text: '{detail}. Two men cannot both have done one thing alone.', aspects: { testimony: 2, motive: 1 } },
+          { type: 'clue', label: '{item}', text: 'The truth is in what the confessions leave out.', aspects: { digital: 1, opportunity: 1 } },
+        ] },
+      { id: 'apples', vars: { time: ['on the Hill, at a great price', 'from the Bishop\'s own orchard', 'off a ship, in winter'], detail: ['there were three', 'one was gone from the table by evening', 'the sick woman never tasted them'], item: ['a receipt for three apples', 'the apple itself, bitten once', 'a boy\'s account of a kindness'] },
+        brief: 'Three apples were bought {time} for a woman who was dying: {detail}. Found on the way from her table to the Market, {item}.',
+        items: [
+          { type: 'clue', label: 'Three Apples', text: '{detail}. The whole death is in one apple\'s journey.', aspects: { opportunity: 2 } },
+          { type: 'clue', label: '{item}', text: 'Every hand it passed through told the next one a lie.', aspects: { testimony: 1, motive: 1 } },
+        ] },
+    ],
     coining: [
       { id: 'the_furnace', vars: { time: ['past the gate bell', 'on Sunday, when the forges are cold', 'during the fair, when the city is full of strangers'], detail: ['smoke from a chimney where nobody lives', 'sacks of charcoal carried in at night', 'a smell of hot metal in a lane of weavers'], item: ['a broken mould', 'a bar of lead', 'a crucible with silver in the cracks'] },
         brief: 'Somebody in the city has a furnace going {time}: {detail}. The Mintmaster is certain of the die. In a midden nearby, {item}.',
