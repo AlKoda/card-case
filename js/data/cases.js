@@ -153,6 +153,61 @@
       ],
       witnesses: ['a baker starting the ovens', 'a night-shift tram driver', 'the woman in the flat opposite'],
       hints: ['I saw someone at the back gate. They had a bad leg, or maybe a heavy bag.', 'There was a van. I didn\'t see the colour, it was dark.', 'The dog next door never barked. Never. It knew whoever it was.'],
+      // The written case (docs/DESIGN.md, "The first playable case"). Three
+      // threads leave the scene: the window (forensic), the neighbour
+      // (testimony) and the money (financial). Any two make a charge.
+      // Order matters: the first lead whose needs are met is the one that
+      // runs, so the specific ones come before the catch-alls.
+      leads: [
+        { id: 'scene', verb: 'investigate', label: 'Search the Scene', duration: 30,
+          preview: 'Duck under the tape. Start at the window and work inwards.',
+          gives: [
+            { type: 'evidence', key: 'window', label: 'Pried Window Frame', text: 'Tool marks on the frame, a flat blade.', needs: 'bio',
+              result: { label: 'Tool Mark Analysis', text: 'The blade was a specific chisel, chipped at one corner. Find the chisel, find the burglar.', aspects: { forensic: 2, opportunity: 1 } } },
+            { type: 'clue', label: 'Inventory Discrepancy', text: 'The list of what was stolen does not match the insurance schedule. Someone knew what was worth taking.', aspects: { financial: 2 } },
+          ],
+          reveal: 'any', district: true, fatigue: 0.25,
+          story: { title: 'At the Scene', text: 'You duck under the tape at {scene}. The back window has been forced with something flat and patient, and the safe stands open like a mouth. You come away with {found}.' } },
+        { id: 'prints', verb: 'investigate', label: 'Dust for Prints', duration: 25, needs: { tags: ['surfaces'], after: ['scene'] },
+          preview: 'Powder on the window frame, the safe dial, the door handle. Somebody touched all three.',
+          gives: [
+            { type: 'evidence', key: 'print', label: 'Partial Fingerprint', text: 'Lifted from the safe dial. Half a thumb, maybe. Needs a name to match it against.', needs: 'prints',
+              result: { label: 'Matched Print', text: 'The ridge detail on the safe dial matches {culprit}. Not the owner, not the staff. {culprit}.', aspects: { forensic: 3 } } },
+          ],
+          fatigue: 0.25,
+          story: { title: 'Prints', text: 'The powder finds a partial on the safe dial where a thumb pressed hard, turning it. Whoever it belongs to was not wearing gloves when it mattered.' } },
+        { id: 'canvass', verb: 'investigate', label: 'Canvass the Neighbourhood', duration: 30, needs: { aspects: ['district'], sameDistrict: true },
+          preview: 'Door to door. Somebody was awake at two in the morning. Somebody always is.',
+          gives: [
+            { type: 'witness', who: 'the woman in the flat opposite, who does not sleep', knows: true },
+            { type: 'evidence', key: 'ticket', label: 'Pawn Ticket', text: 'A ticket from a shop across town, dated the morning after, dropped in the gutter by the back gate.',
+              result: { label: 'Pawned Goods', text: 'A ring from the safe turned up in a pawn shop across town within hours. The clerk remembers who brought it in: "{seen}"', aspects: { financial: 2, testimony: 1 } } },
+          ],
+          reveal: 'any',
+          story: { title: 'Door to Door', text: 'Around {scene} people are frightened, and frightened people talk. The woman in the flat opposite was at her window at two in the morning. She usually is.' } },
+        { id: 'timing', verb: 'investigate', label: 'Go Back Over It', duration: 30, needs: { after: ['scene'] },
+          preview: 'Go back over {scene} inch by inch. The first pass never finds everything.',
+          gives: [
+            { type: 'clue', label: 'The Timing', text: 'The alarm was switched off at 2:14 and back on at 2:41. Twenty-seven minutes, and they knew the code.', aspects: { opportunity: 2 } },
+          ],
+          fatigue: 0.25,
+          story: { title: 'Back at the Scene', text: 'The alarm company keeps a log. Off at 2:14, on at 2:41. Somebody knew the code, and somebody was in and out in twenty-seven minutes.' } },
+        { id: 'toolmark', verb: 'analyze', label: 'Tool Mark Analysis', duration: 25, needs: { item: 'window', tool: 'bio' }, consume: true,
+          preview: 'Cast the marks, measure the blade, look for the flaw.',
+          gives: [{ type: 'clue', label: 'Tool Mark Analysis', text: 'The blade was a specific chisel, chipped at one corner. Find the chisel, find the burglar.', aspects: { forensic: 2, opportunity: 1 } }],
+          story: { title: 'Results', text: 'The cast shows a chisel, and a chip at one corner that will match exactly one chisel in the city. It is the kind of detail juries like.' } },
+        { id: 'print_match', verb: 'analyze', label: 'Match the Print', duration: 25, needs: { item: 'print', tool: 'prints', suspects: 1 }, consume: true,
+          preview: 'Compare the partial against everyone on the board.',
+          gives: [{ type: 'clue', label: 'Matched Print: {culprit}', text: 'The ridge detail on the safe dial matches {culprit}. Not the owner, not the staff. {culprit}.', aspects: { forensic: 3 }, points: 'culprit', noMisread: true }],
+          story: { title: 'A Match', kind: 'major', text: 'Twelve points of comparison. The thumb on the safe dial belongs to {culprit}.' } },
+        { id: 'print_nomatch', verb: 'analyze', label: 'Compare the Print', duration: 10, needs: { item: 'print', tool: 'prints' }, once: false,
+          preview: 'A print is only half a clue. You need somebody to match it against.',
+          story: { title: 'Nothing to Compare', text: 'A clean partial, and nobody on the board to hold it against. Find a suspect first, then bring it back.' } },
+        { id: 'pawn', verb: 'analyze', label: 'Trace the Ticket', duration: 20, needs: { item: 'ticket' }, consume: true,
+          preview: 'Ring the shop. Get the clerk talking.',
+          gives: [{ type: 'clue', label: 'Pawned Goods', text: 'A ring from the safe turned up in a pawn shop across town within hours. The clerk remembers who brought it in: "{seen}"', aspects: { financial: 2, testimony: 1 }, trait: true }],
+          story: { title: 'The Pawn Shop', text: 'The clerk kept the ring and the ticket and, when you lean on the counter, a description: "{seen}"' } },
+      ],
     },
     missing: {
       label: 'Missing Person', title: 'The Disappearance of {victim}', lifetime: 280, difficulty: 6,

@@ -1,7 +1,7 @@
 // Recipes: what each verb does with the cards in its slots. The first recipe
-// (in order) whose match() passes is the one the verb will run. `blocked`
-// explains why it can't start yet; `run` resolves it when the timer ends and
-// returns the story beat.
+// (by priority, then file order) whose requirements pass is the one the verb
+// will run. See js/core/recipes.js for the fields. Simple recipes are pure
+// data (requires + effects); the ones with branching prose keep a run().
 (function (G) {
   var CF = G.CF;
   var U = CF.util;
@@ -63,7 +63,7 @@
   R.push({
     id: 'duty_promo', verb: 'duty', label: 'Attend the Promotion Board', duration: 30,
     preview: 'Put on a clean shirt. Answer their questions. Try not to say what you actually think.',
-    match: function (ctx) { return ctx.has('promotion'); },
+    requires: ['promotion'],
     run: function (ctx) {
       var e = ctx.e, s = e.s;
       ctx.consume(ctx.primary);
@@ -82,7 +82,7 @@
   R.push({
     id: 'duty_chair', verb: 'duty', label: 'Stand Before the Council', duration: 60,
     preview: 'The council will weigh your Reputation, and look hard at Public Pressure and Scrutiny. Both should be 4 or lower.',
-    match: function (ctx) { return ctx.has('chair'); },
+    requires: ['chair'],
     run: function (ctx) {
       var e = ctx.e, m = e.s.meters;
       ctx.consume(ctx.primary);
@@ -98,19 +98,17 @@
   R.push({
     id: 'duty_bribe', verb: 'duty', label: 'Pocket the Envelope', duration: 5,
     preview: 'Nobody would ever know. Except the people who left it. And Internal Affairs, eventually.',
-    danger: function () { return 'Scrutiny +2'; },
-    match: function (ctx) { return ctx.has('bribe'); },
-    run: function (ctx) {
-      ctx.consume(ctx.primary);
-      ctx.give('funds'); ctx.give('funds'); ctx.give('funds');
-      ctx.e.meter('scrutiny', 2);
-      return { title: 'Pocketed', text: 'Three weeks\' pay in used notes. It sits in your coat like a stone. Somewhere, somebody writes your name in a ledger.' };
-    },
+    danger: 'Scrutiny +2',
+    requires: ['bribe'],
+    effects: [
+      { consume: 'primary' }, { give: 'funds', n: 3 }, { meter: { scrutiny: 2 } },
+      { story: { title: 'Pocketed', text: 'Three weeks\' pay in used notes. It sits in your coat like a stone. Somewhere, somebody writes your name in a ledger.' } },
+    ],
   });
   R.push({
     id: 'duty_train', verb: 'duty', label: 'Train an Officer', duration: 40,
     preview: 'Courses, drills, a mentor. They will come back sharper.',
-    match: function (ctx) { return ctx.has('teammate') && ctx.count('funds') >= 2; },
+    requires: { aspects: { teammate: 1, funds: 2 } },
     run: function (ctx) {
       var t = ctx.primary;
       ctx.with('funds').slice(0, 2).forEach(ctx.consume);
@@ -126,62 +124,57 @@
   R.push({
     id: 'duty_team', verb: 'duty', label: 'Put Them on Shift', duration: 30,
     preview: 'They work a shift in your name. The overtime comes to you.',
-    match: function (ctx) { return ctx.has('teammate') && !ctx.has('funds') && !ctx.has('paperwork'); },
-    run: function (ctx) {
-      ctx.give('funds');
-      return { title: 'A Shift Covered', text: ctx.primary.data.name + ' works the shift without complaint. The budget line reads your name.' };
-    },
+    requires: ['teammate'], forbids: ['funds', 'paperwork'],
+    effects: [
+      { give: 'funds' },
+      { story: { title: 'A Shift Covered', text: function (ctx) { return ctx.primary.data.name + ' works the shift without complaint. The budget line reads your name.'; } } },
+    ],
   });
   R.push({
     id: 'duty_file', verb: 'duty', label: 'File Your Paperwork', duration: 25,
     preview: 'Every form in triplicate. Every statement signed. Internal Affairs loves a tidy file.',
-    match: function (ctx) { return ctx.has('focus') && ctx.has('paperwork'); },
-    run: function (ctx) {
-      ctx.consume(ctx.first('paperwork'));
-      ctx.e.meter('scrutiny', -1);
-      ctx.give('funds');
-      return { title: 'Filed', text: 'Four hours of forms. By the end, even the parts that were not quite by the book read as if they were.' };
-    },
+    requires: ['focus', 'paperwork'],
+    effects: [
+      { consume: 'paperwork', n: 1 }, { meter: { scrutiny: -1 } }, { give: 'funds' },
+      { story: { title: 'Filed', text: 'Four hours of forms. By the end, even the parts that were not quite by the book read as if they were.' } },
+    ],
   });
   R.push({
     id: 'duty_desk', verb: 'duty', label: 'Desk Shift', duration: 30,
     preview: 'Answer phones. Take statements. Earns a little, costs little.',
-    match: function (ctx) { return ctx.has('focus') && ctx.cards.length === 1; },
-    run: function (ctx) {
-      ctx.give('funds');
-      var lines = ['A woman reports her husband missing. He is at the pub. You find him in ten minutes.',
+    requires: { aspects: ['focus'], when: function (ctx) { return ctx.cards.length === 1; } },
+    effects: [
+      { give: 'funds' },
+      { story: { title: 'Desk Shift', text: ['A woman reports her husband missing. He is at the pub. You find him in ten minutes.',
         'A boy brings in a wallet he found. Every note still in it. You buy him a sandwich.',
-        'The phone rings forty times. Thirty-nine of them are nothing.'];
-      return { title: 'Desk Shift', text: U.pick(ctx.rng, lines) };
-    },
+        'The phone rings forty times. Thirty-nine of them are nothing.'] } },
+    ],
   });
   R.push({
     id: 'duty_beat', verb: 'duty', label: 'Beat Shift', duration: 30,
     preview: 'Walk the beat, break up fights, earn your pay. Pays better than the desk. Tiring.',
-    danger: function () { return 'May cause Fatigue'; },
-    match: function (ctx) { return ctx.has('health'); },
-    run: function (ctx) {
-      ctx.give('funds'); ctx.give('funds');
-      var tired = maybe(ctx, 0.55, 'fatigue');
-      var lines = ['Two drunks, a stolen bicycle and a lost dog. The dog was the most reasonable of them.',
+    danger: 'May cause Fatigue',
+    requires: ['health'],
+    effects: [
+      { give: 'funds', n: 2 },
+      { story: { title: 'Beat Shift', text: ['Two drunks, a stolen bicycle and a lost dog. The dog was the most reasonable of them.',
         'You spend six hours on your feet in the rain outside a football ground.',
-        'A shopkeeper shakes your hand. A kid spits at your shoes. An ordinary shift.'];
-      return { title: 'Beat Shift', text: U.pick(ctx.rng, lines) + (tired ? ' Your feet ache all the way up to your skull.' : '') };
-    },
+        'A shopkeeper shakes your hand. A kid spits at your shoes. An ordinary shift.'] } },
+      { chance: 0.55, then: [{ give: 'fatigue' }, { call: function (ctx) { ctx.result.text += ' Your feet ache all the way up to your skull.'; } }] },
+    ],
   });
 
   // =================================================================== PATROL
   R.push({
     id: 'patrol_informant_nopay', verb: 'patrol', label: 'Meet an Informant', duration: 5,
     preview: 'Informants do not work for free.',
-    blocked: function () { return 'Add Funds to pay them.'; },
-    match: function (ctx) { return ctx.has('informant') && !ctx.has('funds'); },
-    run: function () { return { title: '', text: '' }; },
+    blocked: 'Add Funds to pay them.',
+    requires: ['informant'], forbids: ['funds'],
   });
   R.push({
     id: 'patrol_informant', verb: 'patrol', label: 'Meet an Informant', duration: 25,
     preview: 'A quiet word in a back booth, and an envelope passed under the table. Every meeting puts them at more risk.',
-    match: function (ctx) { return ctx.has('informant') && ctx.has('funds'); },
+    requires: ['informant', 'funds'],
     run: function (ctx) {
       var e = ctx.e, inf = ctx.primary;
       ctx.consume(ctx.first('funds'));
@@ -213,7 +206,7 @@
   R.push({
     id: 'patrol_district', verb: 'patrol', label: 'Work the Streets', duration: 30,
     preview: function (ctx) { return 'Knock on doors in ' + ctx.e.labelOf(ctx.first('district')) + '. Buy drinks. Listen.'; },
-    match: function (ctx) { return (ctx.has('instinct') || ctx.has('health')) && ctx.has('district'); },
+    requires: { primary: ['instinct', 'health'], aspects: ['district'] },
     run: function (ctx) {
       var e = ctx.e;
       var dcard = ctx.first('district');
@@ -248,7 +241,7 @@
   R.push({
     id: 'patrol_walk', verb: 'patrol', label: 'Patrol the City', duration: 25,
     preview: function (ctx) { return ctx.has('health') ? 'A long hard beat. Pays overtime. Anything could happen.' : 'Follow your nose. See where the city takes you.'; },
-    match: function (ctx) { return ctx.has('instinct') || ctx.has('health'); },
+    requires: { primary: ['instinct', 'health'] },
     run: function (ctx) {
       var e = ctx.e, s = e.s;
       var known = s.flags.districts || {};
@@ -290,7 +283,7 @@
   R.push({
     id: 'inv_canvass', verb: 'investigate', label: 'Canvass the Neighbourhood', duration: function (ctx) { return ctx.has('teammate') ? 25 : 30; },
     preview: 'Door to door, asking who saw what. Witnesses, and the names of people with reasons.',
-    match: function (ctx) { return ctx.has('case') && ctx.has('district'); },
+    requires: ['case', 'district'],
     run: function (ctx) {
       var e = ctx.e;
       var rec = openRec(ctx, ctx.primary);
@@ -322,7 +315,7 @@
       var rec = ctx.caseOf(ctx.primary);
       return 'Go over ' + (rec ? rec.scene : 'the scene') + ' inch by inch. Equipment and team make what you find stronger. Focus is thorough; Instinct follows hunches about people.';
     },
-    match: function (ctx) { return ctx.has('case'); },
+    requires: ['case'],
     run: function (ctx) {
       var e = ctx.e;
       var rec = openRec(ctx, ctx.primary);
@@ -367,7 +360,7 @@
       var ok = ctx.e.hasTool(ctx, item.needs);
       return ok ? 'Bench work: microscopes, reagents, patience.' : 'You don\'t have the right equipment (' + needsLabel(item.needs) + '). You will only get part of the story.';
     },
-    match: function (ctx) { return ctx.has('evidence'); },
+    requires: ['evidence'],
     run: function (ctx) {
       var e = ctx.e;
       var ev = ctx.primary;
@@ -392,7 +385,7 @@
     id: 'an_reopen', verb: 'analyze', label: 'Reopen the Case', duration: 40,
     preview: 'Pull the boxes from the Archive. Read everything again with fresh eyes.',
     blocked: function (ctx) { return ctx.e.s.rooms.archive ? null : 'You need an Archive to reopen cold cases.'; },
-    match: function (ctx) { return ctx.has('coldcase'); },
+    requires: ['coldcase'],
     run: function (ctx) {
       var e = ctx.e, cc = ctx.primary, d = cc.data;
       ctx.consume(cc);
@@ -407,7 +400,7 @@
     preview: function (ctx) { return 'A little money in the right hands, and evidence against ' + ctx.e.labelOf(ctx.primary) + ' will exist by morning. If it is ever examined closely, you are finished.'; },
     danger: function () { return 'Scrutiny +1, and much worse if discovered'; },
     blocked: function (ctx) { return ctx.count('funds') >= 2 ? null : 'This takes 2 Funds.'; },
-    match: function (ctx) { return ctx.has('suspect'); },
+    requires: ['suspect'],
     run: function (ctx) {
       var e = ctx.e;
       var sc = ctx.primary;
@@ -425,9 +418,8 @@
   R.push({
     id: 'int_none', verb: 'interrogate', label: 'Interrogation', duration: 5,
     preview: 'How will you approach this? Focus for empathy, Instinct for a bluff, Health for pressure.',
-    blocked: function () { return 'Choose an approach.'; },
-    match: function (ctx) { return !ctx.has('focus') && !ctx.has('instinct') && !ctx.has('health'); },
-    run: function () { return { title: '', text: '' }; },
+    blocked: 'Choose an approach.',
+    forbids: ['focus', 'instinct', 'health'],
   });
   R.push({
     id: 'int_witness', verb: 'interrogate',
@@ -439,7 +431,7 @@
       return 'Tea, patience, a kind word. Reliable.';
     },
     danger: function (ctx) { return ctx.has('health') ? 'Scrutiny +1' : null; },
-    match: function (ctx) { return ctx.has('witness'); },
+    requires: ['witness'],
     run: function (ctx) {
       var e = ctx.e, w = ctx.primary;
       var rec = openRec(ctx, w);
@@ -491,7 +483,7 @@
       return 'Let them talk. People always say more than they mean to.';
     },
     danger: function (ctx) { return ctx.has('health') ? 'Scrutiny +1 to +2' : null; },
-    match: function (ctx) { return ctx.has('suspect'); },
+    requires: ['suspect'],
     run: function (ctx) {
       var e = ctx.e, sc = ctx.primary;
       var rec = openRec(ctx, sc);
@@ -559,8 +551,8 @@
   function rest(id, defId, label, dur, text, preview) {
     R.push({
       id: id, verb: 'reflect', label: label, duration: dur, preview: preview,
-      match: function (ctx) { return ctx.primary && ctx.primary.def === defId; },
-      run: function (ctx) { ctx.consume(ctx.primary); return { title: label, text: text }; },
+      requires: { primary: defId },
+      effects: [{ consume: 'primary' }, { story: { title: label, text: text } }],
     });
   }
   rest('ref_fatigue', 'fatigue', 'Sleep', 20, 'You sleep for eleven hours and wake up hungry. The world is still there. So are you.', 'Close the curtains. Unplug the phone. Sleep.');
@@ -571,7 +563,7 @@
   R.push({
     id: 'ref_notes', verb: 'reflect', label: 'Read the Notes', duration: 20,
     preview: 'Your predecessor\'s notebook, in their cramped, furious handwriting.',
-    match: function (ctx) { return ctx.has('notes'); },
+    requires: ['notes'],
     run: function (ctx) {
       var e = ctx.e;
       ctx.consume(ctx.primary);
@@ -591,7 +583,7 @@
       if (ctx.e.s.flags.architect) return 'You are already hunting the Architect.';
       return null;
     },
-    match: function (ctx) { return ctx.primary && ctx.primary.def === 'looseend'; },
+    requires: { primary: 'looseend' },
     run: function (ctx) {
       var e = ctx.e;
       ctx.with('looseend').forEach(ctx.consume);
@@ -603,7 +595,7 @@
   R.push({
     id: 'ref_cold_atlarge', verb: 'reflect', label: 'Old Ghosts', duration: 30,
     preview: 'The cold file and the one who walked. Think about where they would go.',
-    match: function (ctx) { return ctx.has('coldcase') && ctx.has('atlarge'); },
+    requires: ['coldcase', 'atlarge'],
     run: function (ctx) {
       var e = ctx.e;
       var al = ctx.first('atlarge');
@@ -619,7 +611,7 @@
   R.push({
     id: 'ref_cold', verb: 'reflect', label: 'Regret', duration: 15,
     preview: 'Turn the cold file over in your mind. It will not change anything on its own.',
-    match: function (ctx) { return ctx.has('coldcase'); },
+    requires: ['coldcase'],
     run: function (ctx) {
       return { title: 'Regret', text: 'You remember every mistake. If you knew where the one who walked was now, you could do something about it.' };
     },
@@ -627,13 +619,8 @@
   R.push({
     id: 'ref_corroborate', verb: 'reflect', label: 'Corroborate', duration: 20,
     preview: 'Two pieces of the same truth, told in different ways. Bind them into one stronger clue.',
-    blocked: function (ctx) {
-      var cl = ctx.with('clue');
-      if (cl.length < 2) return 'You need at least two clues.';
-      var id = cl[0].caseId;
-      return cl.every(function (c) { return c.caseId === id; }) ? null : 'These clues belong to different cases.';
-    },
-    match: function (ctx) { return ctx.primary && ctx.primary.def === 'clue'; },
+    blocked: { minClues: 2, sameCase: true },
+    requires: { primary: 'clue' },
     run: function (ctx) {
       var e = ctx.e;
       var cl = ctx.with('clue');
@@ -660,11 +647,12 @@
     { need: ['motive', 'opportunity'], title: 'Means and Moment', text: 'Who wanted it, and who could have done it. When you lay the reason beside the chance, only one face fits both.' },
     { need: ['testimony', 'motive'], title: 'Breakthrough', text: 'What the witnesses said, and why anyone would want this. Suddenly the story tells itself.' },
     { need: ['forensic', 'testimony'], title: 'Corroborated Account', text: 'The science and the statements finally agree with each other. They point the same way.' },
+    { need: ['forensic', 'opportunity'], title: 'Hands and Hours', text: 'What was left behind, and who could have been there to leave it. The physical evidence narrows the window until only one person fits through it.' },
   ];
   R.push({
     id: 'ref_theory', verb: 'reflect', label: 'Build a Theory', duration: 30,
     preview: 'Pin the case to the wall with its clues around it. Look for how they connect.',
-    match: function (ctx) { return ctx.has('case') && ctx.has('clue'); },
+    requires: ['case', 'clue'],
     run: function (ctx) {
       var e = ctx.e;
       var rec = openRec(ctx, ctx.primary);
@@ -702,7 +690,7 @@
   R.push({
     id: 'ref_mull', verb: 'reflect', label: 'Mull It Over', duration: 20,
     preview: 'Sit with the case. What kind of case is it? What will it take?',
-    match: function (ctx) { return ctx.has('case'); },
+    requires: ['case'],
     run: function (ctx) {
       var e = ctx.e;
       var rec = openRec(ctx, ctx.primary);
@@ -727,7 +715,7 @@
       var q = { thin: 'The charge is thin. A good lawyer will eat it alive.', fair: 'The charge is fair. It could go either way.', solid: 'The charge is solid. It should hold.' }[a.quality];
       return q + (a.foreign ? ' Some of these clues have nothing to do with this case.' : '') + (a.coerced || a.planted ? ' Some of this will not stand up to scrutiny.' : '');
     },
-    match: function (ctx) { return ctx.has('suspect'); },
+    requires: ['suspect'],
     run: function (ctx) {
       var e = ctx.e;
       var sc = ctx.primary;
@@ -757,11 +745,8 @@
     label: function (ctx) { return ctx.has('personnel') ? 'Hire: ' + CF.PERSONNEL[ctx.primary.data.personnel].label : 'Purchase: ' + CF.ORDERS[ctx.primary.data.order].label; },
     duration: 10,
     preview: function (ctx) { return 'Costs ' + CF.costOf(ctx.primary) + ' Funds.'; },
-    blocked: function (ctx) {
-      var cost = CF.costOf(ctx.primary);
-      return ctx.count('funds') >= cost ? null : 'Needs ' + cost + ' Funds (you have put in ' + ctx.count('funds') + ').';
-    },
-    match: function (ctx) { return ctx.has('order') || ctx.has('personnel'); },
+    blocked: { funds: function (ctx) { return CF.costOf(ctx.primary); } },
+    requires: { primary: ['order', 'personnel'] },
     run: function (ctx) {
       var e = ctx.e;
       var p = ctx.primary;
@@ -796,7 +781,7 @@
       if (cause.caseId !== ctx.primary.caseId) return 'That clue has nothing to do with this suspect. No judge will sign it.';
       return null;
     },
-    match: function (ctx) { return ctx.has('suspect'); },
+    requires: ['suspect'],
     run: function (ctx) {
       var e = ctx.e;
       var sc = ctx.primary;
@@ -825,7 +810,7 @@
     duration: function (ctx) { return ctx.slots.tool && A(ctx.slots.tool).opportunity >= 2 ? 40 : 60; },
     preview: 'Cold coffee, a steamed-up windscreen, and a long night watching one front door.',
     blocked: function (ctx) { return ctx.slots.mind ? null : 'Someone has to watch: you (Instinct) or an officer.'; },
-    match: function (ctx) { return ctx.has('suspect'); },
+    requires: ['suspect'],
     run: function (ctx) {
       var e = ctx.e;
       var sc = ctx.primary;
@@ -861,7 +846,7 @@
       if (ctx.has('syndicate') && ctx.e.s.flags.syndicateCase && ctx.e.caseRec(ctx.e.s.flags.syndicateCase).status === 'open') return 'The case against the Syndicate is already open.';
       return null;
     },
-    match: function (ctx) { return ctx.has('atlarge') || ctx.has('gang') || ctx.has('syndicate'); },
+    requires: { primary: ['atlarge', 'gang', 'syndicate'] },
     run: function (ctx) {
       var e = ctx.e;
       var t = ctx.primary;
@@ -904,7 +889,7 @@
     id: 'taskforce_run', verb: 'taskforce', label: 'Assign a Task Force', duration: 60,
     preview: 'Your officers take the case and run with it: search, canvass, dig. They report back when they are done.',
     blocked: function (ctx) { return ctx.has('teammate') ? null : 'Assign at least one officer.'; },
-    match: function (ctx) { return ctx.has('case'); },
+    requires: ['case'],
     run: function (ctx) {
       var e = ctx.e;
       var rec = openRec(ctx, ctx.primary);
@@ -922,11 +907,5 @@
   });
 
   // Index.
-  CF.RECIPES = R;
-  CF.RECIPES_BY_ID = {};
-  CF.RECIPES_BY_VERB = {};
-  R.forEach(function (r) {
-    CF.RECIPES_BY_ID[r.id] = r;
-    (CF.RECIPES_BY_VERB[r.verb] = CF.RECIPES_BY_VERB[r.verb] || []).push(r);
-  });
+  CF.Recipe.register(R.concat(CF.Recipe.fromLeads(CF.CASE_TEMPLATES)));
 })(typeof window !== 'undefined' ? window : globalThis);

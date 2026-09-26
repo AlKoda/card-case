@@ -1140,7 +1140,7 @@
       id: id, template: tid, title: U.fill(T.title, vars), short: T.label, district: district, scene: scene,
       victim: victim, vars: vars, suspects: suspects, culprit: culprit.key, keyAspects: T.keyAspects.slice(),
       difficulty: difficulty, highProfile: highProfile, items: items, found: 0,
-      witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open',
+      witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
       special: !!T.special, atLargeUid: opts.atLargeUid || null, gangUid: opts.gangUid || null,
       reopened: !!opts.reopened,
     };

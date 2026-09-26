@@ -39,10 +39,10 @@ moved for its own sake.
 |---|---|---|
 | `js/core/GameState`, `TimerManager`, `SaveManager` | `js/engine.js` (state, `tick`, `save`/`load`) | the clock, the board, the save |
 | `js/core/CardManager` | `js/engine.js` (make/create/transform/move/stack/remove) | generic cards |
-| `js/core/VerbManager`, `RecipeManager` | `js/engine.js` (slots/start/complete) + `js/data/verbs.js`, `js/data/recipes.js` | verbs and recipes (Phase 2) |
+| `js/core/VerbManager`, `RecipeManager` | `js/engine.js` (slots/start/complete) + `js/core/recipes.js` (the recipe engine) + `js/data/verbs.js`, `js/data/recipes.js` | verbs and recipes |
 | `js/systems/*` (Case, Evidence, Charge, Court, Pressure, Economy, Criminal, Team) | the second half of `js/engine.js` | split out as their phases arrive |
 | `js/ui/*` | `js/ui.js`, `js/screens.js`, `js/main.js` | rendering and input only, never rules |
-| `data/*.json` | `js/data/*.js` | content. Kept as JS-wrapped objects so the game opens from `file://` with no server; they contain no logic beyond `match`/`run` callbacks that Phase 2 will turn into declarative fields. |
+| `data/*.json` | `js/data/*.js` | content. Kept as JS-wrapped objects so the game opens from `file://` with no server. Recipes and case leads are declarative (see below); a few recipes with branching prose keep a `run()` callback. |
 
 Rule of thumb: if a change adds a new *thing* (a card, a clue, a recipe, a
 case, a criminal), it goes in `js/data`. If it adds a new *capability* (a way
@@ -207,7 +207,47 @@ asserts across sixty random games that nothing on the board ever overlaps.
 A card that *nothing* takes (a room, your Calling) is not "unavailable"; it
 is inert and looks normal.
 
-## 5. What this phase does not decide
+## 5. Recipes are data
+
+A verb runs the first recipe (by priority, then file order) whose
+requirements its slots satisfy. `js/core/recipes.js` compiles recipe data
+into the `match` / `blocked` / `run` the engine calls:
+
+```js
+{ id: 'duty_bribe', verb: 'duty', label: 'Pocket the Envelope', duration: 5,
+  requires: ['bribe'],                       // aspects; or { aspects, tags, cards, primary, case, when }
+  forbids: ['funds'],
+  blocked: { funds: 2 },                     // or a string, or fn(ctx)
+  effects: [ { consume: 'primary' }, { give: 'funds', n: 3 }, { meter: { scrutiny: 2 } },
+             { story: { title: 'Pocketed', text: '...' } } ] }
+```
+
+Effects cover what the roadmap asks of the system: require cards, aspects
+and tags; consume, preserve, modify and create cards; add and remove
+resources (`give`, `consume`, `meter`); timers (`modify.life`, a created
+card's `decay`); story text; unlocks (`unlock`, `district`); `reveal` a
+suspect; and hidden variables (`set` on the case, `flag` on the game).
+`chance` branches, and `call` is the escape hatch for prose that has to
+branch on more than a roll. New content should need no new code.
+
+### Authored cases: leads
+
+A case template may carry `leads`: its hand-written discovery graph. Each
+lead compiles into a recipe that outranks the generic casework recipes
+while it is undone, so a written case plays as written and the generic
+rules (search the scene pool, canvass, process evidence) only take over
+once the script is spent. A lead names its verb, what it needs in the slots
+(`aspects`, `tags`, an evidence `item`, a `tool`, earlier leads, a revealed
+suspect, the case's own district) and what it gives (clues, evidence with
+its own analysis result, witnesses), plus its story beat. Text is filled
+with the case's variables, including `{culprit}` and `{seen}` (what a
+witness would notice about the culprit).
+
+The burglary is the first written case (`js/data/cases.js`, `burglary.leads`)
+and `tests/case.test.js` proves each of its three routes ends in a solid
+charge and a conviction.
+
+## 6. What this phase does not decide
 
 Equipment as recipe modifiers (Phase 10), team and informants (11–12),
 criminal state (15), the network (16), procedural cases (17), ranks and
