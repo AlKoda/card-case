@@ -29,6 +29,9 @@
     } catch (err) { /* fullscreen not allowed */ }
   };
 
+  // Leaving without applying: undo any live volume preview.
+  SettingsUI.cancel = function () { CF.Audio.apply(CF.Settings.values); };
+
   RANGES.forEach(function (k) {
     $('s-' + k).addEventListener('input', function (ev) {
       showValue(ev.target);

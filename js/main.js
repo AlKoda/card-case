@@ -120,7 +120,7 @@
   click('t-help', function () { returnTo = 'title'; only('help'); });
   click('start-back', openTitle);
   click('btn-new', function () { newGame($('legacy').checked); });
-  click('set-back', goBack);
+  click('set-back', function () { CF.SettingsUI.cancel(); goBack(); });
   click('set-apply', function () { CF.SettingsUI.apply(); goBack(); });
   click('arc-back', goBack);
 
