@@ -479,6 +479,7 @@
     blocked: function (ctx) { return ctx.e.s.rooms.archive ? null : 'You need an Archive to reopen cold cases.'; },
     requires: ['coldcase'],
     run: function (ctx) {
+      ctx.e.pathGain('master', 1, 'reopened a cold case');
       var e = ctx.e, cc = ctx.primary, d = cc.data;
       ctx.consume(cc);
       var tid = CF.CASE_TEMPLATES[d.template] ? d.template : U.pick(ctx.rng, CF.ORDINARY_CASES);
@@ -662,7 +663,7 @@
     run: function (ctx) {
       var e = ctx.e;
       ctx.consume(ctx.primary);
-      if (e.s.calling === 'master') { ctx.give('looseend'); }
+      if (e.s.calling === 'master') { ctx.give('looseend'); e.pathGain('master', 1, 'a loose end'); }
       else ctx.give('informant', e.informantSpec(U.pick(ctx.rng, Object.keys(CF.DISTRICTS))));
       ctx.give('funds');
       return { title: 'Their Notes', text: 'Between the coffee rings and the crossings-out: a name, an address, a few notes tucked in the back cover. ' +
@@ -698,6 +699,7 @@
       var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid,
         headline: 'Manhunt: ' + al.data.name, lead: 'You think you know where ' + al.data.name + ' went.' });
       al.data.hunted = card.caseId;
+      e.pathGain('master', 1, 'reopened a cold trail');
       if (e.s.calling === 'master') ctx.give('looseend');
       return { title: 'Old Ghosts', text: 'You read the cold file again, and think like ' + al.data.name + '. Where would you go? Who would you call? By dawn, you have a guess.' +
         (e.s.calling === 'master' ? ' And in the margin of the old file, a doodle you never noticed: a paper crane.' : '') };
@@ -715,6 +717,7 @@
       if (front) front.watched = true;
       ctx.consume(th);
       e.meter('reputation', 1);
+      e.pathGain('master', 1, 'closed in on the network');
       if (e.s.calling === 'master') ctx.give('looseend');
       return { title: 'The Shape of It', kind: 'major', text: 'You draw the map on the kitchen wall: the cases, the place, ' + e.labelOf(target) + '. An Undercover operation through ' + (front ? front.name : 'the front') + ' will be safer now that you know the doors.' +
         (e.s.calling === 'master' ? ' And in the corner of the map, something that is not a gang at all: a paper crane.' : '') };
@@ -962,6 +965,7 @@
       ctx.consume(p);
       if (o.room) {
         e.s.rooms[o.room] = true;
+        e.pathGain('commissioner', 1, 'built the ' + o.label);
         ctx.give('room', { label: CF.ROOMS[o.room].label, desc: CF.ROOMS[o.room].desc });
         return { title: 'Precinct: ' + o.label, text: 'Builders, paint fumes and a ribbon nobody cuts. The ' + o.label + ' is open. ' + CF.ROOMS[o.room].desc };
       }
@@ -1063,6 +1067,7 @@
       var risk = t.def === 'syndicate' ? 0.45 : t.def === 'gang' ? 0.35 : 0.2;
       if (ctx.has('teammate')) risk /= 2;
       if (via && via.watched) risk /= 2;
+      e.pathGain('crusader', 1, 'went undercover');
       var out;
       if (t.def === 'atlarge') {
         var c = e.spawnCase('manhunt', { ctx: ctx, culpritName: t.data.name, culpritTrait: t.data.trait, atLargeUid: t.uid, lifetime: 260,

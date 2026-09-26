@@ -64,7 +64,7 @@ The workflow in `.github/workflows/deploy.yml` runs the tests and publishes the 
 - Nobody who gets away is forgotten: they keep a record, commit new crimes that arrive as cases with their name on them, and climb from Petty Criminal to Syndicate Member.
 - Informants left on the table bring rumours, sightings and warnings on their own time. Pay them for trust; every meeting adds heat, and at three they go quiet until an officer protects them in Duty.
 
-**Callings** set how you win:
+**Callings** set how you win. The one you choose is a leaning, not a campaign: the run drifts toward the path you actually walk (Power, Knowledge or Justice), your Calling card changes with it, and every ending is reachable from every start.
 - **The Commissioner:** reach Chief, build a high Reputation, and take the chair while Pressure and Scrutiny are low.
 - **The Master Detective:** solid convictions leave Loose Ends. Three of them reveal the Architect.
 - **The Crusader:** go Undercover against the Syndicate, take its Ledger Pages, and convict it.

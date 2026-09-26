@@ -90,6 +90,7 @@
       made = ctx.give('clue', { label: label, desc: text, aspects: U.clone(d.gives.aspects), tags: d.gives.tags, caseId: rec.id, data: data });
       if (d.id === 'identify' && fits && !data.misread) {
         rec.identified = fits.key;
+        e.pathGain('master', 1, 'an identification');
         for (var k in e.s.cards) {
           var sc = e.s.cards[k];
           if (sc.def === 'suspect' && sc.caseId === rec.id && sc.data.key === fits.key) sc.label = 'Prime Suspect: ' + fits.name;
@@ -119,6 +120,7 @@
       data: { front: front.id, cases: titles },
     });
     e.revealFront(front);
+    e.pathGain('master', 2, 'found a connection');
     var extra = [];
     if (e.s.calling === 'master') {
       e.casesAtFront(front.id).forEach(function (r) { var sc = e.revealSuspect(r, ctx); if (sc) extra.push(e.labelOf(sc) + ' (' + r.title + ')'); });

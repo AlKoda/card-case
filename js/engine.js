@@ -98,11 +98,12 @@
       version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 55, nextUid: 1,
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0 },
-      rank: 0, calling: opts.calling || 'master', detective: opts.name || 'Detective',
+      rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', detective: opts.name || 'Detective',
       over: null,
       stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0 },
     };
     var e = new Engine(s);
+    e.initPaths();
     CF.VERB_ORDER.forEach(function (id) {
       s.verbs[id] = { id: id, status: 'idle', slots: {}, held: [], ctxSlots: {}, out: [], recipe: null,
         elapsed: 0, duration: 0, story: null, unlocked: CF.VERBS[id].rank === 0 };
@@ -143,6 +144,7 @@
     var s = typeof json === 'string' ? JSON.parse(json) : json;
     s.criminals = s.criminals || {}; // older saves had no criminal records
     s.network = s.network || { fronts: {} };
+    s.origin = s.origin || s.calling;
     // Saves from the grid-table days stored a cell index instead of x/y.
     for (var k in s.cards) {
       var c = s.cards[k];
@@ -152,6 +154,7 @@
       delete c.lastCell;
     }
     var e = new Engine(s);
+    e.initPaths();
     e.layoutVerbs();
     return e;
   };
@@ -466,7 +469,7 @@
 
   // ---- Meters ------------------------------------------------------------
   P.meterMax = function (name) {
-    if (name === 'scrutiny' && this.s.calling === 'crusader') return 12;
+    if (name === 'scrutiny' && this.s.origin === 'crusader') return 12;
     if (name === 'reputation') return 99;
     return 10;
   };
@@ -896,6 +899,12 @@
       lines.push('A transfer request lands on your desk: ' + CF.PERSONNEL[pk].label + '.');
     }
 
+    // A calm city under a senior officer is Power; it counts every other calm week.
+    if (s.rank >= 1 && s.meters.pressure <= 3 && s.meters.scrutiny <= 3) {
+      s.calmWeeks = (s.calmWeeks || 0) + 1;
+      if (s.calmWeeks % 2 === 0) this.pathGain('commissioner', 1, 'a calm fortnight');
+    }
+    this.checkDrift();
     if (s.meters.scrutiny >= 7) lines.push('Internal Affairs has started asking your colleagues about you. They are not subtle about it.');
     if (s.meters.pressure >= 7) lines.push('The Commissioner calls you in to ask why the city is burning. It is not a question.');
 
@@ -1047,7 +1056,7 @@
     var s = this.s;
     if (s.over) return;
     var end = CF.ENDINGS[id];
-    s.over = { id: id, win: end.win, title: end.title, text: end.text, week: s.week };
+    s.over = { id: id, win: end.win, title: end.title, text: end.text, week: s.week, origin: s.origin, calling: s.calling };
     this.story(end.title, end.text, end.win ? 'victory' : 'defeat');
     s.legacy = this.buildLegacy();
     this.emit('over', s.over);
@@ -1167,6 +1176,7 @@
     });
     this.layoutVerbs();
     this.addOrdersForRank(s.rank);
+    this.pathGain('commissioner', 1, 'promoted');
     return unlocked;
   };
 
@@ -1561,7 +1571,11 @@
     if (convicted) {
       s.stats.convictions++;
       if (!d.guilty) s.stats.wrongful++;
-      if (d.guilty) this.criminalCaught(d.name);
+      if (d.guilty) {
+        var caught = this.criminalCaught(d.name);
+        if (caught && caught.crimes >= 2) this.pathGain('crusader', 1, 'put away a repeat offender');
+        if (d.solid && rec.identified === rec.culprit && !rec.special) this.pathGain('master', 1, 'reasoned to the right name');
+      }
       this.meter('reputation', 1 + (d.solid ? 1 : 0) + (hp ? 1 : 0) + (rec.special ? 2 : 0) + (rec.major ? 1 : 0));
       this.meter('pressure', hp ? -2 : -1);
       var t = this.cardsOf('tunnel')[0];
@@ -1574,6 +1588,7 @@
       if (d.solid && d.guilty) {
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend');
+          this.pathGain('master', 1, 'a loose end');
           notes.push('But one detail belongs to no one in the case: a folded paper crane, left where the crime began. You have seen one before.');
         }
       }
@@ -1628,12 +1643,15 @@
       this.remove(this.card(rec.atLargeUid));
       notes.push('One less name on the list of those who got away.');
       this.meter('retaliation', -1);
+      this.pathGain('crusader', 1, 'put away someone at large');
+      if (rec.reopened) this.pathGain('master', 1, 'closed a cold case');
     }
     if (rec.template === 'gang') {
       var g = rec.gangUid && this.card(rec.gangUid);
       if (d.guilty || d.solid) {
         if (g) this.remove(g);
         this.meter('retaliation', -4);
+        this.pathGain('crusader', 2, 'broke a gang');
         this.create('ledger');
         notes.push(rec.vars.gang + ' is finished. In the boss\'s safe: a ledger page, with numbers that lead further up.');
       }
@@ -1643,6 +1661,7 @@
       s.flags.syndicateFallen = true;
       this.meter('retaliation', -6);
       this.meter('reputation', 5);
+      this.pathGain('crusader', 3, 'broke the Syndicate');
       if (s.calling === 'crusader') { this.gameOver('crusader'); return; }
       notes.push('The Syndicate is broken.');
     }

@@ -68,7 +68,8 @@
     $('end-card-top').textContent = over.title;
     $('end-card-bottom').textContent = e.s.detective;
     $('end-title').textContent = over.title;
-    $('end-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ', week ' + over.week;
+    $('end-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ', week ' + over.week +
+      (over.origin && over.calling && over.origin !== over.calling ? ' · set out as ' + CF.CALLINGS[over.origin].label + ', ended as ' + CF.CALLINGS[over.calling].label : '');
     $('end-text').textContent = over.text;
     $('end-stats').innerHTML = [
       ['Convictions', st.convictions], ['Acquittals', st.acquittals], ['Gone cold', st.cold], ['Wrongful', st.wrongful],

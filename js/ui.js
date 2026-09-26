@@ -909,6 +909,11 @@
       lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
       lines.push('Trust ' + (card.data.trust || 0) + '/3 · heat ' + (card.data.heat || 0) + '/' + CF.INFORMANT.compromisedAt);
       lines.push(e.informantStatus(card) === 'compromised' ? 'Compromised: gone quiet' : 'Next word in ' + U.fmtTime(Math.max(0, card.data.tipT || 0)));
+    } else if (k === 'calling') {
+      e.initPaths();
+      lines.push(CF.Callings.summary(e));
+      lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
+      if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
     } else if (card.def === 'front') {
       var fr = e.fronts()[card.data.front];
       if (fr) {
