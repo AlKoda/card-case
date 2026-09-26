@@ -165,10 +165,16 @@
     document.addEventListener('dblclick', onDoubleClick);
     $('#table').addEventListener('wheel', function (ev) {
       if (UI.modal) return;
+      // Inside a verb window the wheel scrolls the window, not the table.
+      if (ev.target.closest && ev.target.closest('.vwin')) return;
       ev.preventDefault();
       zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015));
     }, { passive: false });
-    window.addEventListener('resize', function () { if (UI.e) UI.e.dirty = true; });
+    window.addEventListener('resize', function () {
+      // Keep open windows inside the (possibly smaller) table.
+      Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
+      if (UI.e) UI.e.dirty = true;
+    });
     document.addEventListener('visibilitychange', function () {
       if (document.hidden && CF.Settings.get('pauseOnBlur') && UI.e && !UI.e.s.over) UI.setPaused(true);
     });
