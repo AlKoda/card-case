@@ -476,6 +476,37 @@ Two phases at a time, each a pull request, tests first, as before.
 
 A and B are the first round.
 
+## 13a. What shipped
+
+Every phase of §13 is in the game (pull requests 22 to 31 on main):
+
+- **A.** The re-set and the new art; simple card faces (a name or a kind
+  in Cinzel) with the exposition in the dossier.
+- **B.** Witness stakes, the Fingerpost rule, the question with false
+  confessions and sufficient indicia, half proof and the lesser crime,
+  the Dread meter and the riot.
+- **C.** The Condemned, the Sentence verb and the eight-rung ladder,
+  pleas, the Council's custom, spared and reformed and banished men.
+- **D.** Gratuities, the patrician's letter, the Thief-takers' Office
+  with frames and blood money, Underworld Debt, the Thief-taker General
+  and the Old Bailey.
+- **E.** The five origins with their cards, bent rules, shut doors and
+  first mornings.
+- **F.** Commissions from the Council, the Bishop and the Guilds; Favour,
+  elections, the Inquisitor.
+- **G.** The King of Thunes, Coquille roles, the Treaty (tribute, cases
+  closed by the Court, the Treaty City), the Court's trial and the
+  throne (the King of Thunes), the raid.
+- **H.** Poisoning, Coining, the Scriptorium, the Witch Mark, the
+  Highway, the Contract, the Pattern, the Three Days.
+- **I.** The Merciful Judge, the Hangman's Examiner, the Stake, the
+  Dagger on the Pillow; the Order of the Mountain; the Eumenides.
+- **J.** A temperamental bot across origins and callings; thresholds
+  tuned so every ending appears and none dominates.
+
+Still open from §14: the city's name (it is "the Free City" throughout),
+and the Muhtasib, who appears only as the Market Warden in passing.
+
 ## 14. What I need from you
 
 1. **The city's name.** I have written "the Free City". Give it a name, or
