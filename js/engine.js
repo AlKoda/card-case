@@ -832,10 +832,11 @@
       c.life -= dt * rate;
       if (c.life <= 0) this.expire(c);
       else if (c.def === 'case' && c.life < COLD_WARNING) this.warnCold(c);
-      else if (c.life < FADE_WARNING && !c.fadeWarned && c.loc && c.loc.t === 'table' && FADING[c.def]) {
+      else if (c.life < FADE_WARNING && !c.fadeWarned && c.loc && FADING[c.def]) {
         // A clue, lead or witness about to go: say so, once, in time to act.
+        // It may be on the table, or waiting in (or held by) a verb.
         c.fadeWarned = true;
-        this.emit('expiring', { uid: c.uid, label: this.labelOf(c) });
+        this.emit('expiring', { uid: c.uid, label: this.labelOf(c), verb: c.loc.verb || null });
       }
       if (s.over) return;
     }
