@@ -1027,6 +1027,9 @@
       if (s.calmWeeks % 2 === 0) this.pathGain('commissioner', 1, 'a calm fortnight');
     }
     // Fear fades, slowly, and while it lasts the Stews keep their heads down.
+    // The count endings are judged before fear fades, so the thresholds mean what they say.
+    if (this.checkCountEndings) { this.checkCountEndings(); if (s.over) return; }
+    if (s.meters.dread > 0) this.meter('dread', -1);
     if (s.meters.dread > 0 && this.rng() < 0.5) this.meter('dread', -1);
     if (s.meters.dread >= 6) { this.meter('pressure', -1); lines.push('The Stews are quiet. Nobody wants to be the next one you put to the question.'); }
     if (s.meters.dread >= 8) lines.push('Doors close as you pass. The city is afraid of you now, and fear does not stay quiet forever.');
@@ -1036,7 +1039,6 @@
 
     this.story('Week ' + s.week, lines.join(' '), 'week');
     if (this.checkPurseEndings) this.checkPurseEndings();
-    if (this.checkCountEndings) this.checkCountEndings();
   };
 
   // At-large criminals find each other; gangs merge into a syndicate.
@@ -1177,7 +1179,7 @@
     collapse: { win: false, title: 'Collapse', text: 'You fall on the Watch-house stair and do not get up. The barber-surgeon uses words like "a surfeit" and "the heart" and "rest, in the country". The city does not send flowers.' },
     consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.' },
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
-    merciful: { win: true, title: 'The Merciful Judge', text: 'Eight times you sent a poor sinner home instead of to the Ravenstone, and three of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
+    merciful: { win: true, title: 'The Merciful Judge', text: 'Twelve times you sent a poor sinner home instead of to the Ravenstone, and four of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
     hangmans: { win: false, title: 'The Hangman\'s Examiner', text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
     stake: { win: false, title: 'The Stake', text: 'The Inquisitor\'s charge lands on you: heresy, from a patron you crossed, sworn to by two men you sent to the Hole. The proof against you is the proof you taught the city to want. The Bishop does not answer your letter. The Fire on Friday.' },
     dagger: { win: false, title: 'The Dagger on the Pillow', text: 'They warned you once. A dagger on the pillow, and the door still barred. You did not pay, and you did not leave, and one morning the servant who brings the water is not the servant. The Order of the Mountain keeps its word, in daylight, before witnesses, and nobody in the city will say they saw it.' },

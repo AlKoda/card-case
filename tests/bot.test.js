@@ -34,8 +34,9 @@ function bestTool(e, need) {
   return tools.filter(function (t) { return need && asp(t)[map[need]]; })[0] || tools[0];
 }
 
-function step(e) {
+function step(e, temper) {
   var s = e.s;
+  temper = temper || 'custom';
   CF.VERB_ORDER.forEach(function (vid) { if (e.verb(vid).status === 'done') e.collect(vid); });
   var fatigue = of(e, 'fatigue').length;
   var funds = of(e, 'funds');
@@ -45,6 +46,32 @@ function step(e) {
   var restCard = of(e, 'burnout')[0] || of(e, 'tunnel')[0] || (fatigue >= 1 ? of(e, 'fatigue')[0] : null) || (of(e, 'obsession').length >= 2 ? of(e, 'obsession')[0] : null);
   if (restCard) tryRun(e, 'reflect', [restCard]);
   if (of(e, 'looseend').length >= 3) tryRun(e, 'reflect', of(e, 'looseend').slice(0, 3));
+
+  // Sentence, by temperament: merciful takes the lightest rung, brutal the
+  // heaviest, custom what the Council would do, corrupt whatever a purse asks.
+  var cond = of(e, 'condemned')[0];
+  if (cond) {
+    var rungs = of(e, 'rung').filter(function (r) { return r.data.condemned === cond.uid; });
+    var order = CF.Sentence.ORDER;
+    rungs.sort(function (a, b) { return order.indexOf(a.data.rung) - order.indexOf(b.data.rung); });
+    var pleas = of(e, 'plea').filter(function (p) { return p.data.condemned === cond.uid; });
+    var pick = null;
+    if (temper === 'merciful') pick = rungs[0];
+    else if (temper === 'brutal') pick = rungs[rungs.length - 1];
+    else if (temper === 'corrupt') pick = pleas.some(function (p) { return p.data.purse; }) ? rungs[0] : rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
+    else pick = rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
+    var purse = pleas.filter(function (p) { return p.data.purse; })[0];
+    if (pick) tryRun(e, 'sentence', [cond, pick, temper === 'corrupt' && purse ? purse : pleas[0]]);
+  }
+  // Temptations.
+  if (temper === 'corrupt') {
+    if (of(e, 'writsale')[0]) tryRun(e, 'duty', [of(e, 'writsale')[0]]);
+    if (of(e, 'tribute')[0]) tryRun(e, 'duty', [of(e, 'tribute')[0]]);
+    if (s.rooms.thieftakers && funds.length >= 4) { var urgent = of(e, 'case').sort(function (a, b) { return a.life - b.life; })[0]; if (urgent && urgent.life < 90) tryRun(e, 'duty', [urgent, funds[0], funds[1]]); }
+    if (of(e, 'syndicate')[0] && !(s.court && s.court.stance) && s.rank >= 2) tryRun(e, 'undercover', [of(e, 'syndicate')[0], of(e, 'focus')[0]]);
+  }
+  var dagger = of(e, 'dagger')[0];
+  if (dagger) tryRun(e, 'reflect', funds.length >= 4 ? [dagger, funds[0], funds[1]] : [dagger]);
 
   // Duty: career, then money.
   var career = of(e, 'promotion')[0] || of(e, 'promo_inspector')[0] || of(e, 'promo_chief')[0] || of(e, 'chair')[0];
@@ -79,6 +106,7 @@ function step(e) {
     // Interrogate.
     var wit = table(e, function (c) { return c.def === 'witness' && c.caseId === rec.id; })[0];
     if (wit) tryRun(e, 'interrogate', [wit, of(e, 'focus')[0]]);
+    else if (prime && (temper === 'brutal' || temper === 'corrupt') && e.indiciaOf(rec).sufficient && !clues.some(function (c) { return c.data.confession; }) && of(e, 'health').length > 1) tryRun(e, 'interrogate', [prime, of(e, 'health')[0]]);
     else if (prime && clues.length) tryRun(e, 'interrogate', [prime, of(e, 'focus')[0], clues[0]]);
     else if (suspects.length && !rec.identified) tryRun(e, 'interrogate', [suspects[0], of(e, 'focus')[0]]);
     if (prime && clues.length) tryRun(e, 'warrant', [prime, clues[clues.length - 1]]);
@@ -109,17 +137,24 @@ function step(e) {
 }
 
 var GAMES = +process.argv[2] || 45;
-var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {};
+var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
+var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
-  var e = CF.Engine.newGame({ seed: 500 + g, calling: calling });
+  var who = CF.ORIGIN_ORDER[g % 5];
+  var temper = TEMPERS[Math.floor(g / 3) % 4];
+  var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who });
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
-    step(e);
+    step(e, temper);
     CF.VERB_ORDER.forEach(function (vid) { var v = e.s.verbs[vid]; if (v.status === 'running') seen[v.recipe] = true; });
     e.tick(1);
   }
   var end = e.s.over ? calling.slice(0, 4) + ':' + e.s.over.id : calling.slice(0, 4) + ':survived';
   endings[end] = (endings[end] || 0) + 1;
+  var eid = e.s.over ? e.s.over.id : 'survived';
+  byTemper[temper] = byTemper[temper] || {}; byTemper[temper][eid] = (byTemper[temper][eid] || 0) + 1;
+  byWho[who] = byWho[who] || {}; byWho[who][eid] = (byWho[who][eid] || 0) + 1;
+  for (var ck in counts) counts[ck] += (e.s.counts || {})[ck] || 0;
   weeks.push(e.s.week);
   ranks[e.s.rank]++;
   convictions += e.s.stats.convictions; acquittals += e.s.stats.acquittals; wrongful += e.s.stats.wrongful;
@@ -128,5 +163,8 @@ console.log('bot: ' + GAMES + ' games');
 console.log('endings', JSON.stringify(endings));
 console.log('final rank [Det, Senior, Insp, ChiefInsp]', JSON.stringify(ranks), 'avg week', (weeks.reduce(function (a, b) { return a + b; }, 0) / GAMES).toFixed(1));
 console.log('convictions', convictions, 'acquittals', acquittals, 'wrongful', wrongful);
+console.log('by temper', JSON.stringify(byTemper));
+console.log('by origin', JSON.stringify(byWho));
+console.log('counts per game', JSON.stringify(Object.keys(counts).reduce(function (o, k) { o[k] = +(counts[k] / GAMES).toFixed(2); return o; }, {})));
 console.log('recipes never run:', CF.RECIPES.map(function (r) { return r.id; }).filter(function (id) { return !seen[id]; }).join(', ') || 'none');
 assert.ok(convictions > 0, 'the bot should be able to convict someone');

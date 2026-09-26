@@ -395,7 +395,7 @@
   // The few words on the face of a card. The full label and the exposition
   // live in the dossier: a person's card is their name, a token's card is
   // what kind of token it is, a case's card is the crime.
-  var PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, personnel: 1 };
+  var PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
   var SHORTS = [
     [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
     [/^Found at .*House$/, 'The House'], [/^Corroborated: /, 'Corroborated'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
@@ -1190,6 +1190,14 @@
     } else if (card.def === 'plea') {
       lines.push({ church: 'From the Bishop', guild: 'From the Guild', family: 'From the family' }[card.data.from] || 'A plea');
       lines.push('A reason for mercy');
+    } else if (card.def === 'syndicate') {
+      var court = e.s.court || {};
+      if (court.king) lines.push('King of Thunes: ' + court.king.name);
+      lines.push(court.stance === 'treaty' ? 'A Treaty stands' : court.stance === 'rule' ? 'You are inside, week ' + court.insideWeeks : 'No stance yet');
+      lines.push('Disguise: ledger, Wit, or Instinct and Coin');
+    } else if (card.def === 'gang') {
+      lines.push((card.data.members || []).length + ' sworn');
+      lines.push('Disguise to go among them');
     } else if (card.def === 'front') {
       var fr = e.fronts()[card.data.front];
       if (fr) {

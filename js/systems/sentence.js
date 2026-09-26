@@ -156,6 +156,8 @@
     var lighter = Sen.ORDER.indexOf(rung) < Sen.ORDER.indexOf(d.custom);
     var reason = !!plea || d.penitent;
     var byCouncil = !!opts.byCouncil;
+    var self = this;
+    var count = function (k, n) { if (!byCouncil) self.count(k, n); };
     var title = Sen.rungLabel(d.template, rung) + ': ' + name;
     var text = '';
 
@@ -169,7 +171,7 @@
 
     switch (rung) {
       case 'pardon':
-        this.count('mercy', 2);
+        count('mercy', 2);
         if (!reason && !byCouncil) { this.meter('scrutiny', 1); notes.push('The Council asks, in writing, why. You have no answer it will like.'); }
         if (d.highProfile) { this.meter('pressure', 1); notes.push('The crowd that came for a hanging goes home puzzled.'); }
         var reformed = this.rng() < (reason ? 0.75 : 0.5);
@@ -195,7 +197,7 @@
         }
         break;
       case 'fine':
-        this.count('mercy', 1);
+        count('mercy', 1);
         this.create('funds');
         c.status = 'reformed';
         text = name + ' pays what they can and works off the rest. The victim gets their goods back, the Watch-house gets its fee, and the Market Warden nods.';
@@ -216,7 +218,7 @@
         break;
       case 'brand':
         this.meter('dread', 1);
-        this.count('cruelty', 1);
+        count('cruelty', 1);
         if (c.traits.indexOf('branded') < 0) c.traits.push('branded');
         c.status = 'at_large';
         c.organization = 'gang';
@@ -224,21 +226,21 @@
         text = 'The iron, the smell, the mark on the cheek. ' + name + ' can never swear before a court again, and no honest master will take them. Within the month they are sworn to a band. You made a Coquillard.';
         break;
       case 'sword':
-        this.count('cruelty', 1);
+        count('cruelty', 1);
         this.meter('pressure', d.highProfile ? -2 : -1);
-        if (L.capital && d.custom === 'wheel') { this.count('mercy', 1); notes.push('Commuted from ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ', out of mercy. The Bishop approves.'); }
+        if (L.capital && d.custom === 'wheel') { count('mercy', 1); notes.push('Commuted from ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ', out of mercy. The Bishop approves.'); }
         c.status = 'dead';
         text = name + ' kneels on the Ravenstone at first light and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for a man who died well.';
         break;
       case 'rope':
-        this.count('cruelty', 1);
+        count('cruelty', 1);
         this.meter('pressure', -2);
         this.meter('retaliation', 1);
         c.status = 'dead';
         text = name + ' hangs on the Ravenstone before the whole city, and the ballad-sellers have the verses printed by nones. ' + (c.organization !== 'none' ? 'Their band drinks to them in a cellar and to you in a different tone.' : 'The crowd goes home satisfied.');
         break;
       case 'wheel':
-        this.count('cruelty', 2);
+        count('cruelty', 2);
         this.meter('pressure', -3);
         this.meter('dread', 2);
         this.meter('retaliation', 2);

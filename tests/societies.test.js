@@ -29,19 +29,19 @@ function run(e, verb, cards) {
 // ---- Endings from the counts ----------------------------------------------------
 (function endings() {
   var e = game(1);
-  e.s.counts.mercy = 8; e.s.counts.cruelty = 1;
-  for (var i = 0; i < 3; i++) { var c = e.criminalFor('Citizen ' + i, null); c.status = 'reformed'; }
+  e.s.counts.mercy = 12; e.s.counts.cruelty = 1;
+  for (var i = 0; i < 4; i++) { var c = e.criminalFor('Citizen ' + i, null); c.status = 'reformed'; }
   e.checkCountEndings();
   assert.ok(e.s.over && e.s.over.id === 'merciful' && e.s.over.win, 'the Merciful Judge');
-  var f = game(2); f.s.counts.cruelty = 8; f.checkCountEndings();
+  var f = game(2); f.s.counts.cruelty = 14; f.s.meters.dread = 5; f.checkCountEndings();
   assert.strictEqual(f.s.over.id, 'hangmans', 'the Hangman\'s Examiner');
-  var h = game(3, 'master'); h.s.who = 'hangman'; h.s.counts.cruelty = 8; h.checkCountEndings();
+  var h = game(3, 'master'); h.s.who = 'hangman'; h.s.counts.cruelty = 14; h.s.meters.dread = 5; h.checkCountEndings();
   assert.ok(/began outside the walls/.test(h.s.over.text), 'the Hangman\'s own variant');
   var g = game(4); g.favour().bishop = -4; g.s.flags.inquisitor = true; g.s.stats.wrongful = 1;
   var burned = false;
   for (var j = 0; j < 40 && !burned; j++) { g.checkCountEndings(); burned = !!g.s.over; }
   assert.ok(burned && g.s.over.id === 'stake', 'the Stake');
-  var n = game(5); n.s.counts.mercy = 8; n.checkCountEndings();
+  var n = game(5); n.s.counts.mercy = 12; n.checkCountEndings();
   assert.ok(!n.s.over, 'mercy without reformed citizens is not yet the ending');
   console.log('endings: ok');
 })();
