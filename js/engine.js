@@ -1662,11 +1662,13 @@
       this.meter('retaliation', -6);
       this.meter('reputation', 5);
       this.pathGain('crusader', 3, 'broke the Syndicate');
-      if (s.calling === 'crusader') { this.gameOver('crusader'); return; }
+      // Breaking the Syndicate is the Crusader's ending for anyone whose
+      // Justice is not clearly behind their current path.
+      if (this.pathOpen('crusader')) { this.gameOver('crusader'); return; }
       notes.push('The Syndicate is broken.');
     }
     if (rec.template === 'architect') {
-      if (d.guilty && s.calling === 'master') { this.gameOver('master'); return; }
+      if (d.guilty && this.pathOpen('master')) { this.gameOver('master'); return; }
       s.flags.architect = false;
     }
   };

@@ -80,6 +80,19 @@ var pw = g.s.paths.commissioner;
 g.tick(CF.WEEK); g.tick(CF.WEEK);
 assert.strictEqual(g.s.paths.commissioner, pw + 1, 'two calm weeks under a senior officer are Power');
 
+// A Crusader nudged toward the Chair by promotions still ends as the Crusader when the Syndicate falls.
+var n = game(85, 'crusader');
+n.pathGain('commissioner', 4, 'promotions'); n.pathGain('commissioner', 3, 'calm');
+assert.strictEqual(n.s.calling, 'commissioner', 'drifted');
+assert.ok(n.pathOpen('crusader'), 'Justice is not clearly behind');
+var nk = byDef(n, 'case')[0], nr = n.caseRec(nk.caseId);
+nr.template = 'syndicate'; nr.special = true;
+n.onConviction(nr, { guilty: true, solid: true }, []);
+assert.ok(n.s.over && n.s.over.id === 'crusader', 'the Syndicate\'s fall is still the Crusader\'s ending');
+var far = game(86, 'master');
+far.pathGain('commissioner', 12, 'a career');
+assert.ok(!far.pathOpen('crusader'), 'but not for someone who never walked that path');
+
 // Saves keep the drift; the bot's summary of the three paths reads.
 var s2 = CF.Engine.load(c.save());
 assert.strictEqual(s2.s.calling, 'crusader');
