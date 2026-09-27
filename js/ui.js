@@ -1459,7 +1459,8 @@
       return;
     }
     var vn = t.closest && t.closest('.verb[data-verb]');
-    if (vn && ev.button === 0 && t.closest('.v-magnet') && vn.dataset.verb !== 'time') { UI.magnet(vn.dataset.verb); ev.preventDefault(); return; }
+    // The box is the magnet only while it glows; a plain thumbnail is part of the token.
+    if (vn && ev.button === 0 && t.closest('.v-magnet.can-pull') && vn.dataset.verb !== 'time') { UI.magnet(vn.dataset.verb); ev.preventDefault(); return; }
     if (vn && ev.button === 0) {
       UI.drag = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
       ev.preventDefault();
