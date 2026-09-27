@@ -611,7 +611,10 @@
     var vid = UI.openVerbs[UI.openVerbs.length - 1];
     if (!vid) return;
     var e = UI.e, v = e.verb(vid);
-    if (v.status === 'done') { collectAll(vid); return; }
+    if (v.status === 'done') {
+      if (v.out.some(function (u) { var c = e.card(u); return c && c.hidden; })) revealAll(vid); else collectAll(vid);
+      return;
+    }
     if (v.status === 'idle' && e.start(vid)) { CF.Audio.play('start'); e.dirty = true; }
   }
 
@@ -805,7 +808,7 @@
       el.classList.toggle('loaded', v.status === 'idle' && n > 0);
       el.querySelector('.v-count').textContent = n || '';
       var mag = el.querySelector('.v-magnet');
-      if (vid === 'time') mag.textContent = String(e.dues());
+      if (vid === 'time') { mag.textContent = String(e.dues()); mag.classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
       else { var can = e.magnetCandidates(vid).length > 0; mag.classList.toggle('can-pull', can); mag.textContent = can ? '⇲' : ''; }
     });
   }
@@ -846,7 +849,7 @@
       ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
       el.querySelector('.v-status').textContent = verbStatus(vid);
       var wk = el.querySelector('.v-week');
-      if (wk) wk.textContent = 'Wk ' + e.s.week;
+      if (wk) { wk.textContent = 'Wk ' + e.s.week; el.querySelector('.v-magnet').classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
     });
   }
 
@@ -1069,8 +1072,9 @@
       slots.appendChild(s);
     });
     pane.appendChild(slots);
-    if (e.magnetCandidates(vid).length) {
-      var pull = h('button', 'plate-btn gold pull', 'Pull in what fits');
+    var cands = e.magnetCandidates(vid);
+    if (cands.length) {
+      var pull = h('button', 'plate-btn gold pull', 'Pull in ' + cands.map(function (it) { return cardTitle(e.card(it.uid)); }).join(', '));
       pull.addEventListener('click', function () { UI.magnet(vid); });
       pane.appendChild(pull);
     }

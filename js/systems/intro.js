@@ -31,7 +31,7 @@
     this.story(op.title, op.text, 'major');
     var rec = this.openCases()[0];
     this.story('New Case: ' + rec.title, this.caseCard(rec.id).desc, 'case');
-    s.intro.hint = 'Drag the case onto Explore, then press what it offers.';
+    s.intro.hint = 'Drag the case onto Explore, then press what it offers. When it is done, open it: what it found lies face down. Tap a card to turn it over, tap it again to take it.';
     this.dirty = true;
   };
 
