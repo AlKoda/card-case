@@ -25,10 +25,10 @@ function checkInvariants(e) {
     if (c.loc.t === 'held') assert.ok(v.held.indexOf(c.uid) >= 0 && v.status === 'running', 'held mismatch');
     if (c.loc.t === 'out') assert.ok(v.out.indexOf(c.uid) >= 0, 'out mismatch');
     if (c.loc.t === 'table') {
-      assert.ok(isFinite(c.loc.x) && isFinite(c.loc.y) && c.loc.x >= 0 && c.loc.y >= 0, 'bad position');
+      assert.ok(isFinite(c.loc.x) && isFinite(c.loc.y) && c.loc.x >= CF.TABLE.BOUNDS.x && c.loc.y >= CF.TABLE.BOUNDS.y, 'bad position');
       var pk = c.loc.x + ',' + c.loc.y;
       var key = e.stackKey(c) || ('u' + c.uid);
-      assert.ok(!groups[pk] || (groups[pk] === key && e.stackKey(c)), 'two different cards share a position');
+      assert.ok(!groups[pk] || (groups[pk] === key && e.stackKey(c)), 'two different cards share a position: ' + key + ' vs ' + groups[pk]);
       groups[pk] = key;
     }
   });

@@ -72,7 +72,13 @@ e.tick(CF.WEEK - e.s.weekT + 0.01);
 assert.ok(e.s.intro.finished);
 assert.ok(e.verb('duty').unlocked && e.verb('investigate').unlocked && e.verb('duty').unlocked);
 assert.ok(byDef(e, 'funds').length >= 3, 'money arrived: ' + byDef(e, 'funds').length);
-assert.ok(byDef(e, 'teammate').length === 1 && byDef(e, 'district').length >= 1 && byDef(e, 'order').length >= 1);
+assert.ok(byDef(e, 'teammate').length === 1, 'the rookie is on the desk');
+// The Market and the Petitions come with the first answered cases, not the tutorial.
+assert.strictEqual(byDef(e, 'district').length, e.s.stats.convictions >= 1 ? 1 : 0, 'the Market only after a conviction');
+e.s.stats.convictions = 1; e.openTheCity();
+assert.strictEqual(byDef(e, 'district').length, 1, 'the Market after the first conviction');
+e.s.stats.convictions = 2; e.openTheCity();
+assert.ok(byDef(e, 'order').length >= 1, 'the Petitions after the second');
 assert.strictEqual(e.countOf('fatigue'), 0, 'rent was paid from the revealed money');
 assert.strictEqual(e.s.intro.stash.length, 0);
 assert.ok(!e.introHint());

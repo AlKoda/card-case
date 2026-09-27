@@ -71,6 +71,7 @@ function dur(e, verb, cards) {
   clerk.create('teammate', clerk.teammateSpec('rookie'));
   assert.strictEqual(street(clerk), null, 'until a watchman serves');
   // The Clerk's petitions cost less.
+  clerk.addOrdersForRank(0); none.addOrdersForRank(0);
   var o = byDef(clerk, 'order')[0], on = byDef(none, 'order').filter(function (c) { return c.data.order === o.data.order; })[0];
   assert.strictEqual(CF.costOf(o), CF.costOf(on) - 1, 'one Coin less');
   // The Hangman rises no higher than Bailiff.

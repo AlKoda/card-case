@@ -46,7 +46,6 @@
     <div id="main">
       <section id="table" aria-label="The table">
         <div id="tilt"><div id="board"></div></div>
-        <div id="dock" aria-label="Verbs"></div>
         <div id="peek"></div>
         <div id="windows"></div>
         <div id="pause-banner">Paused <span>Space to resume</span></div>
@@ -74,6 +73,7 @@
   <!-- Title screen -->
   <div class="modal screen hidden" id="title">
     <div class="title-wrap">
+      <div class="title-scene">
       <div class="title-logo" role="img" aria-label="Case File: The Free City"></div>
       <div class="title-buttons">
         <button class="plate-btn gold" id="t-new">New Game</button>
@@ -81,6 +81,7 @@
         <button class="plate-btn teal" id="t-archive">The Rolls</button>
         <button class="plate-btn grey" id="t-settings">Settings</button>
         <button class="plate-btn red" id="t-help">How to Play</button>
+      </div>
       </div>
     </div>
   </div>
@@ -204,17 +205,19 @@
       <div class="help-grid">
         <div>
           <h4>Cards and verbs</h4>
-          <p>Everything is a card. You act by dragging cards onto the <b>verbs</b> along the top. Tap a verb to open it: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <p>Everything is a card. The <b>verbs</b> are the square tokens on the table; move them like cards. Drag a card onto a verb, or tap the verb to open it at the side of the table: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <h4>What a verb finds</h4>
+          <p>A finished verb shows a card back on its token. Open it: what it found lies face down. Tap a card to turn it over, tap it again to take it, or <b>Take all</b>. Closing the window leaves everything where it is, story included. Taken cards join a stack of their kind if one is on the table, else they land in the <b>collection pile</b>, the yellow strip; drag the strip anywhere. New cases land there too.</p>
           <h4>Your table</h4>
-          <p>Move any card or stack. Drop a card on its own kind to stack it; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. Windows can be dragged by their title and close when you touch the table.</p>
+          <p>Move any card or stack anywhere on the table. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away.</p>
           <h4>Time</h4>
-          <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. Clues and witnesses warn you half a minute before they fade; tap the warning to find them.</p>
+          <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due.</p>
           <h4>Keys</h4>
           <p><b>S</b> or <b>Enter</b> starts the open verb (or collects its results). <b>C</b> collects every finished verb. <b>Esc</b> closes it. <b>Tab</b> stacks, <b>T</b> tidies, <b>Z</b> undoes that, <b>J</b> opens the journal, <b>+</b> and <b>−</b> zoom.</p>
           <h4>Cases</h4>
           <p>Cases arrive on the city's clock and count down. When one runs out it goes <b>Unanswered</b>, the culprit is <b>Abroad</b>, and the Crowd grows louder. You cannot answer everything.</p>
           <h4>Six verbs</h4>
-          <p><b>Attend</b> is the Watch-house: work for Coin, spend it on Petitions, and deal with what lands on the desk. <b>Explore</b> is the city: a case to search its scene, a case with its Quarter to go door to door, Instinct alone to walk the ward. Take raw proof to <b>Study</b> to make it speak. <b>Question</b> witnesses and the accused with Wit, Instinct or Health. <b>Contemplate</b> a case with its tokens and see what they add up to, or rest.</p>
+          <p><b>Attend</b> is the Watch-house: Wit keeps the day-book for a Coin, Health walks the hard round for two, Petitions are bought there, and it deals with what lands on the desk. <b>Explore</b> is the city: a case to search its scene, a case with its Quarter to go door to door, Instinct alone to walk the ward. Take raw proof to <b>Study</b> to make it speak. <b>Question</b> witnesses and the accused with Wit, Instinct or Health. <b>Rest</b> a case with its tokens and see what they add up to, or rest.</p>
           <h4>The Court</h4>
           <p>Tokens carry proof of six kinds: Body, Word, Motive, Presence, Writ, Coin. An accused with tokens from their case in <b>The Court</b> is a charge. The right kinds in enough weight make full proof. Indicia alone will not convict; on half proof the accused may walk, and they will not forget you. A conviction makes a Condemned card and lays the ladder beside it; the Condemned with a rung in The Court is a sentence.</p>
         </div>
@@ -228,9 +231,9 @@
           <h4>Read everything</h4>
           <p>The accused have their marks. Tokens sometimes betray the culprit's. A careful reader can name the culprit before the casebook does.</p>
           <h4>Threats</h4>
-          <p><b>Weariness</b> ×3 becomes Fever. <b>Obsession</b> ×3 becomes Fixation, and you misread proof. The <b>Crowd</b>, the Council's <b>Suspicion</b> and the underworld's <b>Vendetta</b> build up at the top. Rest in Contemplate. Answer cases. Keep your hands clean, or don't.</p>
+          <p><b>Weariness</b> ×3 becomes Fever. <b>Obsession</b> ×3 becomes Fixation, and you misread proof. The <b>Crowd</b>, the Council's <b>Suspicion</b> and the underworld's <b>Vendetta</b> build up at the top. Rest in Rest. Answer cases. Keep your hands clean, or don't.</p>
           <h4>Rising</h4>
-          <p>Spend Coin in <b>Attend</b> on instruments, Watch-house rooms and watchmen. Standing brings the Council's letters, and each office opens something inside the verbs: Sworn Examiner, a Writ (an accused with cause in Explore); Bailiff, the Watch and Disguise (Explore) and Deputise (Attend); Magistrate, Muster and Proclamation (Attend). The ⌂ button shows your Watch-house: rooms that change how the verbs work.</p>
+          <p>The Market opens after your first conviction and the Petitions after your second. Spend Coin in <b>Attend</b> on instruments, Watch-house rooms and watchmen. Standing brings the Council's letters, and each office opens something inside the verbs: Sworn Examiner, a Writ (an accused with cause in Explore); Bailiff, the Watch and Disguise (Explore) and Deputise (Attend); Magistrate, Muster and Proclamation (Attend). The ⌂ button shows your Watch-house: rooms that change how the verbs work.</p>
           <h4>Winning</h4>
           <p>Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Lodging and dues come out at every bell. Do not run dry.</p>
         </div>

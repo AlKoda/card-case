@@ -108,6 +108,7 @@
   var T = CF.TABLE;
   UI.verbArt = function (v) { return VERB_TOKENS[v] || 'nverb-03'; };
   var cardEls = {};   // top card uid -> board element
+  var pileEl = null;  // the collection pile's zone on the board
   var verbEls = {};   // verb id -> token element
   var winEls = {};    // verb id -> window element
   var liveCards = []; // [el, uid] for cards with timers
@@ -138,12 +139,8 @@
     UI.lastRank = engine.s.rank;
     UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
-    ['#board', '#windows', '#dock'].forEach(function (sel) { $(sel).innerHTML = ''; });
-    var grid = h('div', 'grid');
-    grid.style.left = (-12 * T.PX) + 'px'; grid.style.top = (T.TOP - 6 * T.PY) + 'px';
-    grid.style.width = (40 * T.PX) + 'px'; grid.style.height = (20 * T.PY) + 'px';
-    grid.style.backgroundSize = T.PX + 'px ' + T.PY + 'px';
-    $('#board').appendChild(grid);
+    ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
+    pileEl = null;
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
     UI.tidyUndo = null;
@@ -421,13 +418,13 @@
 
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
-    return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife,
+    return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden,
       card.def === 'coldcase' ? card.data.template : ''].join('|');
   }
 
   // A card element: shadow cards underneath (for stacks) and the face.
   function buildCard(card, count, mini) {
-    var n = h('div', 'card' + (mini ? ' mini' : ''));
+    var n = h('div', 'card' + (mini ? ' mini' : '') + (card.hidden ? ' facedown' : ''));
     n.dataset.uid = card.uid;
     fillCard(n, card, count);
     return n;
@@ -440,6 +437,7 @@
     var pic = cardPicture(card);
     n.dataset.sig = cardSig(card, count);
     n.dataset.uid = card.uid;
+    n.classList.toggle('facedown', !!card.hidden);
     n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b/g, '').trim() +
       ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (count > 1 ? ' stack-' + Math.min(3, count) : '');
     n.innerHTML = '';
@@ -463,9 +461,8 @@
       if (def.kind === 'case' || def.kind === 'court' || def.kind === 'threat' || def.kind === 'condemned' || card.def === 'witness' || card.def === 'bribe') {
         into.appendChild(h('div', 'c-timer', U.fmtTime(card.life)));
       }
-      var life = h('div', 'c-life');
-      life.appendChild(h('div'));
-      body.appendChild(life);
+      n.classList.add('timed');
+      n.insertBefore(h('div', 'c-ring'), n.firstChild);
     }
     if (band) face.appendChild(band);
     face.appendChild(body);
@@ -478,8 +475,7 @@
     if (!card || !card.maxLife) return;
     var t = n.querySelector('.c-timer');
     if (t) t.textContent = U.fmtTime(card.life);
-    var lf = n.querySelector('.c-life > div');
-    if (lf) lf.style.width = Math.max(0, (card.life / card.maxLife) * 100) + '%';
+    n.style.setProperty('--pct', Math.max(0, Math.min(100, (card.life / card.maxLife) * 100)).toFixed(1) + '%');
     var k = CF.CARDS[card.def].kind;
     n.classList.toggle('urgent', (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30));
   }
@@ -495,6 +491,9 @@
     var e = UI.e, cards = e.tableCards();
     var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     cards.forEach(function (c) { x0 = Math.min(x0, c.loc.x); y0 = Math.min(y0, c.loc.y); x1 = Math.max(x1, c.loc.x + T.CW); y1 = Math.max(y1, c.loc.y + T.CH); });
+    CF.VERB_ORDER.forEach(function (id) { var v = e.verb(id); if (!v.unlocked || v.x === undefined) return; x0 = Math.min(x0, v.x); y0 = Math.min(y0, v.y); x1 = Math.max(x1, v.x + T.VW); y1 = Math.max(y1, v.y + T.VH); });
+    var pile = e.pile();
+    x0 = Math.min(x0, pile.x); y0 = Math.min(y0, pile.y); x1 = Math.max(x1, pile.x + T.PILE_COLS * T.PX); y1 = Math.max(y1, pile.y + T.CH);
     if (!cards.length) { x0 = 0; y0 = T.TOP; x1 = 4 * (T.CW + T.GAP); y1 = T.TOP + T.CH; }
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
@@ -504,7 +503,7 @@
     if (!UI.e) return;
     var r = $('#table').getBoundingClientRect();
     var b = boardBounds();
-    var dockH = ($('#dock') && $('#dock').offsetHeight) || 0;
+    var dockH = 0;
     // Fit what is on the table, and lean in when there is little of it.
     var z = U.clamp(Math.min((r.width - 60) / b.w, (r.height - dockH - 60) / b.h), 0.5, 1.25);
     UI.view = { x: (r.width - b.w * z) / 2 - b.x * z, y: dockH + Math.max(20, (r.height - dockH - b.h * z) / 2) - b.y * z, z: z };
@@ -518,10 +517,16 @@
     if (b) b.classList.toggle('hidden', !UI.tidyUndo);
   }
   // Every finished verb gives up its cards.
+  // Collect: turn over what is face down first; the next press takes it all.
   UI.collectAll = function () {
-    var e = UI.e, n = 0;
-    CF.VERB_ORDER.forEach(function (vid) { if (e.verb(vid).status === 'done') { collectAll(vid); n++; } });
-    if (!n) toast({ title: 'Nothing waiting', text: 'No verb has finished.', kind: 'minor' });
+    var e = UI.e, n = 0, turned = 0;
+    CF.VERB_ORDER.forEach(function (vid) {
+      var v = e.verb(vid);
+      if (v.status !== 'done') return;
+      if (v.out.some(function (u) { var c = e.card(u); return c && c.hidden; })) { revealAll(vid); openWindow(vid); turned++; }
+      else { collectAll(vid); n++; }
+    });
+    if (!n && !turned) toast({ title: 'Nothing waiting', text: 'No verb has finished.', kind: 'minor' });
   };
   UI.stackAll = function () {
     if (!UI.e || UI.drag) return;
@@ -565,7 +570,7 @@
     if (!c || !c.loc || c.loc.t !== 'table') return false;
     var r = $('#table').getBoundingClientRect(), v = UI.view;
     if (v.z < 0.9) v.z = 1;
-    var dockH = ($('#dock') && $('#dock').offsetHeight) || 0;
+    var dockH = 0;
     v.x = r.width / 2 - (c.loc.x + T.CW / 2) * v.z;
     v.y = dockH + (r.height - dockH) / 2 - (c.loc.y + T.CH / 2) * v.z;
     clampView(); applyView();
@@ -597,7 +602,7 @@
   function clampView() {
     if (!UI.e) return;
     var r = $('#table').getBoundingClientRect(), v = UI.view, b = boardBounds();
-    var margin = 80, dockH = ($('#dock') && $('#dock').offsetHeight) || 0;
+    var margin = 80, dockH = 0;
     v.x = U.clamp(v.x, margin - (b.x + b.w) * v.z, r.width - margin - b.x * v.z);
     v.y = U.clamp(v.y, dockH + margin - (b.y + b.h) * v.z, r.height - margin - b.y * v.z);
   }
@@ -656,8 +661,21 @@
   function place(el, x, y) { el.style.transform = 'translate3d(' + Math.round(x) + 'px,' + Math.round(y) + 'px,0)'; }
 
   // Keep one element per stack on the board, moving (not rebuilding) them.
+  function syncPile() {
+    var e = UI.e, board = $('#board'), pile = e.pile();
+    if (!pileEl) {
+      pileEl = h('div', 'pile-zone');
+      pileEl.title = 'The collection pile: new cards land here. Drag it anywhere.';
+      pileEl.style.width = (T.PILE_COLS * T.PX + 4) + 'px';
+      pileEl.style.height = (T.CH + 16) + 'px';
+      pileEl.appendChild(h('span', 'pz-label', 'New cards'));
+      board.appendChild(pileEl);
+    }
+    if (!(UI.drag && UI.drag.kind === 'pile')) place(pileEl, pile.x - 9, pile.y - 8);
+  }
   function syncBoard() {
     var e = UI.e, board = $('#board');
+    syncPile();
     var lifted = UI.lifted || {};
     var groups = {}, usable = {};
     e.tableCards().forEach(function (c) {
@@ -712,7 +730,7 @@
 
   function verbStatus(vid) {
     var e = UI.e, v = e.verb(vid);
-    if (vid === 'time') return 'Week ' + e.s.week;
+    if (vid === 'time') return 'Pay in ' + U.fmtTime(Math.max(0, CF.WEEK - e.s.weekT));
     if (v.status === 'running') return U.fmtTime(v.duration - v.elapsed);
     if (v.status === 'done') return 'Ready';
     if (e.lockReason(vid)) return 'Locked';
@@ -720,64 +738,42 @@
     return n ? n + ' card' + (n > 1 ? 's' : '') : '';
   }
 
-  // The verbs sit in a dock along the top of the table, outside the camera:
-  // always in view, whatever the zoom. Groups: the clock, the core verbs,
-  // the office, and the verbs a rank opens. Dragging a token onto another
-  // reorders them within the dock.
-  var DOCK_GROUPS = [['time'], ['duty', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest']];
-  function dockOrder() {
-    var e = UI.e, order = (e.s.flags.dockOrder || []).filter(function (v) { return CF.VERBS[v]; });
-    CF.VERB_ORDER.forEach(function (v) { if (order.indexOf(v) < 0) order.push(v); });
-    return order;
-  }
+  // The verbs are tokens on the felt, movable like cards. A new verb takes
+  // the first free place along the top row.
   function syncVerbs() {
-    var e = UI.e, dock = $('#dock');
-    var order = dockOrder();
-    DOCK_GROUPS.forEach(function (group, gi) {
-      var g = dock.querySelector('.dock-group[data-group="' + gi + '"]');
-      if (!g) { g = h('div', 'dock-group'); g.dataset.group = gi; dock.appendChild(g); }
-      var members = order.filter(function (v) { return group.indexOf(v) >= 0 && e.verb(v).unlocked; });
-      g.classList.toggle('empty', !members.length);
-      members.forEach(function (vid) {
-        var v = e.verb(vid), el = verbEls[vid], def = CF.VERBS[vid];
-        if (!el) {
-          el = h('div', 'verb ' + vid + (def.auto ? ' time' : ''));
-          el.dataset.verb = vid;
-          el.title = def.label + ': ' + def.desc;
-          var tok = h('div', 'v-token');
-          tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
-          tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" /></svg>');
-          if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
-          else tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
-          el.appendChild(tok);
-          el.appendChild(h('div', 'v-status'));
-          el.appendChild(h('div', 'v-badge', '!'));
-          el.appendChild(h('div', 'v-count'));
-          verbEls[vid] = el;
-          if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; el.classList.add('new'); }
-        }
-        if (el.parentNode !== g) g.appendChild(el);
-        var n = Object.keys(v.slots).length;
-        el.classList.toggle('running', v.status === 'running');
-        el.classList.toggle('done', v.status === 'done');
-        el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
-        el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
-        el.classList.toggle('loaded', v.status === 'idle' && n > 0);
-        el.querySelector('.v-count').textContent = n || '';
-      });
-      // Tokens for verbs that locked again (a loaded save) leave the dock.
-      Array.prototype.slice.call(g.children).forEach(function (child) {
-        if (members.indexOf(child.dataset.verb) < 0) { child.remove(); delete verbEls[child.dataset.verb]; }
-      });
+    var e = UI.e, board = $('#board');
+    if (CF.VERB_ORDER.some(function (id) { var v = e.verb(id); return v.unlocked && v.x === undefined; })) e.layoutVerbs();
+    CF.VERB_ORDER.forEach(function (vid) {
+      var v = e.verb(vid), el = verbEls[vid], def = CF.VERBS[vid];
+      if (!v.unlocked) { if (el) { el.remove(); delete verbEls[vid]; } return; }
+      if (!el) {
+        el = h('div', 'verb ' + vid + (def.auto ? ' time' : ''));
+        el.dataset.verb = vid;
+        el.title = def.label + ': ' + def.desc;
+        var tok = h('div', 'v-token');
+        tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
+        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" /></svg>');
+        if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
+        tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
+        el.appendChild(tok);
+        el.appendChild(h('div', 'v-status'));
+        el.appendChild(h('div', 'v-badge', '!'));
+        el.appendChild(h('div', 'v-count'));
+        el.appendChild(h('div', 'v-back'));
+        place(el, v.x, v.y);
+        board.appendChild(el);
+        verbEls[vid] = el;
+        if (!UI.seenVerbs[vid]) { UI.seenVerbs[vid] = true; el.classList.add('new'); }
+      }
+      if (!(UI.drag && UI.drag.verb === vid)) place(el, v.x, v.y);
+      var n = Object.keys(v.slots).length;
+      el.classList.toggle('running', v.status === 'running');
+      el.classList.toggle('done', v.status === 'done');
+      el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
+      el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
+      el.classList.toggle('loaded', v.status === 'idle' && n > 0);
+      el.querySelector('.v-count').textContent = n || '';
     });
-    // A new verb can wrap the dock onto another row: keep the cards below it.
-    var dockH = dock.offsetHeight;
-    if (UI.dockH !== undefined && dockH !== UI.dockH) {
-      UI.view.y += dockH - UI.dockH;
-      clampView();
-      applyView();
-    }
-    UI.dockH = dockH;
   }
 
   function updateVerbRings() {
@@ -787,7 +783,7 @@
       var pct = vid === 'time' ? e.s.weekT / CF.WEEK : v.status === 'running' ? v.elapsed / v.duration : v.status === 'done' ? 1 : 0;
       var ring = el.querySelector('.v-ring circle');
       ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
-      el.querySelector('.v-status').textContent = vid === 'time' ? '' : verbStatus(vid);
+      el.querySelector('.v-status').textContent = verbStatus(vid);
       var wk = el.querySelector('.v-week');
       if (wk) wk.textContent = 'Wk ' + e.s.week;
     });
@@ -848,6 +844,7 @@
 
   // ---------------------------------------------------------------- Windows
   function openWindow(vid) {
+    UI.openVerbs.slice().forEach(function (o) { if (o !== vid) closeWindow(o); });
     var i = UI.openVerbs.indexOf(vid);
     if (i >= 0) UI.openVerbs.splice(i, 1);
     UI.openVerbs.push(vid);
@@ -855,10 +852,9 @@
     UI.e.dirty = true;
   }
   function closeWindow(vid) {
-    var e = UI.e, v = e.verb(vid);
-    // Whatever the verb revealed comes out onto the table; cards still in
-    // its slots stay put, and the token counts them.
-    if (v && v.status === 'done' && v.out.length) collectAll(vid);
+    var e = UI.e;
+    // Whatever the verb found stays in it, face down, until it is looked at;
+    // cards in its slots stay put, and the token counts them.
     UI.openVerbs = UI.openVerbs.filter(function (x) { return x !== vid; });
     UI.hoverSlot = null;
     if (UI.pick && UI.pick.verb === vid) UI.pick = null;
@@ -909,30 +905,8 @@
     });
   }
 
-  function positionWindow(vid, w) {
-    var tr = $('#table').getBoundingClientRect();
-    var W = Math.round(356 * UI.scale()), pos = UI.winPos[vid];
-    if (!pos) {
-      var tok = verbEls[vid] && verbEls[vid].getBoundingClientRect();
-      var x = tok ? tok.left - tr.left + tok.width / 2 - W / 2 : 40, y = tok ? tok.bottom - tr.top + 10 : 40;
-      // Stagger below any open window whose title bar this one would cover,
-      // so every window can still be grabbed.
-      for (var i = 0; i < 10; i++) {
-        var over = UI.openVerbs.filter(function (o) {
-          var q = UI.winPos[o];
-          return o !== vid && winEls[o] && q && x < q.x + W && q.x < x + W && y < q.y + 46 && q.y < y + 46;
-        })[0];
-        if (!over) break;
-        y = UI.winPos[over].y + 50;
-      }
-      pos = { x: x, y: y };
-    }
-    pos.x = U.clamp(pos.x, 4, Math.max(4, tr.width - W - 4));
-    pos.y = U.clamp(pos.y, 4, Math.max(4, tr.height - 120));
-    UI.winPos[vid] = pos;
-    w.style.left = pos.x + 'px';
-    w.style.top = pos.y + 'px';
-  }
+  // The window stands at the side of the table, fitted to it.
+  function positionWindow(vid, w) { void vid; w.classList.add('docked'); }
 
   function miniCard(card) {
     var wrap = h('div', 'mini-wrap');
@@ -989,13 +963,14 @@
       if (v.story) pane.appendChild(storyBox(v.story));
       var outs = h('div', 'outputs');
       outs.dataset.verb = vid;
-      v.out.forEach(function (u) { var c = e.card(u); if (c) outs.appendChild(miniCard(c)); });
+      var hiddenN = 0;
+      v.out.forEach(function (u) { var c = e.card(u); if (c) { outs.appendChild(miniCard(c)); if (c.hidden) hiddenN++; } });
       pane.appendChild(outs);
       var act = h('div', 'actions');
-      var col = h('button', 'plate-btn gold', 'Take all');
-      col.addEventListener('click', function () { collectAll(vid); });
+      var col = h('button', 'plate-btn gold', hiddenN ? 'Turn them over' : 'Take all');
+      col.addEventListener('click', function () { if (hiddenN) revealAll(vid); else collectAll(vid); });
       act.appendChild(col);
-      act.appendChild(h('span', 'vw-desc', 'or drag them out'));
+      act.appendChild(h('span', 'vw-desc', hiddenN ? 'or tap a card to turn it' : 'tap a card to take it, or drag it out'));
       pane.appendChild(act);
       return;
     }
@@ -1100,6 +1075,12 @@
     if (!fromEl) return;
     var r = fromEl.getBoundingClientRect();
     UI.spawn[uid] = { cx: r.left, cy: r.top, gx: 0, gy: 0 };
+  }
+  function revealAll(vid) {
+    var e = UI.e;
+    e.verb(vid).out.forEach(function (u) { e.reveal(u); });
+    CF.Audio.play('click');
+    e.dirty = true;
   }
   function collectAll(vid) {
     var e = UI.e, w = winEls[vid];
@@ -1299,15 +1280,27 @@
     html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
-      return '<span class="chip big" title="' + esc(CF.ASPECTS[k].meaning) + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'aspect-' + k) + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
+      return '<span class="chip big" data-aspect="' + k + '" title="Tap for what this means"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
     }).join('');
-    if (badges && !dz) html += '<div class="i-aspects">' + badges + '</div>';
+    if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
     if (!dz && card.maxLife) html += '<div class="i-note">Time left: ' + U.fmtTime(card.life) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     box.innerHTML = '<button class="peek-close" title="Close">×</button>' + html;
     box.querySelector('.peek-close').addEventListener('click', function () { select(null); UI.hover = null; renderInspector(); });
+    box.querySelectorAll('.chip[data-aspect]').forEach(function (chip) {
+      chip.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var k = chip.dataset.aspect, A = CF.ASPECTS[k];
+        var old = box.querySelector('.aspect-pop');
+        if (old) { var was = old.dataset.aspect; old.remove(); if (was === k) return; }
+        var pop = h('div', 'aspect-pop');
+        pop.dataset.aspect = k;
+        pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-note">Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.</p>';
+        chip.parentNode.insertAdjacentElement('afterend', pop);
+      });
+    });
   }
 
   // ---------------------------------------------------------------- Input
@@ -1367,11 +1360,7 @@
     if (win) {
       var wid = win.dataset.win;
       if (UI.openVerbs[UI.openVerbs.length - 1] !== wid) { openWindow(wid); }
-      if (winHead && !t.closest('.vw-close')) {
-        UI.drag = { kind: 'window', verb: wid, el: win, x0: ev.clientX, y0: ev.clientY, px: UI.winPos[wid].x, py: UI.winPos[wid].y, started: true };
-        ev.preventDefault();
-        return;
-      }
+      void winHead;
     }
     var n = cardAt(t);
     if (n && n.closest('.pk-card')) return; // picker cards are buttons, not cards
@@ -1379,6 +1368,7 @@
       var uid = +n.dataset.uid;
       var card = UI.e.card(uid);
       if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
+      if (!win && UI.openVerbs.length) closeAllWindows(); // a card on the felt puts the window away
       // The number badge is the handle for the whole stack; the card is one card.
       var whole = ev.shiftKey || !!(t.closest && t.closest('.c-count'));
       UI.drag = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole };
@@ -1391,7 +1381,14 @@
       ev.preventDefault();
       return;
     }
-    if (t.closest && t.closest('#table') && !win && !t.closest('#zoom') && !t.closest('#dock') && !t.closest('#peek')) {
+    var pz = t.closest && t.closest('.pile-zone');
+    if (pz && ev.button === 0) {
+      var pl = UI.e.pile();
+      UI.drag = { kind: 'pile', el: pz, x0: ev.clientX, y0: ev.clientY, b0: { x: pl.x, y: pl.y }, started: false };
+      ev.preventDefault();
+      return;
+    }
+    if (t.closest && t.closest('#table') && !win && !t.closest('#zoom') && !t.closest('#peek')) {
       // Touching the felt puts away the windows and the pinned dossier.
       if (UI.openVerbs.length) closeAllWindows();
       UI.drag = { kind: 'pan', x0: ev.clientX, y0: ev.clientY, vx: UI.view.x, vy: UI.view.y, started: false };
@@ -1436,13 +1433,15 @@
       applyView();
       return;
     }
-    if (d.kind === 'verb') {
-      if (!d.started) { d.started = true; d.el.classList.add('dragging'); }
-      d.el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-      document.querySelectorAll('.verb.drop-hover').forEach(function (x) { x.classList.remove('drop-hover'); });
-      var under = document.elementFromPoint(ev.clientX, ev.clientY);
-      var over = under && under.closest && under.closest('.verb[data-verb]');
-      if (over && over !== d.el) over.classList.add('drop-hover');
+    if (d.kind === 'verb' || d.kind === 'pile') {
+      if (!d.started) {
+        d.started = true; d.el.classList.add('dragging'); hideHint();
+        if (d.kind === 'verb') { var vv = UI.e.verb(d.verb); d.b0 = { x: vv.x, y: vv.y }; }
+        if (UI.openVerbs.length) closeAllWindows();
+      }
+      var q0 = toBoard(d.x0, d.y0), q1 = toBoard(ev.clientX, ev.clientY);
+      d.at = { x: d.b0.x + (q1.x - q0.x), y: d.b0.y + (q1.y - q0.y) };
+      place(d.el, d.kind === 'pile' ? d.at.x - 9 : d.at.x, d.kind === 'pile' ? d.at.y - 8 : d.at.y);
       return;
     }
     if (!d.started) liftCard(d, ev);
@@ -1587,7 +1586,7 @@
     if (!d) return;
     if (d.kind === 'pinch') return;
     if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
-    if (d.kind === 'verb' && d.started) { d.el.classList.remove('dragging'); d.el.style.transform = ''; UI.e.dirty = true; }
+    if ((d.kind === 'verb' || d.kind === 'pile') && d.started) { d.el.classList.remove('dragging'); UI.e.dirty = true; }
   }
 
   function onPointerUp(ev) {
@@ -1601,24 +1600,21 @@
     resumeAfterDrag();
     if (d.kind === 'window') return;
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
+    if (d.kind === 'pile') {
+      d.el.classList.remove('dragging');
+      if (d.started) { e.movePile(d.at.x, d.at.y); CF.Audio.play('drop'); }
+      e.dirty = true;
+      return;
+    }
     if (d.kind === 'verb') {
       d.el.classList.remove('dragging');
       if (!d.started) {
-        if (UI.openVerbs.indexOf(d.verb) >= 0 && UI.openVerbs[UI.openVerbs.length - 1] === d.verb) closeWindow(d.verb);
+        if (UI.openVerbs.indexOf(d.verb) >= 0) closeWindow(d.verb);
         else openWindow(d.verb);
         CF.Audio.play('click');
       } else {
-        // Dropped on another token: take its place in the dock.
-        d.el.style.transform = '';
-        var under = document.elementFromPoint(ev.clientX, ev.clientY);
-        var over = under && under.closest && under.closest('.verb[data-verb]');
-        if (over && over !== d.el) {
-          var order = dockOrder(), a = order.indexOf(d.verb), b = order.indexOf(over.dataset.verb);
-          order.splice(a, 1); order.splice(b, 0, d.verb);
-          e.s.flags.dockOrder = order;
-          CF.Audio.play('drop');
-        }
-        document.querySelectorAll('.verb.drop-hover').forEach(function (x) { x.classList.remove('drop-hover'); });
+        e.moveVerb(d.verb, d.at.x, d.at.y);
+        CF.Audio.play('drop');
       }
       e.dirty = true;
       return;
@@ -1626,6 +1622,13 @@
     // Card.
     var card = e.card(d.uid);
     if (!d.started) {
+      // A finished verb's card: face down, a tap turns it over; face up, a tap takes it.
+      if (card && card.loc && card.loc.t === 'out' && ev.target.closest('.vwin')) {
+        if (card.hidden) { e.reveal(card.uid); CF.Audio.play('click'); select(d.uid); }
+        else { markSpawn(card.uid, d.src); e.takeOutput(card.loc.verb, card.uid); CF.Audio.play('drop'); }
+        e.dirty = true;
+        return;
+      }
       select(d.uid);
       // Clicking a card in a slot sends it back to the table.
       if (card && card.loc && card.loc.t === 'slot' && ev.target.closest('.vwin')) {

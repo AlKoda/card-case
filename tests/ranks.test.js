@@ -133,7 +133,7 @@ function run(e, verb, cards) {
   assert.ok(/already/.test(e.preview('duty').blocked));
   e.clearSlots('duty');
   // Focus the division on a district.
-  var d = byDef(e, 'district')[0];
+  var d = byDef(e, 'district')[0] || e.giveDistrict('market');
   r = run(e, 'duty', [d]);
   assert.strictEqual(r.id, 'major_focus');
   assert.ok(e.s.nextCase && e.s.nextCase.district === d.data.district && e.s.nextCase.extraTime === 60);
@@ -142,7 +142,7 @@ function run(e, verb, cards) {
   e.tick(31);
   var latest = byDef(e, 'case').filter(function (c) { return e.caseRec(c.caseId).district === d.data.district && c !== kase; })[0];
   assert.ok(byDef(e, 'case').length === n + 1 && latest, 'the next case came from there');
-  assert.strictEqual(latest.maxLife, CF.CASE_TEMPLATES[e.caseRec(latest.caseId).template].lifetime + 60);
+  assert.strictEqual(latest.maxLife, Math.round(CF.CASE_TEMPLATES[e.caseRec(latest.caseId).template].lifetime * 1.5) + 60);
   console.log('major crimes: ok');
 })();
 
@@ -150,6 +150,7 @@ function run(e, verb, cards) {
 (function precinct() {
   CF.ROOM_ORDER.forEach(function (k) { assert.ok(CF.ROOMS[k] && CF.ORDERS[CF.ROOMS[k].order] && CF.ORDERS[CF.ROOMS[k].order].room === k, k); });
   var e = game(75);
+  e.addOrdersForRank(0);
   var tiles = CF.Precinct.tiles(e);
   assert.strictEqual(tiles.length, CF.ROOM_ORDER.length);
   var byKey = {}; tiles.forEach(function (t) { byKey[t.key] = t; });

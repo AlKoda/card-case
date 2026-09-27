@@ -20,10 +20,13 @@
   // sit anywhere; placement keeps them from covering each other.
   var T = {
     CW: 116, CH: 158, GAP: 14,   // card footprint
-    VW: 92, VH: 104,             // verb token footprint
+    VW: 124, VH: 150,            // verb token footprint
     COLS: 8,                     // width of the automatic layout, in cards
-    TOP: 136,                    // cards start below the row of verbs
+    TOP: 180,                    // cards start below the row of verbs
+    verbsOnBoard: true,          // the verbs are tokens on the felt, movable like cards
   };
+  // The edge of the table: nothing goes beyond it.
+  T.BOUNDS = { x: -1040, y: -560, w: 3200, h: 1640 };
   var ZONE_ROWS = {       // layout row each kind prefers
     ability: 0, funds: 0, threat: 0, calling: 0, insight: 0, career: 0,
     case: 1, coldcase: 1, court: 1,
@@ -97,7 +100,7 @@
     opts = opts || {};
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
-      version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 110, nextUid: 1,
+      version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 170, nextUid: 1,
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
@@ -118,8 +121,6 @@
     e.create('instinct');
     for (var i = 0; i < 3; i++) e.create('funds');
     e.create(CF.CALLINGS[s.calling].card);
-    e.giveDistrict('market');
-    e.addOrdersForRank(0);
     e.create('personnel', e.personnelSpec('rookie'));
 
     if (s.calling === 'commissioner') {
@@ -184,16 +185,8 @@
     var e = new Engine(s);
     e.initPaths();
     e.layoutVerbs();
-    // Cards from before the grid: onto the nearest free cell, oldest first.
-    var loose = e.tableCards().filter(function (c) { return c.loc.x % T.PX || (c.loc.y - T.TOP) % T.PY; }).sort(function (a, b) { return a.uid - b.uid; });
-    loose.forEach(function (c) { c.was = { x: c.loc.x, y: c.loc.y }; c.loc = { t: 'table', x: -1, y: -1 }; });
-    loose.forEach(function (c) {
-      var obs = e.obstacles(function (o) { return o === c || o.loc.x < 0; });
-      var stack = e.stackFor(c);
-      var p = stack ? { x: stack.loc.x, y: stack.loc.y } : e.nearestFree(c.was.x, c.was.y, T.CW, T.CH, obs);
-      c.loc = { t: 'table', x: p.x, y: p.y };
-      delete c.was;
-    });
+    // Cards from older saves may sit off the table: bring them back onto it.
+    e.tableCards().forEach(function (c) { var q = e.clampToTable(c.loc.x, c.loc.y, T.CW, T.CH); c.loc.x = q.x; c.loc.y = q.y; });
     return e;
   };
 
@@ -304,8 +297,8 @@
   P.descOf = function (card) { return card.desc || this.def(card).desc; };
   P.kindOf = function (card) { return this.def(card).kind; };
   P.stackKey = function (card) {
-    var def = this.def(card);
-    return def.stackable && !card.caseId ? card.def : null;
+    var d = card.data || {};
+    return [card.def, this.labelOf(card), card.caseId || '', JSON.stringify(card.aspects || ''), d.name || '', d.order || '', d.district || '', d.rung || ''].join('|');
   };
 
   P.tableCards = function () {
@@ -342,29 +335,35 @@
     return out;
   };
 
+  function inside(r) { var B = T.BOUNDS; return r.x >= B.x && r.y >= B.y && r.x + r.w <= B.x + B.w && r.y + r.h <= B.y + B.h; }
+  P.clampToTable = function (x, y, w, h) {
+    var B = T.BOUNDS;
+    return { x: U.clamp(Math.round(x), B.x, B.x + B.w - w), y: U.clamp(Math.round(y), B.y, B.y + B.h - h) };
+  };
   function isFree(r, obs) {
-    if (r.x < 0 || r.y < 0) return false;
+    if (!inside(r)) return false;
     for (var i = 0; i < obs.length; i++) if (overlaps(r, obs[i])) return false;
     return true;
   }
 
   // The free spot closest to (x, y) for a w x h footprint.
   // The table is a grid of card-sized cells; every card sits in one.
-  T.PX = T.CW + T.GAP; T.PY = T.CH + T.GAP;
+  T.PX = T.CW + T.GAP; T.PY = T.CH + T.GAP; T.PILE_COLS = 6;
   function snap(x, y) {
     return { x: Math.round(x / T.PX) * T.PX, y: T.TOP + Math.round((y - T.TOP) / T.PY) * T.PY };
   }
   CF.snapGrid = snap;
   P.nearestFree = function (x, y, w, h, obs) {
-    var p = snap(Math.max(0, x), Math.max(0, y));
+    var p = this.clampToTable(x, y, w, h);
     x = p.x; y = p.y;
     if (isFree({ x: x, y: y, w: w, h: h }, obs)) return { x: x, y: y };
-    for (var r = 1; r <= 40; r++) {
+    var step = 12;
+    for (var r = 1; r <= 90; r++) {
       var best = null, bestD = Infinity;
       for (var i = -r; i <= r; i++) {
         var pts = [[i, -r], [i, r], [-r, i], [r, i]];
         for (var j = 0; j < 4; j++) {
-          var px = x + pts[j][0] * T.PX, py = y + pts[j][1] * T.PY;
+          var px = x + pts[j][0] * step, py = y + pts[j][1] * step;
           var d = (px - x) * (px - x) + (py - y) * (py - y);
           if (d < bestD && isFree({ x: px, y: py, w: w, h: h }, obs)) { best = { x: px, y: py }; bestD = d; }
         }
@@ -412,16 +411,37 @@
     return this.tableCards().filter(function (c) { return c.loc.x === card.loc.x && c.loc.y === card.loc.y && self.stackKey(c) === key; });
   };
 
-  // Put a card on the table: join its stack, else the spot asked for (or the
-  // one it last had), else the first free place in its kind's layout row.
+  // The collection pile: a strip on the table where everything new lands.
+  // The player can move it. New cards fill it left to right, then the row
+  // below, unless a stack of their kind already waits somewhere.
+  P.pile = function () {
+    if (!this.s.pile) this.s.pile = { x: 0, y: T.TOP + 2 * T.PY };
+    return this.s.pile;
+  };
+  P.movePile = function (x, y) {
+    var p = this.clampToTable(x, y, T.PILE_COLS * T.PX, T.CH);
+    this.s.pile = { x: p.x, y: p.y };
+    this.dirty = true;
+  };
+  P.pileSpot = function (obs) {
+    var pile = this.pile();
+    for (var r = 0; r < 6; r++) {
+      for (var c = 0; c < T.PILE_COLS; c++) {
+        var p = { x: pile.x + c * T.PX, y: pile.y + r * T.PY, w: T.CW, h: T.CH };
+        if (isFree(p, obs)) return { x: p.x, y: p.y };
+      }
+    }
+    return this.nearestFree(pile.x, pile.y, T.CW, T.CH, obs);
+  };
+  // Put a card on the table: join its stack wherever it is, else the spot
+  // asked for (or the one it last had), else the collection pile.
   P.placeOnTable = function (card, prefer) {
     card.loc = null;
     var join = this.stackFor(card);
     if (join) { card.loc = { t: 'table', x: join.loc.x, y: join.loc.y }; return; }
     if (!prefer && card.lastPos) prefer = card.lastPos;
     var obs = this.obstacles(function (c) { return c === card; });
-    var p = prefer ? this.nearestFree(prefer.x, prefer.y, T.CW, T.CH, obs)
-      : this.layoutSpot(ZONE_ROWS[this.kindOf(card)] || 0, T.CW, T.CH, obs);
+    var p = prefer ? this.nearestFree(prefer.x, prefer.y, T.CW, T.CH, obs) : this.pileSpot(obs);
     card.loc = { t: 'table', x: p.x, y: p.y };
   };
 
@@ -678,6 +698,7 @@
       give: function (defId, spec) {
         var card = self.make(defId, spec);
         card.loc = { t: 'out', verb: verbId };
+        card.hidden = true; // found face down: turned over when the player looks
         self.verb(verbId).out.push(card.uid);
         ctx.out.push(card);
         return card;
@@ -799,10 +820,18 @@
   };
 
   // Drag a single output card out of a finished verb onto the table.
+  P.reveal = function (uid) {
+    var card = this.card(uid);
+    if (!card || !card.hidden) return false;
+    delete card.hidden;
+    this.dirty = true;
+    return true;
+  };
   P.takeOutput = function (verbId, uid, pos) {
     var v = this.verb(verbId);
     var card = this.card(uid);
     if (!card || !card.loc || card.loc.t !== 'out' || card.loc.verb !== verbId) return false;
+    delete card.hidden;
     this.detach(card);
     this.placeOnTable(card, pos || this.outputSpot(verbId, card));
     if (!v.out.length && v.status === 'done') { v.status = 'idle'; v.story = null; }
@@ -812,7 +841,8 @@
 
   // Where a verb's output lands: back where it came from, or beside the verb.
   P.outputSpot = function (verbId, card) {
-    return card.lastPos || null; // else placeOnTable finds a spot by kind
+    card.lastPos = null; // placeOnTable joins a stack, else the collection pile
+    return null;
   };
 
   // Tidy the table: every card back to a spot its kind prefers, with the
@@ -874,6 +904,7 @@
     v.out.slice().forEach(function (uid) {
       var c = self.card(uid);
       if (!c) return;
+      delete c.hidden;
       c.loc = null;
       self.placeOnTable(c, self.outputSpot(verbId, c));
     });
@@ -895,6 +926,7 @@
       var c = s.cards[ids[i]];
       if (!c || c.life === undefined || c.life === null) continue;
       var rate = 1;
+      if (c.loc && c.loc.t !== 'table') continue; // in a verb: the clock waits
       if (s.rooms.locker && (c.def === 'clue' || c.def === 'evidence')) rate = 0.5;
       c.life -= dt * rate;
       if (c.life <= 0) this.expire(c);
@@ -938,10 +970,10 @@
         var next = s.nextCase; s.nextCase = null;
         this.spawnCase(next ? next.template : null, next ? { district: next.district, extraTime: next.extraTime || 0 } : {});
       }
-      var base = U.randInt(this.rng, 110, 150) - Math.min(25, s.week * 2) - (CF.RANK_DEFS[s.rank] || {}).dispatch || 0;
+      var base = U.randInt(this.rng, 170, 220) - Math.min(30, s.week * 2) - (CF.RANK_DEFS[s.rank] || {}).dispatch || 0;
       if (this.countOf('syndicate')) base -= 10;
       if (s.meters.dread >= 6) base += 15; // a frightened city commits fewer small crimes, or reports fewer
-      s.dispatchT = Math.max(40, base);
+      s.dispatchT = Math.max(70, base);
     }
 
     this.checkThresholds();
@@ -1344,6 +1376,21 @@
     };
   };
 
+  // The city opens as you answer cases: the Market after the first, the
+  // Petitions after the second.
+  P.openTheCity = function () {
+    var s = this.s, n = s.stats.convictions;
+    if (n >= 1 && !s.flags.marketOpen) {
+      s.flags.marketOpen = true;
+      if (!(s.flags.districts || {}).market) this.giveDistrict('market');
+      this.story('The Market', 'The stallholders know your face now. The Quarter is yours to walk: put it in Explore with Health for a round, or with a case to look for its people there.', 'major');
+    }
+    if (n >= 2 && !s.flags.petitionsOpen) {
+      s.flags.petitionsOpen = true;
+      this.addOrdersForRank(0);
+      this.story('The Petitions', 'A clerk brings the forms the Council will now hear from you: instruments, rooms, a key. Each Petition in Attend with its price in Coin.', 'major');
+    }
+  };
   P.addOrdersForRank = function (rank) {
     var self = this;
     var bought = this.s.flags.bought = this.s.flags.bought || {};
@@ -1546,7 +1593,7 @@
     s.cases[id] = rec;
     s.stats.cases++;
 
-    var life = (opts.lifetime || T.lifetime) + (opts.extraTime || 0);
+    var life = Math.round((opts.lifetime || T.lifetime) * 1.5) + (opts.extraTime || 0);
     var brief = U.fill(structure && !opts.culpritName ? structure.brief : T.brief, vars);
     // An informant's warning: you were ready for this one.
     var warning = !T.special && this.warningFor(tid);
@@ -1794,6 +1841,7 @@
     if (this.commissionVerdict) this.commissionVerdict(rec, d, convicted, notes);
     this.emit('resolved', this.caseRecord(rec, convicted ? (d.guilty ? 'convicted' : 'wrongful') : 'acquitted', d.name));
     var hp = rec.highProfile;
+    if (convicted) this.openTheCity();
 
     if (convicted) {
       s.stats.convictions++;

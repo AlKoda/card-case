@@ -66,7 +66,7 @@ function run(e, verb, cards) {
   var newRec = w.caseRec(cases[cases.length - 1].caseId);
   assert.strictEqual(newRec.template, warn.data.template, 'the warned-of case arrived');
   assert.ok(!w.card(warn.uid), 'the warning was used up');
-  assert.strictEqual(cases[cases.length - 1].maxLife, CF.CASE_TEMPLATES[newRec.template].lifetime + CF.INFORMANT.warningExtraTime);
+  assert.strictEqual(cases[cases.length - 1].maxLife, Math.round(CF.CASE_TEMPLATES[newRec.template].lifetime * 1.5) + CF.INFORMANT.warningExtraTime);
   assert.ok(newRec.suspects.some(function (x) { return x.revealed; }), 'a first name on the board');
   assert.strictEqual(winf.data.trust, trust0 + 1, 'a warning that came true earns trust');
 

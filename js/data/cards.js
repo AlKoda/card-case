@@ -68,13 +68,13 @@
 
     // --- Afflictions ------------------------------------------------------
     fatigue: { label: 'Weariness', kind: 'threat', tags: ['strain'], image: 'icon-fatigue', aspects: { fatigue: 1 }, stackable: true,
-      desc: 'Too many nights. Three of these and the fever takes you. Sleep it off in Contemplate.' },
+      desc: 'Too many nights. Three of these and the fever takes you. Sleep it off in Rest.' },
     burnout: { label: 'Fever', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
-      desc: 'You cannot face the street. Attend, Walk the Ward, Examine and Question are shut to you. Rest in Contemplate before this runs out, or they carry you to the pesthouse.' },
+      desc: 'You cannot face the street. Attend, Walk the Ward, Examine and Question are shut to you. Rest in Rest before this runs out, or they carry you to the pesthouse.' },
     obsession: { label: 'Obsession', kind: 'threat', tags: ['strain'], image: 'icon-obsession', aspects: { obsession: 1 }, stackable: true,
-      desc: 'A case has got under your skin. Three of these harden into Fixation. Closing the case eases it; so does letting go in Contemplate.' },
+      desc: 'A case has got under your skin. Three of these harden into Fixation. Closing the case eases it; so does letting go in Rest.' },
     tunnel: { label: 'Fixation', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-redeye', aspects: { tunnel: 1 },
-      desc: 'You see what you want to see. Some tokens you find now are misread and will not hold before the Court. A conviction, or a long night in Contemplate, clears it. More Obsession on top of this will swallow you.' },
+      desc: 'You see what you want to see. Some tokens you find now are misread and will not hold before the Court. A conviction, or a long night in Rest, clears it. More Obsession on top of this will swallow you.' },
 
     // --- Casework ------------------------------------------------------
     case: { label: 'Case', kind: 'case', tags: ['casework'], aspects: { case: 1 }, onExpire: 'cold',
@@ -157,7 +157,7 @@
     tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
       desc: 'The Court of Miracles pays its Examiner while the Treaty stands. Put it in Attend to take it; every week taken is Purse +1. Let it lie and the King notes that too.' },
     dagger: { label: 'A Dagger on the Pillow', kind: 'threat', tags: ['warning'], aspects: { dagger: 1 }, decay: 100, onExpire: 'mountain',
-      desc: 'The Order of the Mountain warns once. Contemplate it with Coin to buy a season; alone, to endure. Let it lie and they come back.' },
+      desc: 'The Order of the Mountain warns once. Rest it with Coin to buy a season; alone, to endure. Let it lie and they come back.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 
@@ -174,34 +174,34 @@
 
     // --- Insight (victory paths) ---------------------------------------
     looseend: { label: 'Loose End', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { looseend: 1 }, stackable: true,
-      desc: 'A detail that belongs to no case. The same shape keeps turning up. Three of these, together in Contemplate, might show you the hand that draws it.' },
+      desc: 'A detail that belongs to no case. The same shape keeps turning up. Three of these, together in Rest, might show you the hand that draws it.' },
     ledger: { label: 'A Leaf of the Ledger', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { ledger: 1 }, stackable: true,
       desc: 'A page from the Coquille\'s book: payments, names, dates. Enough of these and the King of Thunes cannot hide.' },
     notes: { label: 'The Last Examiner\'s Casebook', kind: 'insight', tags: ['insight'], image: 'icon-folder', aspects: { notes: 1 },
-      desc: 'Your predecessor\'s casebook. Half of it is water-stained. Read it in Contemplate.' },
+      desc: 'Your predecessor\'s casebook. Half of it is water-stained. Read it in Rest.' },
 
     calling_commissioner: { label: 'Calling: The Burgomaster', kind: 'calling', tags: ['calling'], image: 'icon-star', aspects: { calling: 1 },
       desc: 'Power. Rise to Magistrate, earn a great Standing, then take the Burgomaster\'s Seat and remake the Watch in your own image.' },
     calling_master: { label: 'Calling: The Scholar', kind: 'calling', tags: ['calling'], image: 'icon-mind', aspects: { calling: 1 },
-      desc: 'Knowledge. Sound convictions and unanswered cases leave Loose Ends. Bring three to Contemplate, find the Architect behind them, and convict them.' },
+      desc: 'Knowledge. Sound convictions and unanswered cases leave Loose Ends. Bring three to Rest, find the Architect behind them, and convict them.' },
     calling_crusader: { label: 'Calling: The Reformer', kind: 'calling', tags: ['calling'], image: 'icon-scales', aspects: { calling: 1 },
       desc: 'Justice. Go in Disguise among the bands (you will need to be Bailiff), take leaves from their ledger, drag the Coquille into the square and convict its king. Whatever it costs.' },
   };
 
   // Things the Council's treasury will buy. rank = minimum office to see the petition.
   CF.ORDERS = {
-    camera: { label: 'Sketch-book', cost: 2, give: 'camera', rank: 0 },
+    camera: { label: 'Sketch-book', cost: 8, give: 'camera', rank: 0 },
     prints: { label: 'Vinegar and Umbrella', cost: 3, give: 'prints', rank: 0 },
-    kit: { label: 'Physician\'s Case', cost: 4, give: 'kit', rank: 0 },
-    locker: { label: 'Strongroom', cost: 4, room: 'locker', rank: 0 },
-    suite: { label: 'The Hole', cost: 5, room: 'suite', rank: 1 },
+    kit: { label: 'Physician\'s Case', cost: 9, give: 'kit', rank: 0 },
+    locker: { label: 'Strongroom', cost: 9, room: 'locker', rank: 0 },
+    suite: { label: 'The Hole', cost: 8, room: 'suite', rank: 1 },
     labpass: { label: 'The Apothecary\'s Key', cost: 5, give: 'labpass', rank: 1 },
-    archive: { label: 'The Rolls', cost: 5, room: 'archive', rank: 1 },
+    archive: { label: 'The Rolls', cost: 8, room: 'archive', rank: 1 },
     surveillance: { label: 'Lantern and Cloak', cost: 6, give: 'surveillance', rank: 2 },
     intel: { label: 'The Informers\' Bench', cost: 6, room: 'intel', rank: 2 },
-    training: { label: 'The Drill Yard', cost: 5, room: 'training', rank: 2 },
-    thieftakers: { label: 'The Thief-takers\' Office', cost: 4, room: 'thieftakers', rank: 1 },
-    lab: { label: 'The Apothecary', cost: 9, room: 'lab', rank: 3 },
+    training: { label: 'The Drill Yard', cost: 8, room: 'training', rank: 2 },
+    thieftakers: { label: 'The Thief-takers\' Office', cost: 6, room: 'thieftakers', rank: 1 },
+    lab: { label: 'The Apothecary', cost: 14, room: 'lab', rank: 3 },
     survroom: { label: 'The Belfry', cost: 8, room: 'survroom', rank: 3 },
   };
 

@@ -7,7 +7,7 @@
 //
 //   The Order of the Mountain: fida'is under cover in the city, who leave a
 //   dagger on a pillow as a warning first. They cannot be broken, only
-//   bargained with (Coin in Contemplate) or endured. They are what an
+//   bargained with (Coin in Rest) or endured. They are what an
 //   Examiner on the way to the Seat meets.
 //   The Eumenides: a charitable brotherhood of patricians whose private face
 //   leaves the Harbour a torso a season. Their cases never point at them;
@@ -47,7 +47,7 @@
     if (this.countOf('dagger') || this.rng() >= Soc.MOUNTAIN.chance) return lines;
     this.create('dagger', {
       label: 'A Dagger on the Pillow',
-      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Contemplate it with Coin to buy a season; contemplate it alone to endure. Let it lie and they come back.',
+      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Rest it with Coin to buy a season; contemplate it alone to endure. Let it lie and they come back.',
       data: { week: s.week },
     });
     lines.push('There was a dagger on your pillow this morning. The door was barred. Somebody wants you to know what they can do.');
