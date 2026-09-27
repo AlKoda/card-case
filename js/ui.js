@@ -11,93 +11,91 @@
   // Three families of card face: illustrated pieces that carry their own
   // frame (characters, scenes, evidence, tarot backs), and plain emblem
   // frames for cards that are only words (your Health, a Petition...).
-  var PLAIN_FRAME = {
-    health: 'seal-hand', wound: 'seal-skull', focus: 'icon-book', instinct: 'seal-eye', funds: 'coin-sun',
-    fatigue: 'icon-hourglass-a', burnout: 'icon-flask', obsession: 'wax-eye', tunnel: 'icon-target',
-    order: 'wax-fleur', room: 'icon-key', intel: 'seal-crow', thread: 'icon-magnifier', trial: 'icon-scales',
-    paperwork: 'icon-quill', bribe: 'coin-eye', promotion: 'medal-sun', promo_inspector: 'medal-moon', promo_chief: 'medal-lion',
-    chair: 'icon-crown', looseend: 'icon-question', ledger: 'gold-book', notes: 'gold-scroll',
+  // ---- The Candlemark Noir art (css/art/noir-*.css, cut by tools/build_noir_art.py).
+  // Simple is king: a card is a picture over a strip of paper that carries
+  // one name. Families (css: .card.face-<family>):
+  //   pic    a picture in a frame the stylesheet draws, in the kind's colour
+  //   tarot  a whole face with its own paper band (the resources)
+  //   paper  a whole paper face with a corner icon (words on paper)
+  //   back   a tarot back (callings, endings)
+  var PIC_TONE = { case: 'red', coldcase: 'grey', clue: 'blue', evidence: 'blue', witness: 'blue', suspect: 'red', informant: 'gold',
+    district: 'gold', place: 'gold', room: 'gold', equipment: 'teal', teammate: 'teal', personnel: 'teal', hospital: 'teal',
+    criminal: 'red', condemned: 'dark', court: 'dark', threat: 'dark', career: 'gold', intel: 'blue', order: 'gold' };
+  // Whole faces: the resources on tarot cards, words on paper.
+  var FACES = {
+    health: 'ntarot-01', wound: 'ntarot-01', focus: 'ntarot-06', instinct: 'ntarot-02', funds: 'ntarot-03', room: 'ntarot-04',
+    fatigue: 'ntarot-05', burnout: 'ntarot-05', obsession: 'ntar2-03', tunnel: 'ntar2-01',
+    order: 'npaper-06', intel: 'npaper-01', thread: 'npaper-07', trial: 'npaper-06', paperwork: 'npaper-04', bribe: 'npaper-08',
+    promotion: 'npaper-06', promo_inspector: 'npaper-06', promo_chief: 'npaper-06', chair: 'npaper-02', looseend: 'npaper-12',
+    ledger: 'npaper-08', notes: 'npaper-05', plea: 'npaper-04', writsale: 'npaper-04', tribute: 'npaper-08', dagger: 'npaper-03',
+    calling_commissioner: 'ntarot-09', calling_master: 'ntarot-07', calling_crusader: 'ntarot-08',
   };
-  var ILLUS = {
-    camera: 'ev-quill', prints: 'ev2-monocle', kit: 'ev-powder', surveillance: 'act-watch', labpass: 'ev-keys',
-    gang: 'scene-rite2', syndicate: 'scene-rite', front: 'scene-hole', ledger: 'ev2-ledger', notes: 'ev-notes', looseend: 'ev-cipher',
-    calling_commissioner: 'back-sun', calling_master: 'back-eye', calling_crusader: 'back-scales',
+  // Pictures in a drawn frame.
+  var PICS = {
+    camera: 'nsq-16', prints: 'nsq-09', kit: 'nsq-32', surveillance: 'nsq-23', labpass: 'nsq-22',
+    gang: 'nroom-05', syndicate: 'nplace-07', front: 'nplace-02',
   };
-  var CASE_ART = { burglary: 'act-safe', missing: 'scene-corridor', harbor: 'scene-harbour', arson: 'scene-rooftop2', fraud: 'scene-archive',
-    extortion: 'act-threat', poison: 'scene-morgue2', coining: 'act-seal', manhunt: 'act-chase', gang: 'scene-rite2', syndicate: 'scene-catacombs', architect: 'scene-study', eumenides: 'scene-morgue',
-    scriptorium: 'scene-library', witch: 'scene-cemetery', highway: 'scene-rooftop', contract: 'act-deal', pattern: 'scene-alley', threedays: 'act-safe' };
-  var DISTRICT_ART = { docks: 'scene-quay-deal', market: 'scene-station2', neon: 'scene-hole2', uptown: 'scene-library', warrens: 'scene-sewer', canal: 'scene-cemetery' };
+  var CASE_ART = { burglary: 'nloc-08', missing: 'nloc-07', harbor: 'nloc-01', arson: 'nloc-10', fraud: 'nloc-05', extortion: 'nloc-06',
+    poison: 'nloc-02', coining: 'nloc-09', manhunt: 'nloc-04', gang: 'nloc-06', syndicate: 'nloc-10', architect: 'nloc-08', eumenides: 'nloc-03',
+    scriptorium: 'nloc-05', witch: 'nloc-03', highway: 'nloc-04', contract: 'nloc-09', pattern: 'nloc-07', threedays: 'nplace-05' };
+  var DISTRICT_ART = { docks: 'nplace-01', market: 'nplace-03', neon: 'nroom-05', uptown: 'nplace-08', warrens: 'nplace-02', canal: 'nplace-07' };
   // Portrait cards: one per person, chosen by their name, and kept.
-  var PEOPLE = ['char-sleuth', 'char-physician', 'char-hooded', 'char-noble-crown', 'char-lady-eye', 'char-priest', 'char-sailor-pipe', 'char-brawler-two',
-    'char-woman-eye', 'char-docker', 'char-watchman', 'char-richman', 'char-clerk', 'char-veiled', 'char-boy-ladder', 'char-widow',
-    'char-maid', 'char-sleuth-star', 'char-scholar-astro', 'char-lady-sun', 'char-scholar-book', 'char-maid-linen', 'char-boy-letter', 'char-gravedigger',
-    'char-barman', 'char-seamstress', 'char-clerk-papers', 'char-flowergirl', 'char-student', 'char-officer-swords', 'char-veiled-cat', 'char-newsboy',
-    'char-sailor-anchor', 'char-mourner', 'char-singer', 'char-boy-swords', 'char-brawler-knuckles', 'char-agitator', 'char-masked-lady', 'char-worker'];
-  var WATCH = ['char-watchman', 'char-officer-star', 'char-officer-swords', 'char-boy-swords', 'char-sailor-anchor', 'char-docker', 'char-doctor-vial', 'char-clerk-papers', 'char-brawler-knuckles', 'char-scholar-pyr'];
+  var PEOPLE = [];
+  for (var pi = 1; pi <= 24; pi++) PEOPLE.push('nport-' + (pi < 10 ? '0' : '') + pi);
+  var WATCH = ['nface-05', 'nface-04', 'nface-01', 'nface-03', 'nface-08', 'nface-06', 'nface-02', 'nface-07'];
   // Evidence pictures, chosen by what a token is about.
   var EV_RULES = [
-    [/deposition|account|word from|confession|cover story|slip of|own account|statement|rumour/i, 'ev-quill'],
-    [/letter|correspondence|bond|unfinished|message|note\b|notes|casebook|commonplace/i, 'ev-letter'],
-    [/hand\b|thumb|print|surfaces|glove|blood|cut|stitched/i, 'ev-glove'],
-    [/key|entry|lodging|house|home|door|shutter|latch/i, 'ev2-key'],
-    [/coin|clipping|mould|silver|pledged|pawn|chit|purse|jointure|profits|spending|goldsmith|tally|ledger|account|investors|wage|will\b/i, 'ev2-signet'],
-    [/powder|poison|needle|cup|phial|oil|smell|tobacco|ash|clove|scent|herb/i, 'ev-powder'],
-    [/hours|night|tide|bell|timeline|reckoned|meeting|round|schedule|curfew|smoke/i, 'ev2-clock'],
-    [/cipher|code|paper|prospectus|book|leaf|register|roll|papers|hand read|hand matched|hand examined|sketch|drawn/i, 'ev-cipher'],
-    [/seen|sighting|face|likeness|caught|identification|witness|placed/i, 'ev-likeness'],
-    [/carrier|chit|ticket|wagon|ferry|token/i, 'ev-ticket'],
-    [/pick|blade|chisel|crow|tool|marks|forced|pried|kindling|fire|match|taper/i, 'ev-picks'],
-    [/map|quarter|front|door|place|thread|where/i, 'ev2-map'],
-    [/locket|ring|signet|scratch|jewel/i, 'ev-locket'],
-    [/compass|harbour|quay|barge|boat|water|drown/i, 'ev-compass'],
-    [/watch|clock|hour/i, 'ev-watch'],
-    [/keys|lock/i, 'ev-keys'],
+    [/deposition|account|word from|confession|cover story|slip of|own account|statement|rumour/i, 'nev-07'],
+    [/letter|correspondence|bond|unfinished|message|note\b|notes|casebook|commonplace/i, 'nev-12'],
+    [/blood|cut|stitched/i, 'nev-02'],
+    [/hand\b|thumb|print|surfaces|glove/i, 'nev-01'],
+    [/key|entry|lodging|house|home|door|shutter|latch/i, 'nev-04'],
+    [/ledger|account|tally|investors|profits|spending|goldsmith|will\b/i, 'nev-05'],
+    [/coin|clipping|mould|silver|pledged|pawn|chit|purse|jointure|wage/i, 'nev-10'],
+    [/powder|poison|needle|cup|phial|oil|smell|tobacco|ash|clove|scent|herb/i, 'ntp-07'],
+    [/hours|night|tide|bell|timeline|reckoned|meeting|round|schedule|curfew|smoke|watch|clock|hour/i, 'ntp-08'],
+    [/cipher|code|book|leaf|register|roll|hand read|hand matched|hand examined/i, 'ntp-06'],
+    [/paper|prospectus|papers|sketch|drawn/i, 'ntp-04'],
+    [/seen|sighting|face|likeness|caught|identification|witness|placed/i, 'nev-09'],
+    [/carrier|ticket|wagon|ferry|token|seal/i, 'nev-03'],
+    [/pick|blade|chisel|crow|tool|marks|forced|pried|kindling|fire|match|taper|knife|dagger/i, 'nev-06'],
+    [/map|quarter|front|place|thread|where/i, 'nev-08'],
+    [/locket|ring|signet|scratch|jewel/i, 'nev-11'],
+    [/compass|harbour|quay|barge|boat|water|drown|street|city/i, 'ntp-05'],
   ];
-  var EV_BY_ASPECT = { forensic: 'ev-glove', testimony: 'ev-quill', motive: 'ev-letter', opportunity: 'ev2-clock', digital: 'ev2-ledger', financial: 'ev2-signet' };
-  var VERB_TOKENS = { time: 'scene-station', duty: 'scene-archive', patrol: 'scene-alley', investigate: 'act-body', analyze: 'act-study',
-    interrogate: 'act-question', reflect: 'scene-study', arrest: 'act-chase', sentence: 'scene-hole', requisition: 'act-deal', warrant: 'act-seal', stakeout: 'act-watch',
-    undercover: 'act-rite', delegate: 'act-letter', taskforce: 'act-threat', majorcrimes: 'act-train' };
-  var ASPECT_ART = { forensic: 'seal-hand', testimony: 'seal-crow', motive: 'seal-skull', opportunity: 'seal-eye', digital: 'wax-fleur', financial: 'wax-crown' };
-  var METER_ICONS = { pressure: 'icon-person', scrutiny: 'icon-eye', retaliation: 'icon-skull', reputation: 'icon-crown', dread: 'icon-alert' };
+  var EV_BY_ASPECT = { forensic: 'nev-01', testimony: 'nev-07', motive: 'nev-12', opportunity: 'nev-08', digital: 'nev-05', financial: 'nev-10' };
+  var VERB_TOKENS = { time: 'nverb-12', duty: 'nverb-01', investigate: 'nverb-02', analyze: 'nverb-07', interrogate: 'nverb-05', reflect: 'nverb-06', arrest: 'nverb-08' };
+  var ASPECT_ART = { forensic: 'ncoin-07', testimony: 'ncoin-10', motive: 'ncoin-08', opportunity: 'nsmall-03', digital: 'ncoin-12', financial: 'ncoin-04' };
+  var METER_ICONS = { pressure: 'ncoin-06', scrutiny: 'ncoin-02', retaliation: 'ncoin-08', reputation: 'nsmall-02', dread: 'nsmall-01' };
   var TOAST_BARS = { case: 'plate-seal', danger: 'plate-i-star', defeat: 'plate-i-star', major: 'plate-sun', victory: 'plate-moon', week: 'plate-i-moon', verb: 'plate-i-eye', minor: 'plate-i-dark' };
-  var RING_LEN = 2 * Math.PI * 47;
+  var RING_LEN = 2 * Math.PI * 36;
 
-  // The face of a card: {art, plain: true|false, gray?}. Plain faces are an
-  // emblem frame with the words on the paper; illustrated faces carry the
-  // picture, and the words sit in the paper band at the foot.
-  // The family decides the layout (css: .card.face-<family>): portraits and
-  // evidence carry a title band and a paper foot; squares (scenes, acts) sit
-  // on a paper frame; backs are tarot cards; plain faces are an emblem on paper.
-  function pic(art, gray) {
+  // The face of a card: {art, fam, tone, gray}.
+  function pic(art, tone, gray) { return { art: art, fam: 'pic', tone: tone || 'gold', gray: !!gray }; }
+  function face(art, gray) {
     var p = art.split('-')[0];
-    var fam = p === 'char' ? 'portrait' : (p === 'ev' || p === 'ev2') ? 'ev' : (p === 'scene' || p === 'act') ? 'square' : p === 'back' ? 'back' : 'plain';
-    return { art: art, fam: fam, gray: !!gray };
+    return { art: art, fam: p === 'npaper' ? 'paper' : /^ntarot-0[789]$/.test(art) ? 'back' : 'tarot', tone: 'none', gray: !!gray };
   }
-  var illus = pic, plain = pic;
   function cardPicture(card) {
-    var e = UI.e, def = CF.CARDS[card.def], k = def.kind;
-    if (k === 'case') { var r = e.caseRec(card.caseId); return illus(CASE_ART[r && r.template] || 'act-safe'); }
-    if (k === 'coldcase') return illus(CASE_ART[card.data.template] || 'act-safe', true);
+    var e = UI.e, def = CF.CARDS[card.def], k = def.kind, tone = PIC_TONE[k] || 'gold';
+    if (k === 'case') { var r = e.caseRec(card.caseId); return pic(CASE_ART[r && r.template] || 'nloc-07', r && r.highProfile ? 'gold' : tone); }
+    if (k === 'coldcase') return pic(CASE_ART[card.data.template] || 'nloc-07', tone, true);
     if (k === 'clue' || k === 'evidence') {
       var label = e.labelOf(card);
-      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return illus(EV_RULES[i][1]);
+      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return pic(EV_RULES[i][1], tone);
       var a = CF.clueAspects(card), best = null;
       for (var key in a) if (!best || a[key] > a[best]) best = key;
-      return illus(EV_BY_ASPECT[best] || 'ev-cipher');
+      return pic(EV_BY_ASPECT[best] || 'ntp-04', tone);
     }
-    if (k === 'district') return illus(DISTRICT_ART[card.data.district] || 'scene-station2');
-    if (k === 'teammate' || k === 'personnel' || k === 'hospital') return illus(WATCH[hash(card.data.name || e.labelOf(card)) % WATCH.length], k === 'hospital');
-    if (card.def === 'rung') return plain((CF.RUNGS[card.data.rung] || {}).icon || 'icon-scales');
-    if (card.def === 'plea') return illus('ev-letter');
-    if (card.def === 'writsale') return illus('ev2-letter');
-    if (card.def === 'tribute') return plain('coin-heart');
-    if (card.def === 'dagger') return plain('small-skull');
+    if (k === 'district') return pic(DISTRICT_ART[card.data.district] || 'nplace-03', tone);
+    if (k === 'teammate' || k === 'personnel' || k === 'hospital') return pic(WATCH[hash(card.data.name || e.labelOf(card)) % WATCH.length], tone, k === 'hospital');
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
-      return illus(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length]);
+      return pic(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length], /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
     }
-    if (ILLUS[card.def]) return illus(ILLUS[card.def]);
-    if (PLAIN_FRAME[card.def]) return plain(PLAIN_FRAME[card.def], card.def === 'wound');
-    return plain('wax-star');
+    if (card.def === 'rung') return face('npaper-06');
+    if (PICS[card.def]) return pic(PICS[card.def], tone);
+    if (FACES[card.def]) return face(FACES[card.def], card.def === 'wound' || card.def === 'burnout');
+    return face('npaper-04');
   }
 
   var UI = (CF.UI = {
@@ -108,7 +106,7 @@
   });
 
   var T = CF.TABLE;
-  UI.verbArt = function (v) { return VERB_TOKENS[v] || 'act-study'; };
+  UI.verbArt = function (v) { return VERB_TOKENS[v] || 'nverb-03'; };
   var cardEls = {};   // top card uid -> board element
   var verbEls = {};   // verb id -> token element
   var winEls = {};    // verb id -> window element
@@ -141,6 +139,11 @@
     UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     ['#board', '#windows', '#dock'].forEach(function (sel) { $(sel).innerHTML = ''; });
+    var grid = h('div', 'grid');
+    grid.style.left = (-12 * T.PX) + 'px'; grid.style.top = (T.TOP - 6 * T.PY) + 'px';
+    grid.style.width = (40 * T.PX) + 'px'; grid.style.height = (20 * T.PY) + 'px';
+    grid.style.backgroundSize = T.PX + 'px ' + T.PY + 'px';
+    $('#board').appendChild(grid);
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
     UI.tidyUndo = null;
@@ -437,8 +440,8 @@
     var pic = cardPicture(card);
     n.dataset.sig = cardSig(card, count);
     n.dataset.uid = card.uid;
-    n.className = n.className.replace(/\b(kind|face)-\S+/g, '').replace(/\bstack-\d\b/g, '').trim() +
-      ' kind-' + def.kind + ' face-' + pic.fam + (count > 1 ? ' stack-' + Math.min(3, count) : '');
+    n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b/g, '').trim() +
+      ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (count > 1 ? ' stack-' + Math.min(3, count) : '');
     n.innerHTML = '';
     for (var i = Math.min(2, count - 1); i > 0; i--) {
       var u = h('div', 'c-under u' + i);
@@ -448,8 +451,7 @@
     var face = h('div', 'c-face' + (pic.gray ? ' gray' : ''));
     face.style.setProperty('--pic', art(pic.art));
     var body = h('div', 'c-body');
-    var banded = pic.fam === 'portrait' || pic.fam === 'ev';
-    var band = banded ? h('div', 'c-band') : null;
+    var band = null;
     body.appendChild(h('div', 'c-title', cardTitle(card)));
     void kind;
     var asp = h('div', 'c-aspects');
@@ -583,7 +585,7 @@
   function zoomAt(cx, cy, factor) {
     var r = $('#table').getBoundingClientRect();
     var v = UI.view, z = U.clamp(v.z * factor, 0.4, 1.6);
-    var px = cx - r.left, py = cy - r.top;
+    var pp = toPlane(cx - r.left, cy - r.top), px = pp.x, py = pp.y;
     v.x = px - (px - v.x) * (z / v.z);
     v.y = py - (py - v.y) * (z / v.z);
     v.z = z;
@@ -600,9 +602,55 @@
     v.y = U.clamp(v.y, dockH + margin - (b.y + b.h) * v.z, r.height - margin - b.y * v.z);
   }
 
+  // The table plane is tilted (css: #tilt rotateX under #table's perspective),
+  // so a screen point maps to the plane through the inverse of that
+  // projection: the same 4x4 matrix the browser builds from the stylesheet.
+  var tiltM = null, tiltKey = '';
+  function mat4mul(a, b) {
+    var o = [];
+    for (var i = 0; i < 4; i++) for (var j = 0; j < 4; j++) { var v = 0; for (var k = 0; k < 4; k++) v += a[i * 4 + k] * b[k * 4 + j]; o[i * 4 + j] = v; }
+    return o;
+  }
+  function translate(x, y, z) { return [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1]; }
+  function tiltMatrix() {
+    var t = $('#table'), r = t.getBoundingClientRect();
+    var cs = getComputedStyle(t);
+    var key = r.width + 'x' + r.height + cs.perspective + cs.perspectiveOrigin + getComputedStyle($('#tilt')).transform;
+    if (tiltM && key === tiltKey) return tiltM;
+    tiltKey = key;
+    var d = parseFloat(cs.perspective);
+    var po = cs.perspectiveOrigin.split(' ').map(parseFloat);
+    var ts = getComputedStyle($('#tilt')), to = ts.transformOrigin.split(' ').map(parseFloat);
+    var m = ts.transform.match(/matrix3d\(([^)]*)\)/);
+    var R;
+    if (m) {
+      var v = m[1].split(',').map(parseFloat); // column-major
+      R = [v[0], v[4], v[8], v[12], v[1], v[5], v[9], v[13], v[2], v[6], v[10], v[14], v[3], v[7], v[11], v[15]];
+    } else R = translate(0, 0, 0);
+    var P = isFinite(d) && d > 0 ? [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -1 / d, 1] : translate(0, 0, 0);
+    tiltM = mat4mul(translate(po[0], po[1], 0), mat4mul(P, mat4mul(translate(-po[0], -po[1], 0), mat4mul(translate(to[0], to[1], 0), mat4mul(R, translate(-to[0], -to[1], 0))))));
+    return tiltM;
+  }
+  // Screen (relative to the table) -> point on the tilted plane.
+  function toPlane(sx, sy) {
+    var m = tiltMatrix();
+    var a = m[0] - sx * m[12], b = m[1] - sx * m[13], c = sx * m[15] - m[3];
+    var d = m[4] - sy * m[12], e2 = m[5] - sy * m[13], f = sy * m[15] - m[7];
+    var det = a * e2 - b * d;
+    if (Math.abs(det) < 1e-9) return { x: sx, y: sy };
+    return { x: (c * e2 - b * f) / det, y: (a * f - c * d) / det };
+  }
+  // Point on the plane -> screen (relative to the table).
+  function fromPlane(px, py) {
+    var m = tiltMatrix();
+    var w = m[12] * px + m[13] * py + m[15];
+    return { x: (m[0] * px + m[1] * py + m[3]) / w, y: (m[4] * px + m[5] * py + m[7]) / w };
+  }
+  UI.toPlane = toPlane; UI.fromPlane = fromPlane;
   function toBoard(cx, cy) {
     var r = $('#table').getBoundingClientRect();
-    return { x: (cx - r.left - UI.view.x) / UI.view.z, y: (cy - r.top - UI.view.y) / UI.view.z };
+    var p = toPlane(cx - r.left, cy - r.top);
+    return { x: (p.x - UI.view.x) / UI.view.z, y: (p.y - UI.view.y) / UI.view.z };
   }
 
   function place(el, x, y) { el.style.transform = 'translate3d(' + Math.round(x) + 'px,' + Math.round(y) + 'px,0)'; }
@@ -697,8 +745,8 @@
           el.dataset.verb = vid;
           el.title = def.label + ': ' + def.desc;
           var tok = h('div', 'v-token');
-          tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'act-study');
-          tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" /></svg>');
+          tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
+          tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" /></svg>');
           if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
           else tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
           el.appendChild(tok);
@@ -843,7 +891,7 @@
         w = h('div', 'vwin');
         w.dataset.win = vid;
         w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-close" title="Close (Esc)">×</button></div><div class="divider"></div><div class="vw-body"></div>';
-        w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'act-study');
+        w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
         w.querySelector('h3').textContent = CF.VERBS[vid].label;
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
         layer.appendChild(w);
@@ -1128,7 +1176,7 @@
     var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(d.tierLabel) + ' charge</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
-      html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art('aspect-' + r.aspect) + '"></span>' +
+      html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'nsmall-05') + '"></span>' +
         '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + r.have + ' / ' + r.need + '</span></div>';
     });
     d.notes.forEach(function (n) { html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
@@ -1379,8 +1427,10 @@
     }
     if (d.kind === 'pan') {
       d.started = true;
-      UI.view.x = d.vx + dx;
-      UI.view.y = d.vy + dy;
+      var tr0 = $('#table').getBoundingClientRect();
+      var p0 = toPlane(d.x0 - tr0.left, d.y0 - tr0.top), p1 = toPlane(ev.clientX - tr0.left, ev.clientY - tr0.top);
+      UI.view.x = d.vx + (p1.x - p0.x);
+      UI.view.y = d.vy + (p1.y - p0.y);
       clampView();
       $('#table').classList.add('panning');
       applyView();

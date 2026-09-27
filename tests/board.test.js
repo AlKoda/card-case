@@ -70,10 +70,12 @@ console.error = function (err) { throw err; };
 
   // Move: a card lands where dropped when the spot is free, else nearby.
   e.moveCard(clue.uid, 700, 700);
-  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, { x: 700, y: 700 });
+  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, CF.snapGrid(700, 700), 'a card lands on the grid cell it was dropped in');
+  assert.ok(clue.loc.x % T.PX === 0 && (clue.loc.y - T.TOP) % T.PY === 0);
   var other = e.create('clue', { label: 'Other' });
   e.moveCard(other.uid, 700, 700);
-  assert.ok(other.loc.x !== 700 || other.loc.y !== 700, 'a different card does not land on top');
+  assert.ok(other.loc.x !== clue.loc.x || other.loc.y !== clue.loc.y, 'a different card does not land on top');
+  assert.ok(other.loc.x % T.PX === 0 && (other.loc.y - T.TOP) % T.PY === 0, 'and it takes the next cell');
 
   // Stack: identical stackable cards dropped together become one pile.
   var funds = byDef('funds');
