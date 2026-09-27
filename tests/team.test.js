@@ -92,18 +92,18 @@ function officer(e, key, traits) {
 
   // Surveillance gear opens the Stakeout at any rank, and turns it into photographs and transcripts.
   var h = game(23);
-  assert.ok(!h.verb('stakeout').unlocked);
+  assert.ok(!h.powerOpen('stakeout'), 'no Watch below Bailiff');
   var order = h.create('order', { data: { order: 'surveillance' } });
   var funds = byDef(h, 'funds');
   for (var i = funds.length; i < 6; i++) h.create('funds');
-  r = run(h, 'requisition', [order].concat(byDef(h, 'funds').slice(0, 6)));
-  assert.ok(h.verb('stakeout').unlocked, 'Stakeout opened by the gear');
+  r = run(h, 'duty', [order].concat(byDef(h, 'funds').slice(0, 6)));
+  assert.ok(h.powerOpen('stakeout'), 'the Watch opened by the gear');
   assert.ok(/Watch/.test(r.story.text));
   var gear = byDef(h, 'surveillance')[0];
   var kh = byDef(h, 'case')[0], rh = h.caseRec(kh.caseId);
   var cul = rh.suspects.filter(function (x) { return x.guilty; })[0];
   var sc = h.revealSuspect(rh, null, { key: cul.key });
-  r = run(h, 'stakeout', [sc, byDef(h, 'instinct')[0], gear]);
+  r = run(h, 'investigate', [sc, byDef(h, 'instinct')[0], gear]);
   var caught = byLabel(h, /Caught in the Act/)[0];
   assert.ok(caught && CF.clueAspects(caught).digital === 1 && CF.clueAspects(caught).opportunity === 4, 'wiretap and long lens: ' + JSON.stringify(CF.clueAspects(caught)));
   assert.strictEqual(r.duration, 40);

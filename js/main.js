@@ -32,12 +32,12 @@
   UI.onPromotion = function (rank) {
     $('promo-badge').style.backgroundImage = 'var(--art-' + (['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[rank] || {}).badge || 1) - 1] || 'medal-sun') + ')';
     $('promo-title').textContent = 'Promoted: ' + CF.RANKS[rank];
-    var unlocked = CF.VERB_ORDER.filter(function (v) { return CF.VERBS[v].rank === rank; });
+    var unlocked = Object.keys(CF.POWERS).filter(function (k) { return CF.POWERS[k].rank === rank; });
     [1, 2, 3].forEach(function (i) {
-      var v = unlocked[i - 1];
+      var k = unlocked[i - 1];
       var el = $('promo-s' + i);
-      el.style.backgroundImage = v ? 'var(--art-' + (UI.verbArt ? UI.verbArt(v) : 'act-study') + ')' : '';
-      el.title = v ? CF.VERBS[v].label : '';
+      el.style.backgroundImage = k ? 'var(--art-' + CF.POWERS[k].art + ')' : '';
+      el.title = k ? CF.POWERS[k].label + ': ' + CF.POWERS[k].text : '';
     });
     CF.Audio.play('victory');
     show('promo', true);

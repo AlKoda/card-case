@@ -127,11 +127,12 @@ function gangUp(e) {
   e.clearSlots('reflect');
 
   // The Front can be staked out: something for every open case that passes through.
-  e.s.verbs.stakeout.unlocked = true;
+
   var open = e.casesAtFront(front.id).length;
   assert.ok(open >= 2);
-  var st = run(e, 'stakeout', [fc, byDef(e, 'instinct')[0]]);
-  assert.strictEqual(st.id, 'stakeout_front');
+  e.s.rank = 2; // the Watch is a Bailiff's power
+  var st = run(e, 'investigate', [fc, byDef(e, 'instinct')[0]]);
+  assert.strictEqual(e.verb('investigate').recipe || st.id, 'stakeout_front');
   var seenClues = st.out.filter(function (c) { return c.def === 'clue' && /^Seen at/.test(e.labelOf(c)); });
   assert.strictEqual(seenClues.length, open);
   assert.ok(front.watched);
@@ -143,10 +144,10 @@ function gangUp(e) {
   assert.strictEqual(byDef(e, 'looseend').length, le + 1);
 
   // Undercover through the Front: it stands in for the gang, and a watched front is safer.
-  e.s.verbs.undercover.unlocked = true;
-  var uc = run(e, 'undercover', [fc, byDef(e, 'instinct')[0]]);
+
+  var uc = run(e, 'investigate', [fc, byDef(e, 'focus')[0]]); // a front with Wit is a way in; with Instinct, a watch
   assert.strictEqual(uc.id, 'undercover_op');
-  assert.ok(uc.out.some(function (c) { return c.def === 'case' && e.caseRec(c.caseId).template === 'gang'; }), 'the operation opens: ' + JSON.stringify(uc.story) + ' over=' + JSON.stringify(e.s.over && e.s.over.title) + ' status=' + e.verb('undercover').status + ' journal=' + e.s.journal.slice(0, 3).map(function (j) { return j.title; }) + ' ' + uc.out.map(function (c) { return e.labelOf(c); }));
+  assert.ok(uc.out.some(function (c) { return c.def === 'case' && e.caseRec(c.caseId).template === 'gang'; }), 'the operation opens: ' + JSON.stringify(uc.story) + ' over=' + JSON.stringify(e.s.over && e.s.over.title) + ' status=' + e.verb('investigate').status + ' journal=' + e.s.journal.slice(0, 3).map(function (j) { return j.title; }) + ' ' + uc.out.map(function (c) { return e.labelOf(c); }));
 
   // Fronts survive the save.
   var e2 = CF.Engine.load(e.save());

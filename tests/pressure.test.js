@@ -91,17 +91,17 @@ function run(e, verb, cards) {
   var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
   var scG = e.revealSuspect(rec, null, { key: culprit.key });
   var scI = e.revealSuspect(rec, null, { key: innocent.key });
-  e.s.rank = 1; e.s.verbs.warrant.unlocked = true;
+  e.s.rank = 1;
   var r = run(e, 'investigate', [scG]);
   assert.strictEqual(e.verb('investigate').recipe, 'inv_illegal_search');
   var found = r.out.filter(function (c) { return c.def === 'clue'; })[0];
   assert.ok(found && found.data.illegal, 'the guilty man\'s shoebox');
   assert.strictEqual(e.s.meters.scrutiny, 1);
   // Faster than the legal way.
-  e.autoSlot('warrant', scG.uid); e.autoSlot('warrant', found.uid);
-  var legal = e.preview('warrant');
+  e.autoSlot('investigate', scG.uid); e.autoSlot('investigate', found.uid);
+  var legal = e.preview('investigate');
   assert.ok(legal.duration > r.duration, 'the warrant takes longer: ' + legal.duration + ' vs ' + r.duration);
-  e.clearSlots('warrant');
+  e.clearSlots('investigate');
   // Innocent: nothing, and a complaint.
   run(e, 'investigate', [scI]);
   assert.strictEqual(e.s.meters.scrutiny, 3);

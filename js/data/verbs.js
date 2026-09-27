@@ -7,6 +7,10 @@
   function has(card, a) { return card && CF.aspectsOf(card)[a] > 0; }
   function any(card, list) { for (var i = 0; i < list.length; i++) if (has(card, list[i])) return true; return false; }
 
+  // Six verbs, like a table should have (the tutorial opens them one at a
+  // time). The offices do not add tokens any more: they open recipes inside
+  // these (a Writ in Explore, the Court's trial in Explore, a Muster in
+  // Attend...). CF.POWERS lists what each office opens, for the letter.
   CF.VERBS = {
     time: {
       label: 'The Bell', auto: true, rank: 0,
@@ -15,34 +19,40 @@
     },
     duty: {
       label: 'Attend', rank: 0, lockedBy: 'burnout',
-      desc: 'Your hours at the Watch-house. Put in Health to walk a hard round for pay, or Wit to sit with the day-book. Also: the Council\'s letters, drilling your watchmen, guarding an informer with a watchman, and purses left on your desk.',
+      desc: 'The Watch-house. Work for Coin (Health walks a hard round, Wit keeps the day-book), spend it (a Petition or a Letter of Service with Coin), and attend to what lands on the desk: the Council\'s letters, purses, your watchmen. A Case here with watchmen musters them; with Wit and Coin it is cried through the city.',
       slots: [
-        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'chair', 'informant', 'case'], primary: true },
-        { key: 'extra', label: 'Rolls / Coin', accepts: ['paperwork', 'funds'],
-          when: function (p) { return any(p, ['focus', 'teammate', 'case']); } },
+        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'chair', 'informant', 'case', 'order', 'personnel', 'district'], primary: true },
+        { key: 'extra', label: 'Rolls / Coin', accepts: ['paperwork', 'funds'], when: function (p) { return any(p, ['focus', 'teammate', 'case', 'district']); } },
         { key: 'extra2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['teammate', 'case']); } },
+        { key: 'mind', label: 'Wit', accepts: ['focus'], when: function (p) { return has(p, 'case'); } },
+        { key: 't1', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
+        { key: 't2', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
+        { key: 't3', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
         { key: 'guard', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'informant'); } },
-      ],
-    },
-    patrol: {
-      label: 'Walk the Ward', rank: 0, lockedBy: 'burnout',
-      desc: 'Take the lantern out. Instinct finds new quarters and trouble; Instinct with a Quarter works those streets. Meet an Informer here with Coin.',
-      slots: [
-        { key: 'main', label: 'Lantern', accepts: ['instinct', 'health', 'informant'], primary: true },
-        { key: 'where', label: 'Quarter', accepts: ['district'], when: function (p) { return any(p, ['instinct', 'health']); } },
-        { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'informant'); } },
-        { key: 'help', label: 'Watch', accepts: ['teammate'], when: function (p) { return any(p, ['instinct', 'health']); } },
+        { key: 'f1', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
+        { key: 'f2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
+        { key: 'f3', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
+        { key: 'f4', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
+        { key: 'f5', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']) && CF.costOf(p) > 4; } },
+        { key: 'f6', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']) && CF.costOf(p) > 5; } },
+        { key: 'f7', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']) && CF.costOf(p) > 6; } },
+        { key: 'f8', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']) && CF.costOf(p) > 7; } },
+        { key: 'f9', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']) && CF.costOf(p) > 8; } },
       ],
     },
     investigate: {
-      label: 'Examine', rank: 0, lockedBy: 'burnout',
-      desc: 'Go to the scene. Alone, you search it. With the case\'s Quarter, you go door to door for witnesses and names. Put an Accused in instead and you can search their lodging without a Writ: quick, and the Council would love to hear of it.',
+      label: 'Explore', rank: 0, lockedBy: 'burnout',
+      desc: 'Go out. A Case: search its scene, or with its Quarter go door to door. Instinct alone: walk the ward and see what the city offers; an Informer with Coin talks. An Accused: search their lodging without a Writ, or with a token as cause serve one (Sworn Examiner), or with Instinct or a watchman watch their door (Bailiff). Someone Abroad, a Band or the Coquille with Instinct: go in Disguise (Bailiff).',
       slots: [
-        { key: 'main', label: 'Case / Accused', accepts: ['case', 'suspect'], primary: true },
-        { key: 'where', label: 'Quarter', accepts: ['district'], when: function (p) { return has(p, 'case'); } },
-        { key: 'tool', label: 'Instrument', accepts: ['tool'], when: function (p) { return has(p, 'case'); } },
-        { key: 'help', label: 'Watch', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
-        { key: 'mind', label: 'Manner', accepts: ['focus', 'instinct'], when: function (p) { return has(p, 'case'); } },
+        { key: 'main', label: 'Case / Mark', accepts: ['case', 'suspect', 'instinct', 'health', 'informant', 'front', 'atlarge', 'gang', 'syndicate'], primary: true },
+        { key: 'where', label: 'Quarter', accepts: ['district'], when: function (p) { return any(p, ['case', 'instinct', 'health']); } },
+        { key: 'tool', label: 'Instrument', accepts: ['tool'], when: function (p) { return any(p, ['case', 'suspect', 'front']); } },
+        { key: 'help', label: 'Watch', accepts: ['teammate'], when: function (p) { return any(p, ['case', 'suspect', 'instinct', 'health', 'atlarge', 'gang', 'syndicate']); } },
+        { key: 'mind', label: 'Manner', accepts: ['focus', 'instinct', 'teammate'], when: function (p) { return any(p, ['case', 'suspect', 'front', 'atlarge', 'gang', 'syndicate']); } },
+        { key: 'cause', label: 'Cause', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
+        { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'informant'); } },
+        { key: 'coin', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'syndicate'); } },
+        { key: 'coin2', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'syndicate'); } },
       ],
     },
     analyze: {
@@ -79,102 +89,31 @@
       ],
     },
     arrest: {
-      label: 'Indict', rank: 0,
-      desc: 'Bring an Accused before the Blood Court. Add tokens from their case to build the charge. Indicia alone will not convict: the Court wants two witnesses, or a confession, or enough of the right proof that the sworn men stop asking.',
+      label: 'The Court', rank: 0,
+      desc: 'The Blood Court. An Accused with tokens from their case is a charge: indicia alone will not convict; the Court wants two witnesses, a confession, or enough of the right proof. The Condemned with a rung of the ladder is a sentence; a plea or a free confession is a reason for mercy.',
       slots: [
-        { key: 'main', label: 'Accused', accepts: ['suspect'], primary: true },
-        { key: 'c1', label: 'Proof', accepts: ['clue'], when: function (p) { return !!p; } },
-        { key: 'c2', label: 'Proof', accepts: ['clue'], when: function (p) { return !!p; } },
-        { key: 'c3', label: 'Proof', accepts: ['clue'], when: function (p) { return !!p; } },
-        { key: 'c4', label: 'Proof', accepts: ['clue'], when: function (p) { return !!p; } },
-      ],
-    },
-    sentence: {
-      label: 'Sentence', rank: 0,
-      desc: 'The Condemned wait in the Hole for your word. Put one beside a rung of the ladder and the Council follows. A plea, or a free confession, is a reason for mercy. Every rung has its price: in Mercy, in Cruelty, in what the city thinks of you.',
-      slots: [
-        { key: 'main', label: 'The Condemned', accepts: ['condemned'], primary: true },
-        { key: 'rung', label: 'The Ladder', accepts: ['rung'], when: function (p) { return !!p; } },
-        { key: 'plea', label: 'Plea', accepts: ['plea', 'clue'], when: function (p) { return !!p; } },
-      ],
-    },
-    requisition: {
-      label: 'Petition', rank: 0,
-      desc: 'Spend Coin. Put in a Petition or a Letter of Service, then enough Coin to cover it.',
-      slots: [
-        { key: 'main', label: 'Petition', accepts: ['order', 'personnel'], primary: true },
-        { key: 'f1', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p; } },
-        { key: 'f2', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p; } },
-        { key: 'f3', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p; } },
-        { key: 'f4', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p; } },
-        { key: 'f5', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p && CF.costOf(p) > 4; } },
-        { key: 'f6', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p && CF.costOf(p) > 5; } },
-        { key: 'f7', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p && CF.costOf(p) > 6; } },
-        { key: 'f8', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p && CF.costOf(p) > 7; } },
-        { key: 'f9', label: 'Coin', accepts: ['funds'], when: function (p) { return !!p && CF.costOf(p) > 8; } },
-      ],
-    },
-
-    // --- Unlocked by office ----------------------------------------------
-    warrant: {
-      label: 'Writ', rank: 1,
-      desc: 'A magistrate\'s seal to search an Accused\'s house and shop. You need cause: a token from their case. A Writ served on the innocent is a mark against you.',
-      slots: [
-        { key: 'main', label: 'Accused', accepts: ['suspect'], primary: true },
-        { key: 'cause', label: 'Cause', accepts: ['clue'], when: function (p) { return !!p; } },
-        { key: 'help', label: 'Watch', accepts: ['teammate'], when: function (p) { return !!p; } },
-      ],
-    },
-    stakeout: {
-      label: 'Watch', rank: 2,
-      desc: 'Stand in a doorway with the lantern shuttered and watch an Accused through one long cold night. The guilty do guilty things. The innocent go to bed. Watch a known Front instead to see which of your cases passes through it.',
-      slots: [
-        { key: 'main', label: 'Mark', accepts: ['suspect', 'front'], primary: true },
-        { key: 'mind', label: 'Watcher', accepts: ['instinct', 'teammate'], when: function (p) { return !!p; } },
-        { key: 'tool', label: 'Instrument', accepts: ['tool'], when: function (p) { return !!p; } },
-      ],
-    },
-    undercover: {
-      label: 'Disguise', rank: 2,
-      desc: 'Take off the badge and put on a coat that is nobody\'s. Point yourself at someone Abroad, a Band, or the Coquille itself. It takes a long time, costs Health if it goes wrong, and brings back what nothing else can. The Coquille with Wit is a parley; with Instinct and Coin, its court tries you, and you may stay.',
-      slots: [
-        { key: 'main', label: 'Mark', accepts: ['atlarge', 'gang', 'syndicate', 'front'], primary: true },
-        { key: 'mind', label: 'Cover', accepts: ['instinct', 'focus'], when: function (p) { return !!p; } },
-        { key: 'help', label: 'Second', accepts: ['teammate'], when: function (p) { return !!p; } },
-        { key: 'coin', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'syndicate'); } },
-        { key: 'coin2', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'syndicate'); } },
-      ],
-    },
-    taskforce: {
-      label: 'Muster', rank: 3,
-      desc: 'Call out the Watch on a Case. Your watchmen work it together while you work elsewhere, and bring back whatever they find.',
-      slots: [
-        { key: 'main', label: 'Case', accepts: ['case'], primary: true },
-        { key: 't1', label: 'Watchman', accepts: ['teammate'], when: function (p) { return !!p; } },
-        { key: 't2', label: 'Watchman', accepts: ['teammate'], when: function (p) { return !!p; } },
-        { key: 't3', label: 'Watchman', accepts: ['teammate'], when: function (p) { return !!p; } },
+        { key: 'main', label: 'Accused / Condemned', accepts: ['suspect', 'condemned'], primary: true },
+        { key: 'c1', label: 'Proof', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
+        { key: 'c2', label: 'Proof', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
+        { key: 'c3', label: 'Proof', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
+        { key: 'c4', label: 'Proof', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
+        { key: 'rung', label: 'The Ladder', accepts: ['rung'], when: function (p) { return has(p, 'condemned'); } },
+        { key: 'plea', label: 'Plea', accepts: ['plea', 'clue'], when: function (p) { return has(p, 'condemned'); } },
       ],
     },
   };
-
-  CF.VERBS.delegate = {
-    label: 'Deputise', rank: 2,
-    desc: 'Hand a Case to a watchman. They work it alone, turning up something from the scene every half minute until it is closed, and come back when it is.',
-    slots: [
-      { key: 'main', label: 'Case', accepts: ['case'], primary: true },
-      { key: 'who', label: 'Watchman', accepts: ['teammate'], when: function (p) { return !!p; } },
-    ],
-  };
-  CF.VERBS.majorcrimes = {
-    label: 'Proclamation', rank: 3,
-    desc: 'The crier answers to you now. Proclaim a Case through the city (with Coin) and it gets time, a reward posted, and a name on every lip; or put a Quarter in to turn the Watch\'s eyes there.',
-    slots: [
-      { key: 'main', label: 'Case / Quarter', accepts: ['case', 'district'], primary: true },
-      { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'case'); } },
-      { key: 'pay2', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'case'); } },
-    ],
+  // Old verb ids (saves, gear, tests) fold into the six.
+  CF.VERB_ALIAS = { patrol: 'investigate', warrant: 'investigate', stakeout: 'investigate', undercover: 'investigate',
+    sentence: 'arrest', requisition: 'duty', taskforce: 'duty', delegate: 'duty', majorcrimes: 'duty' };
+  // What each office opens, inside the verbs.
+  CF.POWERS = {
+    warrant: { label: 'Writ', rank: 1, verb: 'investigate', art: 'act-seal', text: 'An Accused with a token as cause in Explore: a magistrate seals a Writ to search their house.' },
+    stakeout: { label: 'Watch', rank: 2, verb: 'investigate', art: 'act-watch', text: 'An Accused or a Front with Instinct or a watchman in Explore: watch their door through the night.' },
+    undercover: { label: 'Disguise', rank: 2, verb: 'investigate', art: 'act-rite', text: 'Someone Abroad, a Band or the Coquille with Instinct in Explore: go among them.' },
+    delegate: { label: 'Deputise', rank: 2, verb: 'duty', art: 'act-letter', text: 'A Case with one watchman in Attend: they work it alone.' },
+    taskforce: { label: 'Muster', rank: 3, verb: 'duty', art: 'act-threat', text: 'A Case with two or three watchmen in Attend: the Watch works it together.' },
+    majorcrimes: { label: 'Proclamation', rank: 3, verb: 'duty', art: 'act-train', text: 'A Case with Wit and Coin in Attend: the crier sings it; a Quarter alone turns the Watch\'s eyes there.' },
   };
 
-  CF.VERB_ORDER = ['time', 'duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest', 'sentence',
-    'requisition', 'warrant', 'stakeout', 'delegate', 'undercover', 'taskforce', 'majorcrimes'];
+  CF.VERB_ORDER = ['time', 'duty', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest'];
 })(typeof window !== 'undefined' ? window : globalThis);

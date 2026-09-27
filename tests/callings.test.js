@@ -72,9 +72,9 @@ g.autoSlot('duty', board.uid); g.start('duty'); g.tick(31);
 assert.strictEqual(g.s.paths.commissioner, 1, 'a promotion is Power');
 g.s.rooms.locker = false;
 var order = byDef(g, 'order').filter(function (o) { return o.data.order === 'locker'; })[0];
-g.autoSlot('requisition', order.uid); byDef(g, 'funds').slice(0, 4).forEach(function (f) { g.autoSlot('requisition', f.uid); });
-for (var f = byDef(g, 'funds').length; f < 4; f++) g.autoSlot('requisition', g.create('funds').uid);
-if (!g.preview('requisition').blocked) { g.start('requisition'); g.tick(11); assert.strictEqual(g.s.paths.commissioner, 2, 'a room is Power'); }
+g.autoSlot('duty', order.uid); byDef(g, 'funds').slice(0, 4).forEach(function (f) { g.autoSlot('duty', f.uid); });
+for (var f = byDef(g, 'funds').length; f < 4; f++) g.autoSlot('duty', g.create('funds').uid);
+if (!g.preview('duty').blocked) { g.start('duty'); g.tick(11); assert.strictEqual(g.s.paths.commissioner, 2, 'a room is Power'); }
 g.s.rank = 1; g.s.meters.pressure = 0; g.s.meters.scrutiny = 0;
 var pw = g.s.paths.commissioner;
 g.tick(CF.WEEK); g.tick(CF.WEEK);

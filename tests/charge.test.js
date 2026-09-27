@@ -27,7 +27,7 @@ var e = CF.Engine.newGame({ seed: 3, calling: 'master' });
 var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
 var rec = e.caseRec(kase.caseId);
 assert.strictEqual(rec.template, 'burglary');
-assert.deepStrictEqual(rec.charge, { forensic: 2, opportunity: 2, financial: 2 });
+assert.deepStrictEqual(rec.charge, { forensic: 2, opportunity: 2, financial: 1 });
 var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
 var other = rec.suspects.filter(function (x) { return !x.guilty; })[0];
 var sc = e.make('suspect', { caseId: rec.id, data: { key: culprit.key } });

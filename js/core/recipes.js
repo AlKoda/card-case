@@ -287,11 +287,13 @@
     if (r.compiled) return r;
     var ownMatch = r.match, ownBlocked = r.blocked, ownRun = r.run;
     r.match = function (ctx) {
+      if (r.rank && ctx.e.s.rank < r.rank && !(r.src && ctx.e.powerOpen && ctx.e.powerOpen(r.src))) return false;
       if (r.requires && !Recipe.requirementsMet(r.requires, ctx)) return false;
       if (r.forbids && Recipe.forbidden(r.forbids, ctx)) return false;
       return ownMatch ? !!ownMatch(ctx) : true;
     };
     if (ownBlocked && typeof ownBlocked !== 'function') r.blocked = function (ctx) { return blockedBy(ownBlocked, ctx); };
+    if (r.src) { var innerBlocked = r.blocked; r.blocked = function (ctx) { var lock = ctx.e.originLock && ctx.e.originLock(r.src); return lock || (innerBlocked ? innerBlocked(ctx) : null); }; }
     if (r.effects || !ownRun) {
       r.run = function (ctx) {
         ctx.result = null;
