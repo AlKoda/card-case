@@ -1165,7 +1165,7 @@
     id: 'stakeout_watch', verb: 'investigate', src: 'stakeout', rank: 2, label: 'Watch Their Door',
     duration: function (ctx) { return Math.round((ctx.e.s.rooms.survroom ? 30 : ctx.e.gearWith(ctx, 'unlocksVerb').length ? 40 : 60) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
     preview: 'A shuttered lantern, a doorway, and a long night watching one door.',
-    requires: { aspects: ['suspect'], when: function (ctx) { return !!ctx.slots.mind; } }, forbids: ['clue'],
+    requires: { aspects: ['suspect'], when: function (ctx) { return !!ctx.slots.mind; } }, forbids: ['clue', 'focus'],
     run: function (ctx) {
       var e = ctx.e;
       var sc = ctx.primary;

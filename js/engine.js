@@ -162,7 +162,7 @@
     Object.keys(s.verbs).forEach(function (id) {
       if (CF.VERBS[id]) return;
       var v = s.verbs[id];
-      Object.keys(v.slots || {}).concat(v.held || [], v.out || []).forEach(function (uid) { var c = s.cards[uid]; if (c) c.loc = { t: 'table', x: 0, y: T.TOP }; });
+      Object.keys(v.slots || {}).map(function (k) { return v.slots[k]; }).concat(v.held || [], v.out || []).forEach(function (uid) { var c = s.cards[uid]; if (c) c.loc = { t: 'table', x: 0, y: T.TOP }; });
       delete s.verbs[id];
     });
     if (s.flags && s.flags.dockOrder) s.flags.dockOrder = s.flags.dockOrder.map(function (v) { return alias[v] || v; });
@@ -1505,7 +1505,7 @@
     // Scene pool: template items + generic items + the culprit's trait clue.
     var pool = T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1)).map(function (it) { return fillItem(it, vars); });
     if (structure) pool = pool.concat(structure.items.map(function (it) { return fillItem(it, vars); }));
-    var items = U.shuffle(rng, pool).slice(0, 4); // a scene gives four things at most: what matters, not everything
+    var items = U.shuffle(rng, pool);
     if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
     // The network: a clue that points at the place this crime went through.
     var front = opts.frontId && s.network.fronts[opts.frontId] ? s.network.fronts[opts.frontId] : !T.special ? this.frontForCase(opts) : null;
@@ -1513,6 +1513,7 @@
     var trait = traits[guiltyIdx];
     var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id };
     items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, traitItem);
+    if (items.length > 4) items.length = 4; // a scene gives four things at most: what matters, not everything
 
     var rec = {
       id: id, template: tid, title: U.fill(T.title, vars), short: T.label, district: district, scene: scene,

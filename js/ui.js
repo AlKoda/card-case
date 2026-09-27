@@ -1172,7 +1172,7 @@
       if (m.gate) lines.push('Reads raw proof that needs it');
       if (m.extraEvidence) lines.push('Finds more at a scene');
       if (m.unlocks) lines.push('Opens: ' + ((CF.RECIPES_BY_ID[m.unlocks] || {}).label || m.unlocks));
-      if (m.unlocksVerb) lines.push('Opens the ' + CF.VERBS[m.unlocksVerb].label + ' verb');
+      if (m.unlocksVerb) lines.push('Opens ' + ((CF.POWERS && CF.POWERS[m.unlocksVerb]) || CF.VERBS[m.unlocksVerb] || { label: m.unlocksVerb }).label + ' at any office');
     } else if (k === 'informant') {
       lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
       lines.push('Trust ' + (card.data.trust || 0) + '/3 · heat ' + (card.data.heat || 0) + '/' + CF.INFORMANT.compromisedAt);
