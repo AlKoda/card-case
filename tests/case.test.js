@@ -110,6 +110,7 @@ function fresh(seed) {
 (function humanRoute() {
   var d = fresh(23), e = d.e;
   var kase = d.byDef('case')[0];
+  d.e.s.flags.marketOpen = true; // quarters open once the Market has
   d.run('investigate', [kase]);
   var district = d.cards(function (c) { return c.def === 'district' && c.data.district === d.rec().district; })[0];
   assert.ok(district, 'the scene hands you its district');
@@ -145,6 +146,7 @@ function fresh(seed) {
 (function moneyRoute() {
   var d = fresh(37), e = d.e;
   var kase = d.byDef('case')[0];
+  d.e.s.flags.marketOpen = true; // quarters open once the Market has
   d.run('investigate', [kase]);
   var district = d.cards(function (c) { return c.def === 'district' && c.data.district === d.rec().district; })[0];
   d.run('investigate', [kase, district]);

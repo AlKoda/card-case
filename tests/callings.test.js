@@ -71,6 +71,7 @@ var board = byDef(g, 'promotion')[0];
 g.autoSlot('duty', board.uid); g.start('duty'); g.tick(31);
 assert.strictEqual(g.s.paths.commissioner, 1, 'a promotion is Power');
 g.s.rooms.locker = false;
+g.addOrdersForRank(0);
 var order = byDef(g, 'order').filter(function (o) { return o.data.order === 'locker'; })[0];
 g.autoSlot('duty', order.uid); byDef(g, 'funds').slice(0, 4).forEach(function (f) { g.autoSlot('duty', f.uid); });
 for (var f = byDef(g, 'funds').length; f < 4; f++) g.autoSlot('duty', g.create('funds').uid);

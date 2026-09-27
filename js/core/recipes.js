@@ -267,7 +267,7 @@
               var sc = e.revealSuspect(rec, ctx, key ? { key: key } : {});
               if (sc) extra.push('A name for the board: ' + e.labelOf(sc) + '.');
             }
-            if (lead.district && !e.hasDistrict(rec.district)) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
+            if (lead.district && !e.hasDistrict(rec.district) && e.s.flags.marketOpen) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
             if (lead.fatigue && ctx.rng() < lead.fatigue) ctx.give('fatigue');
             if (lead.set) for (var k in lead.set) rec[k] = lead.set[k];
             vars.found = given.map(function (c) { return e.labelOf(c); }).join(', ');

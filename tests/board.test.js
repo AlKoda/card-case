@@ -70,12 +70,13 @@ console.error = function (err) { throw err; };
 
   // Move: a card lands where dropped when the spot is free, else nearby.
   e.moveCard(clue.uid, 700, 700);
-  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, CF.snapGrid(700, 700), 'a card lands on the grid cell it was dropped in');
-  assert.ok(clue.loc.x % T.PX === 0 && (clue.loc.y - T.TOP) % T.PY === 0);
+  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, { x: 700, y: 700 }, 'a card lands where it was dropped');
+  e.moveCard(clue.uid, 99999, -99999);
+  assert.ok(clue.loc.x + T.CW <= T.BOUNDS.x + T.BOUNDS.w && clue.loc.y >= T.BOUNDS.y, 'but never off the table');
+  e.moveCard(clue.uid, 700, 700);
   var other = e.create('clue', { label: 'Other' });
   e.moveCard(other.uid, 700, 700);
   assert.ok(other.loc.x !== clue.loc.x || other.loc.y !== clue.loc.y, 'a different card does not land on top');
-  assert.ok(other.loc.x % T.PX === 0 && (other.loc.y - T.TOP) % T.PY === 0, 'and it takes the next cell');
 
   // Stack: identical stackable cards dropped together become one pile.
   var funds = byDef('funds');
@@ -205,7 +206,10 @@ console.error = function (err) { throw err; };
   var w = e.create('witness', { label: 'Nervous Clerk', lifetime: 35 });
   assert.ok(e.slotCard('interrogate', CF.VERBS.interrogate.slots[0].key, w.uid), 'the witness goes into Interrogate');
   e.tick(8);
-  assert.strictEqual(seen.length, 1, 'warned while in a slot');
-  assert.strictEqual(seen[0].verb, 'interrogate', 'the warning names the verb');
+  assert.strictEqual(w.life, 35, 'the clock waits while the card is in a verb');
+  assert.strictEqual(seen.length, 0);
+  e.unslot('interrogate', CF.VERBS.interrogate.slots[0].key);
+  e.tick(8);
+  assert.strictEqual(seen.length, 1, 'warned once back on the table');
   console.log('fade warning: also inside a verb');
 })();

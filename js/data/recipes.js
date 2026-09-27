@@ -307,7 +307,7 @@
       var unknown = Object.keys(CF.DISTRICTS).filter(function (k) { return !known[k]; });
       if (ctx.has('health')) { ctx.give('funds'); maybe(ctx, 0.5, 'fatigue'); } else maybe(ctx, 0.2, 'fatigue');
       var nKnown = Object.keys(known).length;
-      if (unknown.length && (ctx.rng() < 0.45 || nKnown < 3)) {
+      if (unknown.length && s.flags.marketOpen && (ctx.rng() < 0.45 || nKnown < 3)) {
         var k = U.pick(ctx.rng, unknown);
         e.giveDistrict(k, ctx);
         return { title: 'New Ground: ' + CF.DISTRICTS[k].label, text: 'Your feet take you somewhere new. ' + CF.DISTRICTS[k].desc };
@@ -315,7 +315,7 @@
       var r = ctx.rng();
       var open = e.openCases().filter(function (x) { return !x.special; });
       if (r < 0.25 && e.cardsOf('informant', true).length < 3) {
-        var dk = U.pick(ctx.rng, Object.keys(known));
+        var dk = Object.keys(known).length ? U.pick(ctx.rng, Object.keys(known)) : 'market';
         var inf = ctx.give('informant', e.informantSpec(dk));
         return { title: 'A New Contact', text: 'You pull someone out of a brawl in ' + CF.DISTRICTS[dk].label + '. They owe you now. They call themselves ' + inf.data.name + '.' };
       }
@@ -402,7 +402,7 @@
       if (first) {
         var sc = e.revealSuspect(rec, ctx);
         if (sc) extra.push('The first name on the board: ' + sc.label + '.');
-        if (!e.hasDistrict(rec.district)) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
+        if (!e.hasDistrict(rec.district) && e.s.flags.marketOpen) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
       }
       if (ctx.has('instinct') && ctx.rng() < 0.5) {
         var sc2 = e.revealSuspect(rec, ctx);

@@ -77,7 +77,7 @@
       ],
     },
     reflect: {
-      label: 'Contemplate', rank: 0,
+      label: 'Rest', rank: 0,
       desc: 'Your study, and your bed. Sleep off Weariness and Fever. Let go of Obsession. Lay tokens side by side and reason: two descriptions of one person become an identification, coin and motive become a theory. Bring a Case with its tokens to see who it points to.',
       slots: [
         { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'coldcase', 'looseend', 'notes', 'clue', 'intel', 'thread', 'dagger'], primary: true },

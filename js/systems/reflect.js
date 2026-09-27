@@ -118,7 +118,7 @@
     clues.forEach(function (c) { var r = e.caseRec(c.caseId); if (r && titles.indexOf(r.title) < 0) titles.push(r.title); });
     ctx.give('thread', {
       label: 'Thread: ' + front.name,
-      desc: titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Contemplate with a Band or Coquille card to close in.',
+      desc: titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Rest with a Band or Coquille card to close in.',
       data: { front: front.id, cases: titles },
     });
     e.revealFront(front);

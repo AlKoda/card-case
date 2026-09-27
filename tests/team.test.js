@@ -169,6 +169,7 @@ function officer(e, key, traits) {
   // Streetwise: one more person from a canvass.
   var s1 = game(33);
   var k1 = byDef(s1, 'case')[0], r1 = s1.caseRec(k1.caseId);
+  s1.giveDistrict('market');
   run(s1, 'investigate', [k1]); run(s1, 'investigate', [k1, byDef(s1, 'district')[0]]);
   r1.witnesses = ['a', 'b', 'c', 'd'];
   var d1 = byDef(s1, 'district')[0];

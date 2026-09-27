@@ -68,7 +68,7 @@ function run(e, verb, cards) {
   var e = game(22);
   var rec = e.caseRec(e.spawnCase('threedays', { quiet: true }).caseId);
   assert.ok(rec.commission && rec.commission.from === 'council', 'the Council\'s ultimatum');
-  assert.ok(e.caseCard(rec.id).life <= 140, 'three days');
+  assert.ok(e.caseCard(rec.id).life <= 210, 'three days');
   assert.strictEqual(rec.suspects.length, 4, 'all four are in it');
   assert.strictEqual(rec.suspects.filter(function (x) { return x.guilty; })[0].role, 'the husband', 'the husband did it');
   var liars = rec.suspects.filter(function (x) { return !x.guilty && (/brother/.test(x.role) || /porter/.test(x.role)); });

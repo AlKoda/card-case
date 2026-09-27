@@ -68,7 +68,7 @@
     { cue: function (e) { return e.countOf('clue') >= 2; },
       run: function (e) {
         e.introUnlock(['reflect']);
-        return { hint: 'Two tokens side by side in Contemplate: see whether they tell one story.' };
+        return { hint: 'Two tokens side by side in Rest: see whether they tell one story.' };
       } },
     { cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
       run: function (e) {
