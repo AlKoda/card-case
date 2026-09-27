@@ -39,14 +39,15 @@ function run(e, verb, cards) {
   }
   // Which verbs each rank brings.
   var byRank = {};
-  CF.VERB_ORDER.forEach(function (v) { (byRank[CF.VERBS[v].rank] = byRank[CF.VERBS[v].rank] || []).push(v); });
+  Object.keys(CF.POWERS).forEach(function (v) { (byRank[CF.POWERS[v].rank] = byRank[CF.POWERS[v].rank] || []).push(v); });
   assert.deepStrictEqual(byRank[1], ['warrant']);
   assert.deepStrictEqual(byRank[2].sort(), ['delegate', 'stakeout', 'undercover']);
   assert.deepStrictEqual(byRank[3].sort(), ['majorcrimes', 'taskforce']);
+  assert.strictEqual(CF.VERB_ORDER.length, 7, 'six verbs and the bell');
 
   var e = game(71);
-  assert.strictEqual(e.maxOpenCases(), 3, 'a Detective gets three cases at once');
-  assert.ok(!e.verb('warrant').unlocked);
+  assert.strictEqual(e.maxOpenCases(), 2, 'an Examiner gets two cases at once');
+  assert.ok(!e.powerOpen('warrant'), 'no Writ for an Examiner');
   // Reputation convenes a board; attending it promotes.
   e.s.meters.reputation = CF.RANK_REP[1];
   e.checkThresholds();
@@ -57,8 +58,8 @@ function run(e, verb, cards) {
   var r = run(e, 'duty', [board]);
   assert.strictEqual(r.id, 'duty_promo');
   assert.strictEqual(e.s.rank, 1);
-  assert.ok(e.verb('warrant').unlocked && !e.verb('stakeout').unlocked);
-  assert.strictEqual(e.maxOpenCases(), 4);
+  assert.ok(e.powerOpen('warrant') && !e.powerOpen('stakeout'));
+  assert.strictEqual(e.maxOpenCases(), 3);
   assert.ok(byDef(e, 'personnel').length >= 1, 'a file to hire comes with the promotion');
   assert.ok(byDef(e, 'order').some(function (c) { return c.data.order === 'suite'; }), 'new requisitions arrive');
   // Salary follows rank.
@@ -72,8 +73,8 @@ function run(e, verb, cards) {
     run(e, 'duty', [byDef(e, 'promotion')[0]]);
   }
   assert.strictEqual(e.s.rank, 3);
-  ['stakeout', 'delegate', 'undercover', 'taskforce', 'majorcrimes'].forEach(function (v) { assert.ok(e.verb(v).unlocked, v); });
-  assert.strictEqual(e.maxOpenCases(), 5);
+  Object.keys(CF.POWERS).forEach(function (v) { assert.ok(e.powerOpen(v), v); });
+  assert.strictEqual(e.maxOpenCases(), 4);
   e.s.meters.reputation = 30;
   e.checkThresholds();
   assert.strictEqual(byDef(e, 'promotion').length, 0, 'no board past the top rank');
@@ -90,10 +91,10 @@ function run(e, verb, cards) {
 // ---- Delegate: an officer works a case in parallel -------------------------------
 (function delegate() {
   var e = game(73);
-  e.s.rank = 2; e.s.verbs.delegate.unlocked = true;
+  e.s.rank = 2;
   var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
   var officer = e.create('teammate', e.teammateSpec('rookie'));
-  var r = run(e, 'delegate', [kase, officer]);
+  var r = run(e, 'duty', [kase, officer]);
   assert.strictEqual(r.id, 'delegate_case');
   assert.ok(!e.card(officer.uid), 'the officer is out working');
   assert.ok(rec.delegate && rec.delegate.card.label === officer.label);
@@ -102,9 +103,9 @@ function run(e, verb, cards) {
   assert.strictEqual(rec.found, found0 + 1, 'something from the scene every half minute');
   assert.ok(byDef(e, 'clue').length + byDef(e, 'evidence').length > clues0);
   // Cannot delegate twice.
-  e.autoSlot('delegate', kase.uid); e.autoSlot('delegate', e.create('teammate', e.teammateSpec('rookie')).uid);
-  assert.ok(/already/.test(e.preview('delegate').blocked));
-  e.clearSlots('delegate');
+  e.autoSlot('duty', kase.uid); e.autoSlot('duty', e.create('teammate', e.teammateSpec('rookie')).uid);
+  assert.ok(/already/.test(e.preview('duty').blocked));
+  e.clearSlots('duty');
   // The officer comes back when the case closes.
   var team = byDef(e, 'teammate').length;
   kase.life = 0.1; e.tick(1);
@@ -117,23 +118,23 @@ function run(e, verb, cards) {
 // ---- Major Crimes ------------------------------------------------------------------
 (function major() {
   var e = game(74);
-  e.s.rank = 3; e.s.verbs.majorcrimes.unlocked = true;
+  e.s.rank = 3;
   var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
   var life = kase.life;
   var money = byDef(e, 'funds');
-  var r = run(e, 'majorcrimes', [kase, money[0], money[1]]);
+  var r = run(e, 'duty', [kase, byDef(e, 'focus')[0], money[0], money[1]]);
   assert.strictEqual(r.id, 'major_declare');
   assert.ok(rec.major && rec.highProfile);
   assert.ok(kase.life > life + 100, 'two more minutes');
   assert.ok(/^★/.test(e.labelOf(kase)));
   assert.ok(byDef(e, 'suspect').length >= 1 && byDef(e, 'witness').length >= 1);
   assert.strictEqual(byDef(e, 'funds').length, money.length - 2);
-  e.autoSlot('majorcrimes', kase.uid);
-  assert.ok(/already/.test(e.preview('majorcrimes').blocked));
-  e.clearSlots('majorcrimes');
+  e.autoSlot('duty', kase.uid); e.autoSlot('duty', byDef(e, 'focus')[0].uid);
+  assert.ok(/already/.test(e.preview('duty').blocked));
+  e.clearSlots('duty');
   // Focus the division on a district.
   var d = byDef(e, 'district')[0];
-  r = run(e, 'majorcrimes', [d]);
+  r = run(e, 'duty', [d]);
   assert.strictEqual(r.id, 'major_focus');
   assert.ok(e.s.nextCase && e.s.nextCase.district === d.data.district && e.s.nextCase.extraTime === 60);
   assert.ok(e.s.dispatchT <= 30);
@@ -176,14 +177,14 @@ function run(e, verb, cards) {
 
   // Surveillance Room: stakeouts take half the night.
   var h = game(77);
-  h.s.rank = 2; h.s.verbs.stakeout.unlocked = true;
+  h.s.rank = 2;
   var hk = byDef(h, 'case')[0], hr = h.caseRec(hk.caseId);
   var sc = h.revealSuspect(hr, null);
-  h.autoSlot('stakeout', sc.uid); h.autoSlot('stakeout', byDef(h, 'instinct')[0].uid);
-  var slow = h.preview('stakeout').duration;
+  h.autoSlot('investigate', sc.uid); h.autoSlot('investigate', byDef(h, 'instinct')[0].uid);
+  var slow = h.preview('investigate').duration;
   h.s.rooms.survroom = true;
-  assert.ok(h.preview('stakeout').duration < slow / 1.5, 'half the night');
-  h.clearSlots('stakeout');
+  assert.ok(h.preview('investigate').duration < slow / 1.5, 'half the night');
+  h.clearSlots('investigate');
 
   // Training Room: cheaper, and a new trait at level 3.
   var t = game(78);

@@ -12,7 +12,7 @@
   var FADING = { clue: 1, evidence: 1, witness: 1, intel: 1, bribe: 1 };
   // Strain: two Fatigue is Exhaustion (street verbs slower), three is
   // Burnout. Tunnel Vision slows the careful verbs and warps deductions.
-  CF.STRAIN = { exhaustedAt: 2, exhaustedSlow: 1.25, exhaustedVerbs: ['duty', 'patrol', 'investigate', 'interrogate', 'stakeout'],
+  CF.STRAIN = { exhaustedAt: 2, exhaustedSlow: 1.25, exhaustedVerbs: ['duty', 'investigate', 'interrogate'],
     tunnelSlow: 1.25, tunnelVerbs: ['investigate', 'analyze', 'reflect'] };
   // Money: salary rises with rank, rent does not.
   CF.ECONOMY = { salary: [1, 2, 3], rent: 1, convictionPay: { reasonable: 1, strong: 2 }, highProfilePay: 1 };
@@ -97,7 +97,7 @@
     opts = opts || {};
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
-      version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 55, nextUid: 1,
+      version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 110, nextUid: 1,
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
@@ -157,6 +157,15 @@
     s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
     s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
     s.counts.debt = s.counts.debt || 0;
+    // Verbs folded into others since the save was written: their cards come back to the table.
+    var alias = CF.VERB_ALIAS || {};
+    Object.keys(s.verbs).forEach(function (id) {
+      if (CF.VERBS[id]) return;
+      var v = s.verbs[id];
+      Object.keys(v.slots || {}).concat(v.held || [], v.out || []).forEach(function (uid) { var c = s.cards[uid]; if (c) c.loc = { t: 'table', x: 0, y: T.TOP }; });
+      delete s.verbs[id];
+    });
+    if (s.flags && s.flags.dockOrder) s.flags.dockOrder = s.flags.dockOrder.map(function (v) { return alias[v] || v; });
     // Verbs added since the save was written.
     CF.VERB_ORDER.forEach(function (id) {
       if (!s.verbs[id]) s.verbs[id] = { id: id, status: 'idle', slots: {}, held: [], ctxSlots: {}, out: [], recipe: null,
@@ -524,15 +533,17 @@
   };
 
   // ---- Verbs --------------------------------------------------------------
-  P.verb = function (id) { return this.s.verbs[id]; };
+  P.verb = function (id) { return this.s.verbs[CF.VERB_ALIAS && CF.VERB_ALIAS[id] || id]; };
 
   P.primaryKey = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var slots = CF.VERBS[verbId].slots;
     for (var i = 0; i < slots.length; i++) if (slots[i].primary) return slots[i].key;
     return null;
   };
 
   P.visibleSlots = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     var def = CF.VERBS[verbId];
     var src = v.status === 'running' ? v.ctxSlots : v.slots;
@@ -548,14 +559,15 @@
   };
 
   P.lockReason = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var def = CF.VERBS[verbId];
     if (def.lockedBy === 'burnout' && this.countOf('burnout') > 0) return 'The fever has you. Rest in Contemplate first.';
-    if (this.originLock) return this.originLock(verbId);
     return null;
   };
 
   // Put a table card into a verb slot. Returns true on success.
   P.slotCard = function (verbId, slotKey, uid) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     var card = this.card(uid);
     if (!v || !card || !v.unlocked || CF.VERBS[verbId].auto) return false;
@@ -583,6 +595,7 @@
 
   // Find the best slot for a card dropped on a verb token.
   P.autoSlot = function (verbId, uid) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     var card = this.card(uid);
     if (!v || !card || !v.unlocked || CF.VERBS[verbId].auto) return null;
@@ -601,6 +614,7 @@
   };
 
   P.unslot = function (verbId, slotKey) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     var uid = v.slots[slotKey];
     if (!uid) return;
@@ -620,6 +634,7 @@
   };
 
   P.clearSlots = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     for (var k in v.slots) this.unslot(verbId, k);
   };
@@ -657,6 +672,7 @@
   };
 
   P.currentRecipe = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     if (v.status !== 'idle' || !v.slots[this.primaryKey(verbId)]) return null;
     var ctx = this.makeCtx(verbId, v.slots);
@@ -667,6 +683,7 @@
 
   // What the verb window should show about the current slots.
   P.preview = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var r = this.currentRecipe(verbId);
     if (!r) return null;
     var rec = r.recipe;
@@ -701,10 +718,11 @@
   };
   P.durationOf = function (rec, ctx) {
     var d = typeof rec.duration === 'function' ? rec.duration(ctx) : rec.duration;
-    return Math.max(3, Math.round((d || 10) * this.strainFactor(ctx.verb) * (this.originFactor ? this.originFactor(ctx.verb) : 1)));
+    return Math.max(3, Math.round((d || 10) * this.strainFactor(ctx.verb) * (this.originFactor ? this.originFactor(rec.src || ctx.verb) : 1)));
   };
 
   P.start = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     var r = this.currentRecipe(verbId);
     if (!r || this.lockReason(verbId)) return false;
@@ -834,6 +852,7 @@
   };
 
   P.collect = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
     var self = this;
     v.out.slice().forEach(function (uid) {
@@ -903,7 +922,7 @@
         var next = s.nextCase; s.nextCase = null;
         this.spawnCase(next ? next.template : null, next ? { district: next.district, extraTime: next.extraTime || 0 } : {});
       }
-      var base = U.randInt(this.rng, 70, 105) - Math.min(30, s.week * 2) - (CF.RANK_DEFS[s.rank] || {}).dispatch || 0;
+      var base = U.randInt(this.rng, 110, 150) - Math.min(25, s.week * 2) - (CF.RANK_DEFS[s.rank] || {}).dispatch || 0;
       if (this.countOf('syndicate')) base -= 10;
       if (s.meters.dread >= 6) base += 15; // a frightened city commits fewer small crimes, or reports fewer
       s.dispatchT = Math.max(40, base);
@@ -1283,8 +1302,16 @@
   P.gearWith = function (ctx, mod) {
     return ctx.cards.filter(function (c) { var m = CF.CARDS[c.def].mods; return m && m[mod]; });
   };
+  // An office's power is open at its rank, or when a piece of gear opens it.
+  P.powerOpen = function (src) {
+    var p = CF.POWERS && CF.POWERS[src];
+    if (!p) return true;
+    if (this.s.rank >= p.rank) return true;
+    for (var k in this.s.cards) { var c = this.s.cards[k], m = CF.CARDS[c.def] && CF.CARDS[c.def].mods; if (c.loc && m && m.unlocksVerb === src) return true; }
+    return false;
+  };
   P.unlockVerb = function (id, why) {
-    var v = this.s.verbs[id];
+    var v = this.s.verbs[id]; // offices open recipes now, not tokens; a folded verb is already open
     if (!v || v.unlocked) return false;
     v.unlocked = true;
     this.layoutVerbs();
@@ -1470,13 +1497,15 @@
     if (highProfile && !T.highProfile) charge[T.keyAspects[0]]++;
     // A known criminal's crimes are harder to prove the further they have risen.
     charge[T.keyAspects[0]] += this.caseRankBonus(opts.criminalId);
+    // The Court asks a little less of the first case's kind of proof than the template's full weight.
+    if (!T.special && !highProfile) { var ck = T.keyAspects[T.keyAspects.length - 1]; if (charge[ck] > 1) charge[ck]--; }
     // A Careful criminal leaves less behind.
     var known = opts.criminalId && this.criminal(opts.criminalId);
 
     // Scene pool: template items + generic items + the culprit's trait clue.
     var pool = T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1)).map(function (it) { return fillItem(it, vars); });
     if (structure) pool = pool.concat(structure.items.map(function (it) { return fillItem(it, vars); }));
-    var items = U.shuffle(rng, pool);
+    var items = U.shuffle(rng, pool).slice(0, 4); // a scene gives four things at most: what matters, not everything
     if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
     // The network: a clue that points at the place this crime went through.
     var front = opts.frontId && s.network.fronts[opts.frontId] ? s.network.fronts[opts.frontId] : !T.special ? this.frontForCase(opts) : null;
@@ -1609,7 +1638,7 @@
       label: 'Witness: ' + name,
       desc: name + ', ' + who + '. Saw something near ' + rec.scene + ', and ' + CF.STAKES[stake].desc + '. (Witness in: ' + rec.title + ')',
       caseId: rec.id,
-      data: { knows: this.rng() < 0.65, stake: stake },
+      data: { knows: this.rng() < 0.8, stake: stake },
     };
   };
 

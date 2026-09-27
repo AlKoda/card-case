@@ -247,14 +247,14 @@
   // Offices change the game: the verbs you have, the caseload the Council
   // hands you, your stipend, and which petitions the treasury will sign.
   CF.RANK_DEFS = [
-    { id: 'detective', label: 'Examiner', rep: 0, salary: 1, maxCases: 3, badge: 1, dispatch: 0,
+    { id: 'detective', label: 'Examiner', rep: 0, salary: 1, maxCases: 2, badge: 1, dispatch: 0,
       text: 'A desk in the Watch-house, a caseload, and the street.' },
-    { id: 'senior', label: 'Sworn Examiner', rep: 4, salary: 2, maxCases: 4, badge: 1, dispatch: 0,
-      text: 'A magistrate will seal a Writ for you, and the Council sends you more.' },
+    { id: 'senior', label: 'Sworn Examiner', rep: 4, salary: 2, maxCases: 3, badge: 1, dispatch: 0,
+      text: 'A magistrate will seal a Writ for you (an Accused with cause, in Explore), and the Council sends you more.' },
     { id: 'inspector', label: 'Bailiff', rep: 9, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
-      text: 'The Watch, Disguise, and watchmen you can Deputise with a case.' },
-    { id: 'chief', label: 'Magistrate', rep: 15, salary: 4, maxCases: 5, badge: 3, dispatch: 10,
-      text: 'Musters, Proclamations, and a city that expects everything of you.' },
+      text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).' },
+    { id: 'chief', label: 'Magistrate', rep: 15, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
+      text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.' },
   ];
   CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
   CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // standing needed for the Council to write

@@ -31,7 +31,7 @@
     this.story(op.title, op.text, 'major');
     var rec = this.openCases()[0];
     this.story('New Case: ' + rec.title, this.caseCard(rec.id).desc, 'case');
-    s.intro.hint = 'Drag the case onto Examine, then press what it offers.';
+    s.intro.hint = 'Drag the case onto Explore, then press what it offers.';
     this.dirty = true;
   };
 
@@ -73,9 +73,17 @@
     { cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
       run: function (e) {
         e.introUnlock(['arrest']);
-        return { hint: 'An accused and their tokens in Indict make a charge. The window says how it will stand.' };
+        return { hint: 'An accused and their tokens in The Court make a charge. The window says how it will stand.' };
       } },
     { cue: function (e) { return e.countOf('trial') > 0 || e.s.cases[Object.keys(e.s.cases)[0]].status !== 'open'; },
+      run: function (e) {
+        e.introReveal(['funds']);
+        e.introUnlock(['duty']);
+        return { hint: 'The sworn men are out. Meanwhile, Attend: Health walks a hard round for Coin, Wit keeps the day-book.' };
+      } },
+    { cue: function (e) { return e.countOf('condemned') > 0 || e.countOf('trial') === 0; },
+      run: function (e) { return e.countOf('condemned') > 0 ? { hint: 'A conviction. The Condemned and a rung of the ladder go in The Court; say nothing and the Council sentences by custom.' } : null; } },
+    { cue: function (e) { return e.countOf('condemned') === 0; },
       run: function (e) { e.introFinish(); return null; } },
   ];
 

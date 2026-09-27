@@ -69,7 +69,7 @@ function rung(e, id) { return byDef(e, 'rung').filter(function (c) { return c.da
     assert.ok(g.cond && rung(g.e, id), 'a condemned burglar with ' + id);
     var e = g.e, before = { m: JSON.parse(JSON.stringify(e.s.meters)), c: JSON.parse(JSON.stringify(e.s.counts)), funds: byDef(e, 'funds').length };
     var cards = [g.cond, rung(e, id)].concat(extra ? extra(e, g) : []);
-    var r = run(e, 'sentence', cards);
+    var r = run(e, 'arrest', cards);
     assert.strictEqual(r.recipe, 'sen_pass');
     assert.strictEqual(byDef(e, 'condemned').length, 0, 'the Condemned leaves');
     assert.strictEqual(byDef(e, 'rung').length, 0, 'the ladder leaves with them');
@@ -116,7 +116,7 @@ function rung(e, id) { return byDef(e, 'rung').filter(function (c) { return c.da
   assert.ok(g.cond, 'a condemned murderer');
   assert.deepStrictEqual(rungs(g.e).sort(), ['pardon', 'rope', 'sword', 'wheel']);
   var e = g.e, m0 = e.s.meters.dread, c0 = e.s.counts.cruelty;
-  run(e, 'sentence', [g.cond, rung(e, 'wheel')]);
+  run(e, 'arrest', [g.cond, rung(e, 'wheel')]);
   assert.strictEqual(e.s.counts.cruelty - c0, 2, 'the Wheel: Cruelty +2');
   assert.strictEqual(e.s.meters.dread - m0, 2, 'and Dread +2');
   var h = null;

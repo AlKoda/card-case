@@ -18,7 +18,7 @@ console.error = function (err) { throw err; };
 
 function game(seed) {
   var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
-  e.s.rank = 2; e.s.verbs.undercover.unlocked = true;
+  e.s.rank = 2;
   e.spawnSyndicate('test');
   return e;
 }
@@ -51,7 +51,7 @@ function run(e, verb, cards) {
 // ---- Treaty -------------------------------------------------------------------
 (function treaty() {
   var e = game(2);
-  var r = run(e, 'undercover', [byDef(e, 'syndicate')[0], byDef(e, 'focus')[0]]);
+  var r = run(e, 'investigate', [byDef(e, 'syndicate')[0], byDef(e, 'focus')[0]]);
   assert.strictEqual(r.recipe, 'undercover_parley');
   assert.strictEqual(e.court().stance, 'treaty');
   var j0 = e.s.paths.crusader;
@@ -81,7 +81,7 @@ function run(e, verb, cards) {
   assert.ok(e.s.over && e.s.over.id === 'treatycity' && e.s.over.win, 'the Treaty City');
   // Indicting the Coquille breaks a treaty.
   var g = game(3);
-  run(g, 'undercover', [byDef(g, 'syndicate')[0], byDef(g, 'focus')[0]]);
+  run(g, 'investigate', [byDef(g, 'syndicate')[0], byDef(g, 'focus')[0]]);
   g.breakTreaty('test');
   assert.strictEqual(g.court().stance, null);
   console.log('treaty: ok');
@@ -93,7 +93,7 @@ function run(e, verb, cards) {
   for (var i = 0; i < 20 && !inside; i++) {
     var e = game(10 + i);
     e.create('funds'); e.create('funds');
-    var r = run(e, 'undercover', [byDef(e, 'syndicate')[0], byDef(e, 'instinct')[0], byDef(e, 'funds')[0], byDef(e, 'funds')[1]]);
+    var r = run(e, 'investigate', [byDef(e, 'syndicate')[0], byDef(e, 'instinct')[0], byDef(e, 'funds')[0], byDef(e, 'funds')[1]]);
     assert.strictEqual(r.recipe, 'undercover_trial', r.recipe);
     if (e.court().inside) inside = e;
   }
@@ -101,16 +101,16 @@ function run(e, verb, cards) {
   var e2 = inside;
   assert.ok(!e2.canTakeThrone());
   assert.ok(/does not crown the honest|weeks/.test(e2.throneReason()));
-  e2.autoSlot('undercover', byDef(e2, 'syndicate')[0].uid); e2.autoSlot('undercover', byDef(e2, 'instinct')[0].uid);
-  var pv = e2.preview('undercover');
+  e2.autoSlot('investigate', byDef(e2, 'syndicate')[0].uid); e2.autoSlot('investigate', byDef(e2, 'instinct')[0].uid);
+  var pv = e2.preview('investigate');
   assert.ok(/Not yet/.test(pv.blocked || pv.text), 'the throne is not yet yours: ' + (pv.blocked || pv.text));
-  e2.clearSlots('undercover');
+  e2.clearSlots('investigate');
   for (var w = 0; w < 4; w++) e2.coquilleWeek();
   assert.ok(e2.court().insideWeeks >= 4, 'four weeks inside: ' + e2.court().insideWeeks);
   assert.ok(byDef(e2, 'clue').some(function (c) { return /Court's Word/.test(e2.labelOf(c)); }), 'from inside you feed the Watch-house');
   e2.s.counts.purse = 4; e2.s.counts.cruelty = 2;
   assert.ok(e2.canTakeThrone());
-  var th = run(e2, 'undercover', [byDef(e2, 'syndicate')[0], byDef(e2, 'instinct')[0]]);
+  var th = run(e2, 'investigate', [byDef(e2, 'syndicate')[0], byDef(e2, 'instinct')[0]]);
   assert.strictEqual(th.recipe, 'undercover_throne');
   assert.ok(e2.s.over && e2.s.over.id === 'kingofthunes' && e2.s.over.win, 'the King of Thunes');
   console.log('rule: ok');
@@ -120,7 +120,7 @@ function run(e, verb, cards) {
 (function eradicate() {
   var e = game(30);
   e.create('ledger'); e.create('ledger');
-  var r = run(e, 'undercover', [byDef(e, 'syndicate')[0], byDef(e, 'instinct')[0]]);
+  var r = run(e, 'investigate', [byDef(e, 'syndicate')[0], byDef(e, 'instinct')[0]]);
   assert.strictEqual(r.recipe, 'undercover_op');
   assert.ok(e.s.flags.syndicateCase, 'the case against the Coquille opens');
   var d0 = e.s.meters.dread;

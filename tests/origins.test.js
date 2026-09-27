@@ -64,11 +64,12 @@ function dur(e, verb, cards) {
   function sc(e) { var k = byDef(e, 'case')[0], r = e.caseRec(k.caseId); return e.revealSuspect(r, null, { key: r.culprit }); }
   assert.ok(dur(monk, 'arrest', [sc(monk)]) > dur(none, 'arrest', [sc(none)]), 'the Watch is slow');
   // The Watchman walks quicker; the Clerk cannot walk at all, yet.
-  var pn = dur(none, 'patrol', [byDef(none, 'health')[0]]);
-  assert.ok(dur(watch, 'patrol', [byDef(watch, 'health')[0]]) < pn, 'the Watchman knows the round');
-  assert.ok(/watchman/.test(clerk.lockReason('patrol')), 'the Clerk has no street: ' + clerk.lockReason('patrol'));
+  var pn = dur(none, 'investigate', [byDef(none, 'health')[0]]);
+  assert.ok(dur(watch, 'investigate', [byDef(watch, 'health')[0]]) < pn, 'the Watchman knows the round');
+  function street(e) { e.autoSlot('investigate', byDef(e, 'instinct')[0].uid); var p = e.preview('investigate'); e.clearSlots('investigate'); return p.blocked; }
+  assert.ok(/watchman/.test(street(clerk)), 'the Clerk has no street: ' + street(clerk));
   clerk.create('teammate', clerk.teammateSpec('rookie'));
-  assert.strictEqual(clerk.lockReason('patrol'), null, 'until a watchman serves');
+  assert.strictEqual(street(clerk), null, 'until a watchman serves');
   // The Clerk's petitions cost less.
   var o = byDef(clerk, 'order')[0], on = byDef(none, 'order').filter(function (c) { return c.data.order === o.data.order; })[0];
   assert.strictEqual(CF.costOf(o), CF.costOf(on) - 1, 'one Coin less');

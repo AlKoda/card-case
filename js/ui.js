@@ -194,6 +194,7 @@
       else if (ev.key === '0') UI.fitView();
       else if (ev.key === 'Tab') { ev.preventDefault(); UI.stackAll(); }
       else if (ev.key === 't' || ev.key === 'T') UI.tidy();
+      else if (ev.key === 'c' || ev.key === 'C') UI.collectAll();
       else if (ev.key === 'z' || ev.key === 'Z') UI.undoTidy();
       else if (ev.key === 'j' || ev.key === 'J') UI.toggleJournal();
       else if (ev.key === 's' || ev.key === 'S' || ev.key === 'Enter') goTopWindow();
@@ -202,6 +203,7 @@
       var b = ev.target.closest('button[data-tool]');
       if (!b) return;
       if (b.dataset.tool === 'stack') UI.stackAll();
+      else if (b.dataset.tool === 'collect') UI.collectAll();
       else if (b.dataset.tool === 'tidy') UI.tidy();
       else if (b.dataset.tool === 'undo') UI.undoTidy();
     });
@@ -513,6 +515,12 @@
     var b = $('#zoom [data-tool=undo]');
     if (b) b.classList.toggle('hidden', !UI.tidyUndo);
   }
+  // Every finished verb gives up its cards.
+  UI.collectAll = function () {
+    var e = UI.e, n = 0;
+    CF.VERB_ORDER.forEach(function (vid) { if (e.verb(vid).status === 'done') { collectAll(vid); n++; } });
+    if (!n) toast({ title: 'Nothing waiting', text: 'No verb has finished.', kind: 'minor' });
+  };
   UI.stackAll = function () {
     if (!UI.e || UI.drag) return;
     var e = UI.e, before = e.snapshotTable();
@@ -668,8 +676,7 @@
   // always in view, whatever the zoom. Groups: the clock, the core verbs,
   // the office, and the verbs a rank opens. Dragging a token onto another
   // reorders them within the dock.
-  var DOCK_GROUPS = [['time'], ['duty', 'patrol', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest', 'sentence'], ['requisition'],
-    ['warrant', 'stakeout', 'delegate', 'undercover', 'taskforce', 'majorcrimes']];
+  var DOCK_GROUPS = [['time'], ['duty', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest']];
   function dockOrder() {
     var e = UI.e, order = (e.s.flags.dockOrder || []).filter(function (v) { return CF.VERBS[v]; });
     CF.VERB_ORDER.forEach(function (v) { if (order.indexOf(v) < 0) order.push(v); });

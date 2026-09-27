@@ -114,7 +114,7 @@ console.error = function (err) { throw err; };
   var investigate = CF.VERBS.investigate.slots[0];
   var kase = byDef('case')[0];
   assert.ok(e.slotAccepts(investigate, kase));
-  assert.ok(!e.slotAccepts(investigate, hp));
+  assert.ok(!e.slotAccepts(investigate, byDef('funds')[0]));
   assert.ok(e.usableIn(kase).indexOf('investigate') >= 0);
   assert.ok(e.fitsAny(kase));
   var room = e.create('room', { data: { room: 'locker' } });

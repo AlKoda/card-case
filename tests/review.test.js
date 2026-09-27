@@ -31,9 +31,9 @@ function run(e, verb, cards) {
   var s = JSON.parse(e.save());
   delete s.verbs.delegate; delete s.verbs.majorcrimes; delete s.rooms; delete s.paths; delete s.origin; delete s.criminals; delete s.network;
   var e2 = CF.Engine.load(JSON.stringify(s));
-  assert.ok(e2.verb('delegate') && !e2.verb('delegate').unlocked);
+  assert.ok(e2.verb('duty') && e2.verb('duty').unlocked);
   e2.s.rank = 1; e2.promote();
-  assert.ok(e2.verb('delegate').unlocked, 'promotion works on the migrated save');
+  assert.ok(e2.powerOpen('stakeout'), 'promotion works on the migrated save');
   e2.tick(65);
   assert.ok(!e2.s.over, 'it plays on');
   console.log('old save: ok');

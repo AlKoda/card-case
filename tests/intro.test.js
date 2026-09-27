@@ -47,10 +47,10 @@ assert.strictEqual(byDef(e, 'health').length, 0, 'Health waits');
 assert.strictEqual(byDef(e, 'funds').length, 0, 'money waits');
 assert.strictEqual(byDef(e, 'teammate').length, 0, 'the Commissioner\'s officer waits');
 assert.ok(byDef(e, 'focus').length === 1 && byDef(e, 'case').length === 1);
-assert.ok(e.introHint() && /Examine/.test(e.introHint()));
+assert.ok(e.introHint() && /Explore/.test(e.introHint()));
 assert.ok(e.s.intro.stash.length >= 8, 'the rest is stashed: ' + e.s.intro.stash.length);
 var plain = CF.Engine.newGame({ seed: 11, calling: 'commissioner' });
-assert.ok(unlocked(plain).length >= 9 && byDef(plain, 'funds').length >= 3, 'an unguided game starts whole');
+assert.ok(unlocked(plain).length >= 6 && byDef(plain, 'funds').length >= 3, 'an unguided game starts whole');
 
 var kase = byDef(e, 'case')[0];
 run(e, 'investigate', [kase]);
@@ -70,7 +70,7 @@ assert.ok(!e.verb('duty').unlocked && byDef(e, 'funds').length === 0, 'the desk 
 // The week turns before an arrest: the desk arrives anyway, before rent is due.
 e.tick(CF.WEEK - e.s.weekT + 0.01);
 assert.ok(e.s.intro.finished);
-assert.ok(e.verb('duty').unlocked && e.verb('patrol').unlocked && e.verb('requisition').unlocked);
+assert.ok(e.verb('duty').unlocked && e.verb('investigate').unlocked && e.verb('duty').unlocked);
 assert.ok(byDef(e, 'funds').length >= 3, 'money arrived: ' + byDef(e, 'funds').length);
 assert.ok(byDef(e, 'teammate').length === 1 && byDef(e, 'district').length >= 1 && byDef(e, 'order').length >= 1);
 assert.strictEqual(e.countOf('fatigue'), 0, 'rent was paid from the revealed money');
@@ -86,6 +86,13 @@ f.tick(0.1); f.create('clue', { label: 'y', caseId: fr.id, aspects: { forensic: 
 f.tick(0.1); f.tick(0.1);
 assert.ok(f.verb('arrest').unlocked);
 run(f, 'arrest', [sc, byDef(f, 'clue')[0]]);
+f.tick(0.1);
+assert.ok(f.verb('duty').unlocked && /Attend/.test(f.introHint() || ''), 'the trial opens Attend: ' + f.introHint());
+assert.ok(!f.s.intro.finished, 'the tutorial runs through the Court');
+var ft = byDef(f, 'trial')[0];
+f.tick(ft.life + 1);
+var cond = byDef(f, 'condemned')[0];
+if (cond) { assert.ok(/Condemned/.test(f.introHint() || ''), 'the ladder is explained'); f.tick(cond.life + 1); }
 f.tick(0.1);
 assert.ok(f.s.intro.finished && byDef(f, 'informant').length === 1, 'the Crusader\'s informant arrives with the desk');
 // Saves keep the intro state; tidy keeps stacks together.

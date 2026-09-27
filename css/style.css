@@ -58,10 +58,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #main { display: grid; grid-template-columns: 1fr; min-height: 0; }
 #table {
   position: relative; overflow: hidden; min-width: 0; min-height: 0; touch-action: none; cursor: grab;
-  background: var(--felt) var(--art-table-wood) center / cover no-repeat;
+  background: #1a1210;
 }
 #table.panning { cursor: grabbing; }
 #board { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; transition: filter 0.3s; }
+/* The table itself lives on the board, so the camera moves over it. */
+#board::before { content: ''; position: absolute; left: -1600px; top: -900px; width: 4200px; height: 2364px; background: var(--art-table-wood) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
+#board > * { position: absolute; z-index: 1; }
 #table.paused #board { filter: saturate(0.6) brightness(0.86); }
 #windows { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 #drag-layer { position: fixed; inset: 0; pointer-events: none; z-index: 950; }

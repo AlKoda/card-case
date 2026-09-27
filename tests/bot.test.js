@@ -68,7 +68,7 @@ function step(e, temper) {
     if (of(e, 'writsale')[0]) tryRun(e, 'duty', [of(e, 'writsale')[0]]);
     if (of(e, 'tribute')[0]) tryRun(e, 'duty', [of(e, 'tribute')[0]]);
     if (s.rooms.thieftakers && funds.length >= 4) { var urgent = of(e, 'case').sort(function (a, b) { return a.life - b.life; })[0]; if (urgent && urgent.life < 90) tryRun(e, 'duty', [urgent, funds[0], funds[1]]); }
-    if (of(e, 'syndicate')[0] && !(s.court && s.court.stance) && s.rank >= 2) tryRun(e, 'undercover', [of(e, 'syndicate')[0], of(e, 'focus')[0]]);
+    if (of(e, 'syndicate')[0] && !(s.court && s.court.stance) && s.rank >= 2) tryRun(e, 'investigate', [of(e, 'syndicate')[0], of(e, 'focus')[0]]);
   }
   var dagger = of(e, 'dagger')[0];
   if (dagger) tryRun(e, 'reflect', funds.length >= 4 ? [dagger, funds[0], funds[1]] : [dagger]);
@@ -102,15 +102,15 @@ function step(e, temper) {
       var d = of(e, 'district').filter(function (x) { return x.data.district === rec.district; })[0];
       if (d) tryRun(e, 'investigate', [cc, d, team[0]]);
     }
-    if (s.rank >= 3 && team.length) tryRun(e, 'taskforce', [cc].concat(team.slice(0, 3)));
+    if (s.rank >= 3 && team.length) tryRun(e, 'duty', [cc].concat(team.slice(0, 3)));
     // Interrogate.
     var wit = table(e, function (c) { return c.def === 'witness' && c.caseId === rec.id; })[0];
     if (wit) tryRun(e, 'interrogate', [wit, of(e, 'focus')[0]]);
     else if (prime && (temper === 'brutal' || temper === 'corrupt') && e.indiciaOf(rec).sufficient && !clues.some(function (c) { return c.data.confession; }) && of(e, 'health').length > 1) tryRun(e, 'interrogate', [prime, of(e, 'health')[0]]);
     else if (prime && clues.length) tryRun(e, 'interrogate', [prime, of(e, 'focus')[0], clues[0]]);
     else if (suspects.length && !rec.identified) tryRun(e, 'interrogate', [suspects[0], of(e, 'focus')[0]]);
-    if (prime && clues.length) tryRun(e, 'warrant', [prime, clues[clues.length - 1]]);
-    if (prime) tryRun(e, 'stakeout', [prime, of(e, 'instinct')[0] || team[0]]);
+    if (prime && clues.length) tryRun(e, 'investigate', [prime, clues[clues.length - 1]]);
+    if (prime) tryRun(e, 'investigate', [prime, of(e, 'instinct')[0] || team[0]]);
   });
 
   // Analyze evidence.
@@ -123,14 +123,14 @@ function step(e, temper) {
 
   // Buy things.
   var orders = of(e, 'order').concat(of(e, 'personnel')).sort(function (a, b) { return CF.costOf(a) - CF.costOf(b); });
-  if (orders[0] && funds.length >= CF.costOf(orders[0]) + 2) tryRun(e, 'requisition', [orders[0]].concat(funds.slice(0, CF.costOf(orders[0]))));
+  if (orders[0] && funds.length >= CF.costOf(orders[0]) + 2) tryRun(e, 'duty', [orders[0]].concat(funds.slice(0, CF.costOf(orders[0]))));
 
   // Streets.
   var inf = of(e, 'informant')[0];
-  if (inf && funds.length > 4) tryRun(e, 'patrol', [inf, funds[0]]);
-  else if (of(e, 'instinct')[0]) tryRun(e, 'patrol', [of(e, 'instinct')[0]]);
+  if (inf && funds.length > 4) tryRun(e, 'investigate', [inf, funds[0]]);
+  else if (of(e, 'instinct')[0]) tryRun(e, 'investigate', [of(e, 'instinct')[0]]);
   var ucTarget = of(e, 'syndicate')[0] || of(e, 'gang')[0] || al;
-  if (ucTarget && s.rank >= 2 && of(e, 'health').length) tryRun(e, 'undercover', [ucTarget, of(e, 'instinct')[0], team[1] || team[0]]);
+  if (ucTarget && s.rank >= 2 && of(e, 'health').length) tryRun(e, 'investigate', [ucTarget, of(e, 'instinct')[0], team[1] || team[0]]);
   if (of(e, 'bribe')[0] && s.meters.scrutiny < 3) tryRun(e, 'duty', [of(e, 'bribe')[0]]);
   // Idle team earns money.
   of(e, 'teammate').forEach(function (t) { if (funds.length < 8) tryRun(e, 'duty', [t]); });
