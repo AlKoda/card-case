@@ -70,7 +70,11 @@ console.error = function (err) { throw err; };
 
   // Move: a card lands where dropped when the spot is free, else nearby.
   e.moveCard(clue.uid, 700, 700);
-  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, { x: 700, y: 700 }, 'a card lands where it was dropped');
+  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, CF.snapGrid(700, 700), 'a card settles on the grid cell it was dropped in');
+  T.snap = false;
+  e.moveCard(clue.uid, 700, 700);
+  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, { x: 700, y: 700 }, 'without the setting it lands where it was dropped');
+  T.snap = true;
   e.moveCard(clue.uid, 99999, -99999);
   assert.ok(clue.loc.x + T.CW <= T.BOUNDS.x + T.BOUNDS.w && clue.loc.y >= T.BOUNDS.y, 'but never off the table');
   e.moveCard(clue.uid, 700, 700);
@@ -212,4 +216,28 @@ console.error = function (err) { throw err; };
   e.tick(8);
   assert.strictEqual(seen.length, 1, 'warned once back on the table');
   console.log('fade warning: also inside a verb');
+})();
+
+// The magnet: a verb with its subject pulls in what its open slots take; the Bell's dues grow with the Watch.
+(function magnet() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Magnet' });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  assert.deepStrictEqual(e.magnetCandidates('investigate'), [], 'nothing to pull before the subject is in');
+  e.giveDistrict('market');
+  e.autoSlot('investigate', kase.uid);
+  var pulled = e.magnet('investigate');
+  assert.ok(pulled.length >= 1, 'the Quarter is pulled in');
+  var d = e.card(pulled[0].uid);
+  assert.strictEqual(d.def, 'district');
+  assert.strictEqual(d.loc.t, 'slot');
+  assert.deepStrictEqual(e.magnet('investigate'), [], 'nothing left to pull');
+  assert.strictEqual(e.dues(), 1);
+  e.create('teammate', e.teammateSpec('rookie')); e.create('teammate', e.teammateSpec('rookie'));
+  assert.strictEqual(e.dues(), 2, 'a Coin for every two watchmen');
+  var seen = null; e.on(function (t, p) { if (t === 'dues') seen = p; });
+  var before = e.cardsOf('funds').length;
+  e.weekTick();
+  assert.ok(seen && seen.uids.length === 2, 'the Bell draws the dues: ' + JSON.stringify(seen));
+  assert.strictEqual(e.cardsOf('funds').length, before - 2 + ((CF.RANK_DEFS[0] || {}).salary || 1));
+  console.log('magnet and dues: ok');
 })();

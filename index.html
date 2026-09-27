@@ -132,6 +132,8 @@
           <div class="set-row"><label for="s-uiScale">Panel &amp; text size</label><input type="range" id="s-uiScale" min="80" max="150" step="5"><output></output></div>
           <h3 id="sec-table">Table</h3>
           <div class="set-row"><label for="s-gap">Card spacing</label><input type="range" id="s-gap" min="4" max="48"><output></output></div>
+          <div class="set-row"><label for="s-grid">Show the grid</label><input type="checkbox" class="toggle" id="s-grid"></div>
+          <div class="set-row"><label for="s-snap">Cards settle on the grid</label><input type="checkbox" class="toggle" id="s-snap"></div>
           <p class="set-note">Applying re-tidies the table. Tidy any time from the pause menu.</p>
           <h3 id="sec-gameplay">Gameplay</h3>
           <div class="set-row"><label for="s-guided">Guided start (new games)</label><input type="checkbox" class="toggle" id="s-guided"></div>
@@ -205,11 +207,11 @@
       <div class="help-grid">
         <div>
           <h4>Cards and verbs</h4>
-          <p>Everything is a card. The <b>verbs</b> are the square tokens on the table; move them like cards. Drag a card onto a verb, or tap the verb to open it at the side of the table: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <p>Everything is a card. The <b>verbs</b> are the square tokens on the table; move them like cards. Drag a card onto a verb, or tap the verb to open it at the side of the table. The small box on a token is its <b>magnet</b>: once the verb holds its subject, the box glows when cards on the table fit its open slots, and tapping it pulls them in (never your Health, Wit, Instinct or Coin: those are yours to choose). The Bell's box shows the <b>dues</b> it draws each week: lodging, and a Coin for every two watchmen you keep. Tap a verb to open it: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
           <h4>What a verb finds</h4>
           <p>A finished verb shows a card back on its token. Open it: what it found lies face down. Tap a card to turn it over, tap it again to take it, or <b>Take all</b>. Closing the window leaves everything where it is, story included. Taken cards join a stack of their kind if one is on the table, else they land in the <b>collection pile</b>, the yellow strip; drag the strip anywhere. New cases land there too.</p>
           <h4>Your table</h4>
-          <p>Move any card or stack anywhere on the table. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away.</p>
+          <p>Move any card or stack anywhere on the table; with <i>Cards settle on the grid</i> on (Settings, Table) they land on the grid's cells, and <i>Show the grid</i> draws it. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away.</p>
           <h4>Time</h4>
           <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due.</p>
           <h4>Keys</h4>
