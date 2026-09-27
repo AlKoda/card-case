@@ -241,3 +241,38 @@ console.error = function (err) { throw err; };
   assert.strictEqual(e.cardsOf('funds').length, before - 2 + ((CF.RANK_DEFS[0] || {}).salary || 1));
   console.log('magnet and dues: ok');
 })();
+
+// Mid-work asks: part-way through a search the verb wants one more card;
+// answering it finishes the search, and the card comes back out.
+(function asks() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Asks' });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  assert.ok(e.autoSlot('investigate', kase.uid) && e.start('investigate'));
+  var v = e.verb('investigate');
+  e.tick(v.duration * 0.3);
+  assert.ok(!v.ask, 'nothing asked yet');
+  e.tick(v.duration * 0.2);
+  assert.ok(v.ask && !v.ask.filled && v.ask.label === 'A locked door', 'the search asks part-way: ' + JSON.stringify(v.ask));
+  var inst = e.tableCards().filter(function (c) { return c.def === 'instinct'; })[0];
+  var coin = e.tableCards().filter(function (c) { return c.def === 'funds'; })[0];
+  assert.ok(e.askAccepts('investigate', inst) && !e.askAccepts('investigate', coin));
+  assert.ok(e.askCandidates('investigate').indexOf(inst) >= 0);
+  assert.ok(e.answerAsk('investigate', inst.uid));
+  assert.strictEqual(inst.loc.t, 'held');
+  assert.ok(!e.askAccepts('investigate', e.create('instinct')), 'answered once');
+  e.tick(0.01);
+  assert.strictEqual(v.status, 'done', 'Instinct opens the door: the search is done');
+  assert.ok(v.out.indexOf(inst.uid) >= 0 && !v.ask, 'and Instinct comes back');
+  assert.ok(/door gave/.test(v.story.text), v.story.text);
+  // Coin asked for is spent.
+  var f = CF.Engine.newGame({ calling: 'crusader', name: 'Asks2' });
+  var w = f.create('witness', { label: 'Witness: Anna', caseId: Object.keys(f.s.cases)[0], data: { name: 'Anna', knows: 1 } });
+  var wit = f.tableCards().filter(function (c) { return c.def === 'focus'; })[0];
+  f.autoSlot('interrogate', w.uid); f.autoSlot('interrogate', wit.uid);
+  if (f.start('interrogate')) {
+    var iv = f.verb('interrogate'), coins = f.cardsOf('funds').length;
+    f.tick(iv.duration * 0.5);
+    if (iv.ask) { assert.ok(f.answerAsk('interrogate', f.cardsOf('funds')[0].uid)); f.tick(iv.duration); assert.strictEqual(f.cardsOf('funds').length, coins - 1, 'the Coin is spent'); }
+  }
+  console.log('asks: ok');
+})();

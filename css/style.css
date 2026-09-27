@@ -65,14 +65,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
    (#board's translate/scale) moves over the plane, the plane never moves. */
 #tilt { position: absolute; inset: 0; transform: rotateX(26deg); transform-origin: 50% 50%; background: radial-gradient(ellipse at 50% 40%, #0e4a50, #06282d 70%); }
 #board { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; transition: filter 0.3s; will-change: transform; }
-#board::before { content: ''; position: absolute; left: -1150px; top: -720px; width: 3400px; height: 1913px; background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
+#board::before { content: ''; position: absolute; left: -1150px; top: -700px; width: 3400px; height: 1674px; border-radius: 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
 #board > * { position: absolute; z-index: 1; }
 /* The token's small box: the magnet (the Bell's shows the weekly dues). */
 .verb .v-magnet { display: none; position: absolute; right: 2px; top: 84px; width: 30px; height: 30px; border-radius: 6px; background: #14161a; border: 2px solid #3a3d44; box-shadow: 0 3px 0 #0a0908, 0 5px 6px rgba(0, 0, 0, 0.6); color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 15px; line-height: 26px; text-align: center; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
-.verb .v-magnet.can-pull, .verb .v-magnet.due, .verb .v-magnet.filled { display: block; animation: boxIn 0.25s ease-out; }
-.verb .v-magnet.filled { background-size: cover; background-position: center; border-color: #c9a24c; }
-.verb .v-magnet.filled.can-pull { box-shadow: 0 3px 0 #0a0908, 0 0 0 2px var(--accent), 0 0 12px rgba(212, 162, 76, 0.9); }
-.verb .v-magnet.can-pull { border-color: var(--accent); color: var(--accent); box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(212, 162, 76, 0.8); animation: boxIn 0.25s ease-out, glow 1.6s 0.25s infinite; }
+.verb .v-magnet.asks, .verb .v-magnet.due { display: block; animation: boxIn 0.25s ease-out; }
+.verb .v-magnet.asks { background-size: 78%; background-position: center; background-repeat: no-repeat; border-color: var(--accent); box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(212, 162, 76, 0.8); animation: boxIn 0.25s ease-out, glow 1.6s 0.25s infinite; cursor: pointer; }
+.verb.asking .v-status { color: var(--accent); }
+.ask { margin: 8px 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--paper); color: var(--paper-ink); box-shadow: 0 0 0 2px var(--accent), 0 6px 16px rgba(0, 0, 0, 0.45); }
+.ask.answered { box-shadow: none; opacity: 0.85; }
+.ask .ask-head { font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+.ask p { margin: 4px 0 8px; font-family: var(--serif); font-size: 13.5px; line-height: 1.45; }
+.ask .plate-btn { display: block; margin: 0 auto 4px; }
+.ask .vw-desc { margin: 0; text-align: center; color: #5a4f3a; font-size: 12px; }
 .verb .v-magnet.due { border-color: #f0c85a; box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(240, 200, 90, 0.7); }
 @keyframes boxIn { from { transform: scale(0.4); opacity: 0; } }
 .verb .v-magnet:hover { transform: translateY(-2px); }
@@ -81,8 +86,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* A card on its way into a verb. */
 #drag-layer .card.ghost { transition: left 0.36s ease-in, top 0.36s ease-in, transform 0.36s ease-in, opacity 0.36s; pointer-events: none; }
 /* The collection pile: a strip where new cards land; the player drags it. */
-#board .pile-zone { z-index: 0; border: 2px dashed rgba(240, 200, 90, 0.75); border-radius: 12px; background: rgba(240, 200, 90, 0.07); box-shadow: 0 0 18px rgba(240, 200, 90, 0.25), inset 0 0 22px rgba(240, 200, 90, 0.12); cursor: grab; }
-#board .pile-zone.dragging { cursor: grabbing; border-style: solid; }
+#board .pile-zone { z-index: 0; border: none; border-bottom: 3px solid rgba(240, 200, 90, 0.8); border-radius: 0 0 6px 6px; background: linear-gradient(to top, rgba(240, 200, 90, 0.12), rgba(240, 200, 90, 0) 45%); box-shadow: 0 6px 18px -6px rgba(240, 200, 90, 0.45); cursor: grab; }
+#board .pile-zone.dragging { cursor: grabbing; border-bottom-color: #f0c85a; }
 #board .pile-zone .pz-label { position: absolute; left: 10px; top: -22px; font-family: var(--display); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #f0c85a; text-shadow: 0 1px 3px #000; }
 /* The grid: one cell per card, drawn as faint paper outlines. */
 #board .grid { z-index: 0; pointer-events: none; opacity: 0.3; will-change: transform;
@@ -251,7 +256,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card.face-paper .c-aspects { justify-content: flex-start; margin-top: 6px; }
 .card .c-timer { font-family: var(--mono); font-size: 11px; font-weight: 700; color: #7c1d15; text-align: center; font-variant-numeric: tabular-nums; margin-top: auto; }
 .card .c-aspects + .c-timer { margin-top: 1px; }
-.card.timed .c-ring { position: absolute; inset: -4px; border-radius: 11px; --pct: 100%; background: conic-gradient(from 0deg, #e0b04a var(--pct), rgba(0, 0, 0, 0.55) 0); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.card.timed .c-ring { position: absolute; inset: -3px; border-radius: 10px; --pct: 100%; background: conic-gradient(from 0deg, rgba(200, 160, 70, 0.9) var(--pct), rgba(0, 0, 0, 0.5) 0); }
 .card.timed.urgent .c-ring { background: conic-gradient(from 0deg, #d0564a var(--pct), rgba(0, 0, 0, 0.55) 0); }
 .card.facedown .c-face { background: var(--art-ntarot-07) center / cover no-repeat !important; border: none !important; box-shadow: none !important; }
 .card.facedown .c-face::before, .card.facedown .c-body, .card.facedown .c-ring { display: none; }

@@ -65,6 +65,7 @@
   ];
   var EV_BY_ASPECT = { forensic: 'nev-01', testimony: 'nev-07', motive: 'nev-12', opportunity: 'nev-08', digital: 'nev-05', financial: 'nev-10' };
   var VERB_TOKENS = { time: 'nverb-12', duty: 'nverb-01', investigate: 'nverb-02', analyze: 'nverb-07', interrogate: 'nverb-05', reflect: 'nverb-06', arrest: 'nverb-08' };
+  var ASK_ART = { instinct: 'ncoin-02', focus: 'ncoin-03', funds: 'ncoin-04', teammate: 'ncoin-11', health: 'ncoin-01' };
   var ASPECT_ART = { forensic: 'ncoin-07', testimony: 'ncoin-10', motive: 'ncoin-08', opportunity: 'nsmall-03', digital: 'ncoin-12', financial: 'ncoin-04' };
   var METER_ICONS = { pressure: 'ncoin-06', scrutiny: 'ncoin-02', retaliation: 'ncoin-08', reputation: 'nsmall-02', dread: 'nsmall-01' };
   var TOAST_BARS = { case: 'plate-seal', danger: 'plate-i-star', defeat: 'plate-i-star', major: 'plate-sun', victory: 'plate-moon', week: 'plate-i-moon', verb: 'plate-i-eye', minor: 'plate-i-dark' };
@@ -306,6 +307,11 @@
       CF.Audio.play('complete');
       var v = UI.e.verb(payload.verb);
       if (UI.openVerbs.indexOf(payload.verb) < 0 && v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
+      if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
+    }
+    if (type === 'ask') {
+      CF.Audio.play('click');
+      toast({ title: CF.VERBS[payload.verb].label + ' asks: ' + payload.label, text: payload.text, kind: 'verb', verb: payload.verb });
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
     }
     if (type === 'dues') {
@@ -807,22 +813,20 @@
       el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
       el.classList.toggle('loaded', v.status === 'idle' && n > 0);
       el.querySelector('.v-count').textContent = n || '';
-      // The token's small box: hidden until it has something to show. With
-      // cards in the verb it shows the subject's picture; with cards on the
-      // table that fit its open slots it is the magnet.
+      // The token's small box: hidden until the verb, part-way through its
+      // work, asks for one more card. It shows what kind, and a tap pulls a
+      // fitting card in from the table. The Bell's shows the dues when due.
       var mag = el.querySelector('.v-magnet');
       if (vid === 'time') { mag.textContent = String(e.dues()); mag.classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
       else {
-        var can = e.magnetCandidates(vid).length > 0;
-        var held = v.status === 'running' ? v.ctxSlots : v.slots;
-        var subject = held[e.primaryKey(vid)] ? e.card(held[e.primaryKey(vid)]) : null;
-        var pk = subject ? cardPicture(subject) : null;
-        mag.classList.toggle('can-pull', can);
-        mag.classList.toggle('filled', !!subject);
-        mag.style.backgroundImage = subject ? art(pk.art) : '';
-        mag.textContent = subject ? '' : can ? '⇲' : '';
-        mag.title = can ? 'Magnet: pull in the cards this verb\'s open slots take' : subject ? cardTitle(subject) : '';
+        var ask = v.status === 'running' && v.ask && !v.ask.filled ? v.ask : null;
+        mag.classList.toggle('asks', !!ask);
+        mag.style.backgroundImage = ask ? art(ASK_ART[ask.accepts[0]] || 'nsmall-05') : '';
+        mag.textContent = '';
+        mag.title = ask ? ask.label + ': ' + ask.text : '';
+        el.classList.toggle('asking', !!ask);
       }
+      el.querySelector('.v-badge').textContent = v.status === 'done' && v.out.length ? String(v.out.length) : '!';
     });
   }
 
@@ -842,6 +846,18 @@
     ghost.style.opacity = '0.2';
     setTimeout(function () { ghost.remove(); }, 380);
   }
+  // Answer a verb's mid-work ask with the first fitting card on the table.
+  UI.answerAsk = function (vid, uid) {
+    var e = UI.e, tok = verbEls[vid];
+    var card = uid ? e.card(uid) : e.askCandidates(vid)[0];
+    if (!card) { toast({ title: 'Nothing fits', text: 'No card on the table answers what ' + CF.VERBS[vid].label + ' asks for.', kind: 'minor' }); return false; }
+    var el = cardEls[uid || card.uid] || cardEls[e.stackOf(card)[0].uid];
+    if (!e.answerAsk(vid, card.uid)) return false;
+    if (el && tok) { flyTo(el, tok, card); if (e.stackOf(card).length === 0 && cardEls[card.uid]) { cardEls[card.uid].remove(); delete cardEls[card.uid]; } }
+    CF.Audio.play('drop');
+    e.dirty = true;
+    return true;
+  };
   // The magnet: the verb pulls in what its open slots take, and opens.
   UI.magnet = function (vid) {
     var e = UI.e, tok = verbEls[vid];
@@ -942,7 +958,7 @@
 
   function windowSig(vid) {
     var e = UI.e, v = e.verb(vid), pv = v.status === 'idle' ? e.preview(vid) : null;
-    return [v.status, JSON.stringify(v.slots), v.out.join(','), v.held.join(','), v.story ? v.story.title : '',
+    return [v.status, JSON.stringify(v.slots), v.out.join(','), v.held.join(','), v.story ? v.story.title : '', v.ask ? (v.ask.filled || 'open') : '',
       pv ? pv.label + '|' + pv.blocked + '|' + pv.text : '', e.lockReason(vid) || '', v.recipe || '',
       vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : ''].join('#');
   }
@@ -1030,6 +1046,20 @@
       pr.appendChild(fill);
       pane.appendChild(pr);
       pane.appendChild(h('div', 'vw-desc p-time', U.fmtTime(v.duration - v.elapsed) + ' remaining'));
+      if (v.ask) {
+        var ab = h('div', 'ask' + (v.ask.filled ? ' answered' : ''));
+        ab.appendChild(h('div', 'ask-head', v.ask.label));
+        ab.appendChild(h('p', null, v.ask.text));
+        if (!v.ask.filled) {
+          var cand = e.askCandidates(vid)[0];
+          var ans = h('button', 'plate-btn gold', cand ? 'Answer with ' + cardTitle(cand) : 'Nothing on the table fits');
+          ans.disabled = !cand;
+          ans.addEventListener('click', function () { UI.answerAsk(vid); });
+          ab.appendChild(ans);
+          ab.appendChild(h('div', 'vw-desc', 'or drop a card on the token. Ignore it and the work finishes as it would have.'));
+        } else ab.appendChild(h('div', 'vw-desc', 'Answered with ' + cardTitle(e.card(v.ask.filled)) + '.'));
+        pane.appendChild(ab);
+      }
       var held = h('div', 'held');
       v.held.forEach(function (u) { var c = e.card(u); if (c) held.appendChild(miniCard(c)); });
       pane.appendChild(held);
@@ -1394,7 +1424,8 @@
 
   function canTake(vid, card) {
     var e = UI.e, v = e.verb(vid);
-    if (!v.unlocked || CF.VERBS[vid].auto || v.status === 'running') return false;
+    if (!v.unlocked || CF.VERBS[vid].auto) return false;
+    if (v.status === 'running') return e.askAccepts(vid, card);
     var slots = v.status === 'done' ? [CF.VERBS[vid].slots[0]] : e.visibleSlots(vid);
     return slots.some(function (sl) { return e.slotAccepts(sl, card); }) || e.slotAccepts(CF.VERBS[vid].slots[0], card);
   }
@@ -1459,8 +1490,8 @@
       return;
     }
     var vn = t.closest && t.closest('.verb[data-verb]');
-    // The box is the magnet only while it glows; a plain thumbnail is part of the token.
-    if (vn && ev.button === 0 && t.closest('.v-magnet.can-pull') && vn.dataset.verb !== 'time') { UI.magnet(vn.dataset.verb); ev.preventDefault(); return; }
+    // The box, while the verb asks: a tap answers it from the table.
+    if (vn && ev.button === 0 && t.closest('.v-magnet.asks')) { UI.answerAsk(vn.dataset.verb); ev.preventDefault(); return; }
     if (vn && ev.button === 0) {
       UI.drag = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
       ev.preventDefault();
@@ -1730,6 +1761,7 @@
     if (t.slot || t.verb) {
       if (loc.t === 'out') { e.takeOutput(loc.verb, card.uid); }
       if (t.slot) ok = e.slotCard(t.verb, t.slot, card.uid);
+      else if (e.verb(t.verb).status === 'running') ok = e.answerAsk(t.verb, card.uid);
       else ok = !!e.autoSlot(t.verb, card.uid);
       if (ok) {
         openWindow(t.verb);
@@ -1787,6 +1819,8 @@
     if (!card || !card.loc) return;
     if (card.loc.t === 'out') { markSpawn(card.uid, n); e.takeOutput(card.loc.verb, card.uid); e.dirty = true; return; }
     if (card.loc.t !== 'table') return;
+    // A verb asking for this card mid-work comes first.
+    for (var a = 0; a < CF.VERB_ORDER.length; a++) if (e.askAccepts(CF.VERB_ORDER[a], card)) { UI.answerAsk(CF.VERB_ORDER[a], card.uid); return; }
     var tries = UI.openVerbs.slice().reverse().concat(CF.VERB_ORDER);
     for (var i = 0; i < tries.length; i++) {
       var id = tries[i], v = e.verb(id);
