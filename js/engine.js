@@ -283,8 +283,13 @@
     });
   };
   // Why a card cannot be used right now, or null if it can (or never could).
+  // The running verb whose open ask this card answers, if any.
+  P.askedBy = function (card) {
+    for (var i = 0; i < CF.VERB_ORDER.length; i++) if (this.askAccepts(CF.VERB_ORDER[i], card)) return CF.VERB_ORDER[i];
+    return null;
+  };
   P.unavailableReason = function (card) {
-    if (this.usableIn(card).length || !this.fitsAny(card)) return null;
+    if (this.usableIn(card).length || !this.fitsAny(card) || this.askedBy(card)) return null;
     var self = this, locked = CF.VERB_ORDER.filter(function (vid) {
       var v = self.verb(vid);
       return v && v.unlocked && self.lockReason(vid) && CF.VERBS[vid].slots.some(function (sl) { return self.slotAccepts(sl, card); });

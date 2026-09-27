@@ -257,6 +257,13 @@ console.error = function (err) { throw err; };
   var coin = e.tableCards().filter(function (c) { return c.def === 'funds'; })[0];
   assert.ok(e.askAccepts('investigate', inst) && !e.askAccepts('investigate', coin));
   assert.ok(e.askCandidates('investigate').indexOf(inst) >= 0);
+  // With every other verb that takes Instinct busy, the ask still counts it as usable.
+  var wit0 = e.create('witness', { label: 'Witness: Bran', caseId: kase.caseId, data: { name: 'Bran', knows: 1 } });
+  var hp = e.tableCards().filter(function (c) { return c.def === 'health'; })[0];
+  e.autoSlot('interrogate', wit0.uid); e.autoSlot('interrogate', hp.uid);
+  assert.ok(e.start('interrogate'), 'Question is busy too');
+  assert.strictEqual(e.unavailableReason(inst), null, 'a card that answers an open ask is never "busy"');
+  assert.ok(e.askCandidates('investigate').indexOf(inst) >= 0, 'and the ask still offers it');
   assert.ok(e.answerAsk('investigate', inst.uid));
   assert.strictEqual(inst.loc.t, 'held');
   assert.ok(!e.askAccepts('investigate', e.create('instinct')), 'answered once');
