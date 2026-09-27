@@ -58,13 +58,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #main { display: grid; grid-template-columns: 1fr; min-height: 0; }
 #table {
   position: relative; overflow: hidden; min-width: 0; min-height: 0; touch-action: none; cursor: grab;
-  background: #1a1210;
+  background: #061a1e; perspective: 1500px; perspective-origin: 50% 20%;
 }
 #table.panning { cursor: grabbing; }
+/* The table plane is tilted, so the cards read as lying on it; the camera
+   (#board's translate/scale) moves over the plane, the plane never moves. */
+#tilt { position: absolute; inset: 0; transform: rotateX(26deg); transform-origin: 50% 50%; background: radial-gradient(ellipse at 50% 40%, #0e4a50, #06282d 70%); }
 #board { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; transition: filter 0.3s; }
-/* The table itself lives on the board, so the camera moves over it. */
-#board::before { content: ''; position: absolute; left: -1600px; top: -900px; width: 4200px; height: 2364px; background: var(--art-table-wood) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
+#board::before { content: ''; position: absolute; left: -1150px; top: -720px; width: 3400px; height: 1913px; background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
 #board > * { position: absolute; z-index: 1; }
+/* The grid: one cell per card, drawn as faint paper outlines. */
+#board .grid { z-index: 0; pointer-events: none; opacity: 0.55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='172'%3E%3Crect x='6.5' y='6.5' width='117' height='159' rx='7' fill='rgba(0,0,0,0.10)' stroke='rgba(228,206,160,0.28)' stroke-width='1'/%3E%3C/svg%3E") 0 0 repeat; }
 #table.paused #board { filter: saturate(0.6) brightness(0.86); }
 #windows { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 #drag-layer { position: fixed; inset: 0; pointer-events: none; z-index: 950; }
@@ -112,14 +117,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #dock .dock-group { display: flex; gap: 2px; padding: 0 6px; pointer-events: auto; border-right: 1px solid rgba(255, 255, 255, 0.08); }
 #dock .dock-group:last-child, #dock .dock-group.empty { border-right: none; }
 #dock .dock-group.empty { padding: 0; }
-#dock .verb { position: relative; left: auto; top: auto; transition: none; width: 84px; height: 96px; }
-#dock .verb .v-token { width: 76px; height: 84px; }
-#dock .verb.time .v-token { width: 64px; height: 70px; }
+#dock .verb { position: relative; left: auto; top: auto; transition: none; width: 84px; height: 108px; }
+#dock .verb .v-token { width: 68px; height: 68px; }
+#dock .verb.time .v-token { width: 60px; height: 60px; margin-top: 7px; }
+#dock .verb.time .v-status { margin-top: 2px; }
 /* Narrow tables: smaller tokens, and the dock wraps onto a second row. */
 @media (max-width: 1200px) {
-  #dock .verb { width: 66px; height: 78px; }
-  #dock .verb .v-token { width: 60px; height: 66px; }
-  #dock .verb.time .v-token { width: 52px; height: 57px; }
+  #dock .verb { width: 66px; height: 92px; }
+  #dock .verb .v-token { width: 54px; height: 54px; }
+  #dock .verb.time .v-token { width: 48px; height: 48px; }
+  #dock .verb .v-plate { font-size: 8px; }
   #dock .verb .v-status { font-size: 9px; }
   #dock .dock-group { padding: 0 3px; }
 }
@@ -141,20 +148,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
   cursor: pointer; user-select: none; touch-action: none; will-change: transform; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .verb.dragging { transition: none; z-index: 20; cursor: grabbing; }
-.verb .v-token { position: relative; width: 86px; height: 86px; margin-top: 3px; flex: none; background: center / 100% 100% no-repeat; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.65)); transition: transform 0.15s, filter 0.15s; }
+.verb .v-token { position: relative; width: 72px; height: 72px; margin-top: 3px; flex: none; background: center / 100% 100% no-repeat; border-radius: 12px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.65)); transition: transform 0.15s, filter 0.15s; }
 .verb:hover .v-token { transform: translateY(-3px) scale(1.03); }
 .verb.dragging .v-token { transform: scale(1.08); filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.7)); }
 .verb .v-plate {
-  position: absolute; left: 12%; right: 12%; top: 79.5%; height: 12.5%; display: flex; align-items: center; justify-content: center;
-  font-family: var(--display); font-weight: 700; font-size: 8px; letter-spacing: 0.02em; text-transform: uppercase; color: #2a2317; white-space: nowrap; overflow: hidden;
+  position: absolute; left: -20%; right: -20%; top: 100%; margin-top: 3px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 700; font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 3px #000, 0 0 6px #000; white-space: nowrap; overflow: hidden;
 }
 .verb .v-ring { position: absolute; left: 2%; top: 2%; width: 96%; height: 96%; transform: rotate(-90deg); pointer-events: none; }
 .verb .v-ring circle { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 0 999; filter: drop-shadow(0 0 2px rgba(212, 162, 76, 0.9)); }
-.verb.time .v-token { width: 72px; height: 72px; margin-top: 8px; }
+.verb.time .v-token { width: 64px; height: 64px; margin-top: 8px; }
 .verb.time .v-ring { left: 2%; top: 2%; width: 96%; height: 96%; }
 .verb .v-week { position: absolute; left: 50%; top: 1px; transform: translateX(-50%); background: #0e1112; color: var(--paper); font-family: var(--serif); font-weight: 700; font-size: 9.5px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
 .verb .v-name { font-family: var(--mono); font-weight: 700; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; color: var(--paper); text-shadow: 0 1px 3px #000; }
-.verb .v-status { font-size: 10.5px; color: var(--paper); text-shadow: 0 1px 3px #000; min-height: 13px; font-variant-numeric: tabular-nums; }
+.verb .v-status { margin-top: 16px; font-size: 10.5px; color: var(--paper); text-shadow: 0 1px 3px #000; min-height: 13px; font-variant-numeric: tabular-nums; }
 .verb .v-badge { position: absolute; top: 2px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--good); color: #0c1a0b; font-weight: 800; font-size: 13px; line-height: 20px; text-align: center; box-shadow: 0 0 0 2px #0e1112; transform: scale(0); transition: transform 0.2s; }
 .verb.done .v-badge { transform: scale(1); }
 .verb.running .v-status { color: var(--accent); }
@@ -164,7 +171,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .verb.done .v-ring circle { stroke: var(--good); filter: drop-shadow(0 0 3px rgba(109, 187, 106, 1)); }
 .verb.done .v-status { color: #8fe08b; }
 .verb.locked .v-token { filter: grayscale(1) brightness(0.55); }
-.verb.locked .v-token::after { content: ''; position: absolute; left: 50%; top: 42%; width: 30px; height: 30px; transform: translate(-50%, -50%); background: var(--art-icon-lock) center / contain no-repeat; }
+.verb.locked .v-token::after { content: ''; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); background: var(--art-icon-lock) center / contain no-repeat; }
 .verb.locked .v-status { color: #ff8c7a; }
 .verb.can-drop .v-token { filter: drop-shadow(0 0 10px rgba(109, 187, 106, 1)); }
 .verb.drop-hover .v-token { transform: scale(1.14); filter: drop-shadow(0 0 14px rgba(140, 230, 130, 1)); }
@@ -174,19 +181,32 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- Cards ---------- */
 /* A card element is positioned by transform on the board; its look lives on
-   .c-face (and .c-under for the cards beneath it in a stack). */
+   .c-face (and .c-under for the cards beneath it in a stack). A "pic" face is
+   a picture in a frame the stylesheet draws, in the kind's colour; the other
+   families carry a whole painted face. */
 .card {
   position: absolute; left: 0; top: 0; width: var(--card-w); height: var(--card-h); color: var(--paper-ink);
   cursor: grab; user-select: none; touch-action: none; will-change: transform;
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s;
+  --tone: #b8892c;
 }
-.card .c-face, .card .c-under { position: absolute; inset: 0; background: var(--pic) center / 100% 100% no-repeat; }
+.card.tone-red { --tone: #9b2a2a; }
+.card.tone-blue { --tone: #2a5b8c; }
+.card.tone-gold { --tone: #b8892c; }
+.card.tone-teal { --tone: #1f7a72; }
+.card.tone-grey { --tone: #6a6e74; }
+.card.tone-dark { --tone: #2c2f36; }
+.card .c-face, .card .c-under { position: absolute; inset: 0; border-radius: 8px; background: var(--pic) center / 100% 100% no-repeat; }
+.card.face-pic .c-face, .card.face-pic .c-under {
+  background: #e9dcc1; border: 3px solid var(--tone); box-shadow: inset 0 0 0 1px rgba(255, 245, 220, 0.35), inset 0 0 18px rgba(90, 60, 20, 0.18);
+}
+.card.face-pic .c-face::before, .card.face-pic .c-under::before {
+  content: ''; position: absolute; left: 3px; right: 3px; top: 3px; height: 60%; border-radius: 4px 4px 0 0;
+  background: var(--pic) center / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
 .card .c-face { filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.55)); transition: transform 0.15s, filter 0.15s; }
 .card .c-under { filter: brightness(0.55) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
-/* Squares (scenes, acts) and plain emblems sit on the paper frame. */
-.card.face-square .c-face, .card.face-square .c-under { background: var(--pic) center 4% / 78% auto no-repeat, var(--art-arch-frame) center / 100% 100% no-repeat; }
-.card.face-plain .c-face, .card.face-plain .c-under { background: var(--pic) center 8% / auto 24% no-repeat, var(--art-arch-frame) center / 100% 100% no-repeat; }
-.card.face-back .c-face, .card.face-back .c-under { background: var(--pic) center / cover no-repeat; border-radius: 6px; }
+.card.face-back .c-face, .card.face-back .c-under { background: var(--pic) center / cover no-repeat; }
 .card .c-face.gray { filter: grayscale(0.9) brightness(0.8) drop-shadow(0 3px 4px rgba(0, 0, 0, 0.55)); }
 .card .c-under.u1 { transform: translate(4px, 4px); }
 .card .c-under.u2 { transform: translate(8px, 8px); }
@@ -213,24 +233,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #drag-layer .card .c-face { filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.6)); }
 #drag-layer .card.returning, #drag-layer .card.absorbing { transition: left 0.24s ease-in-out, top 0.24s ease-in-out, transform 0.24s ease-in-out, opacity 0.24s; }
 .card.dragging-src { opacity: 0.3; }
-.card .c-body { position: absolute; left: 12%; right: 12%; top: 75%; bottom: 7%; display: flex; flex-direction: column; overflow: hidden; }
-.card.face-ev .c-body { top: 76%; bottom: 6%; }
-.card.face-square .c-body { top: 63%; bottom: 7%; }
-.card.face-plain .c-body { top: 34%; bottom: 8%; left: 13%; right: 13%; }
+/* The words: on the paper below the picture, on the tarot band, or beside
+   the corner icon of a paper card. */
+.card .c-body { position: absolute; left: 7%; right: 7%; top: 64%; bottom: 5%; display: flex; flex-direction: column; overflow: hidden; }
+.card.face-tarot .c-body { top: 70%; bottom: 6%; left: 10%; right: 10%; }
+.card.face-paper .c-body { top: 6%; bottom: 8%; left: 26%; right: 8%; }
 .card.face-back .c-body { top: auto; bottom: 6%; left: 8%; right: 8%; padding: 3px 4px; background: rgba(239, 230, 207, 0.93); border-radius: 3px; box-shadow: 0 0 0 1px rgba(60, 40, 10, 0.4); }
-/* Portraits and evidence: the band beside the medallion carries the proof
-   chips (left) and the clock (right); the paper below carries the words. */
-.card .c-band { position: absolute; left: 12%; right: 12%; top: 63.5%; height: 8.5%; display: flex; align-items: center; justify-content: space-between; }
-.card.face-ev .c-band { top: 64.5%; }
-.card .c-band .c-aspects { margin: 0; padding: 0; flex-wrap: nowrap; justify-content: flex-start; max-width: 36%; overflow: hidden; }
-.card .c-band .c-timer { margin: 0 0 0 auto; font-size: 9.5px; }
-.card .c-band .c-timer:first-child { margin-left: 0; }
-.card .c-kind { font-family: var(--mono); font-size: 7px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.65; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card.face-plain .c-kind { font-size: 7.5px; }
-.card .c-title { font-family: var(--display); font-size: 9.5px; line-height: 1.15; font-weight: 700; text-align: center; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; flex: none; letter-spacing: 0.01em; }
-.card.face-plain .c-title { font-size: 10px; margin-top: 4px; }
+.card .c-title { font-family: var(--display); font-size: 10px; line-height: 1.15; font-weight: 700; text-align: center; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; flex: none; letter-spacing: 0.01em; color: #2a2317; }
+.card.face-paper .c-title { text-align: left; font-size: 9.5px; margin-top: 0; }
 .card .c-sub { font-size: 8.5px; opacity: 0.7; text-align: center; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; word-break: break-all; margin-top: 1px; }
 .card .c-aspects { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: auto; padding-top: 2px; }
+.card.face-paper .c-aspects { justify-content: flex-start; margin-top: 6px; }
 .card .c-timer { font-family: var(--mono); font-size: 11px; font-weight: 700; color: #7c1d15; text-align: center; font-variant-numeric: tabular-nums; margin-top: auto; }
 .card .c-aspects + .c-timer { margin-top: 1px; }
 .card .c-life { height: 3px; background: rgba(0, 0, 0, 0.15); border-radius: 2px; margin-top: 2px; flex: none; }
@@ -239,7 +252,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card .c-count::before { content: '⠿ '; opacity: 0.7; font-size: 10px; }
 .card .c-count:hover { background: #2a2418; }
 .chip { display: inline-flex; align-items: center; gap: 2px; background: rgba(14, 17, 18, 0.85); color: var(--paper); border-radius: 3px; padding: 1px 3px 1px 1px; font-family: var(--mono); font-size: 9.5px; font-weight: 700; line-height: 1; }
-.chip-icon { width: 13px; height: 13px; background: center / contain no-repeat; border-radius: 2px; }
+.chip-icon { width: 13px; height: 13px; background: center / contain no-repeat; border-radius: 50%; }
 .chip.big { font-size: 12px; padding: 3px 7px 3px 3px; gap: 5px; font-family: var(--sans); font-weight: 600; }
 .chip.big .chip-icon { width: 20px; height: 20px; }
 
@@ -269,7 +282,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .vwin.closing { opacity: 0; transform: scale(0.96); }
 @keyframes winIn { from { opacity: 0; transform: scale(0.95) translateY(6px); } }
 .vw-head { display: flex; align-items: center; gap: 8px; cursor: move; user-select: none; touch-action: none; }
-.vw-icon { width: 30px; height: 33px; flex: none; background: center / contain no-repeat; }
+.vw-icon { width: 30px; height: 30px; flex: none; background: center / contain no-repeat; border-radius: 6px; }
 .vw-head h3 { flex: 1; margin: 0; font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; font-size: 16px; font-weight: 700; color: var(--accent); }
 .vw-close { background: none; border: none; color: var(--ink-dim); font-size: 22px; line-height: 1; padding: 0 4px; }
 .vw-close:hover { color: var(--paper); }
@@ -357,7 +370,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .origin { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 8px; background: rgba(20, 24, 26, 0.85); cursor: pointer; text-align: center; transition: border-color 0.15s, transform 0.15s; color: var(--ink); }
 .origin:hover { border-color: #7d6a45; transform: translateY(-2px); }
 .origin.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212, 162, 76, 0.35); }
-.origin .o-face { width: 64px; height: 88px; background: center / 100% 100% no-repeat; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6)); }
+.origin .o-face { width: 64px; height: 88px; border-radius: 6px; background: center / cover no-repeat; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6)); }
 .origin h3 { margin: 4px 0 2px; font-family: var(--display); font-size: 12.5px; }
 .origin p { margin: 0 0 4px; font-size: 11px; color: var(--ink-dim); line-height: 1.4; font-family: var(--serif); }
 .origin .bonus { font-size: 10.5px; color: #a8c29a; line-height: 1.35; }
@@ -406,14 +419,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 /* ---------- Screens (title, new game, settings, archive) ---------- */
-.modal { background: rgba(6, 9, 10, 0.72) var(--art-table-dark) center / cover no-repeat; background-blend-mode: multiply; }
+.modal { background: rgba(6, 9, 10, 0.55) var(--art-nmenu) center / cover no-repeat; background-blend-mode: multiply; }
 .modal#menu, .modal#help, .modal#end { background: rgba(6, 9, 10, 0.8); }
 .screen-box { width: 100%; max-width: 980px; max-height: calc(100vh - 32px); overflow: auto; padding: 8px 24px 20px; }
 .screen-box.wide { max-width: 1160px; }
 .screen-box .lead { text-align: center; max-width: 760px; margin: 0 auto 8px; text-shadow: 0 2px 6px #000; }
 .screen-box .field { justify-content: center; }
 
-.title-wrap { display: flex; flex-direction: column; align-items: center; gap: 26px; width: 100%; }
+.title-wrap { display: flex; flex-direction: column; align-items: center; gap: 26px; width: 100%; padding-top: 2vh; }
 .title-logo { width: min(620px, 92vw); aspect-ratio: 736 / 214; background: var(--art-logo) center / contain no-repeat; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.7)); }
 .title-buttons { display: flex; flex-direction: column; gap: 12px; width: min(340px, 86vw); }
 

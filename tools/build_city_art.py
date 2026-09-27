@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Cut the Free City art sheets into pieces and embed them in css/art/city-*.css.
 
+Only city-ui and city-icons are still built: the cards, scenes and tables
+now come from the Candlemark Noir sheets (tools/build_noir_art.py).
+
 The sheets (PNG, 1448x1086 or 1672x941) are supplied outside the repository,
 which holds no binary files. Every piece becomes a base64 WebP data URI under
 a CSS custom property --art-<key>.
@@ -33,11 +36,8 @@ THR = 40  # a pixel brighter than this is "ink", not the black sheet
 # ------------------------------------------------------------------ manifest
 # Output file -> list of entries. Sizes: (max width, webp quality).
 FILES = {
-    'city-cards': dict(width=232, q=70),
-    'city-scenes': dict(width=240, q=68),
     'city-ui': dict(width=480, q=72),
     'city-icons': dict(width=96, q=78),
-    'city-tables': dict(width=1400, q=58),
 }
 
 M = {'city-cards': [], 'city-scenes': [], 'city-ui': [], 'city-icons': [], 'city-tables': []}

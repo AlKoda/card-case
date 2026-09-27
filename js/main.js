@@ -49,9 +49,9 @@
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
 
-  var CALLING_ART = { commissioner: 'back-sun', master: 'back-eye', crusader: 'back-scales' };
-  var ENDING_ART = { dismissed: 'back-moon', burnout: 'back-moon', collapse: 'back-moon', consumed: 'back-eye', corruption: 'back-key',
-    death: 'back-snake', riot: 'back-snake', thieftaker: 'back-key', oldbailey: 'back-scales', kingofthunes: 'back-snake', treatycity: 'back-moon', merciful: 'back-sun', hangmans: 'back-key', stake: 'back-scales', dagger: 'back-snake', commissioner: 'back-sun', master: 'back-eye', crusader: 'back-scales' };
+  var CALLING_ART = { commissioner: 'ntarot-09', master: 'ntarot-07', crusader: 'ntarot-08' };
+  var ENDING_ART = { dismissed: 'ntarot-08', burnout: 'ntarot-08', collapse: 'ntarot-08', consumed: 'ntarot-07', corruption: 'ntarot-07',
+    death: 'ntarot-08', riot: 'ntarot-08', thieftaker: 'ntarot-07', oldbailey: 'ntarot-09', kingofthunes: 'ntarot-08', treatycity: 'ntarot-08', merciful: 'ntarot-09', hangmans: 'ntarot-07', stake: 'ntarot-09', dagger: 'ntarot-08', commissioner: 'ntarot-09', master: 'ntarot-07', crusader: 'ntarot-09' };
 
   function save() {
     if (inGame && UI.e && !UI.e.s.over) store(SAVE_KEY, UI.e.save());
@@ -65,7 +65,7 @@
     store(LEGACY_KEY, JSON.stringify(e.s.legacy));
     var st = e.s.stats;
     $('end').querySelector('.modal-box').className = 'modal-box end-box ' + (over.win ? 'end-win' : 'end-lose');
-    $('end-card').style.backgroundImage = 'var(--art-' + (ENDING_ART[over.id] || 'back-moon') + ')';
+    $('end-card').style.backgroundImage = 'var(--art-' + (ENDING_ART[over.id] || 'ntarot-08') + ')';
     $('end-card-top').textContent = over.title;
     $('end-card-bottom').textContent = e.s.detective;
     $('end-title').textContent = over.title;

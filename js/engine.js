@@ -184,6 +184,16 @@
     var e = new Engine(s);
     e.initPaths();
     e.layoutVerbs();
+    // Cards from before the grid: onto the nearest free cell, oldest first.
+    var loose = e.tableCards().filter(function (c) { return c.loc.x % T.PX || (c.loc.y - T.TOP) % T.PY; }).sort(function (a, b) { return a.uid - b.uid; });
+    loose.forEach(function (c) { c.was = { x: c.loc.x, y: c.loc.y }; c.loc = { t: 'table', x: -1, y: -1 }; });
+    loose.forEach(function (c) {
+      var obs = e.obstacles(function (o) { return o === c || o.loc.x < 0; });
+      var stack = e.stackFor(c);
+      var p = stack ? { x: stack.loc.x, y: stack.loc.y } : e.nearestFree(c.was.x, c.was.y, T.CW, T.CH, obs);
+      c.loc = { t: 'table', x: p.x, y: p.y };
+      delete c.was;
+    });
     return e;
   };
 
@@ -339,16 +349,22 @@
   }
 
   // The free spot closest to (x, y) for a w x h footprint.
+  // The table is a grid of card-sized cells; every card sits in one.
+  T.PX = T.CW + T.GAP; T.PY = T.CH + T.GAP;
+  function snap(x, y) {
+    return { x: Math.round(x / T.PX) * T.PX, y: T.TOP + Math.round((y - T.TOP) / T.PY) * T.PY };
+  }
+  CF.snapGrid = snap;
   P.nearestFree = function (x, y, w, h, obs) {
-    x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+    var p = snap(Math.max(0, x), Math.max(0, y));
+    x = p.x; y = p.y;
     if (isFree({ x: x, y: y, w: w, h: h }, obs)) return { x: x, y: y };
-    var step = 12;
-    for (var r = 1; r <= 90; r++) {
+    for (var r = 1; r <= 40; r++) {
       var best = null, bestD = Infinity;
       for (var i = -r; i <= r; i++) {
         var pts = [[i, -r], [i, r], [-r, i], [r, i]];
         for (var j = 0; j < 4; j++) {
-          var px = x + pts[j][0] * step, py = y + pts[j][1] * step;
+          var px = x + pts[j][0] * T.PX, py = y + pts[j][1] * T.PY;
           var d = (px - x) * (px - x) + (py - y) * (py - y);
           if (d < bestD && isFree({ x: px, y: py, w: w, h: h }, obs)) { best = { x: px, y: py }; bestD = d; }
         }

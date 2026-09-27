@@ -1,6 +1,6 @@
 // Service worker: the whole game is cached on first visit, so it opens
 // offline and installs to a tablet's home screen. Bump VERSION on release.
-var VERSION = 'casefile-v5';
+var VERSION = 'casefile-v6';
 var FILES = [
   "index.html",
   "manifest.webmanifest",
@@ -8,11 +8,12 @@ var FILES = [
   "css/style.css",
   "css/fonts.css",
   "css/art/menu.css",
-  "css/art/city-cards.css",
-  "css/art/city-scenes.css",
   "css/art/city-ui.css",
   "css/art/city-icons.css",
-  "css/art/city-tables.css",
+  "css/art/noir-cards.css",
+  "css/art/noir-icons.css",
+  "css/art/noir-verbs.css",
+  "css/art/noir-tables.css",
   "js/util.js",
   "js/data/cards.js",
   "js/data/cases.js",
