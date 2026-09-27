@@ -145,8 +145,6 @@
     // The grid over the whole table: its cells line up with the tidy layout.
     var B = T.BOUNDS, grid = h('div', 'grid');
     grid.style.left = B.x + 'px'; grid.style.top = B.y + 'px'; grid.style.width = B.w + 'px'; grid.style.height = B.h + 'px';
-    grid.style.backgroundSize = T.PX + 'px ' + T.PY + 'px';
-    grid.style.backgroundPosition = (((0 - B.x) % T.PX) + T.PX) % T.PX + 'px ' + (((T.TOP - B.y) % T.PY) + T.PY) % T.PY + 'px';
     $('#board').appendChild(grid);
     applyTableSettings();
     UI.journalSeen = engine.s.journal.length;
@@ -159,7 +157,6 @@
     $('#btn-journal').classList.remove('unread');
     $('#journal-drawer').classList.remove('open');
     $('#peek').classList.remove('open');
-    T.GAP = CF.Settings.get('gap') || T.GAP;
     cardEls = {}; verbEls = {}; winEls = {}; liveCards = [];
     engine.on(onEvent);
     engine.dirty = true;
@@ -170,8 +167,19 @@
   // Settings that shape the table: the grid's visibility and whether cards settle on it.
   function applyTableSettings() {
     T.snap = CF.Settings.get('snap') !== false;
-    var g = document.querySelector('#board .grid');
-    if (g) g.classList.toggle('hidden', CF.Settings.get('grid') === false);
+    var gap = CF.Settings.get('gap') || T.GAP;
+    if (gap !== T.GAP || !UI.gridPitch) {
+      T.setGap(gap);
+      // The pile strip is sized by the pitch: it is rebuilt on the next sync.
+      if (pileEl) { pileEl.remove(); pileEl = null; }
+    }
+    var g = document.querySelector('#board .grid'), B = T.BOUNDS;
+    if (g) {
+      g.classList.toggle('hidden', CF.Settings.get('grid') === false);
+      g.style.backgroundSize = T.PX + 'px ' + T.PY + 'px';
+      g.style.backgroundPosition = (((0 - B.x) % T.PX) + T.PX) % T.PX + 'px ' + (((T.TOP - B.y) % T.PY) + T.PY) % T.PY + 'px';
+    }
+    UI.gridPitch = T.PX + 'x' + T.PY;
   }
   CF.Settings.onChange(applyTableSettings);
   UI.scale = function () { return U.clamp((CF.Settings.get('uiScale') || 100) / 100, 0.8, 1.6); };
@@ -978,7 +986,7 @@
       if (wk) pane.appendChild(storyBox(wk));
       var open = e.openCases().slice().sort(function (a, b) { return caseLife(a) - caseLife(b); });
       var money = e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; }).length;
-      pane.appendChild(h('p', 'vw-desc', 'Coin on the table: ' + money + '. Every week the Council pays ' + ((CF.RANK_DEFS[e.s.rank] || {}).salary || 1) + ' in stipend and your lodging takes ' + CF.ECONOMY.rent + '; miss it and you sleep on the Watch-house bench.'));
+      pane.appendChild(h('p', 'vw-desc', 'Coin on the table: ' + money + '. Every week the Council pays ' + ((CF.RANK_DEFS[e.s.rank] || {}).salary || 1) + ' in stipend and the Bell draws ' + e.dues() + ' in dues (lodging ' + CF.ECONOMY.rent + (e.dues() > CF.ECONOMY.rent ? ', and ' + (e.dues() - CF.ECONOMY.rent) + ' for the watchmen you keep' : '') + '); miss it and you sleep on the Watch-house bench.'));
       pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first.' : 'No open cases.'));
       open.forEach(function (rec) {
         var cc = e.caseCard(rec.id);

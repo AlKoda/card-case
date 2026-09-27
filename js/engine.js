@@ -348,7 +348,10 @@
 
   // The free spot closest to (x, y) for a w x h footprint.
   // The table is a grid of card-sized cells; every card sits in one.
-  T.PX = T.CW + T.GAP; T.PY = T.CH + T.GAP; T.PILE_COLS = 6;
+  T.PILE_COLS = 6;
+  // The grid's pitch follows the card spacing (Settings: Card spacing).
+  T.setGap = function (gap) { T.GAP = gap; T.PX = T.CW + T.GAP; T.PY = T.CH + T.GAP; };
+  T.setGap(T.GAP);
   T.snap = true; // cards settle on the grid's cells (Settings: Snap to grid)
   function snap(x, y) {
     return { x: Math.round(x / T.PX) * T.PX, y: T.TOP + Math.round((y - T.TOP) / T.PY) * T.PY };
