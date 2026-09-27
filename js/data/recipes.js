@@ -1392,4 +1392,34 @@
 
   // Index.
   CF.Recipe.register(R.concat(CF.Recipe.fromLeads(CF.CASE_TEMPLATES)));
+  // ------------------------------------------------------------ MID-WORK ASKS
+  // Part-way through, some work wants one more card: the token opens its
+  // small box, and the window says why. Answering (drop the card on the
+  // token, or let the box pull it) earns the reward; ignoring it costs
+  // nothing. Rewards: finish (done now), haste (the rest goes quickly),
+  // nofatigue (no Weariness from it), testimony (the word carries more).
+  function lead(id) { return /^lead_/.test(id); }
+  CF.ASKS = [
+    { when: function (id, verb) { return verb === 'investigate' && (id === 'inv_search' || id === 'inv_photograph' || lead(id)); },
+      at: 0.45, label: 'A locked door', text: 'The back room is locked. Instinct finds the key under the sill; a watchman puts a shoulder to it.',
+      accepts: ['instinct', 'teammate'], reward: 'finish', thanks: 'The door gave, and the rest of the search was quick.' },
+    { when: function (id) { return id === 'inv_canvass'; },
+      at: 0.4, label: 'A shut door', text: 'One house will not open to the Watch. It opens to Coin.',
+      accepts: ['funds'], consume: true, reward: 'haste', thanks: 'A Coin under the door, and the whole street talked.' },
+    { when: function (id) { return id === 'patrol_walk' || id === 'patrol_district'; },
+      at: 0.4, label: 'A shortcut', text: 'A boy offers to show you the short way through the yards, for a Coin.',
+      accepts: ['funds'], consume: true, reward: 'haste', thanks: 'The boy knew the yards.' },
+    { when: function (id, verb) { return verb === 'analyze' && id !== 'an_clue_none' && id !== 'an_plant'; },
+      at: 0.5, label: 'The light is going', text: 'The window dims. Wit works on by candle; Instinct works by feel.',
+      accepts: ['focus', 'instinct'], reward: 'haste', thanks: 'You finished before dark.' },
+    { when: function (id) { return id === 'int_witness'; },
+      at: 0.4, label: 'Their trouble', text: 'They have lost a morning to you. A Coin for it loosens the tongue.',
+      accepts: ['funds'], consume: true, reward: 'testimony', thanks: 'Paid for their morning, they remembered more.' },
+    { when: function (id) { return id === 'int_suspect'; },
+      at: 0.5, label: 'A long silence', text: 'They have stopped answering. Wit finds the question that opens them again.',
+      accepts: ['focus'], reward: 'haste', thanks: 'The right question, and the rest came out in a rush.' },
+    { when: function (id) { return id === 'duty_beat'; },
+      at: 0.5, label: 'A brawl', text: 'The bear-garden empties into the lane. A watchman at your side, and it is over quickly.',
+      accepts: ['teammate'], reward: 'nofatigue', thanks: 'Two of you, and the brawl came apart before it wore you out.' },
+  ];
 })(typeof window !== 'undefined' ? window : globalThis);

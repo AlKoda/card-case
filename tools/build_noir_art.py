@@ -47,7 +47,8 @@ def cells(x0, y0, x1, y1, n, w=None):
     return [(round(x0 + i * pitch), y0, round(x0 + i * pitch + w), y1) for i in range(n)]
 
 # ---- Tables and scenes (full bleed) ---------------------------------------
-one('noir-tables', 'ntable', 'n04', None)
+# The table: only the gold-framed mat (the printed card outlines around it are left out).
+one('noir-tables', 'ntable', 'n04', (120, 95, 1552, 800))
 one('noir-tables', 'nmenu', 'n09', None)
 
 # ---- Silhouette portraits (five sheets of eight): people ------------------

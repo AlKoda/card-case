@@ -26,7 +26,7 @@
     verbsOnBoard: true,          // the verbs are tokens on the felt, movable like cards
   };
   // The edge of the table: nothing goes beyond it.
-  T.BOUNDS = { x: -1040, y: -560, w: 3200, h: 1640 };
+  T.BOUNDS = { x: -1120, y: -680, w: 3340, h: 1630 };
   var ZONE_ROWS = {       // layout row each kind prefers
     ability: 0, funds: 0, threat: 0, calling: 0, insight: 0, career: 0,
     case: 1, coldcase: 1, court: 1,
@@ -283,8 +283,13 @@
     });
   };
   // Why a card cannot be used right now, or null if it can (or never could).
+  // The running verb whose open ask this card answers, if any.
+  P.askedBy = function (card) {
+    for (var i = 0; i < CF.VERB_ORDER.length; i++) if (this.askAccepts(CF.VERB_ORDER[i], card)) return CF.VERB_ORDER[i];
+    return null;
+  };
   P.unavailableReason = function (card) {
-    if (this.usableIn(card).length || !this.fitsAny(card)) return null;
+    if (this.usableIn(card).length || !this.fitsAny(card) || this.askedBy(card)) return null;
     var self = this, locked = CF.VERB_ORDER.filter(function (vid) {
       var v = self.verb(vid);
       return v && v.unlocked && self.lockReason(vid) && CF.VERBS[vid].slots.some(function (sl) { return self.slotAccepts(sl, card); });
@@ -809,6 +814,7 @@
     }
     v.slots = {};
     v.status = 'running';
+    v.ask = null;
     v.recipe = r.recipe.id;
     v.duration = this.durationOf(r.recipe, r.ctx);
     v.elapsed = 0;
@@ -816,6 +822,58 @@
     if (r.recipe.onStart) r.recipe.onStart(r.ctx);
     this.dirty = true;
     return true;
+  };
+
+  // ---- Mid-work asks ---------------------------------------------------------
+  // Part-way through, some work wants one more card (see CF.ASKS). The verb
+  // opens its small box; answer it by dropping the card on the token or
+  // letting the magnet pull it, for a reward. Ignored, the work finishes as
+  // it would have.
+  P.askSpec = function (v) {
+    if (!v || !v.recipe || !CF.ASKS) return null;
+    var vid = v.id;
+    for (var i = 0; i < CF.ASKS.length; i++) if (CF.ASKS[i].when(v.recipe, vid)) return CF.ASKS[i];
+    return null;
+  };
+  P.tickAsk = function (vid) {
+    var v = this.verb(vid), spec = this.askSpec(v);
+    if (!spec || v.ask || v.status !== 'running' || v.elapsed < spec.at * v.duration) return;
+    v.ask = { label: spec.label, text: spec.text, accepts: spec.accepts, filled: null };
+    this.dirty = true;
+    this.emit('ask', { verb: vid, label: spec.label, text: spec.text });
+  };
+  P.askAccepts = function (vid, card) {
+    var v = this.verb(vid);
+    if (!v || v.status !== 'running' || !v.ask || v.ask.filled || !card || !card.loc || card.loc.t !== 'table') return false;
+    return this.slotAccepts({ key: 'ask', label: v.ask.label, accepts: v.ask.accepts }, card);
+  };
+  P.askCandidates = function (vid) {
+    var self = this;
+    return this.tableCards().filter(function (c) { return self.askAccepts(vid, c) && !self.unavailableReason(c); }).sort(function (a, b) { return a.uid - b.uid; });
+  };
+  P.answerAsk = function (vid, uid) {
+    var v = this.verb(vid), card = this.card(uid), spec = this.askSpec(v);
+    if (!spec || !this.askAccepts(vid, card)) return false;
+    this.detach(card);
+    card.loc = { t: 'held', verb: vid };
+    v.held.push(uid);
+    v.ask.filled = uid;
+    if (spec.reward === 'haste') v.duration = v.elapsed + (v.duration - v.elapsed) * 0.4;
+    if (spec.reward === 'finish') v.duration = v.elapsed;
+    this.dirty = true;
+    return true;
+  };
+  // At completion: the reward, and the card back (or spent).
+  P.settleAsk = function (v, ctx, result) {
+    var spec = this.askSpec(v), self = this;
+    var answered = v.ask && v.ask.filled && this.card(v.ask.filled);
+    if (answered && spec) {
+      if (spec.reward === 'nofatigue') ctx.out.slice().forEach(function (c) { if (c.def === 'fatigue') { self.remove(c); ctx.out.splice(ctx.out.indexOf(c), 1); } });
+      if (spec.reward === 'testimony') ctx.out.forEach(function (c) { if ((c.def === 'clue' || c.def === 'evidence') && c.aspects) c.aspects.testimony = (c.aspects.testimony || 0) + 1; });
+      if (spec.consume) this.remove(answered);
+      if (result && spec.thanks) result.text = (result.text ? result.text + ' ' : '') + spec.thanks;
+    }
+    v.ask = null;
   };
 
   P.complete = function (verbId) {
@@ -831,6 +889,7 @@
       if (typeof console !== 'undefined') console.error(err);
       result = { title: 'Something went wrong', text: String(err && err.message) };
     }
+    this.settleAsk(v, ctx, result);
     var self = this;
     // Anything still held (not consumed) comes back out.
     v.held.slice().forEach(function (uid) {
@@ -980,6 +1039,7 @@
       var v = s.verbs[vid];
       if (v.status !== 'running') continue;
       v.elapsed += dt;
+      this.tickAsk(vid);
       if (v.elapsed >= v.duration) this.complete(vid);
       if (s.over) return;
     }
