@@ -8,7 +8,7 @@
   // ------------------------------------------------------------ Settings
   var SettingsUI = (CF.SettingsUI = {});
   var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap', 'uiScale'];
-  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag'];
+  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap'];
 
   function showValue(input) { input.nextElementSibling.textContent = input.value + (input.id === 's-gap' ? 'px' : '%'); }
 

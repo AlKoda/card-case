@@ -348,22 +348,27 @@
 
   // The free spot closest to (x, y) for a w x h footprint.
   // The table is a grid of card-sized cells; every card sits in one.
-  T.PX = T.CW + T.GAP; T.PY = T.CH + T.GAP; T.PILE_COLS = 6;
+  T.PILE_COLS = 6;
+  // The grid's pitch follows the card spacing (Settings: Card spacing).
+  T.setGap = function (gap) { T.GAP = gap; T.PX = T.CW + T.GAP; T.PY = T.CH + T.GAP; };
+  T.setGap(T.GAP);
+  T.snap = true; // cards settle on the grid's cells (Settings: Snap to grid)
   function snap(x, y) {
     return { x: Math.round(x / T.PX) * T.PX, y: T.TOP + Math.round((y - T.TOP) / T.PY) * T.PY };
   }
   CF.snapGrid = snap;
   P.nearestFree = function (x, y, w, h, obs) {
-    var p = this.clampToTable(x, y, w, h);
+    var g = T.snap ? snap(x, y) : { x: x, y: y };
+    var p = this.clampToTable(g.x, g.y, w, h);
     x = p.x; y = p.y;
     if (isFree({ x: x, y: y, w: w, h: h }, obs)) return { x: x, y: y };
-    var step = 12;
-    for (var r = 1; r <= 90; r++) {
+    var sx = T.snap ? T.PX : 12, sy = T.snap ? T.PY : 12;
+    for (var r = 1; r <= (T.snap ? 30 : 90); r++) {
       var best = null, bestD = Infinity;
       for (var i = -r; i <= r; i++) {
         var pts = [[i, -r], [i, r], [-r, i], [r, i]];
         for (var j = 0; j < 4; j++) {
-          var px = x + pts[j][0] * step, py = y + pts[j][1] * step;
+          var px = x + pts[j][0] * sx, py = y + pts[j][1] * sy;
           var d = (px - x) * (px - x) + (py - y) * (py - y);
           if (d < bestD && isFree({ x: px, y: py, w: w, h: h }, obs)) { best = { x: px, y: py }; bestD = d; }
         }
@@ -667,6 +672,36 @@
     var vis = {};
     this.visibleSlots(verbId).forEach(function (sl) { vis[sl.key] = true; });
     for (var k in v.slots) if (!vis[k]) this.unslot(verbId, k);
+  };
+
+  // The magnet: fill the verb's empty slots from the table with cards that
+  // fit them. The subject (the primary slot) is always the player's choice.
+  // Returns what it pulled, in the order it pulled it.
+  P.magnetCandidates = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
+    var self = this, v = this.verb(verbId), def = CF.VERBS[verbId];
+    if (!v.unlocked || def.auto || v.status !== 'idle' || !v.slots[this.primaryKey(verbId)]) return [];
+    var taken = {}, out = [];
+    var cards = this.tableCards().sort(function (a, b) { return a.uid - b.uid; });
+    this.visibleSlots(verbId).forEach(function (sl) {
+      if (sl.primary || v.slots[sl.key]) return;
+      // Your own faculties and your Coin are choices, not requirements: the magnet leaves them.
+      var c = cards.filter(function (x) { var k = self.kindOf(x); return k !== 'ability' && k !== 'funds' && !taken[x.uid] && self.slotAccepts(sl, x) && !self.unavailableReason(x); })[0];
+      if (c) { taken[c.uid] = true; out.push({ uid: c.uid, slot: sl.key }); }
+    });
+    return out;
+  };
+  P.magnet = function (verbId) {
+    verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
+    var self = this, pulled = [];
+    // Slots open as others fill: pull again until nothing more fits.
+    for (var round = 0; round < 6; round++) {
+      var list = this.magnetCandidates(verbId);
+      if (!list.length) break;
+      list.forEach(function (it) { if (self.slotCard(verbId, it.slot, it.uid)) pulled.push(it); });
+    }
+    if (pulled.length) this.dirty = true;
+    return pulled;
   };
 
   P.clearSlots = function (verbId) {
@@ -1029,6 +1064,12 @@
     this.remove(card);
   };
 
+  // What the Bell draws each week: lodging, and a Coin for every two
+  // watchmen in your service.
+  P.dues = function () {
+    return CF.ECONOMY.rent + Math.floor(this.cardsOf('teammate', true).length / 2);
+  };
+
   P.weekTick = function () {
     var s = this, self = this;
     s = this.s;
@@ -1036,13 +1077,16 @@
     if (s.intro && !s.intro.finished) this.introFinish('The week turns.');
     var lines = [];
 
-    // Rent first, out of what is on the table; then the salary.
+    // Dues first, out of what is on the table; then the salary.
     var salary = (CF.RANK_DEFS[s.rank] || {}).salary || CF.ECONOMY.salary[s.rank] || 1;
     var funds = this.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; });
-    var paid = funds.length >= CF.ECONOMY.rent;
+    var dues = this.dues();
+    var paid = funds.length >= dues;
     if (paid) {
-      funds.slice(0, CF.ECONOMY.rent).forEach(function (c) { self.remove(c); });
-      lines.push('Lodging and dues take ' + CF.ECONOMY.rent + '. The Council\'s stipend: ' + salary + ' Coin.');
+      var taken = funds.slice(0, dues);
+      this.emit('dues', { uids: taken.map(function (c) { return c.uid; }) });
+      taken.forEach(function (c) { self.remove(c); });
+      lines.push('Lodging and dues take ' + dues + '. The Council\'s stipend: ' + salary + ' Coin.');
     }
     for (var si = 0; si < salary; si++) this.create('funds');
     if (!paid) {

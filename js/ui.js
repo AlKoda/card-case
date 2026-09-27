@@ -107,6 +107,7 @@
 
   var T = CF.TABLE;
   UI.verbArt = function (v) { return VERB_TOKENS[v] || 'nverb-03'; };
+  var wheelAcc = 0, wheelAt = null, wheelRaf = 0;
   var cardEls = {};   // top card uid -> board element
   var pileEl = null;  // the collection pile's zone on the board
   var verbEls = {};   // verb id -> token element
@@ -141,6 +142,11 @@
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
     pileEl = null;
+    // The grid over the whole table: its cells line up with the tidy layout.
+    var B = T.BOUNDS, grid = h('div', 'grid');
+    grid.style.left = B.x + 'px'; grid.style.top = B.y + 'px'; grid.style.width = B.w + 'px'; grid.style.height = B.h + 'px';
+    $('#board').appendChild(grid);
+    applyTableSettings();
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
     UI.tidyUndo = null;
@@ -151,7 +157,6 @@
     $('#btn-journal').classList.remove('unread');
     $('#journal-drawer').classList.remove('open');
     $('#peek').classList.remove('open');
-    T.GAP = CF.Settings.get('gap') || T.GAP;
     cardEls = {}; verbEls = {}; winEls = {}; liveCards = [];
     engine.on(onEvent);
     engine.dirty = true;
@@ -159,6 +164,24 @@
   };
 
   // The panel scale from Settings (1 = as designed).
+  // Settings that shape the table: the grid's visibility and whether cards settle on it.
+  function applyTableSettings() {
+    T.snap = CF.Settings.get('snap') !== false;
+    var gap = CF.Settings.get('gap') || T.GAP;
+    if (gap !== T.GAP || !UI.gridPitch) {
+      T.setGap(gap);
+      // The pile strip is sized by the pitch: it is rebuilt on the next sync.
+      if (pileEl) { pileEl.remove(); pileEl = null; }
+    }
+    var g = document.querySelector('#board .grid'), B = T.BOUNDS;
+    if (g) {
+      g.classList.toggle('hidden', CF.Settings.get('grid') === false);
+      g.style.backgroundSize = T.PX + 'px ' + T.PY + 'px';
+      g.style.backgroundPosition = (((0 - B.x) % T.PX) + T.PX) % T.PX + 'px ' + (((T.TOP - B.y) % T.PY) + T.PY) % T.PY + 'px';
+    }
+    UI.gridPitch = T.PX + 'x' + T.PY;
+  }
+  CF.Settings.onChange(applyTableSettings);
   UI.scale = function () { return U.clamp((CF.Settings.get('uiScale') || 100) / 100, 0.8, 1.6); };
   UI.applyScale = function () {
     document.documentElement.style.setProperty('--ui-scale', UI.scale());
@@ -220,7 +243,8 @@
       // Inside a verb window the wheel scrolls the window, not the table.
       if (ev.target.closest && ev.target.closest('.vwin')) return;
       ev.preventDefault();
-      zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015));
+      wheelAcc += ev.deltaY; wheelAt = { x: ev.clientX, y: ev.clientY };
+      if (!wheelRaf) wheelRaf = requestAnimationFrame(function () { wheelRaf = 0; var d = wheelAcc; wheelAcc = 0; zoomAt(wheelAt.x, wheelAt.y, Math.exp(-d * 0.0015)); });
     }, { passive: false });
     $('#btn-journal').addEventListener('click', function () { UI.toggleJournal(); });
     $('#journal-close').addEventListener('click', function () { UI.toggleJournal(false); });
@@ -283,6 +307,10 @@
       var v = UI.e.verb(payload.verb);
       if (UI.openVerbs.indexOf(payload.verb) < 0 && v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
+    }
+    if (type === 'dues') {
+      var bell = verbEls.time;
+      payload.uids.forEach(function (u) { var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]); if (c && el) flyTo(el, bell, c); });
     }
     if (type === 'expiring') {
       toast({ title: 'Fading: ' + payload.label, text: 'Half a minute before it is gone. Use it or lose it.', kind: 'danger', uid: payload.uid, verb: payload.verb });
@@ -760,6 +788,9 @@
         el.appendChild(h('div', 'v-badge', '!'));
         el.appendChild(h('div', 'v-count'));
         el.appendChild(h('div', 'v-back'));
+        var mag = h('div', 'v-magnet');
+        mag.title = vid === 'time' ? 'Dues: what the Bell draws from the table each week' : 'Magnet: pull in the cards this verb\'s open slots take';
+        el.appendChild(mag);
         place(el, v.x, v.y);
         board.appendChild(el);
         verbEls[vid] = el;
@@ -773,8 +804,38 @@
       el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
       el.classList.toggle('loaded', v.status === 'idle' && n > 0);
       el.querySelector('.v-count').textContent = n || '';
+      var mag = el.querySelector('.v-magnet');
+      if (vid === 'time') mag.textContent = String(e.dues());
+      else { var can = e.magnetCandidates(vid).length > 0; mag.classList.toggle('can-pull', can); mag.textContent = can ? '⇲' : ''; }
     });
   }
+
+  // A card flies from where it is to a target element and vanishes into it.
+  function flyTo(fromEl, toEl, card) {
+    if (!fromEl || !toEl) return;
+    var r = fromEl.getBoundingClientRect(), t = toEl.getBoundingClientRect();
+    var ghost = buildCard(card, 1);
+    ghost.classList.add('ghost');
+    ghost.style.left = r.left + 'px'; ghost.style.top = r.top + 'px';
+    ghost.style.transformOrigin = '0 0';
+    ghost.style.transform = 'scale(' + (r.width / T.CW) + ')';
+    $('#drag-layer').appendChild(ghost);
+    void ghost.offsetWidth;
+    ghost.style.left = (t.left + t.width / 2 - T.CW * 0.15) + 'px'; ghost.style.top = (t.top + t.height / 2 - T.CH * 0.15) + 'px';
+    ghost.style.transform = 'scale(0.3) rotate(12deg)';
+    ghost.style.opacity = '0.2';
+    setTimeout(function () { ghost.remove(); }, 380);
+  }
+  // The magnet: the verb pulls in what its open slots take, and opens.
+  UI.magnet = function (vid) {
+    var e = UI.e, tok = verbEls[vid];
+    var pulled = e.magnet(vid);
+    if (!pulled.length) { toast({ title: 'Nothing to pull', text: 'No card on the table fits this verb\'s open slots.', kind: 'minor' }); return; }
+    pulled.forEach(function (it) { var el = cardEls[it.uid]; var c = e.card(it.uid); if (el && c) { flyTo(el, tok, c); el.remove(); delete cardEls[it.uid]; } });
+    CF.Audio.play('drop');
+    openWindow(vid);
+    e.dirty = true;
+  };
 
   function updateVerbRings() {
     var e = UI.e;
@@ -925,7 +986,7 @@
       if (wk) pane.appendChild(storyBox(wk));
       var open = e.openCases().slice().sort(function (a, b) { return caseLife(a) - caseLife(b); });
       var money = e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; }).length;
-      pane.appendChild(h('p', 'vw-desc', 'Coin on the table: ' + money + '. Every week the Council pays ' + ((CF.RANK_DEFS[e.s.rank] || {}).salary || 1) + ' in stipend and your lodging takes ' + CF.ECONOMY.rent + '; miss it and you sleep on the Watch-house bench.'));
+      pane.appendChild(h('p', 'vw-desc', 'Coin on the table: ' + money + '. Every week the Council pays ' + ((CF.RANK_DEFS[e.s.rank] || {}).salary || 1) + ' in stipend and the Bell draws ' + e.dues() + ' in dues (lodging ' + CF.ECONOMY.rent + (e.dues() > CF.ECONOMY.rent ? ', and ' + (e.dues() - CF.ECONOMY.rent) + ' for the watchmen you keep' : '') + '); miss it and you sleep on the Watch-house bench.'));
       pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first.' : 'No open cases.'));
       open.forEach(function (rec) {
         var cc = e.caseCard(rec.id);
@@ -1008,6 +1069,11 @@
       slots.appendChild(s);
     });
     pane.appendChild(slots);
+    if (e.magnetCandidates(vid).length) {
+      var pull = h('button', 'plate-btn gold pull', 'Pull in what fits');
+      pull.addEventListener('click', function () { UI.magnet(vid); });
+      pane.appendChild(pull);
+    }
     if (UI.pick && UI.pick.verb === vid) {
       if (v.slots[UI.pick.slot]) UI.pick = null; // the slot got its card another way
       else pane.appendChild(slotPicker(vid, UI.pick.slot));
@@ -1376,6 +1442,7 @@
       return;
     }
     var vn = t.closest && t.closest('.verb[data-verb]');
+    if (vn && ev.button === 0 && t.closest('.v-magnet') && vn.dataset.verb !== 'time') { UI.magnet(vn.dataset.verb); ev.preventDefault(); return; }
     if (vn && ev.button === 0) {
       UI.drag = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
       ev.preventDefault();
