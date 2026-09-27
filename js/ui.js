@@ -807,9 +807,22 @@
       el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
       el.classList.toggle('loaded', v.status === 'idle' && n > 0);
       el.querySelector('.v-count').textContent = n || '';
+      // The token's small box: hidden until it has something to show. With
+      // cards in the verb it shows the subject's picture; with cards on the
+      // table that fit its open slots it is the magnet.
       var mag = el.querySelector('.v-magnet');
       if (vid === 'time') { mag.textContent = String(e.dues()); mag.classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
-      else { var can = e.magnetCandidates(vid).length > 0; mag.classList.toggle('can-pull', can); mag.textContent = can ? '⇲' : ''; }
+      else {
+        var can = e.magnetCandidates(vid).length > 0;
+        var held = v.status === 'running' ? v.ctxSlots : v.slots;
+        var subject = held[e.primaryKey(vid)] ? e.card(held[e.primaryKey(vid)]) : null;
+        var pk = subject ? cardPicture(subject) : null;
+        mag.classList.toggle('can-pull', can);
+        mag.classList.toggle('filled', !!subject);
+        mag.style.backgroundImage = subject ? art(pk.art) : '';
+        mag.textContent = subject ? '' : can ? '⇲' : '';
+        mag.title = can ? 'Magnet: pull in the cards this verb\'s open slots take' : subject ? cardTitle(subject) : '';
+      }
     });
   }
 
