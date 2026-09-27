@@ -68,8 +68,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #board::before { content: ''; position: absolute; left: -1150px; top: -720px; width: 3400px; height: 1913px; background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
 #board > * { position: absolute; z-index: 1; }
 /* The token's small box: the magnet (the Bell's shows the weekly dues). */
-.verb .v-magnet { position: absolute; right: 2px; top: 84px; width: 30px; height: 30px; border-radius: 6px; background: #14161a; border: 2px solid #3a3d44; box-shadow: 0 3px 0 #0a0908, 0 5px 6px rgba(0, 0, 0, 0.6); color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 15px; line-height: 26px; text-align: center; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
-.verb .v-magnet.can-pull { border-color: var(--accent); color: var(--accent); box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(212, 162, 76, 0.8); animation: glow 1.6s infinite; }
+.verb .v-magnet { display: none; position: absolute; right: 2px; top: 84px; width: 30px; height: 30px; border-radius: 6px; background: #14161a; border: 2px solid #3a3d44; box-shadow: 0 3px 0 #0a0908, 0 5px 6px rgba(0, 0, 0, 0.6); color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 15px; line-height: 26px; text-align: center; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+.verb .v-magnet.can-pull, .verb .v-magnet.due { display: block; animation: boxIn 0.25s ease-out; }
+.verb .v-magnet.can-pull { border-color: var(--accent); color: var(--accent); box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(212, 162, 76, 0.8); animation: boxIn 0.25s ease-out, glow 1.6s 0.25s infinite; }
+.verb .v-magnet.due { border-color: #f0c85a; box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(240, 200, 90, 0.7); }
+@keyframes boxIn { from { transform: scale(0.4); opacity: 0; } }
 .verb .v-magnet:hover { transform: translateY(-2px); }
 .verb.time .v-magnet { top: 78px; color: #f0c85a; cursor: default; }
 .plate-btn.pull { display: block; margin: -4px auto 12px; }
@@ -80,8 +83,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #board .pile-zone.dragging { cursor: grabbing; border-style: solid; }
 #board .pile-zone .pz-label { position: absolute; left: 10px; top: -22px; font-family: var(--display); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #f0c85a; text-shadow: 0 1px 3px #000; }
 /* The grid: one cell per card, drawn as faint paper outlines. */
-#board .grid { z-index: 0; pointer-events: none; opacity: 0.5; will-change: transform;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='172'%3E%3Crect x='6.5' y='6.5' width='117' height='159' rx='7' fill='rgba(0,0,0,0.10)' stroke='rgba(228,206,160,0.28)' stroke-width='1'/%3E%3C/svg%3E") 0 0 repeat; }
+#board .grid { z-index: 0; pointer-events: none; opacity: 0.3; will-change: transform;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='172'%3E%3Crect x='6.5' y='6.5' width='117' height='159' rx='7' fill='none' stroke='rgba(228,206,160,0.55)' stroke-width='1'/%3E%3C/svg%3E") 0 0 repeat; }
 #table.paused #board { filter: saturate(0.6) brightness(0.86); }
 #windows { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 #drag-layer { position: fixed; inset: 0; pointer-events: none; z-index: 950; }
