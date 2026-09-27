@@ -3,7 +3,7 @@
   var CF = window.CF;
   var KEY = 'casefile.settings.v1';
   var DEFAULTS = { master: 80, music: 60, sfx: 70, textSpeed: 50, shake: true, lang: 'en', pauseOnCase: false, pauseOnVerb: false, pauseOnBlur: true,
-    gap: 14, guided: true, uiScale: 100, pauseOnDrag: false, grid: true, snap: true };
+    gap: 14, guided: true, uiScale: 100, pauseOnDrag: false, grid: false, snap: true };
 
   var Settings = (CF.Settings = { values: {}, listeners: [] });
 
