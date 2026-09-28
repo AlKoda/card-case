@@ -91,6 +91,7 @@ var sc = byDef(f, 'suspect')[0] || f.revealSuspect(fr, null);
 f.tick(0.1); f.create('clue', { label: 'y', caseId: fr.id, aspects: { forensic: 2 } }); f.create('clue', { label: 'z', caseId: fr.id, aspects: { opportunity: 2 } });
 f.tick(0.1); f.tick(0.1);
 assert.ok(f.verb('arrest').unlocked);
+f.s.weekT = 0; // the charge takes half a week now; the bell must not end the lesson
 run(f, 'arrest', [sc, byDef(f, 'clue')[0]]);
 f.tick(0.1);
 assert.ok(f.verb('duty').unlocked && /Attend/.test(f.introHint() || ''), 'the trial opens Attend: ' + f.introHint());

@@ -68,7 +68,7 @@ m.clearSlots('reflect');
 var g = game(84, 'master');
 g.s.meters.reputation = CF.RANK_REP[1]; g.checkThresholds();
 var board = byDef(g, 'promotion')[0];
-g.autoSlot('duty', board.uid); g.start('duty'); g.tick(31);
+g.autoSlot('duty', board.uid); g.start('duty'); g.tick(46);
 assert.strictEqual(g.s.paths.commissioner, 1, 'a promotion is Power');
 g.s.rooms.locker = false;
 g.addOrdersForRank(0);

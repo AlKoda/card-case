@@ -60,7 +60,7 @@ function checkInvariants(e) {
   assert.strictEqual(e.autoSlot('duty', hp.uid), 'main');
   assert.ok(e.preview('duty').label === 'Walk the Hard Round');
   assert.ok(e.start('duty'));
-  for (var i = 0; i < 31; i++) e.tick(1);
+  for (var i = 0; i < 61; i++) e.tick(1);
   assert.strictEqual(e.verb('duty').status, 'done');
   e.collect('duty');
   assert.ok(byDef('funds').length >= 4, 'beat shift paid (rent may have been taken)');

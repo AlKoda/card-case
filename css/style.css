@@ -179,10 +179,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
   position: absolute; left: -12%; right: -12%; top: 100%; margin-top: 11px; display: flex; align-items: center; justify-content: center;
   font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--paper); text-shadow: 0 1px 3px #000, 0 0 6px #000; white-space: nowrap; overflow: hidden;
 }
-.verb .v-ring { position: absolute; left: 2%; top: 2%; width: 96%; height: 96%; transform: rotate(-90deg); pointer-events: none; }
-.verb .v-ring circle { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 0 999; filter: drop-shadow(0 0 2px rgba(212, 162, 76, 0.9)); }
+/* The clock: a rounded square drawn just outside the token's edge, so the icon stays clear. */
+.verb .v-ring { position: absolute; left: -7px; top: -7px; width: calc(100% + 14px); height: calc(100% + 14px); overflow: visible; pointer-events: none; }
+.verb .v-ring rect { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 0 999; filter: drop-shadow(0 0 3px rgba(212, 162, 76, 0.9)); }
+.verb .v-ring rect.track { stroke: rgba(12, 10, 8, 0.75); stroke-dasharray: none; filter: drop-shadow(0 0 1px rgba(255, 230, 180, 0.35)); }
+.verb.locked .v-ring, .verb.time .v-ring rect.track { opacity: 0.5; }
 .verb.time .v-token { width: 96px; height: 96px; margin-top: 8px; }
-.verb.time .v-ring { left: 2%; top: 2%; width: 96%; height: 96%; }
 .verb .v-week { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); background: #0e1112; color: var(--paper); font-family: var(--serif); font-weight: 700; font-size: 9.5px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
 .verb .v-name { font-family: var(--mono); font-weight: 700; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; color: var(--paper); text-shadow: 0 1px 3px #000; }
 .verb .v-status { margin-top: 26px; font-size: 11.5px; font-weight: 700; color: var(--paper); text-shadow: 0 1px 3px #000; min-height: 13px; font-variant-numeric: tabular-nums; }
@@ -194,7 +196,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .verb.done .v-token { animation: pulse 1.4s infinite; }
 .verb .v-back { position: absolute; left: 50%; top: 22%; width: 44px; height: 60px; margin-left: -22px; border-radius: 4px; background: var(--art-ntarot-07) center / cover no-repeat; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.7); transform: rotate(-8deg) scale(0); transition: transform 0.2s; pointer-events: none; }
 .verb.done .v-back { transform: rotate(-8deg) scale(1); }
-.verb.done .v-ring circle { stroke: var(--good); filter: drop-shadow(0 0 3px rgba(109, 187, 106, 1)); }
+.verb.done .v-ring rect { stroke: var(--good); filter: drop-shadow(0 0 3px rgba(109, 187, 106, 1)); }
 .verb.done .v-status { color: #8fe08b; }
 .verb.locked .v-token { filter: grayscale(1) brightness(0.55); }
 .verb.locked .v-token::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); background: var(--art-icon-lock) center / contain no-repeat; }
@@ -231,6 +233,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--pic) center / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 .card .c-face { box-shadow: 0 3px 4px rgba(0, 0, 0, 0.55); transition: transform 0.15s, box-shadow 0.15s, filter 0.15s; }
+/* The kind of crime, as a wax seal on the corner of a case. */
+.card .c-seal { position: absolute; right: -7px; top: -7px; width: 32px; height: 32px; background: center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.65)); pointer-events: none; }
+/* Case strings: a pinned rope from each case to what belongs to it. */
+#board .links { position: absolute; overflow: visible; pointer-events: none; z-index: 0; opacity: 0.6; }
+#board .links.pins { z-index: 5; opacity: 0.85; }
+#board .links path { fill: none; stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.5)); }
+#board .links .pin { stroke: rgba(0, 0, 0, 0.6); stroke-width: 1; }
+#board .links .pin-hi { fill: rgba(255, 255, 255, 0.55); }
 .card .c-under { filter: brightness(0.55); box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5); }
 .card.face-pic .c-face { box-shadow: 0 3px 4px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 245, 220, 0.35), inset 0 0 18px rgba(90, 60, 20, 0.18); }
 .card.face-back .c-face, .card.face-back .c-under { background: var(--pic) center / cover no-repeat; }

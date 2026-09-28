@@ -24,7 +24,29 @@ saved as `n01.png` … `n25.png` in this order:
 | n24 | ten tall ink locations | `nloc` cases |
 | n25 | twelve paper cards with a corner icon | `npaper` words on paper |
 
-The other sheets (UI kits, dialogs, settings mock-ups) are not cut yet.
+## The kit (second batch)
+
+`tools/build_kit_art.py` cuts sixteen more sheets, supplied as `k01.png` …
+`k16.png`, into `css/art/kit-cards.css` and `kit-icons.css`. Tiles are found
+by their pixels, so the sheets need no measured boxes.
+
+| sheet | what it holds | keys |
+| --- | --- | --- |
+| k01 | sixteen deaths (a body under a sheet, in the river, on the rope…) | `kdeath` cases: missing, the Eumenides, the pattern, three days |
+| k02–k04, k06–k08 | body silhouettes: stabbed, beaten, hanged, drowned, plain, shot | `kstab` `kblunt` `khang` `kdrown` `kbody` `kshot` case cards and body tokens, by the case's kind of death |
+| k05 | poison: bottles, cups, the sick and the dead | `kpoison` |
+| k07 | sixteen bodies on the ground | `kbody` |
+| k09 | thirty wax seals | `kseal` the crime on a case's corner, the six proofs, the meters |
+| k10 | people and dealings | `kfolk` fraud, extortion, gangs, coining |
+| k11 | numbers, tags, links, ropes, seals, plates | `knum` `knext` `ktag` `klink` `krope` `kwax` `kplate` (spare) |
+| k12 | the court: gavel, bars, the condemned, the jury | `kcourt` the Condemned (behind bars), a wanted notice for the Abroad, the sworn men |
+| k13 | arrows, relations, pinned strings, time, places | `karrow` `krel` `kpin` `ktime` `kplace` (spare) |
+| k14 | investigation: lenses, keys, prints, the city | `kinv` burglary |
+| k15 | evidence: blood, poison, rope, papers, ash | `kev` arson |
+| k16 | rosettes, badges, labels | `kros` `kros2` `kbadge` `klabel` (spare) |
+
+Case strings (the pinned ropes between a case and its cards) are drawn by
+the stylesheet and `syncLinks` in `js/ui.js`, not cut from a sheet.
 
 Card faces are simple on purpose: a picture in a frame the stylesheet draws
 in the kind's colour, a paper strip with one name, and the whole story in
