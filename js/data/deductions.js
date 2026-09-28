@@ -17,7 +17,7 @@
   CF.DEDUCTIONS = [
     // Two tokens from different cases that point at the same door: the
     // cases are connected. Nobody tells the player this; they find it.
-    { id: 'connect', label: 'Follow the Thread', duration: 30,
+    { id: 'connect', label: 'Follow the Thread', duration: 25,
       needs: { min: 2, sharedLink: true, crossCase: true },
       story: { title: 'These Cases Are One', text: '{clues}: two cases, one door. Somebody is working through {front}, and more than one of your cases leads there.', kind: 'major' } },
     // Two tokens that describe the same person: an identification. Confirmed
@@ -34,34 +34,34 @@
       story: { title: 'Two Different People', text: 'Lay them side by side and they describe two different people. At least one of these tokens is about somebody who was not there, or who was there for another reason.', kind: 'minor' } },
 
     // Two pieces of the pattern: where he goes next.
-    { id: 'pattern', label: 'Read the Pattern', duration: 40,
+    { id: 'pattern', label: 'Read the Pattern', duration: 60,
       needs: { min: 2, pattern: 2 },
       gives: { label: 'The Next Door', text: 'The doors, the nights, the hair. You know which lane he walks next, and which night.', aspects: { opportunity: 3, forensic: 1 } },
       consume: true,
       story: { title: 'The Pattern Read', text: 'You draw the doors on a map of the quarter and the lines meet. He is not choosing girls. He is walking a shape, and the shape has one door left in it. Be there.', kind: 'major' } },
 
     // Theories: aspects that explain each other.
-    { id: 'money_motive', label: 'Follow the Coin', duration: 35,
+    { id: 'money_motive', label: 'Follow the Coin', duration: 40,
       needs: { min: 2, aspects: { financial: 2, motive: 1 } },
       gives: { label: 'Theory: Who Profits', text: 'Who owed, who paid, who is richer this week. The coin tells the story of why.', aspects: { motive: 2, financial: 2 } },
       consume: true,
       story: { title: 'Follow the Coin', text: 'You read the debts against the reasons until the two columns line up. Somebody needed this to happen, and the ledger says who.' } },
-    { id: 'placed', label: 'Put Them in the Room', duration: 35,
+    { id: 'placed', label: 'Put Them in the Room', duration: 30,
       needs: { min: 2, aspects: { forensic: 2, opportunity: 1 } },
       gives: { label: 'Placed in the Room', text: 'What was left behind, and who could have left it. The body of the thing puts one person in the room.', aspects: { forensic: 2, opportunity: 2 } },
       consume: true,
       story: { title: 'Hands and Hours', text: 'The marks and the hours agree. Whoever left this was here, then, with their hands on it.' } },
-    { id: 'timeline', label: 'Reckon the Night', duration: 35,
+    { id: 'timeline', label: 'Reckon the Night', duration: 40,
       needs: { min: 2, aspects: { opportunity: 3 } },
       gives: { label: 'The Night Reckoned', text: 'Bell by bell: who was where, and when the door of chance opened and shut.', aspects: { opportunity: 3 } },
       consume: true,
       story: { title: 'The Night, Bell by Bell', text: 'You write the hours on the wall and draw lines between them. There is a gap between compline and matins, and only one person fits through it.' } },
-    { id: 'paper_trail', label: 'Read the Papers', duration: 35,
+    { id: 'paper_trail', label: 'Read the Papers', duration: 30,
       needs: { min: 2, aspects: { digital: 2, financial: 1 } },
       gives: { label: 'Paper Trail', text: 'Ledgers, letters, seals. Paper does not misremember.', aspects: { digital: 2, financial: 2 } },
       consume: true,
       story: { title: 'Paper Trail', text: 'The papers agree with each other to the day. Nobody argues with a notary\'s seal.' } },
-    { id: 'said_and_seen', label: 'Compare the Accounts', duration: 30,
+    { id: 'said_and_seen', label: 'Compare the Accounts', duration: 20,
       needs: { min: 2, aspects: { testimony: 2, forensic: 1 } },
       gives: { label: 'Corroborated Account', text: 'What the witnesses swore matches what the scene shows. Together they are hard to dismiss.', aspects: { testimony: 2, forensic: 1, opportunity: 1 } },
       consume: true,

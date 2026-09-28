@@ -65,7 +65,7 @@
 
   // ===================================================================== DUTY
   R.push({
-    id: 'duty_promo', verb: 'duty', label: 'Attend on the Council', duration: 30,
+    id: 'duty_promo', verb: 'duty', label: 'Attend on the Council', duration: 45,
     preview: 'Put on a clean collar. Answer their questions. Try not to say what you actually think.',
     requires: ['promotion'],
     run: function (ctx) {
@@ -107,7 +107,7 @@
     ],
   });
   R.push({
-    id: 'duty_writsale', verb: 'duty', label: 'Sell a Writ', duration: 15,
+    id: 'duty_writsale', verb: 'duty', label: 'Sell a Writ', duration: 10,
     preview: function (ctx) { var d = ctx.primary.data; return 'Find cause where there is none and have ' + d.rival + '\'s house turned over at first light. Three Coin, and a patrician who owes you.' + (d.council ? ' The rival is a Council family; the Council will hear of it.' : ''); },
     danger: function (ctx) { return 'Purse +1 · Suspicion +' + (ctx.primary.data.council ? 2 : 1); },
     requires: ['writsale'],
@@ -141,7 +141,7 @@
     },
   });
   R.push({
-    id: 'duty_train', verb: 'duty', label: 'Drill a Watchman', duration: 40,
+    id: 'duty_train', verb: 'duty', label: 'Drill a Watchman', duration: 60,
     preview: 'The yard, the halberd, the sergeant\'s tongue. They will come back sharper.',
     blocked: { funds: function (ctx) { return ctx.e.s.rooms.training ? 1 : 2; } },
     requires: { primary: 'teammate', aspects: ['funds'] },
@@ -179,7 +179,7 @@
     },
   });
   R.push({
-    id: 'duty_team', verb: 'duty', label: 'Put Them on the Round', duration: 30,
+    id: 'duty_team', verb: 'duty', label: 'Put Them on the Round', duration: 20,
     preview: 'They walk a round in your name. The fee comes to you.',
     requires: { primary: 'teammate' }, forbids: ['funds'],
     effects: [
@@ -188,7 +188,7 @@
     ],
   });
   R.push({
-    id: 'duty_file', verb: 'duty', label: 'Enter the Rolls', duration: 25,
+    id: 'duty_file', verb: 'duty', label: 'Enter the Rolls', duration: 15,
     preview: 'Every examination written fair. Every deposition marked. The Council loves a tidy book.',
     requires: { primary: 'focus', aspects: ['paperwork'] },
     effects: [
@@ -197,7 +197,7 @@
     ],
   });
   R.push({
-    id: 'duty_desk', verb: 'duty', label: 'Keep the Day-book', duration: 30,
+    id: 'duty_desk', verb: 'duty', label: 'Keep the Day-book', duration: 20,
     preview: 'Sit at the desk. Take depositions. Earns a little, costs little.',
     requires: { primary: 'focus' },
     effects: [
@@ -208,7 +208,7 @@
     ],
   });
   R.push({
-    id: 'duty_beat', verb: 'duty', label: 'Walk the Hard Round', duration: 30,
+    id: 'duty_beat', verb: 'duty', label: 'Walk the Hard Round', duration: 60,
     preview: 'Walk the round with the halberd, part brawlers, earn your fee. Pays better than the desk. Tiring.',
     danger: 'May cause Weariness',
     requires: { primary: 'health' },
@@ -229,7 +229,7 @@
     requires: { primary: 'informant' }, forbids: ['funds'],
   });
   R.push({
-    id: 'patrol_informant', verb: 'investigate', src: 'patrol', label: 'Meet an Informer', duration: 25,
+    id: 'patrol_informant', verb: 'investigate', src: 'patrol', label: 'Meet an Informer', duration: 15,
     preview: 'A quiet word in a back booth of the Red Ox, and a purse passed under the table. Every meeting puts them at more risk.',
     requires: { primary: 'informant', aspects: ['funds'] },
     run: function (ctx) {
@@ -263,7 +263,7 @@
     },
   });
   R.push({
-    id: 'patrol_district', verb: 'investigate', src: 'patrol', label: 'Work the Quarter', duration: 30,
+    id: 'patrol_district', verb: 'investigate', src: 'patrol', label: 'Work the Quarter', duration: 45,
     preview: function (ctx) { return 'Knock on doors in ' + ctx.e.labelOf(ctx.first('district')) + '. Stand a round. Listen.'; },
     requires: { primary: ['instinct', 'health'], aspects: ['district'] },
     run: function (ctx) {
@@ -298,7 +298,7 @@
     },
   });
   R.push({
-    id: 'patrol_walk', verb: 'investigate', src: 'patrol', label: 'Walk the City', duration: 25,
+    id: 'patrol_walk', verb: 'investigate', src: 'patrol', label: 'Walk the City', duration: 30,
     preview: function (ctx) { return ctx.has('health') ? 'A long hard round. Pays a fee. Anything could happen.' : 'Follow your nose. See where the city takes you.'; },
     requires: { primary: ['instinct', 'health'] },
     run: function (ctx) {
@@ -340,7 +340,7 @@
 
   // ============================================================== INVESTIGATE
   R.push({
-    id: 'inv_canvass', verb: 'investigate', label: 'Go Door to Door', duration: function (ctx) { return ctx.has('teammate') ? 25 : 30; },
+    id: 'inv_canvass', verb: 'investigate', label: 'Go Door to Door', duration: function (ctx) { return ctx.has('teammate') ? 45 : 60; },
     preview: 'Door to door, asking who saw what. Witnesses, and the names of people with reasons.',
     requires: ['case', 'district'],
     run: function (ctx) {
@@ -372,7 +372,7 @@
     },
   });
   R.push({
-    id: 'inv_search', verb: 'investigate', label: 'Search the Scene', duration: function (ctx) { return ctx.has('teammate') ? 25 : 30; },
+    id: 'inv_search', verb: 'investigate', label: 'Search the Scene', duration: function (ctx) { return ctx.has('teammate') ? 30 : 40; },
     preview: function (ctx) {
       var rec = ctx.caseOf(ctx.primary);
       return 'Go over ' + (rec ? rec.scene : 'the scene') + ' inch by inch. Instruments and watchmen make what you find stronger. Wit is thorough; Instinct follows hunches about people.';
@@ -421,7 +421,7 @@
   });
 
   R.push({
-    id: 'inv_photograph', verb: 'investigate', label: 'Draw the Scene', duration: 15, priority: 20,
+    id: 'inv_photograph', verb: 'investigate', label: 'Draw the Scene', duration: 10, priority: 20,
     preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return 'Every surface, every angle, before it is tidied. What you have found from ' + (rec ? rec.scene : 'the scene') + ' stops fading, and the drawings are proof.'; },
     requires: { aspects: ['case'], cards: ['camera'], when: function (ctx) { var rec = ctx.caseOf(ctx.primary); return !!rec && !rec.photographed && ctx.with('tool').length === 1; } },
     run: function (ctx) {
@@ -442,7 +442,7 @@
     },
   });
   R.push({
-    id: 'inv_illegal_search', verb: 'investigate', label: 'Search Without a Writ', duration: 15,
+    id: 'inv_illegal_search', verb: 'investigate', label: 'Search Without a Writ', duration: 10,
     forbids: { aspects: ['clue'], when: function (ctx) { return !!ctx.slots.mind; } },
     preview: function (ctx) { return 'Nobody home at ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', '') + '\'s lodging. A shutter is open, or could be. Quick, and nothing a magistrate sealed.'; },
     danger: function () { return 'Suspicion +1 (+2 if they are innocent). What you find may be struck out before the Court.'; },
@@ -469,7 +469,7 @@
   // ================================================================== ANALYZE
   R.push({
     id: 'an_evidence', verb: 'analyze', label: 'Make It Speak',
-    duration: function (ctx) { return Math.round((ctx.e.s.rooms.lab ? 15 : 25) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
+    duration: function (ctx) { return Math.round((ctx.e.s.rooms.lab ? 12 : 20) * (ctx.e.teamHas(ctx, 'patient') ? 0.8 : 1)); },
     preview: function (ctx) {
       var item = ctx.primary.data.item || {};
       var ok = ctx.e.hasTool(ctx, item.needs);
@@ -517,13 +517,13 @@
     },
   });
   R.push({
-    id: 'an_clue_none', verb: 'analyze', label: 'Back to the Bench', duration: 10,
+    id: 'an_clue_none', verb: 'analyze', label: 'Back to the Bench', duration: 5,
     preview: 'A token is not raw proof. Only the apothecary can get more out of it.',
     blocked: 'Only the apothecary gets more out of a token. Petition for the Apothecary\'s Key.',
     requires: { primary: 'clue' }, forbids: { cards: ['labpass'] },
   });
   R.push({
-    id: 'an_reopen', verb: 'analyze', label: 'Open the Case Again', duration: 40,
+    id: 'an_reopen', verb: 'analyze', label: 'Open the Case Again', duration: 60,
     preview: 'Pull the old books from the Rolls. Read everything again with fresh eyes.',
     blocked: function (ctx) { return ctx.e.s.rooms.archive ? null : 'You need the Rolls to open an unanswered case again.'; },
     requires: ['coldcase'],
@@ -568,7 +568,7 @@
   R.push({
     id: 'int_witness', verb: 'interrogate',
     label: function (ctx) { return ctx.has('health') ? 'Lean on the Witness' : ctx.has('instinct') ? 'Bluff the Witness' : 'Hear the Witness'; },
-    duration: function (ctx) { return ctx.e.s.rooms.suite ? 12 : 20; },
+    duration: function (ctx) { return ctx.e.s.rooms.suite ? 10 : 15; },
     preview: function (ctx) {
       if (ctx.has('health')) return 'Get it out of them, whatever it takes. A beaten witness is not credible before the Court, but the word is the word. The Council will hear of it, and so will the quarter.';
       if (ctx.has('instinct')) return 'Pretend you already know. Might shake more loose. Might frighten them off.';
@@ -621,7 +621,7 @@
   R.push({
     id: 'int_suspect', verb: 'interrogate',
     label: function (ctx) { return ctx.has('health') ? 'Put Them to the Question' : ctx.has('clue') ? 'Confront the Accused' : ctx.has('instinct') ? 'Bluff the Accused' : 'Examine the Accused'; },
-    duration: function (ctx) { return ctx.e.s.rooms.suite ? 15 : 25; },
+    duration: function (ctx) { return ctx.e.s.rooms.suite ? 20 : 30; },
     preview: function (ctx) {
       if (ctx.has('health')) {
         var rec0 = ctx.caseOf(ctx.primary), ind = rec0 && ctx.e.indiciaOf(rec0);
@@ -731,13 +731,13 @@
   R.push({ id: 'int_rival_buy', verb: 'interrogate', label: 'Buy a Quiet Fortnight', duration: 8,
     preview: 'A Coin, and they find other things to do for two weeks.', requires: { primary: 'rival', aspects: ['funds'] },
     effects: [{ consume: 'funds', n: 1 }, { call: function (ctx) { rivalStall(ctx, 2); } }, { story: { title: 'Bought', text: 'They take it without counting it. Two weeks, they say, and then the Provost will ask why nothing is happening.' } }] });
-  R.push({ id: 'int_rival_threat', verb: 'interrogate', label: 'Frighten Them', duration: 15,
+  R.push({ id: 'int_rival_threat', verb: 'interrogate', label: 'Frighten Them', duration: 10,
     preview: 'Lean on them. It works for a week, and the city hears about it.', requires: { primary: 'rival', aspects: ['health'] },
     effects: [{ call: function (ctx) { rivalStall(ctx, 1); } }, { meter: { dread: 1, retaliation: 1 } }, { story: { title: 'Frightened', text: 'You explain what happens to examiners who spoil scenes. They go pale. They also go to the Provost.' } }] });
   R.push({ id: 'int_rival_none', verb: 'interrogate', label: 'A Polite Conversation', duration: 5,
     preview: 'Without Wit, Coin or Health, this is a chat about the weather.', requires: { primary: 'rival' },
     effects: [{ story: { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' } }] });
-  R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: 'Shadow Them', duration: 25,
+  R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: 'Shadow Them', duration: 30,
     preview: 'Follow the Provost\'s Examiner through a night. See where they go, and who pays.', requires: { primary: 'rival', aspects: ['instinct'] },
     run: function (ctx) { return rivalHeat(ctx, 'A night in doorways, and at the end of it a door you can name and a purse you saw change hands.'); } });
 
@@ -752,8 +752,8 @@
   aid('ref_hunger_pot', 'hunger', 'teammate', 'The Watch-house Pot', 25, 'Whatever the Watch is eating, you are eating. It is mostly barley. It is hot.', 'Eat with the Watch. Slow, and free.');
   aid('ref_hunger_credit', 'hunger', 'district', 'Eat on Credit', 12, 'The cookshop on the corner knows the Examiner. The Examiner will pay next week. The cookshop writes it down.', 'A meal on the Quarter\'s credit. Quick, and it is written down.', [{ call: function (ctx) { ctx.e.count('debt'); } }]);
   aid('ref_hunger_informer', 'hunger', 'informant', 'A Bowl at Their Table', 15, 'They feed you without asking why. They will not forget that they did.', 'Your informer feeds you. They remember it.', [{ call: function (ctx) { var inf = ctx.first('informant'); if (inf && ctx.e.trustInformant) ctx.e.trustInformant(inf, -1); } }]);
-  aid('ref_sickness_sweat', 'sickness', 'health', 'Sweat It Out', 40, 'Every blanket you own, a jug of water, and two days you do not remember. On the third the fever is gone and so is most of your strength.', 'No physician. Sweat it out. Slow, and it costs you.', [{ give: 'fatigue' }]);
-  aid('ref_sickness_watch', 'sickness', 'teammate', 'A Watchman\'s Remedy', 30, 'Onion, honey, something from a jar with no label. His grandmother swore by it. It works, or the fever was leaving anyway.', 'A watchman knows a remedy. Free, and it usually works.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
+  aid('ref_sickness_sweat', 'sickness', 'health', 'Sweat It Out', 60, 'Every blanket you own, a jug of water, and two days you do not remember. On the third the fever is gone and so is most of your strength.', 'No physician. Sweat it out. Slow, and it costs you.', [{ give: 'fatigue' }]);
+  aid('ref_sickness_watch', 'sickness', 'teammate', 'A Watchman\'s Remedy', 45, 'Onion, honey, something from a jar with no label. His grandmother swore by it. It works, or the fever was leaving anyway.', 'A watchman knows a remedy. Free, and it usually works.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
   aid('ref_stress_walk', 'stress', 'instinct', 'Walk It Off', 12, 'Out past the Water-gate and along the river until the case behind your eyes goes quiet. It comes back on the way home, smaller.', 'Walk until it lets go. Quick, and free.');
   aid('ref_stress_watch', 'stress', 'teammate', 'A Drink with the Watch', 15, 'The sergeant tells the story about the goose again. You laugh in the right place. It helps more than it should.', 'A drink with the Watch. Quick, and you might regret the second one.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
   aid('ref_fatigue_watch', 'fatigue', 'teammate', 'The Watch Takes the Round', 10, 'You send a watchman out in your place and sit down for the first time since prime.', 'Let a watchman take the round. Quick, and free.');
@@ -941,7 +941,7 @@
     requires: { primary: 'intel', when: function (ctx) { return ctx.primary.data.kind !== 'sighting'; } },
   });
   R.push({
-    id: 'ref_cold', verb: 'reflect', label: 'Regret', duration: 15,
+    id: 'ref_cold', verb: 'reflect', label: 'Regret', duration: 10,
     preview: 'Turn the unanswered case over in your mind. It will not change anything on its own.',
     requires: ['coldcase'],
     run: function (ctx) {
@@ -975,7 +975,7 @@
     },
   });
   R.push({
-    id: 'ref_corroborate', verb: 'reflect', label: 'Corroborate', duration: 20,
+    id: 'ref_corroborate', verb: 'reflect', label: 'Corroborate', duration: 15,
     preview: 'Two pieces of the same truth, told in different ways. Bind them into one stronger token.',
     blocked: function (ctx) {
       var cl = ctx.with('clue');
@@ -1019,7 +1019,7 @@
     { need: ['forensic', 'opportunity'], title: 'Hands and Hours', text: 'What was left behind, and who could have been there to leave it. The marks narrow the door until only one person fits through it.' },
   ];
   R.push({
-    id: 'ref_theory', verb: 'reflect', label: 'Build a Theory', duration: 30,
+    id: 'ref_theory', verb: 'reflect', label: 'Build a Theory', duration: 45,
     preview: 'Pin the case to the wall with its tokens around it. Look for how they connect.',
     requires: ['case', 'clue'],
     run: function (ctx) {
@@ -1057,7 +1057,7 @@
     },
   });
   R.push({
-    id: 'ref_mull', verb: 'reflect', label: 'Mull It Over', duration: 20,
+    id: 'ref_mull', verb: 'reflect', label: 'Mull It Over', duration: 15,
     preview: 'Sit with the case. What kind of case is it? What will it take?',
     requires: ['case'],
     run: function (ctx) {
@@ -1077,7 +1077,7 @@
   // =================================================================== ARREST
   R.push({
     id: 'arrest_charge', verb: 'arrest', label: function (ctx) { return 'Indict ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', ''); },
-    duration: 15,
+    duration: 30,
     preview: function (ctx) {
       var e = ctx.e;
       var rec = ctx.caseOf(ctx.primary);
@@ -1421,7 +1421,7 @@
 
   // ============================================================= MAJOR CRIMES
   R.push({
-    id: 'major_declare', verb: 'duty', src: 'majorcrimes', rank: 3, label: 'Have It Cried', duration: 15,
+    id: 'major_declare', verb: 'duty', src: 'majorcrimes', rank: 3, label: 'Have It Cried', duration: 20,
     preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.major ? 'The crier has already sung it.' : 'Costs 2 Coin. The case gets two minutes more, a name on the board, a witness, and the whole city watching. Convictions pay in Standing; an unanswered case costs the Crowd.'; },
     blocked: function (ctx) {
       var rec = ctx.caseOf(ctx.primary);

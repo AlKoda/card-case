@@ -20,6 +20,8 @@
   <link rel="stylesheet" href="css/art/noir-icons.css">
   <link rel="stylesheet" href="css/art/noir-verbs.css">
   <link rel="stylesheet" href="css/art/noir-tables.css">
+  <link rel="stylesheet" href="css/art/kit-cards.css">
+  <link rel="stylesheet" href="css/art/kit-icons.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -81,6 +83,7 @@
         <button class="plate-btn teal" id="t-archive">The Rolls</button>
         <button class="plate-btn grey" id="t-settings">Settings</button>
         <button class="plate-btn red" id="t-help">How to Play</button>
+        <button class="plate-btn grey lang" id="t-lang" data-no-i18n title="Language / اللغة">English</button>
       </div>
       </div>
     </div>
@@ -134,6 +137,7 @@
           <div class="set-row"><label for="s-gap">Card spacing</label><input type="range" id="s-gap" min="4" max="48"><output></output></div>
           <div class="set-row"><label for="s-grid">Show the grid</label><input type="checkbox" class="toggle" id="s-grid"></div>
           <div class="set-row"><label for="s-snap">Cards settle on the grid</label><input type="checkbox" class="toggle" id="s-snap"></div>
+          <div class="set-row"><label for="s-strings">Case strings: a rope from each case to its cards</label><input type="checkbox" class="toggle" id="s-strings"></div>
           <p class="set-note">Applying re-tidies the table. Tidy any time from the pause menu.</p>
           <h3 id="sec-gameplay">Gameplay</h3>
           <div class="set-row"><label for="s-guided">Guided start (new games)</label><input type="checkbox" class="toggle" id="s-guided"></div>
@@ -144,8 +148,8 @@
           <div class="set-row"><label for="s-pauseOnBlur">Pause when you switch away</label><input type="checkbox" class="toggle" id="s-pauseOnBlur"></div>
           <div class="set-row"><label for="s-pauseOnDrag">Pause while dragging a card</label><input type="checkbox" class="toggle" id="s-pauseOnDrag"></div>
           <h3 id="sec-language">Language</h3>
-          <div class="set-row"><span></span><div class="lang-pick"><button disabled>&lsaquo;</button><span>English</span><button disabled>&rsaquo;</button></div></div>
-          <p class="set-note">More languages are planned.</p>
+          <div class="set-row"><label for="s-lang">Language</label><select id="s-lang" class="lang-select" data-no-i18n><option value="en">English</option><option value="ar">العربية</option></select></div>
+          <p class="set-note">Arabic turns the page right-to-left. Cards and stories change language at once; saved games carry on in either.</p>
         </div>
       </div>
       <div class="row center">
@@ -211,7 +215,7 @@
           <h4>What a verb finds</h4>
           <p>A finished verb shows a card back on its token. Open it: what it found lies face down. Tap a card to turn it over, tap it again to take it, or <b>Take all</b>. Closing the window leaves everything where it is, story included. Taken cards join a stack of their kind if one is on the table, else they land in the <b>collection pile</b>, the yellow strip; drag the strip anywhere. New cases land there too.</p>
           <h4>Your table</h4>
-          <p>Move any card or stack anywhere on the table; with <i>Cards settle on the grid</i> on (Settings, Table) they land on an invisible grid's cells; <i>Show the grid</i> draws it if you want to see it. The yellow rail is the collection pile. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away.</p>
+          <p>Move any card or stack anywhere on the table; with <i>Cards settle on the grid</i> on (Settings, Table) they land on an invisible grid's cells; <i>Show the grid</i> draws it if you want to see it. The yellow rail is the collection pile. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away. Coloured <b>strings</b> run from each case to its tokens, witnesses and accused, pinned to the cards; turn them off in Settings, Table.</p>
           <h4>Time</h4>
           <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due.</p>
           <h4>Keys</h4>
@@ -288,6 +292,19 @@
   </div>
 
   <script src="js/util.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/lang/ar/cards.js"></script>
+  <script src="js/lang/ar/cases-1.js"></script>
+  <script src="js/lang/ar/cases-2.js"></script>
+  <script src="js/lang/ar/cases-3.js"></script>
+  <script src="js/lang/ar/engine.js"></script>
+  <script src="js/lang/ar/recipes-1.js"></script>
+  <script src="js/lang/ar/recipes-2.js"></script>
+  <script src="js/lang/ar/story.js"></script>
+  <script src="js/lang/ar/structures-1.js"></script>
+  <script src="js/lang/ar/structures-2.js"></script>
+  <script src="js/lang/ar/systems.js"></script>
+  <script src="js/lang/ar/ui.js"></script>
   <script src="js/data/cards.js"></script>
   <script src="js/data/cases.js"></script>
   <script src="js/data/verbs.js"></script>

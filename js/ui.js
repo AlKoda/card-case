@@ -35,9 +35,20 @@
     camera: 'nsq-16', prints: 'nsq-09', kit: 'nsq-32', surveillance: 'nsq-23', labpass: 'nsq-22',
     gang: 'nroom-05', syndicate: 'nplace-07', front: 'nplace-02',
   };
-  var CASE_ART = { burglary: 'nloc-08', missing: 'nloc-07', harbor: 'nloc-01', arson: 'nloc-10', fraud: 'nloc-05', extortion: 'nloc-06',
-    poison: 'nloc-02', coining: 'nloc-09', manhunt: 'nloc-04', gang: 'nloc-06', syndicate: 'nloc-10', architect: 'nloc-08', eumenides: 'nloc-03',
-    scriptorium: 'nloc-05', witch: 'nloc-03', highway: 'nloc-04', contract: 'nloc-09', pattern: 'nloc-07', threedays: 'nplace-05' };
+  // The crime on a case card: a dark silhouette of the body or the deed
+  // (css/art/kit-cards.css), and a wax seal in the corner for the kind of crime.
+  var CASE_ART = { burglary: 'kinv-15', missing: 'kdeath-01', harbor: 'kdrown-05', arson: 'kev-15', fraud: 'kfolk-27', extortion: 'kfolk-26',
+    poison: 'kpoison-06', coining: 'kfolk-28', manhunt: 'kcourt-07', gang: 'kfolk-25', syndicate: 'kfolk-22', architect: 'kfolk-21', eumenides: 'kdeath-04',
+    scriptorium: 'kdeath-16', witch: 'kpoison-03', highway: 'kshot-05', contract: 'kstab-11', pattern: 'kdeath-13', threedays: 'kdeath-07' };
+  var CRIME_SEAL = { burglary: 'kseal-08', missing: 'kseal-12', harbor: 'kseal-07', arson: 'kseal-06', fraud: 'kseal-16', extortion: 'kseal-23',
+    poison: 'kseal-05', coining: 'kseal-22', manhunt: 'kseal-15', gang: 'kseal-11', syndicate: 'kseal-25', architect: 'kseal-18', eumenides: 'kseal-01',
+    scriptorium: 'kseal-29', witch: 'kseal-06', highway: 'kseal-02', contract: 'kseal-02', pattern: 'kseal-03', threedays: 'kseal-14' };
+  // Tokens about the body take a silhouette from the family of the case's death.
+  var BODY_FAM = { harbor: 'kdrown', poison: 'kpoison', contract: 'kstab', highway: 'kshot', eumenides: 'kbody', pattern: 'kstab', threedays: 'kbody',
+    scriptorium: 'kblunt', missing: 'kbody', witch: 'khang', manhunt: 'kbody' };
+  var BODY_TILES = { kdrown: [1, 3, 4, 5, 7, 8, 9, 15], kpoison: [6, 7, 8, 9, 10, 15, 19], kstab: [2, 5, 7, 11, 12, 14, 15], kshot: [3, 6, 7, 10, 15],
+    kbody: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], kblunt: [1, 2, 3, 4, 6, 10, 15], khang: [1, 2, 3, 4, 5, 6, 7, 8] };
+  var BODY_WORDS = /body|corpse|wound|blood|dead|drown|hang|poison|shot|stab|bruise|throat|lungs|stitched|cut\b|marks on/i;
   var DISTRICT_ART = { docks: 'nplace-01', market: 'nplace-03', neon: 'nroom-05', uptown: 'nplace-08', warrens: 'nplace-02', canal: 'nplace-07' };
   // Portrait cards: one per person, chosen by their name, and kept.
   var PEOPLE = [];
@@ -66,10 +77,10 @@
   var EV_BY_ASPECT = { forensic: 'nev-01', testimony: 'nev-07', motive: 'nev-12', opportunity: 'nev-08', digital: 'nev-05', financial: 'nev-10' };
   var VERB_TOKENS = { time: 'nverb-12', duty: 'nverb-01', investigate: 'nverb-02', analyze: 'nverb-07', interrogate: 'nverb-05', reflect: 'nverb-06', arrest: 'nverb-08' };
   var ASK_ART = { instinct: 'ncoin-02', focus: 'ncoin-03', funds: 'ncoin-04', teammate: 'ncoin-11', health: 'ncoin-01' };
-  var ASPECT_ART = { forensic: 'ncoin-07', testimony: 'ncoin-10', motive: 'ncoin-08', opportunity: 'nsmall-03', digital: 'ncoin-12', financial: 'ncoin-04' };
-  var METER_ICONS = { pressure: 'ncoin-06', scrutiny: 'ncoin-02', retaliation: 'ncoin-08', reputation: 'nsmall-02', dread: 'nsmall-01' };
+  var ASPECT_ART = { forensic: 'kseal-03', testimony: 'kseal-27', motive: 'kseal-13', opportunity: 'kseal-20', digital: 'kseal-21', financial: 'kseal-22' };
+  var METER_ICONS = { pressure: 'kseal-11', scrutiny: 'kseal-24', retaliation: 'kseal-02', reputation: 'kseal-28', dread: 'kseal-01' };
   var TOAST_BARS = { case: 'plate-seal', danger: 'plate-i-star', defeat: 'plate-i-star', major: 'plate-sun', victory: 'plate-moon', week: 'plate-i-moon', verb: 'plate-i-eye', minor: 'plate-i-dark' };
-  var RING_LEN = 2 * Math.PI * 36;
+  var RING_LEN = 4 * 114 - 8 * 19 + 2 * Math.PI * 19; // the rounded square's perimeter
 
   // The face of a card: {art, fam, tone, gray}.
   function pic(art, tone, gray) { return { art: art, fam: 'pic', tone: tone || 'gold', gray: !!gray }; }
@@ -83,15 +94,23 @@
     if (k === 'coldcase') return pic(CASE_ART[card.data.template] || 'nloc-07', tone, true);
     if (k === 'clue' || k === 'evidence') {
       var label = e.labelOf(card);
-      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return pic(EV_RULES[i][1], tone);
       var a = CF.clueAspects(card), best = null;
       for (var key in a) if (!best || a[key] > a[best]) best = key;
+      var crec = card.caseId && e.caseRec(card.caseId), fam = crec && BODY_FAM[crec.template];
+      if (fam && (BODY_WORDS.test(label) || (best === 'forensic' && !/print|hand|thumb|letter|ledger|paper|key|coin/i.test(label)))) {
+        var tiles = BODY_TILES[fam];
+        return pic(fam + '-' + ('0' + tiles[hash(label) % tiles.length]).slice(-2), 'dark');
+      }
+      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return pic(EV_RULES[i][1], tone);
       return pic(EV_BY_ASPECT[best] || 'ntp-04', tone);
     }
     if (k === 'district') return pic(DISTRICT_ART[card.data.district] || 'nplace-03', tone);
     if (k === 'teammate' || k === 'personnel' || k === 'hospital') return pic(WATCH[hash(card.data.name || e.labelOf(card)) % WATCH.length], tone, k === 'hospital');
     if (card.def === 'rival') return pic(PEOPLE[hash(card.data.name || 'rival') % PEOPLE.length], 'dark');
-    if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
+    if (card.def === 'condemned') return pic('kcourt-14', 'dark');
+    if (card.def === 'atlarge') return pic('kcourt-07', tone);
+    if (card.def === 'trial') return pic('kcourt-16', 'dark');
+    if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant') {
       return pic(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length], /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
     }
     if (card.def === 'rung') return face('npaper-06');
@@ -117,13 +136,14 @@
   var liveCards = []; // [el, uid] for cards with timers
 
   function $(sel) { return document.querySelector(sel); }
+  var tr = CF.T;
   function h(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
-    if (text !== undefined && text !== null) n.textContent = text;
+    if (text !== undefined && text !== null) n.textContent = tr(text);
     return n;
   }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(s) { return String(tr(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   // ---------------------------------------------------------------- Setup
   UI.attach = function (engine) {
@@ -143,7 +163,7 @@
     UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
-    pileEl = null; choiceEl = null;
+    pileEl = null; choiceEl = null; linkEl = null; pinEl = null;
     // The grid over the whole table: its cells line up with the tidy layout.
     var B = T.BOUNDS, grid = h('div', 'grid');
     grid.style.left = B.x + 'px'; grid.style.top = B.y + 'px'; grid.style.width = B.w + 'px'; grid.style.height = B.h + 'px';
@@ -184,6 +204,21 @@
     UI.gridPitch = T.PX + 'x' + T.PY;
   }
   CF.Settings.onChange(applyTableSettings);
+  // The language: every word on the page is re-read through CF.T, and the
+  // table is rebuilt so the cards and verbs pick up their new names.
+  UI.applyLang = function () {
+    var want = CF.Settings.get('lang') || 'en';
+    if (want === CF.lang() && UI.langApplied) return;
+    UI.langApplied = true;
+    CF.setLang(want);
+    if (!UI.e) return;
+    ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
+    cardEls = {}; verbEls = {}; winEls = {}; liveCards = []; pileEl = null; choiceEl = null; linkEl = null; pinEl = null;
+    UI.openVerbs = []; UI.hintMode = null; shownJournal = null; UI.gridPitch = null;
+    applyTableSettings();
+    UI.e.dirty = true;
+  };
+  CF.Settings.onChange(UI.applyLang);
   UI.scale = function () { return U.clamp((CF.Settings.get('uiScale') || 100) / 100, 0.8, 1.6); };
   UI.applyScale = function () {
     document.documentElement.style.setProperty('--ui-scale', UI.scale());
@@ -361,6 +396,7 @@
   function render() {
     renderTop();
     syncBoard();
+    syncLinks();
     syncWindows();
     markFits();
     renderJournal();
@@ -385,14 +421,14 @@
     var e = UI.e, hint = $('#hint');
     var text = e.introHint ? e.introHint() : null;
     if (text) {
-      if (UI.hintMode !== 'intro' || hint.textContent !== text) { hint.textContent = text; hint.classList.remove('gone'); UI.hintMode = 'intro'; }
+      if (UI.hintMode !== 'intro' || hint.textContent !== tr(text)) { hint.textContent = tr(text); hint.classList.remove('gone'); UI.hintMode = 'intro'; }
       return;
     }
     if (UI.hintMode === 'plain' || UI.hintMode === 'gone') return;
     UI.hintMode = 'plain';
     var seen = false;
     try { seen = !!localStorage.getItem('casefile.hinted'); } catch (err) { /* ignore */ }
-    hint.textContent = PLAIN_HINT;
+    hint.textContent = tr(PLAIN_HINT);
     hint.classList.toggle('gone', seen);
   }
 
@@ -411,7 +447,7 @@
     var full = { pressure: 'The Crowd: the city\'s patience with you', scrutiny: 'Suspicion: the Council\'s eye on your methods', retaliation: 'Vendetta: the underworld\'s grudge', dread: 'Dread: what the city fears you are', reputation: 'Standing: your name in the Council chamber' }[key];
     var word = (CF.METER_WORDS && CF.METER_WORDS[key] || [])[level] || '';
     return '<div class="meter lvl-' + level + state + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
-      '<div class="m-main"><div class="m-label"><span>' + label + '</span></div><div class="m-word">' + esc(word) + '</div></div></div>';
+      '<div class="m-main"><div class="m-label"><span>' + esc(label) + '</span></div><div class="m-word">' + esc(word) + '</div></div></div>';
   }
 
   function renderTop() {
@@ -420,9 +456,9 @@
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
     $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
       meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
-    $('#rank').textContent = s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
+    $('#rank').textContent = tr(s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', ''));
     $('#rank-badge').style.backgroundImage = art(['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'medal-sun');
-    $('#rank-badge').title = CF.RANKS[s.rank];
+    $('#rank-badge').title = tr(CF.RANKS[s.rank]);
     if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
     UI.lastRank = s.rank;
     updateWeekBar();
@@ -430,7 +466,7 @@
 
   function aspectChip(k, v) {
     var b = h('span', 'chip');
-    b.title = CF.ASPECTS[k].label;
+    b.title = tr(CF.ASPECTS[k].label);
     var i = h('span', 'chip-icon');
     i.style.backgroundImage = art(ASPECT_ART[k] || 'aspect-' + k);
     b.appendChild(i);
@@ -516,6 +552,12 @@
     }
     if (band) face.appendChild(band);
     face.appendChild(body);
+    if (def.kind === 'case' || def.kind === 'coldcase') {
+      var crec2 = def.kind === 'case' ? e.caseRec(card.caseId) : { template: card.data.template };
+      var seal = h('div', 'c-seal');
+      seal.style.backgroundImage = art(CRIME_SEAL[crec2 && crec2.template] || 'kseal-01');
+      face.appendChild(seal);
+    }
     n.appendChild(face);
     if (count > 1) n.appendChild(h('div', 'c-count', '×' + count));
     updateCardLive(n, card);
@@ -524,7 +566,7 @@
   function updateCardLive(n, card) {
     if (!card || !card.maxLife) return;
     var t = n.querySelector('.c-timer');
-    if (t) t.textContent = U.fmtTime(card.life);
+    if (t) t.textContent = tr(U.fmtTime(card.life));
     n.style.setProperty('--pct', Math.max(0, Math.min(100, (card.life / card.maxLife) * 100)).toFixed(1) + '%');
     var k = CF.CARDS[card.def].kind;
     n.classList.toggle('urgent', (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30));
@@ -718,7 +760,7 @@
     var e = UI.e, board = $('#board'), pile = e.pile();
     if (!pileEl) {
       pileEl = h('div', 'pile-zone');
-      pileEl.title = 'The collection pile: new cards land here. Drag it anywhere.';
+      pileEl.title = tr('The collection pile: new cards land here. Drag it anywhere.');
       pileEl.style.width = (T.PILE_COLS * T.PX + 4) + 'px';
       pileEl.style.height = (T.CH + 16) + 'px';
       pileEl.appendChild(h('span', 'pz-label', 'New cards'));
@@ -764,6 +806,80 @@
     board.appendChild(el);
     choiceEl = el;
   }
+  // ---- Case strings: a rope from a case card to every card that belongs
+  // to it, pinned at both ends, in the case's own colour. Cards inside a verb
+  // are tied to the verb's token; a card being dragged pulls its string along.
+  var LINK_COLORS = ['#d0342c', '#3aa76d', '#3b7fd1', '#e0b64a', '#b45cd6', '#e0783a'];
+  var linkEl = null, pinEl = null;
+  function linkPoint(c, drag) {
+    var e = UI.e;
+    if (drag && drag.uids && drag.uids.indexOf(c.uid) >= 0 && drag.lastEv) {
+      var p = toBoard(drag.lastEv.clientX, drag.lastEv.clientY);
+      return { x: p.x - drag.gx + T.CW / 2, y: p.y - drag.gy + 12, held: true };
+    }
+    if (!c.loc) return null;
+    if (c.loc.t === 'table') return { x: c.loc.x + T.CW / 2, y: c.loc.y + 12 };
+    if (c.loc.verb && e.s.verbs[c.loc.verb]) { var v = e.s.verbs[c.loc.verb]; return { x: v.x + T.VW / 2, y: v.y + 8 }; }
+    return null;
+  }
+  function svgLayer(cls, before) {
+    var board = $('#board'), B = T.BOUNDS;
+    var el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    el.setAttribute('class', cls);
+    el.setAttribute('viewBox', B.x + ' ' + B.y + ' ' + B.w + ' ' + B.h);
+    el.style.left = B.x + 'px'; el.style.top = B.y + 'px'; el.style.width = B.w + 'px'; el.style.height = B.h + 'px';
+    if (before) board.insertBefore(el, before); else board.appendChild(el);
+    return el;
+  }
+  function syncLinks() {
+    var e = UI.e, board = $('#board');
+    if (!linkEl || linkEl.parentNode !== board) {
+      var grid = board.querySelector('.grid');
+      linkEl = svgLayer('links', grid ? grid.nextSibling : board.firstChild);
+    }
+    if (!pinEl || pinEl.parentNode !== board) pinEl = svgLayer('links pins', null);
+    board.appendChild(pinEl); // the pins stay above the cards
+    if (CF.Settings.get('strings') === false) { linkEl.innerHTML = ''; pinEl.innerHTML = ''; return; }
+    var drag = UI.drag && UI.drag.kind === 'card' && UI.drag.started ? UI.drag : null;
+    var cases = {}, order = [];
+    Object.keys(e.s.cards).forEach(function (uid) {
+      var c = e.s.cards[uid], k = CF.CARDS[c.def].kind;
+      if (!c.caseId || c.hidden) return;
+      if (k === 'case' || k === 'coldcase') { cases[c.caseId] = cases[c.caseId] || { card: c, kids: [] }; cases[c.caseId].card = c; }
+      else if (k === 'clue' || k === 'evidence' || k === 'witness' || k === 'suspect' || k === 'condemned' || c.def === 'atlarge' || c.def === 'trial' || c.def === 'thread') {
+        (cases[c.caseId] = cases[c.caseId] || { card: null, kids: [] }).kids.push(c);
+      }
+    });
+    Object.keys(e.s.cases).forEach(function (id) { order.push(id); });
+    var html = '', pins = '';
+    function pin(pt, col, r) {
+      // A card in hand carries its pin with it (it is drawn in the drag layer's place).
+      if (pt.held) return '';
+      return '<circle class="pin" cx="' + pt.x.toFixed(0) + '" cy="' + pt.y.toFixed(0) + '" r="' + r + '" fill="' + col + '"/><circle class="pin-hi" cx="' + (pt.x - r / 3).toFixed(0) + '" cy="' + (pt.y - r / 3).toFixed(0) + '" r="' + (r / 3) + '"/>';
+    }
+    Object.keys(cases).forEach(function (id) {
+      var g = cases[id];
+      if (!g.card || !g.kids.length) return;
+      var a = linkPoint(g.card, drag);
+      if (!a) return;
+      var col = LINK_COLORS[order.indexOf(id) >= 0 ? order.indexOf(id) % LINK_COLORS.length : 0];
+      var any = false;
+      g.kids.forEach(function (c) {
+        var b = linkPoint(c, drag);
+        if (!b || (b.x === a.x && b.y === a.y)) return;
+        any = true;
+        // A rope sags between its pins.
+        var mx = (a.x + b.x) / 2, my = Math.max(a.y, b.y) + Math.min(40, Math.abs(b.x - a.x) * 0.1 + 14);
+        html += '<path d="M' + a.x.toFixed(0) + ' ' + a.y.toFixed(0) + ' Q' + mx.toFixed(0) + ' ' + my.toFixed(0) + ' ' + b.x.toFixed(0) + ' ' + b.y.toFixed(0) + '" stroke="' + col + '"/>';
+        pins += pin(b, col, 6);
+      });
+      if (any) pins += pin(a, col, 7);
+    });
+    if (linkEl.__html !== html) { linkEl.innerHTML = html; linkEl.__html = html; }
+    if (pinEl.__html !== pins) { pinEl.innerHTML = pins; pinEl.__html = pins; }
+  }
+  UI.syncLinks = syncLinks;
+
   function syncBoard() {
     var e = UI.e, board = $('#board');
     syncPile();
@@ -841,10 +957,10 @@
       if (!el) {
         el = h('div', 'verb ' + vid + (def.auto ? ' time' : ''));
         el.dataset.verb = vid;
-        el.title = def.label + ': ' + def.desc;
+        el.title = tr(def.label + ': ' + def.desc);
         var tok = h('div', 'v-token');
         tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
-        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" /></svg>');
+        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 120 120"><rect class="track" x="3" y="3" width="114" height="114" rx="19" /><rect x="3" y="3" width="114" height="114" rx="19" /></svg>');
         if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
         tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
         el.appendChild(tok);
@@ -853,7 +969,7 @@
         el.appendChild(h('div', 'v-count'));
         el.appendChild(h('div', 'v-back'));
         var mag = h('div', 'v-magnet');
-        mag.title = vid === 'time' ? 'Dues: what the Bell draws from the table each week' : 'Magnet: pull in the cards this verb\'s open slots take';
+        mag.title = tr(vid === 'time' ? 'Dues: what the Bell draws from the table each week' : 'Magnet: pull in the cards this verb\'s open slots take');
         el.appendChild(mag);
         place(el, v.x, v.y);
         board.appendChild(el);
@@ -867,7 +983,7 @@
       el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
       el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
       el.classList.toggle('loaded', v.status === 'idle' && n > 0);
-      el.querySelector('.v-count').textContent = n || '';
+      el.querySelector('.v-count').textContent = tr(n || '');
       // The token's small box: hidden until the verb, part-way through its
       // work, asks for one more card. It shows what kind, and a tap pulls a
       // fitting card in from the table. The Bell's shows the dues when due.
@@ -878,10 +994,10 @@
         mag.classList.toggle('asks', !!ask);
         mag.style.backgroundImage = ask ? art(ASK_ART[ask.accepts[0]] || 'nsmall-05') : '';
         mag.textContent = '';
-        mag.title = ask ? ask.label + ': ' + ask.text : '';
+        mag.title = tr(ask ? ask.label + ': ' + ask.text : '');
         el.classList.toggle('asking', !!ask);
       }
-      el.querySelector('.v-badge').textContent = v.status === 'done' && v.out.length ? String(v.out.length) : '!';
+      el.querySelector('.v-badge').textContent = tr(v.status === 'done' && v.out.length ? String(v.out.length) : '!');
     });
   }
 
@@ -929,11 +1045,11 @@
     Object.keys(verbEls).forEach(function (vid) {
       var el = verbEls[vid], v = e.verb(vid);
       var pct = vid === 'time' ? e.s.weekT / CF.WEEK : v.status === 'running' ? v.elapsed / v.duration : v.status === 'done' ? 1 : 0;
-      var ring = el.querySelector('.v-ring circle');
+      var ring = el.querySelector('.v-ring rect:not(.track)');
       ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
-      el.querySelector('.v-status').textContent = verbStatus(vid);
+      el.querySelector('.v-status').textContent = tr(verbStatus(vid));
       var wk = el.querySelector('.v-week');
-      if (wk) { wk.textContent = 'Wk ' + e.s.week; el.querySelector('.v-magnet').classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
+      if (wk) { wk.textContent = tr('Wk {n}', { n: e.s.week }); el.querySelector('.v-magnet').classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
     });
   }
 
@@ -956,7 +1072,7 @@
         var pr = w.querySelector('.progress > div');
         if (pr) pr.style.width = (v.elapsed / v.duration) * 100 + '%';
         var tl = w.querySelector('.p-time');
-        if (tl) tl.textContent = U.fmtTime(v.duration - v.elapsed) + ' remaining';
+        if (tl) tl.textContent = tr(U.fmtTime(v.duration - v.elapsed) + ' remaining');
       }
       w.querySelectorAll('.card[data-uid]').forEach(function (n) { updateCardLive(n, e.card(+n.dataset.uid)); });
     });
@@ -1034,9 +1150,9 @@
       if (!w) {
         w = h('div', 'vwin');
         w.dataset.win = vid;
-        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-close" title="Close (Esc)">×</button></div><div class="divider"></div><div class="vw-body"></div>';
+        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
         w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
-        w.querySelector('h3').textContent = CF.VERBS[vid].label;
+        w.querySelector('h3').textContent = tr(CF.VERBS[vid].label);
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
         layer.appendChild(w);
         winEls[vid] = w;
@@ -1093,8 +1209,8 @@
         var life = cc.life / cc.maxLife;
         var row = h('div', 'clock' + (cc.life < 60 ? ' urgent' : ''));
         row.innerHTML = '<span class="ck-title">' + esc(rec.title) + '</span><span class="ck-bar"><i style="width:' + Math.round(life * 100) + '%"></i></span>' +
-          '<span class="ck-days">' + CF.daysLeft(cc.life) + ' day' + (CF.daysLeft(cc.life) === 1 ? '' : 's') + '</span>';
-        row.title = 'Show this case on the table';
+          '<span class="ck-days">' + esc(CF.daysLeft(cc.life) === 1 ? tr('1 day') : tr('{n} days', { n: CF.daysLeft(cc.life) })) + '</span>';
+        row.title = tr('Show this case on the table');
         row.addEventListener('click', function () { UI.panTo(cc.uid); });
         pane.appendChild(row);
       });
@@ -1165,7 +1281,7 @@
       else {
         // An empty slot, tapped, says what it takes and offers the cards that fit.
         box.classList.add('empty');
-        box.title = 'Pick a card for this slot';
+        box.title = tr('Pick a card for this slot');
         box.addEventListener('click', function () {
           var same = UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key;
           UI.pick = same ? null : { verb: vid, slot: sl.key };
@@ -1175,7 +1291,7 @@
       }
       s.appendChild(box);
       var lab = h('div', 's-label', sl.label);
-      lab.title = sl.accepts.map(prettyAspect).join(' / ');
+      lab.title = tr(sl.accepts.map(prettyAspect).join(' / '));
       s.appendChild(lab);
       s.addEventListener('pointerenter', function () { UI.hoverSlot = { verb: vid, slot: sl.key }; markFits(); });
       s.addEventListener('pointerleave', function () { UI.hoverSlot = null; markFits(); });
@@ -1207,7 +1323,7 @@
       rbox.innerHTML = '<p class="r-none">' + esc(U.pick(Math.random, ['The pieces sit there. Nothing comes of it. Not yet.',
         'You turn it over and over. Something is missing.', 'It feels like the start of something. Just not this.'])) + '</p>';
     } else {
-      rbox.innerHTML = '<p class="r-none">' + (lock ? esc(lock) : 'Put a card in the first slot.') + '</p>';
+      rbox.innerHTML = '<p class="r-none">' + (lock ? esc(lock) : esc('Put a card in the first slot.')) + '</p>';
     }
     pane.appendChild(rbox);
 
@@ -1233,14 +1349,14 @@
     var fits = e.tableCards().filter(function (c) { return e.slotAccepts(sl, c); }).sort(function (a, b) { return a.uid - b.uid; });
     var seen = {}, shown = [];
     fits.forEach(function (c) { var k = e.stackKey(c) || c.uid; if (!seen[k]) { seen[k] = true; shown.push(c); } });
-    box.innerHTML = '<div class="pk-head"><span>' + esc(sl.label) + ' takes: ' + esc(sl.accepts.map(prettyAspect).join(', ')) + '</span><button class="pk-close" title="Close">×</button></div>';
+    box.innerHTML = '<div class="pk-head"><span>' + esc(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: sl.accepts.map(prettyAspect).join(', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
     box.querySelector('.pk-close').addEventListener('click', function () { UI.pick = null; e.dirty = true; });
     if (!shown.length) { box.appendChild(h('p', 'pk-none', 'Nothing on the table fits this slot yet.')); return box; }
     var row = h('div', 'pk-cards');
     shown.forEach(function (c) {
       var m = miniCard(c);
       m.classList.add('pk-card');
-      m.title = 'Put ' + e.labelOf(c) + ' in the slot';
+      m.title = tr('Put ' + e.labelOf(c) + ' in the slot');
       m.addEventListener('click', function () {
         if (e.slotCard(vid, slotKey, c.uid)) { UI.pick = null; CF.Audio.play('drop'); e.dirty = true; }
       });
@@ -1285,13 +1401,13 @@
     var p = h('p');
     d.appendChild(p);
     if (typed.has(story) || CF.Settings.typeRate() === Infinity || !story.text) {
-      p.textContent = story.text;
+      p.textContent = tr(story.text);
       typed.add(story);
     } else {
       if (!UI.typing || UI.typing.story !== story) UI.typing = { story: story, t0: performance.now() };
       UI.typing.el = p;
-      d.title = 'Click to show all';
-      d.addEventListener('click', function () { typed.add(story); p.textContent = story.text; UI.typing = null; });
+      d.title = tr('Click to show all');
+      d.addEventListener('click', function () { typed.add(story); p.textContent = tr(story.text); UI.typing = null; });
       advanceTyping();
     }
     return d;
@@ -1300,8 +1416,9 @@
     var t = UI.typing;
     if (!t || !t.el) return;
     var n = Math.floor(((performance.now() - t.t0) / 1000) * CF.Settings.typeRate());
-    if (n >= t.story.text.length) { t.el.textContent = t.story.text; typed.add(t.story); UI.typing = null; return; }
-    t.el.textContent = t.story.text.slice(0, n);
+    var full = tr(t.story.text);
+    if (n >= full.length) { t.el.textContent = full; typed.add(t.story); UI.typing = null; return; }
+    t.el.textContent = full.slice(0, n);
   }
 
   function prettyAspect(a) {
@@ -1324,7 +1441,7 @@
     pane.innerHTML = '';
     j.slice(0, 120).forEach(function (x) {
       var d = h('div', 'journal-entry k-' + x.kind);
-      d.innerHTML = '<div class="j-meta">Week ' + x.week + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
+      d.innerHTML = '<div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
       pane.appendChild(d);
     });
   }
@@ -1334,7 +1451,7 @@
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
   function chargeHtml(d) {
-    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(d.tierLabel) + ' charge</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
+    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
       html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'nsmall-05') + '"></span>' +
@@ -1460,14 +1577,14 @@
     html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
-      return '<span class="chip big" data-aspect="' + k + '" title="Tap for what this means"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
+      return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + esc(CF.ASPECTS[k].label) + ' ' + a[k] + '</span>';
     }).join('');
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
-    if (!dz && card.maxLife) html += '<div class="i-note">Time left: ' + U.fmtTime(card.life) + '</div>';
+    if (!dz && card.maxLife) html += '<div class="i-note">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
-    box.innerHTML = '<button class="peek-close" title="Close">×</button>' + html;
+    box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' + html;
     box.querySelector('.peek-close').addEventListener('click', function () { select(null); UI.hover = null; renderInspector(); });
     box.querySelectorAll('.chip[data-aspect]').forEach(function (chip) {
       chip.addEventListener('click', function (ev) {
@@ -1477,7 +1594,7 @@
         if (old) { var was = old.dataset.aspect; old.remove(); if (was === k) return; }
         var pop = h('div', 'aspect-pop');
         pop.dataset.aspect = k;
-        pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-note">Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.</p>';
+        pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-note">' + esc('Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.') + '</p>';
         chip.parentNode.insertAdjacentElement('afterend', pop);
       });
     });
@@ -1626,6 +1743,7 @@
       var q0 = toBoard(d.x0, d.y0), q1 = toBoard(ev.clientX, ev.clientY);
       d.at = { x: d.b0.x + (q1.x - q0.x), y: d.b0.y + (q1.y - q0.y) };
       place(d.el, d.kind === 'pile' ? d.at.x - 9 : d.at.x, d.kind === 'pile' ? d.at.y - 8 : d.at.y);
+      if (d.kind === 'verb') { var mv = UI.e.s.verbs[d.verb]; if (mv) { mv.x = d.at.x; mv.y = d.at.y; syncLinks(); } }
       return;
     }
     if (!d.started) liftCard(d, ev);
@@ -1677,6 +1795,7 @@
     d.el.style.left = (ev.clientX - d.gx) + 'px';
     d.el.style.top = (ev.clientY - d.gy) + 'px';
     d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(' + d.rot.toFixed(1) + 'deg)';
+    syncLinks();
     document.querySelectorAll('.drop-hover').forEach(function (x) { x.classList.remove('drop-hover'); });
     var t = dropTarget(ev);
     if (t && t.node) t.node.classList.add('drop-hover');

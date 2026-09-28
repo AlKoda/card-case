@@ -3,12 +3,13 @@
 (function () {
   var CF = window.CF;
   function $(id) { return document.getElementById(id); }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var tr = CF.T;
+  function esc(s) { return String(tr(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   // ------------------------------------------------------------ Settings
   var SettingsUI = (CF.SettingsUI = {});
   var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap', 'uiScale'];
-  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap'];
+  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap', 'strings'];
 
   function showValue(input) { input.nextElementSibling.textContent = input.value + (input.id === 's-gap' ? 'px' : '%'); }
 
@@ -16,6 +17,7 @@
     var v = CF.Settings.values;
     RANGES.forEach(function (k) { var el = $('s-' + k); el.value = v[k]; showValue(el); });
     TOGGLES.forEach(function (k) { $('s-' + k).checked = !!v[k]; });
+    $('s-lang').value = v.lang || 'en';
     $('s-fullscreen').checked = !!document.fullscreenElement;
   };
 
@@ -23,7 +25,9 @@
     var vals = {};
     TOGGLES.forEach(function (k) { vals[k] = $('s-' + k).checked; });
     RANGES.forEach(function (k) { vals[k] = +$('s-' + k).value; });
+    vals.lang = $('s-lang').value;
     CF.Settings.save(vals);
+    var lb = $('t-lang'); if (lb) lb.textContent = CF.LANGS[CF.lang()].name;
     if (CF.UI && CF.UI.applyScale) CF.UI.applyScale();
     if (CF.UI && CF.UI.e && CF.TABLE.GAP !== vals.gap) { CF.TABLE.GAP = vals.gap; CF.UI.tidy ? CF.UI.tidy() : CF.UI.e.tidy(); }
     var fs = $('s-fullscreen').checked;
@@ -93,17 +97,17 @@
       var d = document.createElement('div');
       d.className = 'room ' + t.state;
       d.innerHTML = '<div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
-        '<div class="rm-foot">' + (t.state === 'owned' ? 'Built' : t.state === 'locked' ? 'Needs ' + esc(CF.RANKS[t.rank]) : t.state === 'ordered' ? 'Petition on the table' : t.cost + ' Coin') + '</div>';
+        '<div class="rm-foot">' + esc(t.state === 'owned' ? 'Built' : t.state === 'locked' ? tr('Needs {rank}', { rank: CF.RANKS[t.rank] }) : t.state === 'ordered' ? 'Petition on the table' : tr('{n} Coin', { n: t.cost })) + '</div>';
       if (t.state === 'open') {
         var b = document.createElement('button');
         b.className = 'plate-btn teal small';
-        b.textContent = 'Petition';
+        b.textContent = tr('Petition');
         b.addEventListener('click', function () { Precinct.order(e, t.key); CF.Audio.play('start'); Precinct.render(); });
         d.appendChild(b);
       }
       grid.appendChild(d);
     });
-    $('precinct-sub').textContent = CF.RANKS[e.s.rank] + ' ' + e.s.detective + ' · ' + owned + ' of ' + CF.ROOM_ORDER.length + ' rooms built · up to ' + e.maxOpenCases() + ' open cases · stipend ' + e.rankDef().salary + ' a week';
+    $('precinct-sub').textContent = tr('{rank} {name} · {owned} of {rooms} rooms built · up to {cases} open cases · stipend {pay} a week', { rank: CF.RANKS[e.s.rank], name: e.s.detective, owned: owned, rooms: CF.ROOM_ORDER.length, cases: e.maxOpenCases(), pay: e.rankDef().salary });
   };
 
   // ------------------------------------------------------------ Archive
@@ -138,7 +142,7 @@
     Archive.page = Math.min(Archive.page, pages - 1);
     var grid = $('archive-grid');
     grid.innerHTML = '';
-    if (!list.length) grid.innerHTML = '<p class="archive-empty">Nothing in the Rolls yet. Every case you answer, or lose, is entered here.</p>';
+    if (!list.length) grid.innerHTML = '<p class="archive-empty">' + esc('Nothing in the Rolls yet. Every case you answer, or lose, is entered here.') + '</p>';
     list.slice(Archive.page * PER_PAGE, (Archive.page + 1) * PER_PAGE).forEach(function (rec, i) {
       var idx = Archive.page * PER_PAGE + i;
       var b = document.createElement('button');
@@ -148,7 +152,7 @@
       b.addEventListener('click', function () { Archive.selected = idx; Archive.render(); });
       grid.appendChild(b);
     });
-    $('arc-page').textContent = (Archive.page + 1) + ' / ' + pages;
+    $('arc-page').textContent = tr((Archive.page + 1) + ' / ' + pages);
     $('arc-prev').disabled = Archive.page === 0;
     $('arc-next').disabled = Archive.page >= pages - 1;
     renderDetail(list[Archive.selected]);
@@ -158,19 +162,19 @@
 
   function renderDetail(rec) {
     var box = $('archive-detail');
-    if (!rec) { box.innerHTML = '<div class="a-title"><span>The Rolls</span></div><p class="a-empty">Choose a case.</p>'; $('arc-open').disabled = true; return; }
+    if (!rec) { box.innerHTML = '<div class="a-title"><span>' + esc('The Rolls') + '</span></div><p class="a-empty">' + esc('Choose a case.') + '</p>'; $('arc-open').disabled = true; return; }
     var opened = isOpened(rec);
     var cul = rec.culprit || {};
     var truth;
-    if (!opened) truth = '<i>Sealed. Break the seal to learn the truth.</i>';
-    else if (rec.outcome === 'wrongful') truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + ', did it, and someone else went to the rope for it. ' + esc(cul.motive || '');
+    if (!opened) truth = '<i>' + esc('Sealed. Break the seal to learn the truth.') + '</i>';
+    else if (rec.outcome === 'wrongful') truth = tr('<b>{name}</b>, {role}, did it, and someone else went to the rope for it.', { name: esc(cul.name), role: esc(cul.role) }) + ' ' + esc(cul.motive || '');
     else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
     var portrait = cul.name ? 'nport-' + ('0' + (1 + hash(cul.name) % 24)).slice(-2) : 'nport-01';
     box.innerHTML = '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
       '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
-      row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>, week ' + rec.week + (rec.highProfile ? ' · the city watched' : '') + '<br><span class="a-dim">Examiner ' + esc(rec.detective) + '</span>') +
+      row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>' + esc(tr(', week {n}', { n: rec.week })) + (rec.highProfile ? esc(' · the city watched') : '') + '<br><span class="a-dim">' + esc(tr('Examiner {name}', { name: rec.detective })) + '</span>') +
       row('pin', esc(rec.scene) + '<br><span class="a-dim">' + esc((CF.DISTRICTS[rec.district] || {}).label || '') + '</span>') +
-      row('person', 'Victim: ' + esc(rec.victim) + (rec.charged ? '<br>Charged: ' + esc(rec.charged) : '<br><span class="a-dim">Nobody was charged.</span>')) +
+      row('person', esc(tr('Victim: {name}', { name: rec.victim })) + (rec.charged ? '<br>' + esc(tr('Charged: {name}', { name: rec.charged })) : '<br><span class="a-dim">' + esc('Nobody was charged.') + '</span>')) +
       row('eye', truth);
     $('arc-open').disabled = opened;
   }
