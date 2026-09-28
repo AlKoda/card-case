@@ -5,5 +5,4 @@
     <exclude domain="file" path="app_webview/Default/Cache/" />
     <exclude domain="file" path="app_webview/Default/Code Cache/" />
     <exclude domain="file" path="app_webview/Default/GPUCache/" />
-    <exclude domain="file" path="cache/" />
 </full-backup-content>
