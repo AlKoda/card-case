@@ -90,6 +90,8 @@ def region(W, H, frac, cols, nrows):
 # ('region', prefix, file, (x0, y0, x1, y1), cols, rows, width=None)
 def R(prefix, file, frac, cols, nrows, width=None): return ('region', prefix, file, frac, cols, nrows, width)
 def T(prefix, file, rows=None, count=None, width=None): return ('rows', prefix, file, rows, count, width)
+# ('cells', file, [(key, row, col)...], width): named tiles by their place in the grid
+def N(file, items, width=None): return ('cells', file, items, width)
 
 S = {
     # the study's UI kit
@@ -131,8 +133,14 @@ S = {
     'e40': [T('charb2', 'cm-cards')], 'e41': [T('coccult', 'cm-cards')], 'e44': [T('cherald2', 'cm-cards')], 'e45': [T('cink', 'cm-cards')],
     'e48': [T('cverb', 'cm-cards')],
     # the icons
-    'e36': [T('iinv', 'cm-icons')], 'e37': [T('imyst', 'cm-icons')], 'e38': [T('imed', 'cm-icons')], 'e39': [T('icrime', 'cm-icons')],
-    'e42': [T('imark', 'cm-icons')], 'e43': [T('ilaw', 'cm-icons')], 'e46': [T('itrade', 'cm-icons')], 'e47': [T('iplace', 'cm-icons')],
+    'e36': [T('iinv', 'cm-icons'),
+            # the verb tokens: square tiles at twice a card's width
+            N('cm-cards', [('cvtok-time', 3, 3), ('cvtok-investigate', 0, 0), ('cvtok-analyze', 0, 2), ('cvtok-interrogate', 0, 4)], 240)],
+    'e37': [T('imyst', 'cm-icons'), N('cm-cards', [('cvtok-reflect', 0, 0)], 240)],
+    'e38': [T('imed', 'cm-icons')], 'e39': [T('icrime', 'cm-icons')],
+    'e42': [T('imark', 'cm-icons')],
+    'e43': [T('ilaw', 'cm-icons'), N('cm-cards', [('cvtok-duty', 2, 4), ('cvtok-arrest', 2, 1)], 240)],
+    'e46': [T('itrade', 'cm-icons')], 'e47': [T('iplace', 'cm-icons')],
 }
 
 def main():
@@ -164,6 +172,11 @@ def main():
                 use = rows if want is None else [rows[i] for i in want]
                 boxes = [b for r in use for b in r]
                 if count: boxes = boxes[:count]
+            elif spec[0] == 'cells':
+                _, file, items, width = spec
+                if rows is None: rows = rows_of(mask)
+                for key, r, c in items: put(file, key, im.crop(rows[r][c]), width)
+                continue
             else:
                 _, prefix, file, frac, cols, nrows, width = spec
                 boxes = [trim(mask, b) for b in region(W, H, frac, cols, nrows)]

@@ -20,9 +20,9 @@
   // sit anywhere; placement keeps them from covering each other.
   var T = {
     CW: 116, CH: 168, GAP: 14,   // card footprint (the painted cards' own shape)
-    VW: 124, VH: 178,            // verb token footprint: a card with a ring round it
+    VW: 240, VH: 292,            // verb token footprint: a square tile twice a card's width, its ring and its name plate
     COLS: 8,                     // width of the automatic layout, in cards
-    TOP: 200,                    // cards start below the row of verbs
+    TOP: 312,                    // cards start below the row of verbs
     verbsOnBoard: true,          // the verbs are tokens on the felt, movable like cards
   };
   // The edge of the table: nothing goes beyond it.
@@ -119,7 +119,7 @@
     opts = opts || {};
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
-      version: 1, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 170, nextUid: 1,
+      version: 2, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 170, nextUid: 1,
       cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
@@ -176,6 +176,13 @@
     s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
     s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
     s.counts.debt = s.counts.debt || 0;
+    // Saves from before the verbs grew: the cards below the verb row move down with it.
+    if (!s.version || s.version < 2) {
+      var dy = T.TOP - 200;
+      Object.keys(s.cards).forEach(function (u) { var c = s.cards[u]; if (c.loc && c.loc.t === 'table' && c.loc.y >= 200) c.loc.y += dy; });
+      if (s.pile && s.pile.y >= 200) s.pile.y += dy;
+      s.version = 2;
+    }
     // Verbs folded into others since the save was written: their cards come back to the table.
     var alias = CF.VERB_ALIAS || {};
     Object.keys(s.verbs).forEach(function (id) {
@@ -973,6 +980,7 @@
     this.layoutVerbs();
     this.story(result.title, result.text, result.kind || 'verb');
     this.emit('complete', { verb: verbId });
+    if (this.choiceHook) this.choiceHook(verbId, v);
     if (v.out.length === 0 && !result.keepOpen) {
       // Nothing to collect: return the verb to idle straight away.
       v.status = 'idle';

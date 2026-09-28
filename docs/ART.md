@@ -32,6 +32,7 @@ whole, at its own size; the page scales a picture to fit its frame.
 | e16 | settings and audio icons, toggles, checkboxes | `cset` `cset2` `caud` `caud2` `ctog` `ctog2` `ccheck` `ccheck2` |
 | e17–e35, e40, e41, e44, e45, e48 | eight painted cards each: rogues, signs, heraldry, nobles, clerks, the harbour, mysteries, folk, the Watch, items, the court, outlaws, places, crimes, women, trades, occult, ink portraits, the verbs | `crogue` `csign` `cherald` `cnoble` `cclerk` `charb` `cmyst` `cfolk` `cwatch` `citem` `ccourt` `coutlaw` `cnoble2` `cplace` `ccrime` `cwoman` `ctrade` `citem2` `cplace2` `charb2` `coccult` `cherald2` `cink` `cverb` |
 | e36–e39, e42, e43, e46, e47 | twenty-four square icons each: investigation, mysteries, medicine, crime, markers, law, trades, places | `iinv` `imyst` `imed` `icrime` `imark` `ilaw` `itrade` `iplace` |
+| e36, e37, e43 | seven of those squares again at twice a card's width, one per verb | `cvtok-time` `cvtok-duty` `cvtok-investigate` `cvtok-analyze` `cvtok-interrogate` `cvtok-reflect` `cvtok-arrest` |
 
 Not cut: e01 and e07 (mock-ups of screens and blank dialogue boxes), e03,
 e11, e12 and e15 (the same tiles as e09, e10, e05, e08 in other sizes).
@@ -49,11 +50,14 @@ e11, e12 and e15 (the same tiles as e09, e10, e05, e08 in other sizes).
 - **Quarters** are `cplace`, fronts `cplace3` by name, the Watch-house rooms
   by room. **Words on paper** (orders, the Ledger, whispers, threads, pleas)
   are items and signs.
-- **Health, Wit, Instinct, Coin** and the afflictions are square icons on an
-  empty frame in the kind's colour (`ICONS`; css `.card.face-icon`). Painted
-  cards are `.card.face-full`, with the name on a strip of paper at the foot.
-- **Verbs** are cards too (`cverb`, `cmyst`), with a rounded ring drawn just
-  outside their edge for the clock.
+- **Health, Wit, Instinct, Coin** and the afflictions are an empty frame in
+  the kind's colour (`cframe`) with only the icon's disc in its arch, clipped
+  from the square tile (`ICONS`; css `.card.face-icon`, `clip-path`), so the
+  glyph sits on the frame's own paper and the name in its bar. Painted cards
+  are `.card.face-full`, with the name on a strip of paper at the foot.
+- **Verbs** are square tiles twice a card's width (`cvtok`), raised on a dark
+  slab, with a rounded ring drawn just outside the tile for the clock and the
+  name on a pill plate below.
 - **Meters, proofs, slots, asks, the dossier's kind seal** are square icons
   (`METER_ICONS`, `ASPECT_ART`, `SLOT_ART`, `ASK_ART`, `KIND_ART`).
 - **Buttons** are the round set (`bround`) in the top bar and on the menus;
