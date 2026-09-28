@@ -45,6 +45,34 @@ by their pixels, so the sheets need no measured boxes.
 | k15 | evidence: blood, poison, rope, papers, ash | `kev` arson |
 | k16 | rosettes, badges, labels | `kros` `kros2` `kbadge` `klabel` (spare) |
 
+## The deck (third batch)
+
+`tools/build_deck_art.py` cuts sixteen more sheets, supplied as `d01.png` …
+`d16.png`, into `css/art/deck-cards.css` (200px), `deck-icons.css` (128px)
+and `deck-menu.css` (the study, 1400px). Tiles are found row by row from the
+sheet's alpha or its background colour; a family is a slice of one row or of
+every row, and may keep only part of each tile (the picture above a word band).
+
+| sheet | what it holds | keys |
+| --- | --- | --- |
+| d01 | thirty-five ink portraits on coloured squares | `dport` everyone with a name (suspects, witnesses, informants, rivals) |
+| d02 | twenty-six square icons (lens, notebook, speech, footprints, shield, insight, crowd, suspect, quarter, print, bulb, map, scales, coins, heart, eye, compass, hourglass, folder, books, lock, unlock, laurel, wax eye, warning, blood) | `dicon` the six proofs, the meters, slot and ask icons, the dossier's kind seals |
+| d03 | twenty-five round buttons (gear, music, sound, play, pause, fast, back, close, yes, no, save, load, help, menu, book, purse, map, scroll, compass, eye, people, exit) | `dui` the top bar, the pause and title menus, a window's close and info buttons |
+| d04 | the study at night, empty | `dmenu` behind the title and every full-screen panel |
+| d08 | sixteen verb tiles (the circle only, without the word band) | `dverb` Attend, Explore, Study, Question, Rest, the Court |
+| d09 | eight round resource tokens | `dtok` Health and Coin in slots and asks, Weariness |
+| d10 | sixteen wax seals, six flags | `dwax` the dossier's kind seals; `dflag` the edge markers |
+| d11 | twelve drawn items (letter, seal, dagger, sack, phial, ring, key, map, holy card, blood, rope, book) | `ditem` clues and evidence by their words; the Ledger, orders, bribes, threads, loose ends |
+| d12 | twelve trades (magistrate, plague doctor, nun, sailor, scholar, guard, noblewoman, thief, priest, merchant, healer, executioner) | `drole` a named person whose role matches (`ROLE_ART` in `js/ui.js`) |
+| d14 | twenty-nine square buttons | `dbtn` `dbtn2` `dbtn3` the Settings tabs (spare otherwise) |
+| d15 | eight full character cards | `dhero` the three callings |
+| d16 | ten places (court, docks, alley, chapel, tavern, infirmary, cell, market, manor, library) | `dloc` quarters, fronts, gangs, the Watch-house rooms, the Burgomaster's seat |
+
+Not cut: d05, d06 and d13 (dense catalogue sheets whose pieces are too small
+to use), d07 (dialogue frames; the windows are drawn by the stylesheet). The
+tarot backs on d05 and d06 are under 120px wide, so face-down cards keep
+their tarot back from the Candlemark batch.
+
 Case strings (the pinned ropes between a case and its cards) are drawn by
 the stylesheet and `syncLinks` in `js/ui.js`, not cut from a sheet.
 

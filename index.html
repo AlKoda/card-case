@@ -22,6 +22,9 @@
   <link rel="stylesheet" href="css/art/noir-tables.css">
   <link rel="stylesheet" href="css/art/kit-cards.css">
   <link rel="stylesheet" href="css/art/kit-icons.css">
+  <link rel="stylesheet" href="css/art/deck-cards.css">
+  <link rel="stylesheet" href="css/art/deck-icons.css">
+  <link rel="stylesheet" href="css/art/deck-menu.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -34,15 +37,15 @@
       <div id="meters"></div>
       <div id="controls">
         <div class="speed">
-          <button class="ctl" data-speed="0" title="Pause (Space)">❚❚</button>
-          <button class="ctl" data-speed="1" title="Normal speed (1)">1×</button>
-          <button class="ctl" data-speed="2" title="Fast (2)">2×</button>
-          <button class="ctl" data-speed="3" title="Fastest (3)">3×</button>
+          <button class="ctl dbi" data-speed="0" title="Pause (Space)" style="--i:var(--art-dui-07)"></button>
+          <button class="ctl dbi" data-speed="1" title="Normal speed (1)" style="--i:var(--art-dui-06)"></button>
+          <button class="ctl dbi" data-speed="2" title="Fast (2)" style="--i:var(--art-dui-08)"><small>2</small></button>
+          <button class="ctl dbi" data-speed="3" title="Fastest (3)" style="--i:var(--art-dui-08)"><small>3</small></button>
         </div>
-        <button class="ctl" id="btn-journal" title="Journal">📖</button>
-        <button class="ctl" id="btn-precinct" title="The Watch-house">⌂</button>
-        <button class="ctl" id="btn-help" title="How to play">?</button>
-        <button class="ctl" id="btn-menu" title="Menu">☰</button>
+        <button class="ctl dbi" id="btn-journal" title="Journal" style="--i:var(--art-dui-17)"></button>
+        <button class="ctl dbi" id="btn-precinct" title="The Watch-house" style="--i:var(--art-dui-23)"></button>
+        <button class="ctl dbi" id="btn-help" title="How to play" style="--i:var(--art-dui-15)"></button>
+        <button class="ctl dbi" id="btn-menu" title="Menu" style="--i:var(--art-dui-16)"></button>
       </div>
     </header>
     <div id="main">
@@ -78,11 +81,11 @@
       <div class="title-scene">
       <div class="title-logo" role="img" aria-label="Case File: The Free City"></div>
       <div class="title-buttons">
-        <button class="plate-btn gold" id="t-new">New Game</button>
-        <button class="plate-btn red" id="t-continue">Continue</button>
-        <button class="plate-btn teal" id="t-archive">The Rolls</button>
-        <button class="plate-btn grey" id="t-settings">Settings</button>
-        <button class="plate-btn red" id="t-help">How to Play</button>
+        <button class="plate-btn gold" id="t-new"><i class="mi" style="--i:var(--art-dui-25)"></i>New Game</button>
+        <button class="plate-btn red" id="t-continue"><i class="mi" style="--i:var(--art-dui-06)"></i>Continue</button>
+        <button class="plate-btn teal" id="t-archive"><i class="mi" style="--i:var(--art-dui-14)"></i>The Rolls</button>
+        <button class="plate-btn grey" id="t-settings"><i class="mi" style="--i:var(--art-dui-01)"></i>Settings</button>
+        <button class="plate-btn red" id="t-help"><i class="mi" style="--i:var(--art-dui-15)"></i>How to Play</button>
         <button class="plate-btn grey lang" id="t-lang" data-no-i18n title="Language / اللغة">English</button>
       </div>
       </div>
@@ -95,11 +98,11 @@
       <div class="banner dark"><span>Settings</span></div>
       <div class="settings-body">
         <nav class="settings-tabs">
-          <button data-sec="audio" class="on"><i class="ico ico-audio"></i>Audio</button>
-          <button data-sec="display"><i class="ico ico-display"></i>Display</button>
-          <button data-sec="table"><i class="ico ico-display"></i>Table</button>
-          <button data-sec="gameplay"><i class="ico ico-gameplay"></i>Gameplay</button>
-          <button data-sec="language"><i class="ico ico-language"></i>Language</button>
+          <button data-sec="audio" class="on"><i class="ico" style="background-image:var(--art-dbtn-02)"></i>Audio</button>
+          <button data-sec="display"><i class="ico" style="background-image:var(--art-dbtn-08)"></i>Display</button>
+          <button data-sec="table"><i class="ico" style="background-image:var(--art-dbtn2-02)"></i>Table</button>
+          <button data-sec="gameplay"><i class="ico" style="background-image:var(--art-dbtn2-03)"></i>Gameplay</button>
+          <button data-sec="language"><i class="ico" style="background-image:var(--art-dbtn2-01)"></i>Language</button>
         </nav>
         <div class="paper settings-paper">
           <h3 id="sec-audio">Audio</h3>
@@ -160,14 +163,14 @@
     <div class="modal-box" style="max-width:420px">
       <div class="banner small"><span>Paused</span></div>
       <div class="row column">
-        <button class="plate-btn gold" id="m-resume">Resume</button>
-        <button class="plate-btn teal" id="m-save">Save Now</button>
-        <button class="plate-btn grey" id="m-tidy">Tidy the Table</button>
-        <button class="plate-btn grey" id="m-settings">Settings</button>
-        <button class="plate-btn teal" id="m-precinct">The Watch-house</button>
-        <button class="plate-btn teal" id="m-archive">The Rolls</button>
-        <button class="plate-btn grey" id="m-title">Main Menu</button>
-        <button class="plate-btn red" id="m-new">Abandon File</button>
+        <button class="plate-btn gold" id="m-resume"><i class="mi" style="--i:var(--art-dui-06)"></i>Resume</button>
+        <button class="plate-btn teal" id="m-save"><i class="mi" style="--i:var(--art-dui-13)"></i>Save Now</button>
+        <button class="plate-btn grey" id="m-tidy"><i class="mi" style="--i:var(--art-dui-19)"></i>Tidy the Table</button>
+        <button class="plate-btn grey" id="m-settings"><i class="mi" style="--i:var(--art-dui-01)"></i>Settings</button>
+        <button class="plate-btn teal" id="m-precinct"><i class="mi" style="--i:var(--art-dui-23)"></i>The Watch-house</button>
+        <button class="plate-btn teal" id="m-archive"><i class="mi" style="--i:var(--art-dui-14)"></i>The Rolls</button>
+        <button class="plate-btn grey" id="m-title"><i class="mi" style="--i:var(--art-dui-24)"></i>Main Menu</button>
+        <button class="plate-btn red" id="m-new"><i class="mi" style="--i:var(--art-dui-25)"></i>Abandon File</button>
       </div>
     </div>
   </div>
