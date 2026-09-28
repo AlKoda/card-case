@@ -16,6 +16,7 @@
     "Vibration on touches": "اهتزاز عند اللمس",
     "App version {v}": "إصدار التطبيق {v}",
     "A Question": "سؤال",
+    "The fever has you: put Fever into Rest before anything else.": "الحمّى تمسك بك: ضع الحمّى في الراحة قبل أي شيء آخر.",
     "{verb} asks for something: open it, or drop the card on it.": "{verb} يطلب شيئاً: افتحه، أو أسقط البطاقة عليه.",
     "{verb} has finished: open it and take what it found.": "انتهى {verb}: افتحه وخذ ما وجده.",
     "A new case: put {title} into Explore to search the scene.": "قضية جديدة: ضع {title} في الاستكشاف لتفتيش مكان الجريمة.",

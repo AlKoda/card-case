@@ -501,6 +501,7 @@
     var e = UI.e, s = e.s;
     if (!e || s.over || s.choice) return null;
     var verbs = CF.VERB_ORDER.filter(function (v) { return e.verb(v).unlocked; });
+    var can = function (v) { return e.verb(v).unlocked && !e.lockReason(v); };
     var running = verbs.filter(function (v) { return e.verb(v).status === 'running'; });
     var asking = running.filter(function (v) { return e.verb(v).ask && !e.verb(v).ask.filled; });
     if (asking.length) return tr('{verb} asks for something: open it, or drop the card on it.', { verb: CF.VERBS[asking[0]].label });
@@ -511,24 +512,26 @@
     var cases = table.filter(function (c) { return c.def === 'case'; });
     var open = cases.map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
     var wit = has('focus')[0], hp = has('health')[0];
-    if (e.verb('investigate').unlocked) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
+    // The fever locks the street: Rest comes before anything the locked verbs would do.
+    if (e.countOf('burnout') && can('reflect')) return tr('The fever has you: put Fever into Rest before anything else.');
+    if (can('investigate')) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
     var raw = has('evidence')[0];
-    if (raw && e.verb('analyze').unlocked) return tr('Raw proof waits: put {label} into Study to read it.', { label: e.labelOf(raw) });
+    if (raw && can('analyze')) return tr('Raw proof waits: put {label} into Study to read it.', { label: e.labelOf(raw) });
     var w = has('witness').filter(function (c) { return !c.data.asked; })[0];
-    if (w && wit && e.verb('interrogate').unlocked) return tr('A witness: put {name} into Question with Wit.', { name: e.labelOf(w) });
-    if (e.verb('arrest').unlocked) for (var j = 0; j < open.length; j++) {
+    if (w && wit && can('interrogate')) return tr('A witness: put {name} into Question with Wit.', { name: e.labelOf(w) });
+    if (can('arrest')) for (var j = 0; j < open.length; j++) {
       var rec = open[j].rec, sc = table.filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; });
       var tokens = table.filter(function (c) { return (c.def === 'clue') && c.caseId === rec.id; });
       for (var k = 0; k < sc.length; k++) { var a = e.assessCharge(sc[k], tokens); if (a && a.tier === 'strong') return tr('The proof is enough: put {name} and the tokens into the Court.', { name: e.labelOf(sc[k]) }); }
     }
     var unasked = table.filter(function (c) { if (c.def !== 'suspect' || e.unavailableReason(c)) return false; var su = e.suspectOf(c); return su && !su.questioned; })[0];
-    if (unasked && wit && e.verb('interrogate').unlocked) return tr('Question {name} with Wit: people say more than they mean to.', { name: e.labelOf(unasked) });
-    if (e.verb('investigate').unlocked) for (var m = 0; m < open.length; m++) if (open[m].rec.found < open[m].rec.items.length) return tr('The scene has more to give: search {title} again.', { title: open[m].rec.title });
+    if (unasked && wit && can('interrogate')) return tr('Question {name} with Wit: people say more than they mean to.', { name: e.labelOf(unasked) });
+    if (can('investigate')) for (var m = 0; m < open.length; m++) if (open[m].rec.found < open[m].rec.items.length) return tr('The scene has more to give: search {title} again.', { title: open[m].rec.title });
     var fat = has('fatigue').length;
-    if (fat >= 2 && e.verb('reflect').unlocked) return tr('Weariness is piling up: put one into Rest before the fever takes you.');
-    if (has('funds').length < 2 && hp && e.verb('duty').unlocked) return tr('Coin is short: Attend with Health earns your keep.');
-    if (!open.length && e.verb('duty').unlocked && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
-    if (open.length && e.verb('investigate').unlocked) return tr('The trail is thin. Search the scene again, or go door to door with the Quarter.');
+    if (fat >= 2 && can('reflect')) return tr('Weariness is piling up: put one into Rest before the fever takes you.');
+    if (has('funds').length < 2 && hp && can('duty')) return tr('Coin is short: Attend with Health earns your keep.');
+    if (!open.length && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
+    if (open.length && can('investigate')) return tr('The trail is thin. Search the scene again, or go door to door with the Quarter.');
     return null;
   };
   var adviceShown = null;
