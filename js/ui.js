@@ -669,7 +669,7 @@
 
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
-    return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden, card.data && card.data.trust, card.data && card.data.heat,
+    return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden, card.data && card.data.trust, card.data && card.data.heat, card.data && card.data.mark ? 'm' : '',
       card.def === 'coldcase' ? card.data.template : ''].join('|');
   }
 
@@ -729,6 +729,7 @@
       face.appendChild(seal);
     }
     n.appendChild(face);
+    if (card.data && card.data.mark) { var pin = h('div', 'c-pin'); pin.title = tr('Marked: yours to remember'); pin.style.backgroundImage = art('cmark-03'); n.appendChild(pin); }
     if (count > 1) n.appendChild(h('div', 'c-count', '×' + count));
     updateCardLive(n, card);
   }
@@ -1372,7 +1373,7 @@
     // The finds' face-down state is part of it, so a turned card redraws (with its flip) at once.
     return [v.status, JSON.stringify(v.slots), v.out.map(function (u) { var c = e.card(u); return u + (c && c.hidden ? 'h' : ''); }).join(','), v.held.join(','), v.story ? v.story.title : '', v.ask ? (v.ask.filled || 'open') : '',
       pv ? pv.label + '|' + pv.blocked + '|' + pv.text : '', e.lockReason(vid) || '', v.recipe || '',
-      vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : ''].join('#');
+      vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : '', UI.about === vid ? 'about' : ''].join('#');
   }
 
   function syncWindows() {
@@ -1517,7 +1518,12 @@
     // Idle.
     if (v.story) pane.appendChild(storyBox(v.story));
     var primaryCard = v.slots[e.primaryKey(vid)];
-    if (UI.about === vid) pane.appendChild(h('p', 'vw-desc vw-about', def.desc));
+    if (UI.about === vid) {
+      pane.appendChild(h('p', 'vw-desc vw-about', def.desc));
+      var sr = e.s.stats.recipes || {};
+      var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && r.label; }).map(function (r) { return tr(r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
+      pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: known.join(', ') }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
+    }
     var lock = e.lockReason(vid);
     var slots = h('div', 'slots');
     e.visibleSlots(vid).forEach(function (sl) {
@@ -1712,14 +1718,37 @@
   }
 
   var shownJournal = null;
+  // Firsts: the small milestones of an examiner's career, ticked off in the journal.
+  var FIRSTS = [
+    { id: 'labour', label: 'A day\'s labour', done: function (e) { return (e.s.stats.verbs || {}).duty >= 1; } },
+    { id: 'scene', label: 'A scene searched', done: function (e) { return (e.s.stats.verbs || {}).investigate >= 1; } },
+    { id: 'proof', label: 'Raw proof read', done: function (e) { return (e.s.stats.verbs || {}).analyze >= 1; } },
+    { id: 'question', label: 'Someone questioned', done: function (e) { return (e.s.stats.verbs || {}).interrogate >= 1; } },
+    { id: 'rest', label: 'An evening in Rest', done: function (e) { return (e.s.stats.verbs || {}).reflect >= 1; } },
+    { id: 'charge', label: 'A charge laid', done: function (e) { return (e.s.stats.verbs || {}).arrest >= 1; } },
+    { id: 'conviction', label: 'A conviction', done: function (e) { return (e.s.stats.convictions || 0) >= 1; } },
+    { id: 'solid', label: 'Full proof before the Court', done: function (e) { return (e.s.stats.solid || 0) >= 1; } },
+    { id: 'sentence', label: 'A sentence passed', done: function (e) { return Object.keys(e.s.stats.recipes || {}).some(function (k) { return /^sen_/.test(k) && k !== 'sen_none'; }); } },
+    { id: 'informer', label: 'An informer of your own', done: function (e) { var cs = e.s.cards; return Object.keys(cs).some(function (u) { return cs[u].def === 'informant'; }); } },
+    { id: 'insight', label: 'An Insight taken to Rest', done: function (e) { return Object.keys(e.s.perks || {}).some(function (k) { return e.s.perks[k]; }) || Object.keys(e.s.stats.recipes || {}).some(function (k) { return k === 'ref_insight_train' || k === 'ref_insight_keep'; }); } },
+    { id: 'week', label: 'A week survived', done: function (e) { return e.s.week >= 2; } },
+  ];
+  function firstsSig(e) { return FIRSTS.map(function (f) { return f.done(e) ? 1 : 0; }).join(''); }
   function renderJournal() {
     var e = UI.e, j = e.s.journal;
-    if (shownJournal === j[0] && UI.journalLen === j.length) return;
+    var fsig = firstsSig(e);
+    if (shownJournal === j[0] && UI.journalLen === j.length && UI.firstsSig === fsig) return;
     shownJournal = j[0];
     UI.journalLen = j.length;
+    UI.firstsSig = fsig;
     if (!$('#journal-drawer').classList.contains('open') && j.length > (UI.journalSeen || 0)) $('#btn-journal').classList.add('unread');
     var pane = $('#journal');
     pane.innerHTML = '';
+    var fb = h('div', 'firsts');
+    var done = FIRSTS.filter(function (f) { return f.done(e); }).length;
+    fb.innerHTML = '<h6>' + esc(tr('Firsts: {n} of {total}', { n: done, total: FIRSTS.length })) + '</h6>';
+    FIRSTS.forEach(function (f) { var ok = f.done(e); fb.appendChild(h('span', 'first' + (ok ? ' done' : ''), (ok ? '\u2713 ' : '\u25CB ') + tr(f.label))); });
+    pane.appendChild(fb);
     j.slice(0, 120).forEach(function (x) {
       var d = h('div', 'journal-entry k-' + x.kind);
       d.innerHTML = '<div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
@@ -1885,7 +1914,11 @@
     if (card.maxLife) html += '<div class="i-note i-time">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
-    box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' + html;
+    var canMark = card.loc && (card.loc.t === 'table' || card.loc.t === 'slot');
+    box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' + html +
+      (canMark ? '<button class="peek-mark plate-btn' + (card.data && card.data.mark ? ' dark' : '') + '">' + esc(card.data && card.data.mark ? 'Unmark' : 'Mark') + '</button>' : '');
+    var mk = box.querySelector('.peek-mark');
+    if (mk) mk.addEventListener('click', function (ev) { ev.stopPropagation(); card.data = card.data || {}; card.data.mark = !card.data.mark; box.dataset.sig = ''; e.dirty = true; renderInspector(); CF.Audio.play('click'); });
     var shown = buildCard(card, 1);
     delete shown.dataset.uid; // a picture of the card, not a card to drag
     box.querySelector('.i-card').appendChild(shown);
@@ -1899,10 +1932,25 @@
         var pop = h('div', 'aspect-pop');
         pop.dataset.aspect = k;
         pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-note">' + esc('Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.') + '</p>';
+        var find = h('button', 'ap-find', 'Show on the table');
+        find.addEventListener('click', function (ev2) { ev2.stopPropagation(); UI.showAspect(k); });
+        pop.appendChild(find);
         chip.parentNode.insertAdjacentElement('afterend', pop);
       });
     });
   }
+
+  // Every card on the table that carries an aspect lights up for a moment.
+  UI.showAspect = function (k) {
+    var e = UI.e, n = 0;
+    Object.keys(cardEls).forEach(function (uid) {
+      var c = e.card(+uid);
+      if (!c || !CF.aspectsOf(c)[k]) return;
+      var el = cardEls[uid]; el.classList.remove('noticed'); void el.offsetWidth; el.classList.add('noticed'); n++;
+      setTimeout(function () { el.classList.remove('noticed'); }, 4000);
+    });
+    if (!n) toast({ title: CF.ASPECTS[k].label, text: 'Nothing on the table carries it.', kind: 'minor' });
+  };
 
   // ---------------------------------------------------------------- Input
   // Drags: a card (from the table, a slot, or a verb's output), a verb token,

@@ -1308,6 +1308,14 @@
     if (s.meters.scrutiny >= 7) lines.push('The Council\'s clerks have started asking your watchmen about you. They are not subtle about it.');
     if (s.meters.pressure >= 7) lines.push('The Burgomaster calls you in to ask why the city is burning. It is not a question.');
 
+    var snap = s.weekSnap || { convictions: 0, acquittals: 0, cold: 0 };
+    var ledger = [];
+    var dc = (s.stats.convictions || 0) - (snap.convictions || 0), da = (s.stats.acquittals || 0) - (snap.acquittals || 0), dk = (s.stats.cold || 0) - (snap.cold || 0);
+    if (dc) ledger.push(dc + (dc === 1 ? ' conviction' : ' convictions'));
+    if (da) ledger.push(da + (da === 1 ? ' acquittal' : ' acquittals'));
+    if (dk) ledger.push(dk + (dk === 1 ? ' case gone cold' : ' cases gone cold'));
+    lines.push('The ledger: ' + (ledger.length ? ledger.join(', ') : 'no case closed') + '; ' + this.openCases().length + ' open; ' + this.countOf('funds') + ' Coin in hand.');
+    s.weekSnap = { convictions: s.stats.convictions || 0, acquittals: s.stats.acquittals || 0, cold: s.stats.cold || 0 };
     this.story('Week ' + s.week, lines.join(' '), 'week');
     if (this.checkPurseEndings) this.checkPurseEndings();
   };
