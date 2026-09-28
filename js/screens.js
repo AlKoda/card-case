@@ -122,7 +122,7 @@
   var KEY = 'casefile.archive.v1';
   var OPENED = 'casefile.archive.opened.v1';
   var PER_PAGE = 8;
-  var CARD_ART = { convicted: 'ntarot-09', wrongful: 'ntarot-08', acquitted: 'ntarot-08', cold: 'ntarot-07' };
+  var CARD_ART = { convicted: 'cback-03', wrongful: 'cback-01', acquitted: 'cback-05', cold: 'cback-04' };
   var OUTCOMES = { convicted: 'Answered', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Unanswered', settled: 'Settled', court: 'Closed by the Court', inquisitor: 'Taken by the Inquisitor' };
 
   function readList(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (err) { return []; } }
@@ -155,7 +155,7 @@
       var idx = Archive.page * PER_PAGE + i;
       var b = document.createElement('button');
       b.className = 'pcard' + (idx === Archive.selected ? ' on' : '') + ' o-' + rec.outcome;
-      b.style.backgroundImage = 'var(--art-' + (CARD_ART[rec.outcome] || 'ntarot-07') + ')';
+      b.style.backgroundImage = 'var(--art-' + (CARD_ART[rec.outcome] || 'cback-04') + ')';
       b.innerHTML = '<span class="pc-top">' + esc(rec.title) + '</span><span class="pc-bottom">' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</span>';
       b.addEventListener('click', function () { Archive.selected = idx; Archive.render(); });
       grid.appendChild(b);
@@ -177,7 +177,7 @@
     if (!opened) truth = '<i>' + esc('Sealed. Break the seal to learn the truth.') + '</i>';
     else if (rec.outcome === 'wrongful') truth = tr('<b>{name}</b>, {role}, did it, and someone else went to the rope for it.', { name: esc(cul.name), role: esc(cul.role) }) + ' ' + esc(cul.motive || '');
     else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
-    var portrait = cul.name ? 'nport-' + ('0' + (1 + hash(cul.name) % 24)).slice(-2) : 'nport-01';
+    var portrait = CF.UI.personArt(cul.name || rec.title, cul.role || '');
     box.innerHTML = '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
       '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
       row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>' + esc(tr(', week {n}', { n: rec.week })) + (rec.highProfile ? esc(' · the city watched') : '') + '<br><span class="a-dim">' + esc(tr('Examiner {name}', { name: rec.detective })) + '</span>') +

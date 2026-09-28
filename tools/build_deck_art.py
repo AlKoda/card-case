@@ -7,9 +7,9 @@ Usage:
     python3 tools/build_deck_art.py path/to/sheets/ [--preview]
 
 The folder holds the sheets as d01.png ... d16.png in the order they were
-supplied (docs/ART.md lists which is which). Tiles are found by their pixels
-(tools/build_kit_art.py's detector); a family takes a slice of the tiles
-found, and may keep only part of each tile (none do: whole tiles, scaled to fit on the page).
+supplied (docs/ART.md lists which is which). Only the study (d04) is still
+used, as the wall behind the menus; the rest of the batch was replaced by the
+Candlemark sheets (tools/build_cm_art.py). Tiles are found by their pixels.
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -49,8 +49,6 @@ def rows_of(im, gap=4, least=40):
     return rows
 
 FILES = {
-    'deck-cards': dict(width=200, q=66),   # pictures for card faces
-    'deck-icons': dict(width=128, q=76),   # buttons, tokens, seals, flags
     'deck-menu': dict(width=1400, q=58),   # the study behind the menus
 }
 
@@ -58,19 +56,7 @@ FILES = {
 # (None: every row, reading order), a slice of them, and the part of each tile
 # to keep as fractions (x0, y0, x1, y1). Every family keeps the whole tile
 # (None): the page scales pictures to fit rather than cutting them.
-S = {
-    'd01': ('deck-cards', [('dport', None, 0, 35, None)]),
-    'd02': ('deck-icons', [('dicon', None, 0, 26, None)]),
-    'd03': ('deck-icons', [('dui', None, ('grid', 5, 5), 25, None)]),
-    'd08': ('deck-cards', [('dverb', None, 0, 16, None)]),
-    'd09': ('deck-icons', [('dtok', 1, 0, 8, None)]),
-    'd10': ('deck-icons', [('dwax', 3, ('grid', 8, 2), 16, None), ('dflag', 4, 6, 6, None)]),
-    'd11': ('deck-cards', [('ditem', None, 0, 12, None)]),
-    'd12': ('deck-cards', [('drole', None, 0, 12, None)]),
-    'd14': ('deck-icons', [('dbtn', 1, 0, 11, None), ('dbtn2', 2, 0, 11, None), ('dbtn3', 3, 0, 7, None)]),
-    'd15': ('deck-cards', [('dhero', None, 0, 8, None)]),
-    'd16': ('deck-cards', [('dloc', None, 0, 10, None)]),
-}
+S = {}   # the cards and icons of this batch were retired; only the study (d04) is built
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]

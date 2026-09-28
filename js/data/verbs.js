@@ -114,12 +114,12 @@
     sentence: 'arrest', requisition: 'duty', taskforce: 'duty', delegate: 'duty', majorcrimes: 'duty' };
   // What each office opens, inside the verbs.
   CF.POWERS = {
-    warrant: { label: 'Writ', rank: 1, verb: 'investigate', art: 'nverb-08', text: 'An Accused with a token as cause in Explore: a magistrate seals a Writ to search their house.' },
-    stakeout: { label: 'Watch', rank: 2, verb: 'investigate', art: 'nverb-09', text: 'An Accused or a Front with Instinct or a watchman in Explore: watch their door through the night.' },
-    undercover: { label: 'Disguise', rank: 2, verb: 'investigate', art: 'nverb-10', text: 'Someone Abroad, a Band or the Coquille with Instinct in Explore: go among them.' },
-    delegate: { label: 'Deputise', rank: 2, verb: 'duty', art: 'nverb-11', text: 'A Case with one watchman in Attend: they work it alone.' },
-    taskforce: { label: 'Muster', rank: 3, verb: 'duty', art: 'nverb-11', text: 'A Case with two or three watchmen in Attend: the Watch works it together.' },
-    majorcrimes: { label: 'Proclamation', rank: 3, verb: 'duty', art: 'nverb-03', text: 'A Case with Wit and Coin in Attend: the crier sings it; a Quarter alone turns the Watch\'s eyes there.' },
+    warrant: { label: 'Writ', rank: 1, verb: 'investigate', art: 'ccrime-07', text: 'An Accused with a token as cause in Explore: a magistrate seals a Writ to search their house.' },
+    stakeout: { label: 'Watch', rank: 2, verb: 'investigate', art: 'cverb-08', text: 'An Accused or a Front with Instinct or a watchman in Explore: watch their door through the night.' },
+    undercover: { label: 'Disguise', rank: 2, verb: 'investigate', art: 'crogue-02', text: 'Someone Abroad, a Band or the Coquille with Instinct in Explore: go among them.' },
+    delegate: { label: 'Deputise', rank: 2, verb: 'duty', art: 'cwatch-02', text: 'A Case with one watchman in Attend: they work it alone.' },
+    taskforce: { label: 'Muster', rank: 3, verb: 'duty', art: 'cwatch-05', text: 'A Case with two or three watchmen in Attend: the Watch works it together.' },
+    majorcrimes: { label: 'Proclamation', rank: 3, verb: 'duty', art: 'coccult-08', text: 'A Case with Wit and Coin in Attend: the crier sings it; a Quarter alone turns the Watch\'s eyes there.' },
   };
 
   CF.VERB_ORDER = ['time', 'duty', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest'];

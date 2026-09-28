@@ -4,84 +4,74 @@ The game ships no binary files: every picture is a base64 WebP data URI
 under a CSS custom property `--art-<key>` in `css/art/*.css`, cut from
 sheets that live outside the repository.
 
-## Candlemark Noir (current)
+## Candlemark (current, the one style)
 
-Built by `tools/build_noir_art.py` from the sheets as they were supplied,
-saved as `n01.png` … `n25.png` in this order:
+Everything on the table and around it comes from one batch of forty-eight
+sheets in one style: cream paper, a coloured frame (red, blue, gold, teal,
+black, grey), a black ink picture. `tools/build_cm_art.py` cuts them,
+supplied as `e01.png` … `e48.png`, into three stylesheets. Every tile is kept
+whole, at its own size; the page scales a picture to fit its frame.
 
-| Sheet | Contents | Used for |
+| file | holds | width |
 | --- | --- | --- |
-| n04 | the teal table with a gold frame | `ntable`, the table under the grid |
-| n06 | tarot faces (heart, eye, coins, key, fire, brain, three backs) and illustrated cards | `ntarot` resources and callings, `ntar2`/`ntp` clue pictures |
-| n08 | the verb box kit | `nverb` verb tokens, `nbox` empty boxes |
-| n09 | the main-menu scene | `nmenu`, behind every full-screen panel |
-| n11 | eight bold portrait cards | `nhero` |
-| n12 | twelve round evidence pictures | `nev` clues and evidence |
-| n13, n14 | eight city places, eight rooms | `nplace`, `nroom` quarters, fronts, bands |
-| n16 | square icons, coins, small pips, wax seals | `nsq`, `ncoin`, `nsmall`, `nwax` chips and meters |
-| n18–n22 | silhouette portraits (24 different faces) | `nport` everyone with a name |
-| n23 | eight detailed portrait cards | `nface` the Watch and the origins |
-| n24 | ten tall ink locations | `nloc` cases |
-| n25 | twelve paper cards with a corner icon | `npaper` words on paper |
-
-## The kit (second batch)
-
-`tools/build_kit_art.py` cuts sixteen more sheets, supplied as `k01.png` …
-`k16.png`, into `css/art/kit-cards.css` and `kit-icons.css`. Tiles are found
-by their pixels, so the sheets need no measured boxes.
+| `cm-cards.css` | tall cards: portraits, items, places, crimes, verbs, backs, empty frames | 208px |
+| `cm-icons.css` | square and round icons, wax seals, stamps, markers | 112px |
+| `cm-ui.css` | buttons, pills, bars, panels, toggles, the timer | as cut |
 
 | sheet | what it holds | keys |
 | --- | --- | --- |
-| k01 | sixteen deaths (a body under a sheet, in the river, on the rope…) | `kdeath` cases: missing, the Eumenides, the pattern, three days |
-| k02–k04, k06–k08 | body silhouettes: stabbed, beaten, hanged, drowned, plain, shot | `kstab` `kblunt` `khang` `kdrown` `kbody` `kshot` case cards and body tokens, by the case's kind of death |
-| k05 | poison: bottles, cups, the sick and the dead | `kpoison` |
-| k07 | sixteen bodies on the ground | `kbody` |
-| k09 | thirty wax seals | `kseal` the crime on a case's corner, the six proofs, the meters |
-| k10 | people and dealings | `kfolk` fraud, extortion, gangs, coining |
-| k11 | numbers, tags, links, ropes, seals, plates | `knum` `knext` `ktag` `klink` `krope` `kwax` `kplate` (spare) |
-| k12 | the court: gavel, bars, the condemned, the jury | `kcourt` the Condemned (behind bars), a wanted notice for the Abroad, the sworn men |
-| k13 | arrows, relations, pinned strings, time, places | `karrow` `krel` `kpin` `ktime` `kplace` (spare) |
-| k14 | investigation: lenses, keys, prints, the city | `kinv` burglary |
-| k15 | evidence: blood, poison, rope, papers, ash | `kev` arson |
-| k16 | rosettes, badges, labels | `kros` `kros2` `kbadge` `klabel` (spare) |
+| e02 | verb story tiles, empty card frames, pills (cream, dark, hover) | `cstory` `cpill` `cpilld` `cpillh` `cpillhd` |
+| e04 | twenty-seven square buttons, the same twenty-seven round | `bsq` `bround` the top bar, the menus, a window's buttons |
+| e05 | thirty evidence icons | `iev` proofs, body tokens, the six aspects |
+| e06 | the timer, numbered counters, resource counters, tabs, aspect tokens, progress marks | `ctimer` `cnum` `cres` `ctab` `casp` `casp2` `cprog` |
+| e08 | fifteen place cards with a corner badge, and their fifteen icons | `cplace3` fronts and the Watch-house rooms; `iplace2` |
+| e09 | thirteen trades as square and round portraits | `irole` `rrole` slots, origins, the Watch |
+| e10 | wax seals, numbered seals, evidence and crime stamps, relation, accusation, suspect, witness and link markers, square and circular markers | `cwax` `cwaxn` `cstamp` `ccstamp` `crel` `cacc` `csus` `cwit` `clink` `cmark` `ccirc` |
+| e13 | six card backs, six empty frames, four wide frames | `cback` face-down cards, the archive, the endings; `cframe` the framed icon cards; `cwide` |
+| e14 | text bars, labelled bars, three panels, yes/no, arrows, filled pills | `cbar` banners; `clabel` toasts; `cpanel` the question, `cpanel2` a promotion, `cpanel3`; `cok` `carrow` `carrow2` `cpill2` |
+| e16 | settings and audio icons, toggles, checkboxes | `cset` `cset2` `caud` `caud2` `ctog` `ctog2` `ccheck` `ccheck2` |
+| e17–e35, e40, e41, e44, e45, e48 | eight painted cards each: rogues, signs, heraldry, nobles, clerks, the harbour, mysteries, folk, the Watch, items, the court, outlaws, places, crimes, women, trades, occult, ink portraits, the verbs | `crogue` `csign` `cherald` `cnoble` `cclerk` `charb` `cmyst` `cfolk` `cwatch` `citem` `ccourt` `coutlaw` `cnoble2` `cplace` `ccrime` `cwoman` `ctrade` `citem2` `cplace2` `charb2` `coccult` `cherald2` `cink` `cverb` |
+| e36–e39, e42, e43, e46, e47 | twenty-four square icons each: investigation, mysteries, medicine, crime, markers, law, trades, places | `iinv` `imyst` `imed` `icrime` `imark` `ilaw` `itrade` `iplace` |
 
-## The deck (third batch)
+Not cut: e01 and e07 (mock-ups of screens and blank dialogue boxes), e03,
+e11, e12 and e15 (the same tiles as e09, e10, e05, e08 in other sizes).
 
-`tools/build_deck_art.py` cuts sixteen more sheets, supplied as `d01.png` …
-`d16.png`, into `css/art/deck-cards.css` (200px), `deck-icons.css` (128px)
-and `deck-menu.css` (the study, 1400px). Tiles are found row by row from the
-sheet's alpha or its background colour; a family is a slice of one row or of
-every row. Every tile is kept whole, at its own size: the page scales a picture
-to fit its frame (`contain`) rather than cutting it.
+### Where things go (`js/ui.js`)
 
-| sheet | what it holds | keys |
-| --- | --- | --- |
-| d01 | thirty-five ink portraits on coloured squares | `dport` everyone with a name (suspects, witnesses, informants, rivals) |
-| d02 | twenty-six square icons (lens, notebook, speech, footprints, shield, insight, crowd, suspect, quarter, print, bulb, map, scales, coins, heart, eye, compass, hourglass, folder, books, lock, unlock, laurel, wax eye, warning, blood) | `dicon` the six proofs, the meters, slot and ask icons, the dossier's kind seals |
-| d03 | twenty-five round buttons (gear, music, sound, play, pause, fast, back, close, yes, no, save, load, help, menu, book, purse, map, scroll, compass, eye, people, exit) | `dui` the top bar, the pause and title menus, a window's close and info buttons |
-| d04 | the study at night, empty | `dmenu` behind the title and every full-screen panel |
-| d08 | sixteen verb tiles | `dverb` Attend, Explore, Study, Question, Rest, the Court |
-| d09 | eight round resource tokens | `dtok` Health and Coin in slots and asks, Weariness |
-| d10 | sixteen wax seals, six flags | `dwax` the dossier's kind seals; `dflag` the edge markers |
-| d11 | twelve drawn items (letter, seal, dagger, sack, phial, ring, key, map, holy card, blood, rope, book) | `ditem` clues and evidence by their words; the Ledger, orders, bribes, threads, loose ends |
-| d12 | twelve trades (magistrate, plague doctor, nun, sailor, scholar, guard, noblewoman, thief, priest, merchant, healer, executioner) | `drole` a named person whose role matches (`ROLE_ART` in `js/ui.js`) |
-| d14 | twenty-nine square buttons | `dbtn` `dbtn2` `dbtn3` the Settings tabs (spare otherwise) |
-| d15 | eight full character cards | `dhero` the three callings |
-| d16 | ten places (court, docks, alley, chapel, tavern, infirmary, cell, market, manor, library) | `dloc` quarters, fronts, gangs, the Watch-house rooms, the Burgomaster's seat |
+- **People** draw a painted card from a pool by their trade (`ROLE_POOL`:
+  judge, cleric, noble, watch, rogue, sailor, poor, woman, clerk, trader),
+  and keep it by their name. The Watch are `cwatch`; the callings and the
+  origins are `ctrade`.
+- **Cases** are a crime card with a crime stamp on the corner
+  (`CASE_ART`). **Tokens** about the body get an icon of the case's kind of
+  death; other tokens pick a painted item by their words (`EV_RULES`), or an
+  icon where there is no card for it.
+- **Quarters** are `cplace`, fronts `cplace3` by name, the Watch-house rooms
+  by room. **Words on paper** (orders, the Ledger, whispers, threads, pleas)
+  are items and signs.
+- **Health, Wit, Instinct, Coin** and the afflictions are square icons on an
+  empty frame in the kind's colour (`ICONS`; css `.card.face-icon`). Painted
+  cards are `.card.face-full`, with the name on a strip of paper at the foot.
+- **Verbs** are cards too (`cverb`, `cmyst`), with a rounded ring drawn just
+  outside their edge for the clock.
+- **Meters, proofs, slots, asks, the dossier's kind seal** are square icons
+  (`METER_ICONS`, `ASPECT_ART`, `SLOT_ART`, `ASK_ART`, `KIND_ART`).
+- **Buttons** are the round set (`bround`) in the top bar and on the menus;
+  the plates are the pills (`cpill`, `cpill2`); banners are `cbar`; toasts
+  are `clabel` with a marker in the circle; the question and the promotion
+  are `cpanel` and `cpanel2`; the rank is a wax seal (`cwax`).
 
-Not cut: d05, d06 and d13 (dense catalogue sheets whose pieces are too small
-to use), d07 (dialogue frames; the windows are drawn by the stylesheet). The
-tarot backs on d05 and d06 are under 120px wide, so face-down cards keep
-their tarot back from the Candlemark batch.
+## Still used from earlier batches
+
+- `noir-tables.css` (`tools/build_noir_art.py`): the teal table with a gold
+  frame under the grid (`ntable`). The tool also holds the WebP encoder the
+  other tools import.
+- `deck-menu.css` (`tools/build_deck_art.py`): the study at night behind the
+  title and every panel (`dmenu`).
+- `menu.css`: the title logo (`logo`).
+
+Everything else from the Free City, Candlemark Noir, kit and deck batches was
+retired with the Candlemark sheets, so the game reads as one style.
 
 Case strings (the pinned ropes between a case and its cards) are drawn by
 the stylesheet and `syncLinks` in `js/ui.js`, not cut from a sheet.
-
-Card faces are simple on purpose: a picture in a frame the stylesheet draws
-in the kind's colour, a paper strip with one name, and the whole story in
-the dossier. See `cardPicture` in `js/ui.js` for which picture a card gets.
-
-## The Free City (older)
-
-`tools/build_city_art.py` still builds `city-ui.css` and `city-icons.css`
-(plates, dialogs, meters, badges) from the earlier sheets.

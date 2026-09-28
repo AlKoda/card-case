@@ -32,7 +32,7 @@
 
   // Promotion: rank badge, and the verbs the new rank unlocks.
   UI.onPromotion = function (rank) {
-    $('promo-badge').style.backgroundImage = 'var(--art-' + (['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[rank] || {}).badge || 1) - 1] || 'medal-sun') + ')';
+    $('promo-badge').style.backgroundImage = 'var(--art-' + (['cwax-01', 'cwax-03', 'cwax-02'][((CF.RANK_DEFS[rank] || {}).badge || 1) - 1] || 'cwax-01') + ')';
     $('promo-title').textContent = tr('Promoted: ' + CF.RANKS[rank]);
     var unlocked = Object.keys(CF.POWERS).filter(function (k) { return CF.POWERS[k].rank === rank; });
     [1, 2, 3].forEach(function (i) {
@@ -49,9 +49,9 @@
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
 
-  var CALLING_ART = { commissioner: 'ntarot-09', master: 'ntarot-07', crusader: 'ntarot-08' };
-  var ENDING_ART = { dismissed: 'ntarot-08', burnout: 'ntarot-08', collapse: 'ntarot-08', consumed: 'ntarot-07', corruption: 'ntarot-07',
-    death: 'ntarot-08', riot: 'ntarot-08', thieftaker: 'ntarot-07', oldbailey: 'ntarot-09', kingofthunes: 'ntarot-08', treatycity: 'ntarot-08', merciful: 'ntarot-09', hangmans: 'ntarot-07', stake: 'ntarot-09', dagger: 'ntarot-08', commissioner: 'ntarot-09', master: 'ntarot-07', crusader: 'ntarot-09' };
+  var CALLING_ART = { commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
+  var ENDING_ART = { dismissed: 'cback-04', burnout: 'cback-04', collapse: 'cback-04', consumed: 'cback-02', corruption: 'cback-06',
+    death: 'cback-04', riot: 'cback-01', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cback-06', treatycity: 'cback-05', merciful: 'cback-03', hangmans: 'cback-04', stake: 'cback-01', dagger: 'cback-04', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
 
   function save() {
     if (inGame && UI.e && !UI.e.s.over) store(SAVE_KEY, UI.e.save());
@@ -65,7 +65,7 @@
     store(LEGACY_KEY, JSON.stringify(e.s.legacy));
     var st = e.s.stats;
     $('end').querySelector('.modal-box').className = 'modal-box end-box ' + (over.win ? 'end-win' : 'end-lose');
-    $('end-card').style.backgroundImage = 'var(--art-' + (ENDING_ART[over.id] || 'ntarot-08') + ')';
+    $('end-card').style.backgroundImage = 'var(--art-' + (ENDING_ART[over.id] || 'cback-04') + ')';
     $('end-card-top').textContent = tr(over.title);
     $('end-card-bottom').textContent = tr(e.s.detective);
     $('end-title').textContent = tr(over.title);
