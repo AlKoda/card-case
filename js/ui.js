@@ -1416,8 +1416,8 @@
 
   function miniCard(card) {
     var mc = miniCard0(card);
-    // The second half of the flip plays on the card itself, not its wrapper.
-    if (UI.flipIn[card.uid]) { var face = mc.querySelector('.card') || mc; face.classList.add('flip-in'); delete UI.flipIn[card.uid]; }
+    // The flip plays on the wrapper: the card inside keeps its mini scale.
+    if (UI.flipIn[card.uid]) { mc.classList.add('flip-in'); delete UI.flipIn[card.uid]; }
     return mc;
   }
   function miniCard0(card) {
@@ -1627,7 +1627,8 @@
   UI.flipIn = {};
   function flipReveal(card, el) {
     var e = UI.e;
-    if (el) el.classList.add('flip-out');
+    var wrap = el && (el.closest('.mini-wrap') || el);
+    if (wrap) wrap.classList.add('flip-out');
     CF.Audio.play('click');
     UI.haptic(12);
     UI.hoverBlock = card.uid;   // the mouse resting on it does not open the inspect: a tap does
@@ -1642,7 +1643,7 @@
     var e = UI.e, w = winEls[vid];
     var hidden = e.verb(vid).out.filter(function (u) { var c = e.card(u); return c && c.hidden; });
     if (!hidden.length) return;
-    if (w) hidden.forEach(function (u) { var el = w.querySelector('.card[data-uid="' + u + '"]'); if (el) el.classList.add('flip-out'); });
+    if (w) hidden.forEach(function (u) { var el = w.querySelector('.card[data-uid="' + u + '"]'); var wrap = el && (el.closest('.mini-wrap') || el); if (wrap) wrap.classList.add('flip-out'); });
     CF.Audio.play('click');
     UI.haptic(12);
     setTimeout(function () {

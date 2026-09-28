@@ -321,8 +321,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card.timed.urgent .c-time { color: #ffb3a8; box-shadow: 0 0 0 1px rgba(208, 86, 74, 0.7); }
 .card.mini .c-time { font-size: 10px; padding: 1px 6px; }
 /* A find turning over. */
-.card.flip-out { animation: flipOut 0.18s ease-in forwards; }
-.card.flip-in { animation: flipIn 0.22s ease-out; }
+/* The flip plays on the mini card's wrapper: the card inside keeps its scale. */
+.mini-wrap.flip-out { animation: flipOut 0.18s ease-in forwards; }
+.mini-wrap.flip-in { animation: flipIn 0.22s ease-out; }
 @keyframes flipOut { to { transform: rotateY(90deg); } }
 @keyframes flipIn { from { transform: rotateY(-90deg); } to { transform: rotateY(0); } }
 .card.facedown .c-face { background: #0f1517 var(--art-cback-01) center / 100% 100% no-repeat !important; border: none !important; box-shadow: 0 3px 4px rgba(0, 0, 0, 0.55) !important; }
@@ -336,7 +337,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .chip.big { font-size: 12px; padding: 3px 7px 3px 3px; gap: 5px; font-family: var(--sans); font-weight: 600; }
 .chip.big .chip-icon { width: 20px; height: 20px; }
 
-.mini-wrap { position: relative; width: calc(var(--card-w) * 0.72); height: calc(var(--card-h) * 0.72); flex: none; }
+.mini-wrap { position: relative; width: calc(var(--card-w) * 0.72); height: calc(var(--card-h) * 0.72); flex: none; transform-style: preserve-3d; }
+.outputs { perspective: 700px; }
 .mini-wrap .card { transform: scale(0.72); transform-origin: 0 0; transition: none; }
 
 /* ---------- Side panel ---------- */
