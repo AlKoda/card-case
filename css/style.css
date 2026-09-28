@@ -637,3 +637,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Panels scale with the Settings slider; the table itself is zoomed by hand. */
 .vwin { width: min(calc(370px * var(--ui-scale, 1)), calc(100% - 16px)); }
 .vw-head, .vw-body, .vwin .divider, #peek, #toasts, #hint, #journal-drawer .side-head, #journal { zoom: var(--ui-scale, 1); }
+
+/* ---- Languages. Arabic reads right-to-left in fonts that carry its
+   letters; letter-spacing would pull the joined script apart, so it is off. */
+.title-scene .title-buttons .plate-btn.lang { left: auto; right: 1.5%; top: 2%; width: auto; height: auto; padding: 5px 12px; background: rgba(14, 12, 9, 0.82); color: var(--paper); border: 1px solid #b8913f; border-radius: 4px; font-size: clamp(10px, 1.1vw, 14px); letter-spacing: 0.06em; }
+.lang-select { grid-column: 2 / 4; justify-self: end; min-width: 160px; background: #111416; color: var(--paper); border: 2px solid #b8913f; padding: 6px 12px; font-family: inherit; font-size: 14px; }
+[dir=rtl] {
+  --serif: 'Amiri', 'Noto Naskh Arabic', 'Scheherazade New', 'Traditional Arabic', 'Sakkal Majalla', 'Geeza Pro', 'Tahoma', serif;
+  --display: 'Amiri', 'Noto Naskh Arabic', 'Scheherazade New', 'Traditional Arabic', 'Sakkal Majalla', 'Geeza Pro', 'Tahoma', serif;
+  --black: 'Amiri', 'Noto Naskh Arabic', 'Scheherazade New', 'Traditional Arabic', 'Sakkal Majalla', 'Geeza Pro', 'Tahoma', serif;
+  --mono: 'Amiri', 'Noto Naskh Arabic', 'Tahoma', 'Courier New', monospace;
+  --sans: 'Amiri', 'Noto Sans Arabic', 'Noto Naskh Arabic', 'Segoe UI', 'Tahoma', sans-serif;
+}
+[dir=rtl] body, [dir=rtl] .card, [dir=rtl] .verb, [dir=rtl] .vwin, [dir=rtl] #peek, [dir=rtl] .toast, [dir=rtl] .modal, [dir=rtl] .choice, [dir=rtl] .meter, [dir=rtl] #hint, [dir=rtl] .pile-zone { letter-spacing: 0; }
+[dir=rtl] * { letter-spacing: 0 !important; }
+[dir=rtl] .card .c-name, [dir=rtl] .verb .v-label, [dir=rtl] .toast b, [dir=rtl] .meter .m-word, [dir=rtl] .meter .m-label { font-size: 1.08em; line-height: 1.3; }
+[dir=rtl] #topbar .brand { font-size: 19px; }
+[dir=rtl] .story p, [dir=rtl] .vw-desc, [dir=rtl] .journal-entry p, [dir=rtl] .modal p, [dir=rtl] #peek p, [dir=rtl] .help-grid p, [dir=rtl] .lead { line-height: 1.75; }
+[dir=rtl] #pause-banner span { margin-left: 0; margin-right: 10px; }
+[dir=rtl] .toast.leaving { transform: translateX(20px); }
+[dir=rtl] input[type=text] { direction: rtl; }
+[dir=rtl] #name { direction: ltr; text-align: right; }

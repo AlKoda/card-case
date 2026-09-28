@@ -117,13 +117,14 @@
   var liveCards = []; // [el, uid] for cards with timers
 
   function $(sel) { return document.querySelector(sel); }
+  var tr = CF.T;
   function h(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
-    if (text !== undefined && text !== null) n.textContent = text;
+    if (text !== undefined && text !== null) n.textContent = tr(text);
     return n;
   }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(s) { return String(tr(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   // ---------------------------------------------------------------- Setup
   UI.attach = function (engine) {
@@ -184,6 +185,21 @@
     UI.gridPitch = T.PX + 'x' + T.PY;
   }
   CF.Settings.onChange(applyTableSettings);
+  // The language: every word on the page is re-read through CF.T, and the
+  // table is rebuilt so the cards and verbs pick up their new names.
+  UI.applyLang = function () {
+    var want = CF.Settings.get('lang') || 'en';
+    if (want === CF.lang() && UI.langApplied) return;
+    UI.langApplied = true;
+    CF.setLang(want);
+    if (!UI.e) return;
+    ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
+    cardEls = {}; verbEls = {}; winEls = {}; liveCards = []; pileEl = null;
+    UI.openVerbs = []; UI.hintMode = null; shownJournal = null; UI.gridPitch = null;
+    applyTableSettings();
+    UI.e.dirty = true;
+  };
+  CF.Settings.onChange(UI.applyLang);
   UI.scale = function () { return U.clamp((CF.Settings.get('uiScale') || 100) / 100, 0.8, 1.6); };
   UI.applyScale = function () {
     document.documentElement.style.setProperty('--ui-scale', UI.scale());
@@ -385,14 +401,14 @@
     var e = UI.e, hint = $('#hint');
     var text = e.introHint ? e.introHint() : null;
     if (text) {
-      if (UI.hintMode !== 'intro' || hint.textContent !== text) { hint.textContent = text; hint.classList.remove('gone'); UI.hintMode = 'intro'; }
+      if (UI.hintMode !== 'intro' || hint.textContent !== tr(text)) { hint.textContent = tr(text); hint.classList.remove('gone'); UI.hintMode = 'intro'; }
       return;
     }
     if (UI.hintMode === 'plain' || UI.hintMode === 'gone') return;
     UI.hintMode = 'plain';
     var seen = false;
     try { seen = !!localStorage.getItem('casefile.hinted'); } catch (err) { /* ignore */ }
-    hint.textContent = PLAIN_HINT;
+    hint.textContent = tr(PLAIN_HINT);
     hint.classList.toggle('gone', seen);
   }
 
@@ -411,7 +427,7 @@
     var full = { pressure: 'The Crowd: the city\'s patience with you', scrutiny: 'Suspicion: the Council\'s eye on your methods', retaliation: 'Vendetta: the underworld\'s grudge', dread: 'Dread: what the city fears you are', reputation: 'Standing: your name in the Council chamber' }[key];
     var word = (CF.METER_WORDS && CF.METER_WORDS[key] || [])[level] || '';
     return '<div class="meter lvl-' + level + state + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
-      '<div class="m-main"><div class="m-label"><span>' + label + '</span></div><div class="m-word">' + esc(word) + '</div></div></div>';
+      '<div class="m-main"><div class="m-label"><span>' + esc(label) + '</span></div><div class="m-word">' + esc(word) + '</div></div></div>';
   }
 
   function renderTop() {
@@ -420,9 +436,9 @@
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
     $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
       meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
-    $('#rank').textContent = s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '');
+    $('#rank').textContent = tr(s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', ''));
     $('#rank-badge').style.backgroundImage = art(['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'medal-sun');
-    $('#rank-badge').title = CF.RANKS[s.rank];
+    $('#rank-badge').title = tr(CF.RANKS[s.rank]);
     if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
     UI.lastRank = s.rank;
     updateWeekBar();
@@ -430,7 +446,7 @@
 
   function aspectChip(k, v) {
     var b = h('span', 'chip');
-    b.title = CF.ASPECTS[k].label;
+    b.title = tr(CF.ASPECTS[k].label);
     var i = h('span', 'chip-icon');
     i.style.backgroundImage = art(ASPECT_ART[k] || 'aspect-' + k);
     b.appendChild(i);
@@ -524,7 +540,7 @@
   function updateCardLive(n, card) {
     if (!card || !card.maxLife) return;
     var t = n.querySelector('.c-timer');
-    if (t) t.textContent = U.fmtTime(card.life);
+    if (t) t.textContent = tr(U.fmtTime(card.life));
     n.style.setProperty('--pct', Math.max(0, Math.min(100, (card.life / card.maxLife) * 100)).toFixed(1) + '%');
     var k = CF.CARDS[card.def].kind;
     n.classList.toggle('urgent', (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30));
@@ -718,7 +734,7 @@
     var e = UI.e, board = $('#board'), pile = e.pile();
     if (!pileEl) {
       pileEl = h('div', 'pile-zone');
-      pileEl.title = 'The collection pile: new cards land here. Drag it anywhere.';
+      pileEl.title = tr('The collection pile: new cards land here. Drag it anywhere.');
       pileEl.style.width = (T.PILE_COLS * T.PX + 4) + 'px';
       pileEl.style.height = (T.CH + 16) + 'px';
       pileEl.appendChild(h('span', 'pz-label', 'New cards'));
@@ -841,7 +857,7 @@
       if (!el) {
         el = h('div', 'verb ' + vid + (def.auto ? ' time' : ''));
         el.dataset.verb = vid;
-        el.title = def.label + ': ' + def.desc;
+        el.title = tr(def.label + ': ' + def.desc);
         var tok = h('div', 'v-token');
         tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
         tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" /></svg>');
@@ -853,7 +869,7 @@
         el.appendChild(h('div', 'v-count'));
         el.appendChild(h('div', 'v-back'));
         var mag = h('div', 'v-magnet');
-        mag.title = vid === 'time' ? 'Dues: what the Bell draws from the table each week' : 'Magnet: pull in the cards this verb\'s open slots take';
+        mag.title = tr(vid === 'time' ? 'Dues: what the Bell draws from the table each week' : 'Magnet: pull in the cards this verb\'s open slots take');
         el.appendChild(mag);
         place(el, v.x, v.y);
         board.appendChild(el);
@@ -867,7 +883,7 @@
       el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
       el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
       el.classList.toggle('loaded', v.status === 'idle' && n > 0);
-      el.querySelector('.v-count').textContent = n || '';
+      el.querySelector('.v-count').textContent = tr(n || '');
       // The token's small box: hidden until the verb, part-way through its
       // work, asks for one more card. It shows what kind, and a tap pulls a
       // fitting card in from the table. The Bell's shows the dues when due.
@@ -878,10 +894,10 @@
         mag.classList.toggle('asks', !!ask);
         mag.style.backgroundImage = ask ? art(ASK_ART[ask.accepts[0]] || 'nsmall-05') : '';
         mag.textContent = '';
-        mag.title = ask ? ask.label + ': ' + ask.text : '';
+        mag.title = tr(ask ? ask.label + ': ' + ask.text : '');
         el.classList.toggle('asking', !!ask);
       }
-      el.querySelector('.v-badge').textContent = v.status === 'done' && v.out.length ? String(v.out.length) : '!';
+      el.querySelector('.v-badge').textContent = tr(v.status === 'done' && v.out.length ? String(v.out.length) : '!');
     });
   }
 
@@ -931,9 +947,9 @@
       var pct = vid === 'time' ? e.s.weekT / CF.WEEK : v.status === 'running' ? v.elapsed / v.duration : v.status === 'done' ? 1 : 0;
       var ring = el.querySelector('.v-ring circle');
       ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
-      el.querySelector('.v-status').textContent = verbStatus(vid);
+      el.querySelector('.v-status').textContent = tr(verbStatus(vid));
       var wk = el.querySelector('.v-week');
-      if (wk) { wk.textContent = 'Wk ' + e.s.week; el.querySelector('.v-magnet').classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
+      if (wk) { wk.textContent = tr('Wk {n}', { n: e.s.week }); el.querySelector('.v-magnet').classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
     });
   }
 
@@ -956,7 +972,7 @@
         var pr = w.querySelector('.progress > div');
         if (pr) pr.style.width = (v.elapsed / v.duration) * 100 + '%';
         var tl = w.querySelector('.p-time');
-        if (tl) tl.textContent = U.fmtTime(v.duration - v.elapsed) + ' remaining';
+        if (tl) tl.textContent = tr(U.fmtTime(v.duration - v.elapsed) + ' remaining');
       }
       w.querySelectorAll('.card[data-uid]').forEach(function (n) { updateCardLive(n, e.card(+n.dataset.uid)); });
     });
@@ -1034,9 +1050,9 @@
       if (!w) {
         w = h('div', 'vwin');
         w.dataset.win = vid;
-        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-close" title="Close (Esc)">×</button></div><div class="divider"></div><div class="vw-body"></div>';
+        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
         w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
-        w.querySelector('h3').textContent = CF.VERBS[vid].label;
+        w.querySelector('h3').textContent = tr(CF.VERBS[vid].label);
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
         layer.appendChild(w);
         winEls[vid] = w;
@@ -1093,8 +1109,8 @@
         var life = cc.life / cc.maxLife;
         var row = h('div', 'clock' + (cc.life < 60 ? ' urgent' : ''));
         row.innerHTML = '<span class="ck-title">' + esc(rec.title) + '</span><span class="ck-bar"><i style="width:' + Math.round(life * 100) + '%"></i></span>' +
-          '<span class="ck-days">' + CF.daysLeft(cc.life) + ' day' + (CF.daysLeft(cc.life) === 1 ? '' : 's') + '</span>';
-        row.title = 'Show this case on the table';
+          '<span class="ck-days">' + esc(CF.daysLeft(cc.life) === 1 ? tr('1 day') : tr('{n} days', { n: CF.daysLeft(cc.life) })) + '</span>';
+        row.title = tr('Show this case on the table');
         row.addEventListener('click', function () { UI.panTo(cc.uid); });
         pane.appendChild(row);
       });
@@ -1165,7 +1181,7 @@
       else {
         // An empty slot, tapped, says what it takes and offers the cards that fit.
         box.classList.add('empty');
-        box.title = 'Pick a card for this slot';
+        box.title = tr('Pick a card for this slot');
         box.addEventListener('click', function () {
           var same = UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key;
           UI.pick = same ? null : { verb: vid, slot: sl.key };
@@ -1175,7 +1191,7 @@
       }
       s.appendChild(box);
       var lab = h('div', 's-label', sl.label);
-      lab.title = sl.accepts.map(prettyAspect).join(' / ');
+      lab.title = tr(sl.accepts.map(prettyAspect).join(' / '));
       s.appendChild(lab);
       s.addEventListener('pointerenter', function () { UI.hoverSlot = { verb: vid, slot: sl.key }; markFits(); });
       s.addEventListener('pointerleave', function () { UI.hoverSlot = null; markFits(); });
@@ -1207,7 +1223,7 @@
       rbox.innerHTML = '<p class="r-none">' + esc(U.pick(Math.random, ['The pieces sit there. Nothing comes of it. Not yet.',
         'You turn it over and over. Something is missing.', 'It feels like the start of something. Just not this.'])) + '</p>';
     } else {
-      rbox.innerHTML = '<p class="r-none">' + (lock ? esc(lock) : 'Put a card in the first slot.') + '</p>';
+      rbox.innerHTML = '<p class="r-none">' + (lock ? esc(lock) : esc('Put a card in the first slot.')) + '</p>';
     }
     pane.appendChild(rbox);
 
@@ -1233,14 +1249,14 @@
     var fits = e.tableCards().filter(function (c) { return e.slotAccepts(sl, c); }).sort(function (a, b) { return a.uid - b.uid; });
     var seen = {}, shown = [];
     fits.forEach(function (c) { var k = e.stackKey(c) || c.uid; if (!seen[k]) { seen[k] = true; shown.push(c); } });
-    box.innerHTML = '<div class="pk-head"><span>' + esc(sl.label) + ' takes: ' + esc(sl.accepts.map(prettyAspect).join(', ')) + '</span><button class="pk-close" title="Close">×</button></div>';
+    box.innerHTML = '<div class="pk-head"><span>' + esc(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: sl.accepts.map(prettyAspect).join(', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
     box.querySelector('.pk-close').addEventListener('click', function () { UI.pick = null; e.dirty = true; });
     if (!shown.length) { box.appendChild(h('p', 'pk-none', 'Nothing on the table fits this slot yet.')); return box; }
     var row = h('div', 'pk-cards');
     shown.forEach(function (c) {
       var m = miniCard(c);
       m.classList.add('pk-card');
-      m.title = 'Put ' + e.labelOf(c) + ' in the slot';
+      m.title = tr('Put ' + e.labelOf(c) + ' in the slot');
       m.addEventListener('click', function () {
         if (e.slotCard(vid, slotKey, c.uid)) { UI.pick = null; CF.Audio.play('drop'); e.dirty = true; }
       });
@@ -1285,13 +1301,13 @@
     var p = h('p');
     d.appendChild(p);
     if (typed.has(story) || CF.Settings.typeRate() === Infinity || !story.text) {
-      p.textContent = story.text;
+      p.textContent = tr(story.text);
       typed.add(story);
     } else {
       if (!UI.typing || UI.typing.story !== story) UI.typing = { story: story, t0: performance.now() };
       UI.typing.el = p;
-      d.title = 'Click to show all';
-      d.addEventListener('click', function () { typed.add(story); p.textContent = story.text; UI.typing = null; });
+      d.title = tr('Click to show all');
+      d.addEventListener('click', function () { typed.add(story); p.textContent = tr(story.text); UI.typing = null; });
       advanceTyping();
     }
     return d;
@@ -1300,8 +1316,9 @@
     var t = UI.typing;
     if (!t || !t.el) return;
     var n = Math.floor(((performance.now() - t.t0) / 1000) * CF.Settings.typeRate());
-    if (n >= t.story.text.length) { t.el.textContent = t.story.text; typed.add(t.story); UI.typing = null; return; }
-    t.el.textContent = t.story.text.slice(0, n);
+    var full = tr(t.story.text);
+    if (n >= full.length) { t.el.textContent = full; typed.add(t.story); UI.typing = null; return; }
+    t.el.textContent = full.slice(0, n);
   }
 
   function prettyAspect(a) {
@@ -1324,7 +1341,7 @@
     pane.innerHTML = '';
     j.slice(0, 120).forEach(function (x) {
       var d = h('div', 'journal-entry k-' + x.kind);
-      d.innerHTML = '<div class="j-meta">Week ' + x.week + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
+      d.innerHTML = '<div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
       pane.appendChild(d);
     });
   }
@@ -1334,7 +1351,7 @@
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
   function chargeHtml(d) {
-    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(d.tierLabel) + ' charge</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
+    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
       html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'nsmall-05') + '"></span>' +
@@ -1460,14 +1477,14 @@
     html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
-      return '<span class="chip big" data-aspect="' + k + '" title="Tap for what this means"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
+      return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
     }).join('');
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
-    if (!dz && card.maxLife) html += '<div class="i-note">Time left: ' + U.fmtTime(card.life) + '</div>';
+    if (!dz && card.maxLife) html += '<div class="i-note">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
-    box.innerHTML = '<button class="peek-close" title="Close">×</button>' + html;
+    box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' + html;
     box.querySelector('.peek-close').addEventListener('click', function () { select(null); UI.hover = null; renderInspector(); });
     box.querySelectorAll('.chip[data-aspect]').forEach(function (chip) {
       chip.addEventListener('click', function (ev) {
@@ -1477,7 +1494,7 @@
         if (old) { var was = old.dataset.aspect; old.remove(); if (was === k) return; }
         var pop = h('div', 'aspect-pop');
         pop.dataset.aspect = k;
-        pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-note">Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.</p>';
+        pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-note">' + esc('Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.') + '</p>';
         chip.parentNode.insertAdjacentElement('afterend', pop);
       });
     });

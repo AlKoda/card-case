@@ -15,6 +15,7 @@ var FILES = [
   "css/art/noir-verbs.css",
   "css/art/noir-tables.css",
   "js/util.js",
+  "js/i18n.js",
   "js/data/cards.js",
   "js/data/cases.js",
   "js/data/verbs.js",
