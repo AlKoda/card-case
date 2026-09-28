@@ -33,7 +33,6 @@ FILES = {
     'noir-cards': dict(width=232, q=68),    # card pictures and full faces (card is 116px wide, drawn at 2x)
     'noir-icons': dict(width=96, q=76),     # chips, coins, meter icons
     'noir-verbs': dict(width=180, q=74),    # verb boxes
-    'noir-tables': dict(width=1672, q=56),  # the table and the menu scene
 }
 M = {k: [] for k in FILES}
 
@@ -46,10 +45,8 @@ def cells(x0, y0, x1, y1, n, w=None):
     w = w or pitch
     return [(round(x0 + i * pitch), y0, round(x0 + i * pitch + w), y1) for i in range(n)]
 
-# ---- Tables and scenes (full bleed) ---------------------------------------
-# The table: only the gold-framed mat (the printed card outlines around it are left out).
-one('noir-tables', 'ntable', 'n04', (120, 95, 1552, 800))
-one('noir-tables', 'nmenu', 'n09', None)
+# (The table from n04 was replaced by the mat that tools/build_table_art.py
+# lays out from the six table sheets; the menu scene n09 is no longer used.)
 
 # ---- Silhouette portraits (five sheets of eight): people ------------------
 PORTRAITS = []

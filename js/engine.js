@@ -26,7 +26,7 @@
     verbsOnBoard: true,          // the verbs are tokens on the felt, movable like cards
   };
   // The edge of the table: nothing goes beyond it.
-  T.BOUNDS = { x: -1120, y: -680, w: 3340, h: 1630 };
+  T.BOUNDS = { x: -520, y: -250, w: 2900, h: 1840 };
   var ZONE_ROWS = {       // layout row each kind prefers
     ability: 0, funds: 0, threat: 0, calling: 0, insight: 0, career: 0,
     case: 1, coldcase: 1, court: 1,
