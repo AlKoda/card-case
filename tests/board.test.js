@@ -335,3 +335,45 @@ console.error = function (err) { throw err; };
   var e2 = CF.Engine.load(e.save()); assert.ok(!e2.s.choice && e2.s.choicesSeen.beggar, 'the choice is remembered');
   console.log('life: opening, needs, choices ok');
 })();
+
+// Ways around the needs, and the Rival.
+(function rivalry() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Rival' });
+  // A watchman feeds you: no Coin needed.
+  var hunger = e.create('hunger'), tm = e.create('teammate', e.teammateSpec('rookie'));
+  e.autoSlot('reflect', hunger.uid); e.autoSlot('reflect', tm.uid);
+  var pv = e.preview('reflect');
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_hunger_pot', pv && pv.label);
+  assert.ok(e.start('reflect')); e.tick(e.verb('reflect').duration + 0.01);
+  assert.strictEqual(e.countOf('hunger'), 0, 'fed from the pot');
+  assert.ok(e.verb('reflect').out.indexOf(tm.uid) >= 0, 'the watchman comes back');
+  e.collect('reflect');
+  var stress = e.create('stress'), inst = e.tableCards().filter(function (c) { return c.def === 'instinct'; })[0];
+  e.autoSlot('reflect', stress.uid); e.autoSlot('reflect', inst.uid);
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_stress_walk');
+  e.clearSlots('reflect');
+  // The Rival arrives in the middle of the game and acts every week.
+  e.s.week = 8; e.s.rng = 7; e.rng.setState && e.rng.setState(7);
+  var seen = 0;
+  for (var w = 0; w < 6 && !e.cardsOf('rival', true).length; w++) { e.rivalWeek(); }
+  var r = e.cardsOf('rival', true)[0];
+  assert.ok(r, 'the Provost sends an examiner');
+  var before = e.openCases().length, lines = e.rivalWeek();
+  assert.ok(lines.length === 1, 'they act: ' + lines);
+  void before; void seen;
+  // Wit twice: exposed.
+  var wit = e.tableCards().filter(function (c) { return c.def === 'focus'; })[0];
+  e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
+  assert.strictEqual(e.currentRecipe('interrogate').recipe.id, 'int_rival_weakness');
+  assert.ok(e.start('interrogate')); e.tick(e.verb('interrogate').duration + 0.01);
+  assert.strictEqual(r.data.heat, 1); assert.ok(r.data.stalled >= e.s.week, 'they lie low');
+  assert.deepStrictEqual(e.rivalWeek(), [], 'nothing while they lie low');
+  e.collect('interrogate');
+  var rep = e.s.meters.reputation;
+  e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
+  assert.ok(e.start('interrogate')); e.tick(e.verb('interrogate').duration + 0.01);
+  assert.strictEqual(e.cardsOf('rival', true).length, 0, 'exposed and sent home');
+  assert.strictEqual(e.s.meters.reputation, rep + 2);
+  assert.ok(e.s.flags.rivalGone > e.s.week);
+  console.log('rivalry: ok');
+})();

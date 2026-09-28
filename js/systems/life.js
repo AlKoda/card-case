@@ -97,6 +97,68 @@
     }
   };
 
+  // ---- The Rival ----------------------------------------------------------------
+  // From the middle of the game the Provost appoints an examiner of his own
+  // to show the Council it has a choice. Every week they act against you:
+  // take a case and close it first, spoil a scene, pay a witness to forget.
+  CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
+  P.rivalWeek = function () {
+    var s = this.s, lines = [];
+    if (s.week < 5 || (s.intro && !s.intro.finished)) return lines;
+    var r = this.cardsOf('rival', true)[0];
+    if (!r) {
+      if (s.flags.rivalGone && s.flags.rivalGone > s.week) return lines;
+      if (s.flags.rivalSeen && this.rng() > 0.25) return lines;
+      if (!s.flags.rivalSeen && this.rng() > 0.4 && s.week < 8) return lines;
+      var name = U.pick(this.rng, CF.RIVAL_NAMES);
+      s.flags.rivalSeen = true;
+      this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
+      this.story('The Provost\'s Examiner', name + ' has the Provost\'s letter and a desk on the other side of the Market. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice and the Council sends them home.', 'danger');
+      lines.push('The Provost has sent an examiner of his own.');
+      return lines;
+    }
+    if (r.data.stalled && r.data.stalled >= s.week) return lines;
+    var open = this.openCases();
+    var mine = open.filter(function (x) { return !x.rival; }), theirs = open.filter(function (x) { return x.rival; });
+    var clues = this.tableCards().filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && CF.CLUE_ASPECTS.some(function (k) { return CF.aspectsOf(c)[k] > 0; }); });
+    var witnesses = this.tableCards().filter(function (c) { return c.def === 'witness' && c.life > 40; });
+    var acts = [];
+    if (theirs.length) acts.push('close');
+    if (mine.length) acts.push('poach');
+    if (clues.length) acts.push('tamper');
+    if (witnesses.length) acts.push('bribe');
+    if (!acts.length) return lines;
+    var act = U.pick(this.rng, acts), name2 = r.data.name;
+    if (act === 'poach') {
+      var rec = U.pick(this.rng, mine), card = this.caseCard(rec.id);
+      rec.rival = true;
+      if (card) card.life = Math.min(card.life, card.maxLife * 0.5);
+      this.story('The Rival Takes a Case', name2 + ' is working ' + rec.title + ' from the other side, with the Provost\'s watchmen. Answer it first, or they will.', 'danger');
+      lines.push(name2 + ' has taken up one of your cases.');
+    } else if (act === 'close') {
+      var rec2 = U.pick(this.rng, theirs);
+      this.goCold(rec2.id);
+      this.meter('reputation', -1);
+      this.story('Answered by the Rival', name2 + ' has closed ' + rec2.title + ' with a confession the Provost is pleased with. The Council notes who was quicker.', 'danger');
+      lines.push(name2 + ' closed a case of yours first.');
+    } else if (act === 'tamper') {
+      var c = U.pick(this.rng, clues), asp = CF.aspectsOf(c);
+      var keys = CF.CLUE_ASPECTS.filter(function (k) { return asp[k] > 0; }), k2 = U.pick(this.rng, keys);
+      c.aspects = c.aspects || {};
+      c.aspects[k2] = (c.aspects[k2] || asp[k2]) - 1;
+      if (c.aspects[k2] <= 0) delete c.aspects[k2];
+      this.story('A Scene Spoiled', 'Somebody has been at ' + this.labelOf(c) + ' before you could use it: moved, wiped, muddled. ' + name2 + '\'s people were seen in the lane.', 'danger');
+      lines.push(name2 + ' spoiled a token of yours.');
+    } else if (act === 'bribe') {
+      var w = U.pick(this.rng, witnesses);
+      w.life = Math.min(w.life, 30);
+      this.story('A Witness Paid to Forget', this.labelOf(w) + ' has had a visit and a purse from ' + name2 + ', and is suddenly leaving the city. Half a minute, if you want their word.', 'danger');
+      lines.push(name2 + ' paid a witness of yours to forget.');
+    }
+    this.dirty = true;
+    return lines;
+  };
+
   // ---- Choices ------------------------------------------------------------------
   // The city puts a question to you and the clock stops until you answer.
   // Each answer bends what comes after: the Crowd, the Council's eye, the
