@@ -23,7 +23,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+input, textarea { user-select: text; -webkit-user-select: text; }
 button { font: inherit; color: inherit; cursor: pointer; }
 .hidden { display: none !important; }
 
@@ -288,10 +289,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card.face-paper .c-aspects { justify-content: flex-start; margin-top: 6px; }
 .card .c-timer { font-family: var(--mono); font-size: 11px; font-weight: 700; color: #7c1d15; text-align: center; font-variant-numeric: tabular-nums; margin-top: auto; }
 .card .c-aspects + .c-timer { margin-top: 1px; }
-.card.timed .c-ring { position: absolute; inset: -3px; border-radius: 10px; --pct: 100%; background: conic-gradient(from 0deg, rgba(200, 160, 70, 0.9) var(--pct), rgba(0, 0, 0, 0.5) 0); }
-.card.timed.urgent .c-ring { background: conic-gradient(from 0deg, #d0564a var(--pct), rgba(0, 0, 0, 0.55) 0); }
+/* The clock on a card: a ring just outside its edge, and the time in the middle of the picture. */
+.card .c-ringsvg { position: absolute; left: -6px; top: -6px; width: calc(100% + 12px); height: calc(100% + 12px); overflow: visible; pointer-events: none; z-index: 1; }
+.card .c-ringsvg rect { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 0 999; filter: drop-shadow(0 0 2px rgba(212, 162, 76, 0.8)); }
+.card .c-ringsvg rect.track { stroke: rgba(12, 10, 8, 0.7); stroke-dasharray: none; filter: none; }
+.card.timed.urgent .c-ringsvg rect:not(.track) { stroke: #d0564a; filter: drop-shadow(0 0 3px rgba(208, 86, 74, 0.9)); }
+.card .c-time { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: 10px; background: rgba(14, 12, 10, 0.78); color: #f0d58a; font-family: var(--mono); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; box-shadow: 0 0 0 1px rgba(255, 220, 140, 0.35); pointer-events: none; }
+.card.timed.urgent .c-time { color: #ffb3a8; box-shadow: 0 0 0 1px rgba(208, 86, 74, 0.7); }
+.card.mini .c-time { font-size: 10px; padding: 1px 6px; }
+/* A find turning over. */
+.card.flip-out { animation: flipOut 0.18s ease-in forwards; }
+.card.flip-in { animation: flipIn 0.22s ease-out; }
+@keyframes flipOut { to { transform: rotateY(90deg); } }
+@keyframes flipIn { from { transform: rotateY(-90deg); } to { transform: rotateY(0); } }
 .card.facedown .c-face { background: var(--art-ntarot-07) center / cover no-repeat !important; border: none !important; box-shadow: none !important; }
-.card.facedown .c-face::before, .card.facedown .c-body, .card.facedown .c-ring { display: none; }
+.card.facedown .c-face::before, .card.facedown .c-body, .card.facedown .c-ringsvg, .card.facedown .c-time { display: none; }
 .card.facedown { cursor: pointer; }
 .card .c-count { position: absolute; top: 6px; right: 6px; z-index: 2; background: #0e1112; color: var(--paper); border: 1px solid #c9a24c; font-size: 12px; font-weight: 700; border-radius: 13px; padding: 0 8px; line-height: 24px; cursor: grab; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4); }
 .card .c-count::before { content: '⠿ '; opacity: 0.7; font-size: 10px; }
@@ -329,7 +341,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #peek .aspect-pop .ap-note { color: #5a4f3a; font-style: italic; }
 
 .vwin {
-  position: absolute; right: 8px; top: 8px; bottom: 60px; width: 370px; max-height: calc(100% - 68px); overflow: auto; pointer-events: auto; padding: 8px 14px 14px;
+  position: absolute; right: 8px; top: 8px; width: 370px; max-height: calc(100% - 68px); overflow: auto; pointer-events: auto; padding: 8px 14px 14px;
   background: linear-gradient(#1d2024, #16181b); border: 1px solid #6b5634; border-radius: 12px;
   box-shadow: 0 0 0 1px #0a0b0c, 0 18px 40px rgba(0, 0, 0, 0.65); animation: winIn 0.18s ease-out; transition: opacity 0.16s, transform 0.16s;
 }
@@ -337,6 +349,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes winIn { from { opacity: 0; transform: scale(0.95) translateY(6px); } }
 .vw-head { display: flex; align-items: center; gap: 8px; user-select: none; touch-action: none; }
 .vw-icon { width: 30px; height: 30px; flex: none; background: center / contain no-repeat; border-radius: 6px; }
+.vw-info { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--accent); background: none; color: var(--accent); font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 14px; cursor: pointer; }
+.vw-info:hover { background: rgba(212, 162, 76, 0.15); }
+.slot .s-icon { display: block; width: 18px; height: 18px; margin: 3px auto 0; background: center / contain no-repeat; opacity: 0.85; }
+.card .c-stats { display: flex; justify-content: center; gap: 8px; margin-top: 2px; }
+.card .c-stat { display: inline-flex; align-items: center; gap: 2px; font-family: var(--mono); font-weight: 700; font-size: 11px; color: #2a1a10; }
+.card .c-stat i { width: 16px; height: 16px; background: center / contain no-repeat; }
+.card .c-stat.heat { color: #7c1d15; }
+#peek .i-meter { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; }
+#peek .i-meter .m-icon { width: 34px; height: 34px; background: center / contain no-repeat; }
+#peek .i-meter h4 { margin: 0; }
+.meter { cursor: pointer; }
+/* A notice at the table's edge, pointing at something worth a look. */
+.edge-mark { position: absolute; z-index: 28; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 16px; background: rgba(14, 12, 10, 0.9); border: 1px solid var(--accent); color: var(--paper); font-family: var(--display); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; animation: markIn 0.25s ease-out; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6); }
+.edge-mark b { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #1a1208; text-align: center; line-height: 20px; font-size: 14px; animation: pulse 1.4s infinite; }
+.edge-mark::after { content: ''; position: absolute; left: 50%; top: 50%; width: 30px; height: 2px; margin-top: -1px; transform-origin: 0 50%; transform: rotate(var(--ang, 0deg)) translateX(24px); background: var(--accent); }
+.edge-mark.hidden { display: none; }
+@keyframes markIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } }
+.verb.noticed .v-token, .card.noticed .c-face { animation: glow 0.9s 4; }
 .vw-head h3 { flex: 1; margin: 0; font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; font-size: 16px; font-weight: 700; color: var(--accent); }
 .vw-close { background: none; border: none; color: var(--ink-dim); font-size: 22px; line-height: 1; padding: 0 4px; }
 .vw-close:hover { color: var(--paper); }

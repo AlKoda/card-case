@@ -26,6 +26,13 @@
     startMusic();
   };
 
+  // Away from the game (another app, a locked screen): silence, and back again.
+  A.suspend = function () { if (A.ready && A.ctx.state === 'running') A.ctx.suspend(); };
+  A.resume = function () { if (A.ready && A.ctx.state === 'suspended') A.ctx.resume(); };
+  document.addEventListener('visibilitychange', function () { if (document.hidden) A.suspend(); else A.resume(); });
+  window.addEventListener('pagehide', A.suspend);
+  window.addEventListener('pageshow', A.resume);
+
   A.apply = function (v) {
     if (!A.ready) return;
     var t = A.ctx.currentTime;

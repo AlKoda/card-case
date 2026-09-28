@@ -78,18 +78,23 @@
       rec.opening = true;
       this.story(CF.OPENING_TEXT.notice + ': ' + rec.title, sc.notice + ' Nobody else is going to look.', 'case');
       if (this.introUnlock) this.introUnlock(['investigate']);
-      hint(this, 'Somebody you know is missing. Drag the case onto Explore and press what it offers. When it is done, open it: tap a card to turn it over, tap it again to take it.');
+      // You go before you decide to: the case pulls itself into Explore.
+      this.autoRun('investigate', [card.uid]);
+      hint(this, 'Somebody you know is missing, and you are already at the door. When Explore is done, open it: tap a card to turn it over, double-tap to take it.');
       return;
     }
     if (s.flags.stage === 'search') {
       var rec2 = this.openCases().filter(function (r) { return r.opening; })[0];
       if (rec2 && (rec2.searches > 0 || rec2.found > 0)) {
         s.flags.stage = 'questioned';
-        this.create('watchq', { label: 'The Sergeant\'s Questions', desc: sc.found + ' Reason with him: put this in Question with Wit.' });
+        var q = this.create('watchq', { label: 'The Sergeant\'s Questions', desc: sc.found + ' Reason with him: put this in Question with Wit.' });
         this.story(CF.OPENING_TEXT.body, sc.found, 'danger');
         if (this.introUnlock) this.introUnlock(['interrogate']);
-        if (this.introReveal) this.introReveal(['focus']);
-        hint(this, 'The Watch wants a word. Put the sergeant\'s questions in Question, with your Wit beside them, and reason.');
+        var wits = this.introReveal ? this.introReveal(['focus']) : [];
+        var wit = wits[0] || this.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0];
+        // The sergeant does not wait to be invited: the questioning starts by itself.
+        this.autoRun('interrogate', [q.uid].concat(wit ? [wit.uid] : []));
+        hint(this, 'The Watch wants a word, and the sergeant has already sat you down. Your Wit is doing the talking; wait for him to be satisfied.');
       }
       return;
     }
@@ -101,9 +106,10 @@
     s.flags.stage = 'hired';
     s.flags.firstCase = true;
     if (this.introUnlock) this.introUnlock(['analyze', 'reflect']);
-    if (this.introReveal) this.introReveal(['instinct', 'personnel']);
+    if (this.introReveal) this.introReveal(['instinct', 'health', 'focus', 'personnel']);
     this.story(CF.OPENING_TEXT.hired, sc.hired + ' The case is yours now: find who did it. Raw proof speaks in Study; the Court opens when you have someone to charge.', 'major');
     hint(this, 'You have the desk. Study what you found, question who you meet, and build a charge. The Court opens when you have an accused and a token.');
+    if (s.flags.callingOpen) this.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'calling'; })[0]);
   };
   // The first conviction: stipend, lodging, the Bell, and the city's clock.
   P.openingKeep = function () {
@@ -241,6 +247,14 @@
   // Each answer bends what comes after: the Crowd, the Council's eye, the
   // underworld's grudge, the city's Dread of you, your purse.
   CF.CHOICES = [
+    // Put to you once you have the desk: what you want from it. Never offered by the clock.
+    { id: 'calling', when: function () { return false; },
+      title: 'What You Want', text: 'A desk under the stair, a caseload, and a city that has not decided what you are. You have. What is this for?',
+      options: [
+        { label: 'The Burgomaster', text: 'Power. Rise through the offices and remake the Watch from the Council chamber. An extra Coin, and a Beadle in service.', effect: function (e) { e.applyCalling('commissioner'); } },
+        { label: 'The Scholar', text: 'Knowledge. Trace every small crime back to the hidden hand that drew it. A Sketch-book, and Loose Ends on sound convictions.', effect: function (e) { e.applyCalling('master'); } },
+        { label: 'The Reformer', text: 'Justice. Break the Coquille by any means, even if it costs your office. An Informer, and the Council\'s eye looks away a little longer.', effect: function (e) { e.applyCalling('crusader'); } },
+      ] },
     { id: 'beggar', when: function (e) { return e.cardsOf('funds').length >= 1; },
       title: 'The Beggar at the Door', text: 'A woman with a child on her hip has been at the Watch-house door since prime. She does not ask for anything. She just stands there, where the Council\'s clerks can see her.',
       options: [

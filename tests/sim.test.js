@@ -69,7 +69,7 @@ function checkInvariants(e) {
   var cs = byDef('case')[0];
   assert.strictEqual(e.autoSlot('investigate', cs.uid), 'main');
   assert.ok(e.start('investigate'));
-  for (i = 0; i < 31; i++) e.tick(1);
+  for (i = 0; i < 41; i++) e.tick(1);
   var outDefs = e.verb('investigate').out.map(function (u) { return e.card(u).def; });
   assert.ok(outDefs.indexOf('suspect') >= 0, 'first search reveals a suspect: ' + outDefs);
   e.collect('investigate');
@@ -88,7 +88,9 @@ function checkInvariants(e) {
   assert.ok(!a.solid && a.tier === 'strong', 'misread clues look strong but are not');
   [sus].concat(clues).forEach(function (c) { delete e.s.cards[c.uid]; });
 
-  // Three Fatigue become Burnout, which locks Duty.
+  // Three Fatigue become Burnout, which locks Duty. (The beat's ignored brawl
+  // and the search's locked door may already have cost some; start from none.)
+  byDef('fatigue').concat(byDef('burnout')).forEach(function (c) { e.remove(c); });
   e.create('fatigue'); e.create('fatigue'); e.create('fatigue');
   e.checkThresholds();
   assert.strictEqual(e.countOf('burnout'), 1);

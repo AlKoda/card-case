@@ -25,15 +25,15 @@
   var FACES = {
     health: 'ntarot-01', wound: 'ntarot-01', focus: 'ntarot-06', instinct: 'ntarot-02', spent_health: 'ntarot-01', spent_focus: 'ntarot-06', spent_instinct: 'ntarot-02', funds: 'ntarot-03', room: 'ntarot-04',
     fatigue: 'ntarot-05', burnout: 'ntarot-05', obsession: 'ntar2-03', tunnel: 'ntar2-01', hunger: 'ntar2-06', sickness: 'ntar2-07', stress: 'ntar2-05',
-    order: 'npaper-06', intel: 'npaper-01', thread: 'npaper-07', trial: 'npaper-06', paperwork: 'npaper-04', bribe: 'npaper-08',
-    promotion: 'npaper-06', promo_inspector: 'npaper-06', promo_chief: 'npaper-06', chair: 'npaper-02', looseend: 'npaper-12',
-    ledger: 'npaper-08', notes: 'npaper-05', plea: 'npaper-04', writsale: 'npaper-04', tribute: 'npaper-08', dagger: 'npaper-03',
     calling_commissioner: 'ntarot-09', calling_master: 'ntarot-07', calling_crusader: 'ntarot-08',
   };
   // Pictures in a drawn frame.
   var PICS = {
     camera: 'nsq-16', prints: 'nsq-09', kit: 'nsq-32', surveillance: 'nsq-23', labpass: 'nsq-22',
     gang: 'nroom-05', syndicate: 'nplace-07', front: 'nplace-02', insight: 'kinv-03', watchq: 'kfolk-05',
+    // Words on paper carry a picture of what they are about (the kit).
+    order: 'kcourt-06', intel: 'kfolk-04', thread: 'kinv-20', paperwork: 'kcourt-17', bribe: 'kev-07', promotion: 'kcourt-25', promo_inspector: 'kcourt-25', promo_chief: 'kcourt-25',
+    chair: 'kcourt-04', looseend: 'kev-03', ledger: 'kev-05', notes: 'kinv-13', plea: 'kcourt-19', writsale: 'kcourt-23', tribute: 'kfolk-28', dagger: 'kev-04',
   };
   // The crime on a case card: a dark silhouette of the body or the deed
   // (css/art/kit-cards.css), and a wax seal in the corner for the kind of crime.
@@ -49,6 +49,8 @@
   var BODY_TILES = { kdrown: [1, 3, 4, 5, 7, 8, 9, 15], kpoison: [6, 7, 8, 9, 10, 15, 19], kstab: [2, 5, 7, 11, 12, 14, 15], kshot: [3, 6, 7, 10, 15],
     kbody: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], kblunt: [1, 2, 3, 4, 6, 10, 15], khang: [1, 2, 3, 4, 5, 6, 7, 8] };
   var BODY_WORDS = /body|corpse|wound|blood|dead|drown|hang|poison|shot|stab|bruise|throat|lungs|stitched|cut\b|marks on/i;
+  // The ladder: each rung has its picture.
+  var RUNG_ART = { pardon: 'kcourt-09', fine: 'kfolk-28', pillory: 'kcourt-13', banish: 'kinv-18', brand: 'kev-15', sword: 'kcourt-22', rope: 'kev-03', wheel: 'kdeath-08' };
   var DISTRICT_ART = { docks: 'nplace-01', market: 'nplace-03', neon: 'nroom-05', uptown: 'nplace-08', warrens: 'nplace-02', canal: 'nplace-07' };
   // Portrait cards: one per person, chosen by their name, and kept.
   var PEOPLE = [];
@@ -113,7 +115,7 @@
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant') {
       return pic(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length], /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
     }
-    if (card.def === 'rung') return face('npaper-06');
+    if (card.def === 'rung') return pic(RUNG_ART[card.data.rung] || 'kcourt-01', 'dark');
     if (PICS[card.def]) return pic(PICS[card.def], tone);
     if (FACES[card.def]) return face(FACES[card.def], card.def === 'wound' || card.def === 'burnout' || /^spent_/.test(card.def));
     return face('npaper-04');
@@ -226,6 +228,7 @@
     Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
   };
   UI.setPaused = function (p) { UI.paused = p; renderControls(); };
+  UI.onBackground = function () { if (UI.e && !UI.e.s.over && CF.Settings.get('pauseOnBlur')) UI.setPaused(true); if (UI.onSave) UI.onSave(); };
   UI.setSpeed = function (sp) { UI.speed = sp; UI.paused = false; renderControls(); };
 
   UI.init = function () {
@@ -284,6 +287,7 @@
       if (!wheelRaf) wheelRaf = requestAnimationFrame(function () { wheelRaf = 0; var d = wheelAcc; wheelAcc = 0; zoomAt(wheelAt.x, wheelAt.y, Math.exp(-d * 0.0015)); });
     }, { passive: false });
     $('#btn-journal').addEventListener('click', function () { UI.toggleJournal(); });
+    $('#meters').addEventListener('click', function (ev) { var m = ev.target.closest('.meter[data-meter]'); if (m) UI.showMeterInfo(m.dataset.meter); });
     $('#journal-close').addEventListener('click', function () { UI.toggleJournal(false); });
     window.addEventListener('resize', function () {
       // Keep open windows inside the (possibly smaller) table.
@@ -358,10 +362,25 @@
       panToBoard(sp.x, sp.y, 380, 300);
     }
     if (type === 'chosen' && UI.viewBefore) {
-      // Back to where you were looking.
+      // Back to exactly where you were looking, at the same zoom.
       var back = UI.viewBefore; UI.viewBefore = null;
-      var r = $('#table').getBoundingClientRect();
-      panToBoard((r.width / 2 - back.x) / back.z, (r.height / 2 - back.y) / back.z, 0, 0);
+      tweenView(back);
+    }
+    if (type === 'autorun') {
+      // An event runs a verb by itself: the cards are pulled in, the window opens.
+      var tokEl = verbEls[payload.verb];
+      payload.uids.forEach(function (u, i) { var c = UI.e.card(u); var el = cardEls[u]; if (c && el && tokEl) setTimeout(function () { flyTo(el, tokEl, c); el.remove(); delete cardEls[u]; }, i * 160); });
+      CF.Audio.play('start');
+      setTimeout(function () { openWindow(payload.verb); UI.notice({ verb: payload.verb, label: CF.VERBS[payload.verb].label }); }, 300);
+    }
+    if (type === 'unlock') UI.notice({ verb: payload.verb, label: CF.VERBS[payload.verb].label, fresh: true });
+    if (type === 'story' && payload.kind === 'case') {
+      var cases = UI.e.tableCards().filter(function (c) { return CF.CARDS[c.def].kind === 'case'; }).sort(function (a, b) { return b.uid - a.uid; });
+      if (cases[0]) UI.notice({ uid: cases[0].uid, label: cardTitle(cases[0]), fresh: true });
+    }
+    if (type === 'story' && /^An Insight/.test(payload.title)) {
+      var ins = UI.e.tableCards().filter(function (c) { return c.def === 'insight'; }).sort(function (a, b) { return b.uid - a.uid; });
+      if (ins[0]) UI.notice({ uid: ins[0].uid, label: cardTitle(ins[0]), fresh: true });
     }
     if (type === 'dues') {
       var bell = verbEls.time;
@@ -446,17 +465,41 @@
     var state = key === 'reputation' ? ' rep' : level >= 4 ? ' crit' : level >= 3 ? ' warn' : '';
     var full = { pressure: 'The Crowd: the city\'s patience with you', scrutiny: 'Suspicion: the Council\'s eye on your methods', retaliation: 'Vendetta: the underworld\'s grudge', dread: 'Dread: what the city fears you are', reputation: 'Standing: your name in the Council chamber' }[key];
     var word = (CF.METER_WORDS && CF.METER_WORDS[key] || [])[level] || '';
-    return '<div class="meter lvl-' + level + state + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
+    return '<div class="meter lvl-' + level + state + '" data-meter="' + key + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
       '<div class="m-main"><div class="m-label"><span>' + esc(label) + '</span></div><div class="m-word">' + esc(word) + '</div></div></div>';
   }
 
+  var METER_INFO = {
+    pressure: { title: 'The Crowd', what: 'The city\'s patience with you. It rises with every case that goes unanswered and every name the crier sings that walks free; it falls with convictions and with Coin given where the clerks can see it.', ends: 'Let it boil and the Council dismisses you. Quiet, and the city leaves you to work.' },
+    scrutiny: { title: 'Suspicion', what: 'The Council\'s eye on your methods: searches without a writ, proof arranged, purses pocketed, questions put with Health. It falls when the Rolls are entered and time passes.', ends: 'Marked, and the Council\'s clerks start asking your watchmen about you; higher still, and the Burgomaster calls you in.' },
+    retaliation: { title: 'Vendetta', what: 'The underworld\'s grudge. Everyone who walks from one of your cases feeds it; so do the bands they form and the Coquille you cross. Convictions and treaties cool it.', ends: 'Condemned, and they come for you and yours: a watchman in the Abbey hospital, a dagger on the pillow.' },
+    dread: { title: 'Dread', what: 'What the city fears you are. Leaning on people, cruelty on the ladder and hard choices raise it; mercy and fair dealing lower it.', ends: 'A feared examiner gets confessions and shut doors in equal measure; terrified, and the city turns against the next execution.' },
+    reputation: { title: 'Standing', what: 'Your name in the Council chamber. Convictions, full proof, commissions answered and the city\'s trust raise it.', ends: 'At each threshold the Council writes: a new office, more cases, a bigger stipend, and the powers that come with the rank.' },
+  };
+  UI.showMeterInfo = function (key) {
+    var info = METER_INFO[key]; if (!info) return;
+    var box = $('#peek');
+    UI.selected = null; UI.hover = null;
+    box.dataset.uid = 'meter:' + key; box.dataset.sig = '';
+    box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' +
+      '<div class="i-meter"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span><h4>' + esc(info.title) + '</h4></div>' +
+      '<div class="i-kind">' + esc(tr('Now: {word}', { word: (CF.METER_WORDS[key] || [])[meterLevel(key)] || '' })) + '</div>' +
+      '<p>' + esc(info.what) + '</p><p>' + esc(info.ends) + '</p>';
+    box.classList.add('open', 'pinned');
+    box.querySelector('.peek-close').addEventListener('click', function () { box.classList.remove('open', 'pinned'); box.dataset.uid = ''; });
+  };
+  function meterLevel(key) {
+    var e = UI.e, m = e.s.meters, max = e.meterMax(key);
+    if (key === 'reputation') return Math.min(4, Math.floor(m.reputation / Math.max(1, CF.COMMISSIONER_REP) * 4.999));
+    return Math.min(4, Math.floor((m[key] / Math.max(1, max)) * 4.999));
+  }
   function renderTop() {
     var e = UI.e, s = e.s, m = s.meters;
     var nextRep = s.rank < CF.TOP_RANK ? CF.RANK_REP[s.rank + 1] : (s.calling === 'commissioner' ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
     $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
       meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
-    $('#rank').textContent = tr(s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + ' · ' + CF.CALLINGS[s.calling].label.replace('The ', ''));
+    $('#rank').textContent = tr(s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + (s.flags.callingOpen ? '' : ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '')));
     $('#rank-badge').style.backgroundImage = art(['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'medal-sun');
     $('#rank-badge').title = tr(CF.RANKS[s.rank]);
     if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
@@ -504,7 +547,7 @@
 
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
-    return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden,
+    return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden, card.data && card.data.trust, card.data && card.data.heat,
       card.def === 'coldcase' ? card.data.template : ''].join('|');
   }
 
@@ -543,12 +586,17 @@
     CF.CLUE_ASPECTS.forEach(function (k) { if (a[k]) asp.appendChild(aspectChip(k, a[k])); });
     var into = band || body;
     if (asp.children.length) into.appendChild(asp);
+    if (card.def === 'informant') {
+      var st = h('div', 'c-stats');
+      st.innerHTML = '<span class="c-stat trust" title="' + esc(tr('Trust {n} of 3', { n: card.data.trust || 0 })) + '"><i style="background-image:' + art('kseal-25') + '"></i>' + (card.data.trust || 0) + '</span>' +
+        '<span class="c-stat heat" title="' + esc(tr('Heat {n} of {max}', { n: card.data.heat || 0, max: CF.INFORMANT.compromisedAt })) + '"><i style="background-image:' + art('kseal-06') + '"></i>' + (card.data.heat || 0) + '</span>';
+      into.appendChild(st);
+    }
     if (card.maxLife) {
-      if (def.kind === 'case' || def.kind === 'court' || def.kind === 'threat' || def.kind === 'condemned' || card.def === 'witness' || card.def === 'bribe') {
-        into.appendChild(h('div', 'c-timer', U.fmtTime(card.life)));
-      }
       n.classList.add('timed');
-      n.insertBefore(h('div', 'c-ring'), n.firstChild);
+      n.insertAdjacentHTML('afterbegin', '<svg class="c-ringsvg" viewBox="0 0 128 170"><rect class="track" x="3" y="3" width="122" height="164" rx="12" /><rect x="3" y="3" width="122" height="164" rx="12" /></svg>');
+      var tm = h('div', 'c-time', U.fmtTime(card.life));
+      face.appendChild(tm);
     }
     if (band) face.appendChild(band);
     face.appendChild(body);
@@ -563,11 +611,17 @@
     updateCardLive(n, card);
   }
 
+  var CARD_RING_LEN = 2 * (122 + 164) - 8 * 12 + 2 * Math.PI * 12;
   function updateCardLive(n, card) {
     if (!card || !card.maxLife) return;
     var t = n.querySelector('.c-timer');
     if (t) t.textContent = tr(U.fmtTime(card.life));
-    n.style.setProperty('--pct', Math.max(0, Math.min(100, (card.life / card.maxLife) * 100)).toFixed(1) + '%');
+    var ct = n.querySelector('.c-time');
+    if (ct) ct.textContent = U.fmtTime(card.life);
+    var pct = Math.max(0, Math.min(1, card.life / card.maxLife));
+    var ring = n.querySelector('.c-ringsvg rect:not(.track)');
+    if (ring) ring.style.strokeDasharray = (pct * CARD_RING_LEN) + ' ' + CARD_RING_LEN;
+    n.style.setProperty('--pct', (pct * 100).toFixed(1) + '%');
     var k = CF.CARDS[card.def].kind;
     n.classList.toggle('urgent', (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30));
   }
@@ -615,8 +669,7 @@
     CF.VERB_ORDER.forEach(function (vid) {
       var v = e.verb(vid);
       if (v.status !== 'done') return;
-      if (v.out.some(function (u) { var c = e.card(u); return c && c.hidden; })) { revealAll(vid); openWindow(vid); turned++; }
-      else { collectAll(vid); n++; }
+      collectAll(vid); n++;
     });
     if (!n && !turned) toast({ title: 'Nothing waiting', text: 'No verb has finished.', kind: 'minor' });
   };
@@ -769,6 +822,58 @@
     if (!(UI.drag && UI.drag.kind === 'pile')) place(pileEl, pile.x - 9, pile.y - 8);
   }
   // Glide the camera to a point on the board.
+  // A notice: a pulse on something worth a look, or, when it is off the
+  // screen, a marker at the table's edge pointing to it. Tapping it goes there.
+  UI.notices = [];
+  UI.notice = function (spec) {
+    setTimeout(function () {
+      var el = spec.verb ? verbEls[spec.verb] : spec.uid ? cardEls[spec.uid] : null;
+      if (!el) return;
+      el.classList.add('noticed');
+      setTimeout(function () { el.classList.remove('noticed'); }, 4000);
+      var mark = h('div', 'edge-mark');
+      mark.innerHTML = '<b>!</b><span>' + esc(spec.label || '') + '</span>';
+      mark.addEventListener('click', function () {
+        if (spec.uid) UI.panTo(spec.uid);
+        else if (spec.verb) { var v = UI.e.s.verbs[spec.verb]; panToBoard(v.x, v.y, T.VW, T.VH); }
+        removeMark(mark);
+      });
+      $('#table').appendChild(mark);
+      var entry = { el: el, mark: mark, until: performance.now() + 12000 };
+      UI.notices.push(entry);
+      placeMark(entry);
+    }, spec.fresh ? 450 : 50);
+  };
+  function removeMark(mark) { mark.remove(); UI.notices = UI.notices.filter(function (n) { return n.mark !== mark; }); }
+  function placeMark(n) {
+    var tr2 = $('#table').getBoundingClientRect(), r = n.el.getBoundingClientRect();
+    var cx = r.left + r.width / 2 - tr2.left, cy = r.top + r.height / 2 - tr2.top;
+    var inside = cx > 0 && cx < tr2.width && cy > 0 && cy < tr2.height;
+    n.mark.classList.toggle('hidden', inside);
+    if (inside) return;
+    var mx = Math.max(24, Math.min(tr2.width - 24, cx)), my = Math.max(80, Math.min(tr2.height - 90, cy));
+    n.mark.style.left = mx + 'px'; n.mark.style.top = my + 'px';
+    n.mark.style.setProperty('--ang', (Math.atan2(cy - my, cx - mx) * 180 / Math.PI) + 'deg');
+  }
+  function updateNotices() {
+    var now = performance.now();
+    UI.notices.slice().forEach(function (n) {
+      if (now > n.until || !n.el.isConnected) { removeMark(n.mark); return; }
+      placeMark(n);
+    });
+  }
+  // Glide the view to an exact position and zoom.
+  function tweenView(to, done) {
+    var v = UI.view, from = { x: v.x, y: v.y, z: v.z }, t0 = null;
+    function step(now) {
+      if (!t0) t0 = now;
+      var k = Math.min(1, (now - t0) / 600), ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      v.x = from.x + (to.x - from.x) * ease; v.y = from.y + (to.y - from.y) * ease; v.z = from.z + (to.z - from.z) * ease;
+      applyView();
+      if (k < 1) requestAnimationFrame(step); else if (done) done();
+    }
+    requestAnimationFrame(step);
+  }
   function panToBoard(x, y, w, h, done) {
     var r = $('#table').getBoundingClientRect(), v = UI.view;
     var z = Math.max(v.z, 0.95);
@@ -1067,6 +1172,13 @@
     var e = UI.e;
     updateWeekBar();
     advanceTyping();
+    if (UI.notices.length) updateNotices();
+    // The dossier's clock, and the card pictured in it.
+    var peekUid = UI.hover || UI.selected, peekCard = peekUid && e.card(peekUid);
+    if (peekCard && peekCard.maxLife) {
+      var pt = $('#peek .i-time'); if (pt) pt.textContent = tr('Time left: {t}', { t: U.fmtTime(peekCard.life) });
+      var pc = $('#peek .i-card .card'); if (pc) updateCardLive(pc, peekCard);
+    }
     updateVerbRings();
     for (var i = 0; i < liveCards.length; i++) updateCardLive(liveCards[i][0], e.card(liveCards[i][1]));
     UI.openVerbs.forEach(function (vid) {
@@ -1154,7 +1266,8 @@
       if (!w) {
         w = h('div', 'vwin');
         w.dataset.win = vid;
-        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
+        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-info" title="' + esc('What this verb does') + '">i</button><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
+        w.querySelector('.vw-info').addEventListener('click', function (ev) { ev.stopPropagation(); UI.about = UI.about === vid ? null : vid; UI.e.dirty = true; });
         w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
         w.querySelector('h3').textContent = tr(CF.VERBS[vid].label);
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
@@ -1177,6 +1290,11 @@
   function positionWindow(vid, w) { void vid; w.classList.add('docked'); }
 
   function miniCard(card) {
+    var mc = miniCard0(card);
+    if (UI.flipIn[card.uid]) { mc.classList.add('flip-in'); delete UI.flipIn[card.uid]; }
+    return mc;
+  }
+  function miniCard0(card) {
     var wrap = h('div', 'mini-wrap');
     wrap.appendChild(buildCard(card, 1, true));
     return wrap;
@@ -1261,10 +1379,11 @@
       v.out.forEach(function (u) { var c = e.card(u); if (c) { outs.appendChild(miniCard(c)); if (c.hidden) hiddenN++; } });
       pane.appendChild(outs);
       var act = h('div', 'actions');
-      var col = h('button', 'plate-btn gold', hiddenN ? 'Turn them over' : 'Take all');
-      col.addEventListener('click', function () { if (hiddenN) revealAll(vid); else collectAll(vid); });
+      if (hiddenN) { var turn = h('button', 'plate-btn dark', 'Turn them over'); turn.addEventListener('click', function () { revealAll(vid); }); act.appendChild(turn); }
+      var col = h('button', 'plate-btn gold', 'Take all');
+      col.addEventListener('click', function () { collectAll(vid); });
       act.appendChild(col);
-      act.appendChild(h('span', 'vw-desc', hiddenN ? 'or tap a card to turn it' : 'tap a card to take it, or drag it out'));
+      act.appendChild(h('span', 'vw-desc', hiddenN ? 'tap a card to turn it; double-tap to take it' : 'tap a card to read it; double-tap to take it, or drag it out'));
       pane.appendChild(act);
       return;
     }
@@ -1272,7 +1391,7 @@
     // Idle.
     if (v.story) pane.appendChild(storyBox(v.story));
     var primaryCard = v.slots[e.primaryKey(vid)];
-    if (!primaryCard) pane.appendChild(h('p', 'vw-desc', def.desc));
+    if (UI.about === vid) pane.appendChild(h('p', 'vw-desc vw-about', def.desc));
     var lock = e.lockReason(vid);
     var slots = h('div', 'slots');
     e.visibleSlots(vid).forEach(function (sl) {
@@ -1296,6 +1415,8 @@
       s.appendChild(box);
       var lab = h('div', 's-label', sl.label);
       lab.title = tr(sl.accepts.map(prettyAspect).join(' / '));
+      var slotIcon = slotArt(sl);
+      if (slotIcon) { var si = h('i', 's-icon'); si.style.backgroundImage = art(slotIcon); si.title = lab.title; s.appendChild(si); }
       s.appendChild(lab);
       s.addEventListener('pointerenter', function () { UI.hoverSlot = { verb: vid, slot: sl.key }; markFits(); });
       s.addEventListener('pointerleave', function () { UI.hoverSlot = null; markFits(); });
@@ -1376,6 +1497,19 @@
     var r = fromEl.getBoundingClientRect();
     UI.spawn[uid] = { cx: r.left, cy: r.top, gx: 0, gy: 0 };
   }
+  // Turn a find over with a flip: the back turns edge-on, then the face turns out.
+  UI.flipIn = {};
+  function flipReveal(card, el) {
+    var e = UI.e;
+    if (el) el.classList.add('flip-out');
+    CF.Audio.play('click');
+    setTimeout(function () {
+      UI.flipIn[card.uid] = true;
+      e.reveal(card.uid);
+      select(card.uid);
+      e.dirty = true;
+    }, 180);
+  }
   function revealAll(vid) {
     var e = UI.e;
     e.verb(vid).out.forEach(function (u) { e.reveal(u); });
@@ -1425,6 +1559,14 @@
     t.el.textContent = full.slice(0, n);
   }
 
+  // A picture of what a slot takes, from its first accepted kind.
+  var SLOT_ART = { health: 'ncoin-01', focus: 'ncoin-03', instinct: 'ncoin-02', funds: 'ncoin-04', teammate: 'ncoin-11', case: 'kseal-12', witness: 'kseal-27', suspect: 'kseal-12', rival: 'kseal-11',
+    clue: 'kseal-15', evidence: 'kseal-15', district: 'kseal-20', order: 'kseal-21', personnel: 'kseal-21', informant: 'kseal-27', condemned: 'kseal-04', rung: 'kseal-28', trial: 'kseal-28', coldcase: 'kseal-14',
+    fatigue: 'kseal-30', hunger: 'kseal-30', sickness: 'kseal-05', stress: 'kseal-30', spent: 'kseal-30', lesson: 'kseal-29', kit_bio: 'kseal-15', tool: 'kseal-15', paperwork: 'kseal-29', watchq: 'kseal-27', intel: 'kseal-27', thread: 'kseal-19', looseend: 'kseal-19', bribe: 'kseal-22', gang: 'kseal-11', syndicate: 'kseal-25' };
+  function slotArt(sl) {
+    for (var i = 0; i < sl.accepts.length; i++) if (SLOT_ART[sl.accepts[i]]) return SLOT_ART[sl.accepts[i]];
+    return null;
+  }
   function prettyAspect(a) {
     var map = { tool: 'Instrument', teammate: 'Watchman', atlarge: 'Abroad', coldcase: 'Unanswered', looseend: 'Loose End', promotion: 'The Council\'s Letter', chair: 'The Seat', funds: 'Coin', focus: 'Wit' };
     if (map[a]) return map[a];
@@ -1582,7 +1724,7 @@
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
     if (notes.length) html += '<div class="i-lines">' + notes.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
-    if (!dz && card.maxLife) html += '<div class="i-note">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
+    if (card.maxLife) html += '<div class="i-note i-time">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' + html;
@@ -1931,9 +2073,7 @@
     if (!d.started) {
       // A finished verb's card: face down, a tap turns it over; face up, a tap takes it.
       if (card && card.loc && card.loc.t === 'out' && ev.target.closest('.vwin')) {
-        if (card.hidden) { e.reveal(card.uid); CF.Audio.play('click'); select(d.uid); }
-        else { markSpawn(card.uid, d.src); e.takeOutput(card.loc.verb, card.uid); CF.Audio.play('drop'); }
-        e.dirty = true;
+        if (card.hidden) flipReveal(card, d.src); else select(d.uid);
         return;
       }
       // With a verb open, a tap on a card that fits puts it in; the window stays.

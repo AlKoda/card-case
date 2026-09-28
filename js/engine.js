@@ -96,6 +96,25 @@
   var P = Engine.prototype;
 
   // ---- Construction -------------------------------------------------------
+  // What a calling brings: its card on the table and its opening edge.
+  P.applyCalling = function (calling) {
+    var s = this.s;
+    s.calling = calling; s.origin = calling;
+    delete s.flags.callingOpen;
+    this.create(CF.CALLINGS[calling].card);
+    if (calling === 'commissioner') {
+      this.create('funds');
+      this.create('teammate', this.teammateSpec('rookie'));
+    } else if (calling === 'master') {
+      this.create('camera');
+      this.removeOrder('camera');
+    } else if (calling === 'crusader') {
+      this.create('informant', this.informantSpec('market'));
+    }
+    if (this.initPaths) { s.paths = null; this.initPaths(); }
+    this.dirty = true;
+  };
+
   Engine.newGame = function (opts) {
     opts = opts || {};
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
@@ -120,18 +139,10 @@
     e.create('focus');
     e.create('instinct');
     for (var i = 0; i < 3; i++) e.create('funds');
-    e.create(CF.CALLINGS[s.calling].card);
     e.create('personnel', e.personnelSpec('rookie'));
-
-    if (s.calling === 'commissioner') {
-      e.create('funds');
-      e.create('teammate', e.teammateSpec('rookie'));
-    } else if (s.calling === 'master') {
-      e.create('camera');
-      e.removeOrder('camera');
-    } else if (s.calling === 'crusader') {
-      e.create('informant', e.informantSpec('market'));
-    }
+    // The calling: given now, or chosen in play once you have the desk (the opening).
+    if (opts.opening && !opts.calling) s.flags.callingOpen = true;
+    else e.applyCalling(s.calling);
 
     if (e.applyOrigin) e.applyOrigin();
     if (opts.legacy) e.applyLegacy(opts.legacy);
@@ -819,6 +830,20 @@
     return Math.max(3, Math.round((d || 10) * perk * this.strainFactor(ctx.verb) * (this.originFactor ? this.originFactor(rec.src || ctx.verb) : 1)));
   };
 
+  // An event runs a verb by itself: the cards are pulled in and the work
+  // starts. The table animates the pull ('autorun'). Returns false if it
+  // could not start.
+  P.autoRun = function (verbId, uids) {
+    var self = this, v = this.verb(verbId);
+    if (!v || !v.unlocked || v.status !== 'idle') return false;
+    this.clearSlots(verbId);
+    var pulled = [];
+    (uids || []).forEach(function (uid) { var c = self.card(uid); if (c && c.loc && c.loc.t === 'table' && self.autoSlot(verbId, uid)) pulled.push(uid); });
+    if (!this.start(verbId)) { this.clearSlots(verbId); return false; }
+    this.emit('autorun', { verb: verbId, uids: pulled });
+    return true;
+  };
+
   P.start = function (verbId) {
     verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var v = this.verb(verbId);
@@ -879,8 +904,6 @@
     card.loc = { t: 'held', verb: vid };
     v.held.push(uid);
     v.ask.filled = uid;
-    if (spec.reward === 'haste') v.duration = v.elapsed + (v.duration - v.elapsed) * 0.4;
-    if (spec.reward === 'finish') v.duration = v.elapsed;
     this.dirty = true;
     return true;
   };
@@ -893,6 +916,14 @@
       if (spec.reward === 'testimony') ctx.out.forEach(function (c) { if ((c.def === 'clue' || c.def === 'evidence') && c.aspects) c.aspects.testimony = (c.aspects.testimony || 0) + 1; });
       if (spec.consume) this.remove(answered);
       if (result && spec.thanks) result.text = (result.text ? result.text + ' ' : '') + spec.thanks;
+    } else if (v.ask && spec && spec.penalty) {
+      // The ask was put and ignored: the work still finishes, but thinner.
+      if (spec.penalty === 'thin') {
+        var finds = ctx.out.filter(function (c) { return c.def === 'clue' || c.def === 'evidence'; });
+        if (finds.length >= 2) { var lost = finds[finds.length - 1]; this.remove(lost); ctx.out.splice(ctx.out.indexOf(lost), 1); }
+      }
+      if (spec.penalty === 'fatigue') ctx.give('fatigue');
+      if (result && spec.miss) result.text = (result.text ? result.text + ' ' : '') + spec.miss;
     }
     v.ask = null;
   };
@@ -1510,6 +1541,7 @@
     v.unlocked = true;
     this.layoutVerbs();
     if (why) this.story('Unlocked: ' + CF.VERBS[id].label, why, 'major');
+    this.emit('unlock', { verb: id });
     return true;
   };
   P.informantSpec = function (district) {

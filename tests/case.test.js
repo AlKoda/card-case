@@ -24,16 +24,22 @@ Detective.prototype.byDef = function (d) { return this.cards(function (c) { retu
 Detective.prototype.byLabel = function (re) { return this.cards(function (c) { return re.test(CF.Engine.prototype.labelOf.call(this.e, c)); }.bind(this)); };
 Detective.prototype.run = function (verb, cards) {
   var e = this.e;
-  cards.forEach(function (c) { assert.ok(c, verb + ': missing card'); assert.ok(e.autoSlot(verb, c.uid), verb + ' refused ' + e.labelOf(c)); });
+  cards.forEach(function (c) { assert.ok(c, verb + ': missing card'); assert.ok(e.autoSlot(verb, c.uid), verb + ' refused ' + e.labelOf(c) + ' loc=' + JSON.stringify(c.loc) + ' reason=' + e.unavailableReason(c) + ' status=' + e.verb(verb).status); });
   var pv = e.preview(verb);
   assert.ok(pv && !pv.blocked, verb + ' blocked: ' + (pv && pv.blocked));
   assert.ok(e.start(verb), verb + ' did not start');
-  e.tick(e.verb(verb).duration + 0.01);
-  var v = e.verb(verb);
+  // A diligent detective answers what the verb asks for part-way, when a card fits.
+  var v = e.verb(verb), guard = 0;
+  while (v.status === 'running' && guard++ < 400) {
+    e.tick(1);
+    if (v.ask && !v.ask.filled) { var cand = e.askCandidates(verb)[0]; if (cand) e.answerAsk(verb, cand.uid); }
+  }
   assert.ok(v.status === 'done' || v.status === 'idle', verb + ' did not finish');
   var out = v.out.map(function (u) { return e.card(u); });
   this.log.push(verb + ': ' + (v.story ? v.story.title : '') + ' -> ' + out.map(function (c) { return e.labelOf(c); }).join(', '));
   if (v.status === 'done') e.collect(verb);
+  // And rests between jobs: spent Health, Wit and Instinct come straight back.
+  e.tableCards().filter(function (c) { return /^spent_/.test(c.def); }).forEach(function (c) { e.transform(c, CF.CARDS[c.def].restores); });
   return out;
 };
 Detective.prototype.give = function (def) { return this.e.create(def); };
