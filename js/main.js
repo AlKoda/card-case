@@ -10,10 +10,11 @@
   var tr = CF.T;
   function store(key, val) { try { if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val); } catch (err) { /* storage unavailable */ } }
   function load(key) { try { return localStorage.getItem(key); } catch (err) { return null; } }
-  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); }
+  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); if (UI.wake) UI.wake(); }
   function only(id) {
     document.querySelectorAll('.modal').forEach(function (m) { m.classList.toggle('hidden', m.id !== id); });
     UI.modal = !!id;
+    if (UI.wake) UI.wake();
   }
   function click(id, fn) { $(id).addEventListener('click', function (ev) { CF.Audio.play('click'); fn(ev); }); }
 

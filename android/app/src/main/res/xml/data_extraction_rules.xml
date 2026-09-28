@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: cloud backup and device-to-device transfer both carry the
+     WebView's storage (the save, the settings, the archive) and leave caches. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="app_webview/" />
+        <exclude domain="file" path="app_webview/Default/Cache/" />
+        <exclude domain="file" path="app_webview/Default/Code Cache/" />
+        <exclude domain="file" path="app_webview/Default/GPUCache/" />
+        <exclude domain="file" path="cache/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="app_webview/" />
+        <exclude domain="file" path="app_webview/Default/Cache/" />
+        <exclude domain="file" path="app_webview/Default/Code Cache/" />
+        <exclude domain="file" path="app_webview/Default/GPUCache/" />
+        <exclude domain="file" path="cache/" />
+    </device-transfer>
+</data-extraction-rules>

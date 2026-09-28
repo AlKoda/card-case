@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">ملف القضية</string>
+    <string name="back_again">اضغط رجوع مرة أخرى للخروج</string>
+    <string name="no_webview_title">Android System WebView غير موجود</string>
+    <string name="no_webview_text">يرسم «ملف القضية» طاولته عبر Android System WebView، وهو معطّل أو غير مثبّت على هذا الجهاز. فعّله من الإعدادات › التطبيقات، أو ثبّته من متجر Play، ثم افتح اللعبة مجدداً.</string>
+    <string name="ok">حسناً</string>
+</resources>

@@ -1,4 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Case File</string>
+    <string name="back_again">Press back again to leave</string>
+    <string name="no_webview_title">Android System WebView is missing</string>
+    <string name="no_webview_text">Case File draws its table with the Android System WebView, which is disabled or not installed on this device. Enable it in Settings › Apps, or install it from the Play Store, then open the game again.</string>
+    <string name="ok">OK</string>
 </resources>

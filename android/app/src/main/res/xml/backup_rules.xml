@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower: the same rules for Auto Backup. -->
+<full-backup-content>
+    <include domain="file" path="app_webview/" />
+    <exclude domain="file" path="app_webview/Default/Cache/" />
+    <exclude domain="file" path="app_webview/Default/Code Cache/" />
+    <exclude domain="file" path="app_webview/Default/GPUCache/" />
+    <exclude domain="file" path="cache/" />
+</full-backup-content>

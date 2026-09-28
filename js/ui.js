@@ -228,6 +228,28 @@
     Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
   };
   UI.setPaused = function (p) { UI.paused = p; renderControls(); };
+  // A light tick on touches (the Vibration setting). The app's own vibrator
+  // first, the web Vibration API otherwise, nothing where there is neither.
+  UI.haptic = function (ms) {
+    if (CF.Settings.get('haptics') === false) return;
+    try {
+      if (window.CaseFileAndroid && CaseFileAndroid.vibrate) CaseFileAndroid.vibrate(ms || 10);
+      else if (navigator.vibrate) navigator.vibrate(ms || 10);
+    } catch (err) { /* no haptics */ }
+  };
+  // The screen stays on only while a game is running, unpaused, with no menu open.
+  UI.wake = function () {
+    try {
+      if (window.CaseFileAndroid && CaseFileAndroid.keepAwake) CaseFileAndroid.keepAwake(!!(UI.e && !UI.e.s.over && !UI.paused && !UI.modal));
+    } catch (err) { /* not the app */ }
+  };
+  // The app tells the page where the notch and the gesture bar are (CSS px).
+  UI.setInsets = function (l, t, r, b) {
+    var st = document.documentElement.style;
+    st.setProperty('--inset-l', (l || 0) + 'px'); st.setProperty('--inset-t', (t || 0) + 'px');
+    st.setProperty('--inset-r', (r || 0) + 'px'); st.setProperty('--inset-b', (b || 0) + 'px');
+  };
+  UI.onForeground = function () { UI.wake(); };
   UI.onBackground = function () { if (UI.e && !UI.e.s.over && CF.Settings.get('pauseOnBlur')) UI.setPaused(true); if (UI.onSave) UI.onSave(); };
   UI.setSpeed = function (sp) { UI.speed = sp; UI.paused = false; renderControls(); };
 
@@ -452,6 +474,7 @@
   }
 
   function renderControls() {
+    UI.wake();
     document.querySelectorAll('#controls button[data-speed]').forEach(function (b) {
       var sp = +b.dataset.speed;
       b.classList.toggle('on', sp === 0 ? UI.paused : !UI.paused && UI.speed === sp);
@@ -906,7 +929,7 @@
       var b = h('button', 'ch-opt' + (e.canChoose(i) ? '' : ' cant'));
       var cost = o.cost ? '<i class="ch-cost" style="background-image:' + art(ASK_ART[o.cost] || 'ncoin-04') + '" title="' + esc(tr('Takes {card}', { card: CF.CARDS[o.cost].label })) + '"></i>' : '';
       b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em>' + esc(tr('Takes {card}.', { card: CF.CARDS[o.cost].label })) + '</em>' : '') + '</span>';
-      b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); e.dirty = true; } else if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' }); });
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); UI.haptic(15); e.dirty = true; } else if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' }); });
       opts.appendChild(b);
     });
     el.appendChild(opts);
@@ -1503,6 +1526,7 @@
     var e = UI.e;
     if (el) el.classList.add('flip-out');
     CF.Audio.play('click');
+    UI.haptic(12);
     setTimeout(function () {
       UI.flipIn[card.uid] = true;
       e.reveal(card.uid);
@@ -1882,7 +1906,7 @@
     if (d.kind !== 'pan' && !d.started && Math.abs(ev.clientX - d.x0) + Math.abs(ev.clientY - d.y0) < 7) return; // a tap, not a drag
     if (d.kind === 'verb' || d.kind === 'pile') {
       if (!d.started) {
-        d.started = true; d.el.classList.add('dragging'); hideHint();
+        d.started = true; d.el.classList.add('dragging'); hideHint(); UI.haptic(8);
         if (d.kind === 'verb') { var vv = UI.e.verb(d.verb); d.b0 = { x: vv.x, y: vv.y }; }
         if (UI.openVerbs.length) closeAllWindows();
       }
@@ -1902,6 +1926,7 @@
     hideHint();
     var card = e.card(d.uid);
     d.started = true;
+    UI.haptic(8);
     d.from = card.loc.t;
     d.fromVerb = card.loc.verb;
     var r = d.src.getBoundingClientRect();
@@ -2051,7 +2076,7 @@
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
     if (d.kind === 'pile') {
       d.el.classList.remove('dragging');
-      if (d.started) { e.movePile(d.at.x, d.at.y); CF.Audio.play('drop'); }
+      if (d.started) { e.movePile(d.at.x, d.at.y); CF.Audio.play('drop'); UI.haptic(10); }
       e.dirty = true;
       return;
     }
@@ -2063,7 +2088,7 @@
         CF.Audio.play('click');
       } else {
         e.moveVerb(d.verb, d.at.x, d.at.y);
-        CF.Audio.play('drop');
+        CF.Audio.play('drop'); UI.haptic(10);
       }
       e.dirty = true;
       return;
@@ -2079,7 +2104,7 @@
       // With a verb open, a tap on a card that fits puts it in; the window stays.
       if (card && card.loc && card.loc.t === 'table' && UI.openVerbs.length) {
         var openVid = UI.openVerbs[UI.openVerbs.length - 1];
-        if (e.verb(openVid).status === 'idle' && e.autoSlot(openVid, card.uid)) { markSpawn(card.uid, d.src); CF.Audio.play('drop'); e.dirty = true; return; }
+        if (e.verb(openVid).status === 'idle' && e.autoSlot(openVid, card.uid)) { markSpawn(card.uid, d.src); CF.Audio.play('drop'); UI.haptic(10); e.dirty = true; return; }
       }
       select(d.uid);
       // Clicking a card in a slot sends it back to the table.
@@ -2101,7 +2126,7 @@
       else ok = !!e.autoSlot(t.verb, card.uid);
       if (ok) {
         openWindow(t.verb);
-        CF.Audio.play('drop');
+        CF.Audio.play('drop'); UI.haptic(10);
         absorb(d, t);
       } else {
         if (card.loc.t === 'table' && d.from === 'out') {
@@ -2125,7 +2150,7 @@
         UI.spawn[card.uid] = { cx: ev.clientX, cy: ev.clientY, gx: d.gx, gy: d.gy };
         d.el.remove();
       }
-      CF.Audio.play('drop');
+      CF.Audio.play('drop'); UI.haptic(10);
     }
     UI.lifted = null;
     e.dirty = true;

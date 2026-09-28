@@ -1,6 +1,11 @@
 # Builds the Android APK (a WebView wrapper around the game) and publishes it
 # as a build artifact and on the "apk-latest" release. Runs on every push to
 # main, on pull requests (artifact only), and by hand from the Actions tab.
+#
+# Every build is a signed release with versionCode = the run number, so a new
+# APK installs over the old one and keeps its save. The key is the repository
+# secret ANDROID_KEYSTORE_B64 when set, else the public sideload key in
+# android/keystore/ (docs/ANDROID.md, "Signing").
 name: Build Android APK
 
 on:
@@ -31,11 +36,18 @@ jobs:
         run: |
           mkdir -p android/app/src/main/assets/www
           cp -r index.html css js manifest.webmanifest sw.js icons android/app/src/main/assets/www/
-      - name: Build the debug APK
+      - name: Build the signed release APK
         working-directory: android
-        run: gradle assembleDebug --no-daemon --warning-mode all
+        env:
+          CF_VERSION_CODE: ${{ github.run_number }}
+          CF_VERSION_NAME: 0.1.${{ github.run_number }}
+          CF_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          CF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CF_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          CF_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon --warning-mode all
       - name: Name the file
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk CaseFile.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk CaseFile.apk
       - uses: actions/upload-artifact@v4
         with:
           name: CaseFile-apk
@@ -45,5 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "Case File for Android (latest)" --notes "Debug build of the latest main. Sideload on a tablet." --latest=false
+          NOTES="Signed build 0.1.${{ github.run_number }} of the latest main (${GITHUB_SHA::7}). Sideload on a tablet; it installs over the previous build and keeps your save."
+          gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "Case File for Android (latest)" --notes "$NOTES" --latest=false
+          gh release edit apk-latest --notes "$NOTES"
           gh release upload apk-latest CaseFile.apk --clobber
