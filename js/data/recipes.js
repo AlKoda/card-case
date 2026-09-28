@@ -707,7 +707,57 @@
     },
   });
 
+  // ==================================================================== RIVAL
+  // The Provost's Examiner: find their weakness (twice to expose them), buy
+  // them off, frighten them, or shadow them.
+  function rivalStall(ctx, weeks) { var r = ctx.primary; r.data.stalled = ctx.e.s.week + weeks; }
+  function rivalHeat(ctx, how) {
+    var e = ctx.e, r = ctx.primary;
+    r.data.heat = (r.data.heat || 0) + 1;
+    if (r.data.heat >= 2) {
+      e.remove(r);
+      e.s.flags.rivalGone = e.s.week + 8;
+      e.meter('reputation', 2);
+      e.favour().council += 1;
+      return { title: 'The Rival Exposed', text: how + ' The Council reads the file in silence and sends the Provost\'s Examiner back to the Provost. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
+    }
+    rivalStall(ctx, 1);
+    return { title: 'A Weakness Found', text: how + ' They will be careful for a week. One more, and you will have them.', kind: 'verb' };
+  }
+  R.push({ id: 'int_rival_weakness', verb: 'interrogate', label: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'Expose Them' : 'Find Their Weakness'; }, duration: 30,
+    preview: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'You have one thread. Pull it in front of the Council.' : 'Everyone has something. Find theirs.'; },
+    requires: { primary: 'rival', aspects: ['focus'] },
+    run: function (ctx) { return rivalHeat(ctx, 'Two hours of polite questions, and a name they did not want spoken: a moneylender, a widow, a file of their own.'); } });
+  R.push({ id: 'int_rival_buy', verb: 'interrogate', label: 'Buy a Quiet Fortnight', duration: 8,
+    preview: 'A Coin, and they find other things to do for two weeks.', requires: { primary: 'rival', aspects: ['funds'] },
+    effects: [{ consume: 'funds', n: 1 }, { call: function (ctx) { rivalStall(ctx, 2); } }, { story: { title: 'Bought', text: 'They take it without counting it. Two weeks, they say, and then the Provost will ask why nothing is happening.' } }] });
+  R.push({ id: 'int_rival_threat', verb: 'interrogate', label: 'Frighten Them', duration: 15,
+    preview: 'Lean on them. It works for a week, and the city hears about it.', requires: { primary: 'rival', aspects: ['health'] },
+    effects: [{ call: function (ctx) { rivalStall(ctx, 1); } }, { meter: { dread: 1, retaliation: 1 } }, { story: { title: 'Frightened', text: 'You explain what happens to examiners who spoil scenes. They go pale. They also go to the Provost.' } }] });
+  R.push({ id: 'int_rival_none', verb: 'interrogate', label: 'A Polite Conversation', duration: 5,
+    preview: 'Without Wit, Coin or Health, this is a chat about the weather.', requires: { primary: 'rival' },
+    effects: [{ story: { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' } }] });
+  R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: 'Shadow Them', duration: 25,
+    preview: 'Follow the Provost\'s Examiner through a night. See where they go, and who pays.', requires: { primary: 'rival', aspects: ['instinct'] },
+    run: function (ctx) { return rivalHeat(ctx, 'A night in doorways, and at the end of it a door you can name and a purse you saw change hands.'); } });
+
   // ================================================================== REFLECT
+  // Ways around the needs: what you have on the table instead of Coin. These
+  // come before the plain rests so a watchman, a Quarter or Instinct beside
+  // the need is used when it is there.
+  function aid(id, need, aspect, label, dur, text, preview, effects) {
+    R.push({ id: id, verb: 'reflect', label: label, duration: dur, preview: preview, requires: { primary: need, aspects: [aspect] },
+      effects: [{ consume: 'primary' }, { story: { title: label, text: text } }].concat(effects || []) });
+  }
+  aid('ref_hunger_pot', 'hunger', 'teammate', 'The Watch-house Pot', 25, 'Whatever the Watch is eating, you are eating. It is mostly barley. It is hot.', 'Eat with the Watch. Slow, and free.');
+  aid('ref_hunger_credit', 'hunger', 'district', 'Eat on Credit', 12, 'The cookshop on the corner knows the Examiner. The Examiner will pay next week. The cookshop writes it down.', 'A meal on the Quarter\'s credit. Quick, and it is written down.', [{ call: function (ctx) { ctx.e.count('debt'); } }]);
+  aid('ref_hunger_informer', 'hunger', 'informant', 'A Bowl at Their Table', 15, 'They feed you without asking why. They will not forget that they did.', 'Your informer feeds you. They remember it.', [{ call: function (ctx) { var inf = ctx.first('informant'); if (inf && ctx.e.trustInformant) ctx.e.trustInformant(inf, -1); } }]);
+  aid('ref_sickness_sweat', 'sickness', 'health', 'Sweat It Out', 40, 'Every blanket you own, a jug of water, and two days you do not remember. On the third the fever is gone and so is most of your strength.', 'No physician. Sweat it out. Slow, and it costs you.', [{ give: 'fatigue' }]);
+  aid('ref_sickness_watch', 'sickness', 'teammate', 'A Watchman\'s Remedy', 30, 'Onion, honey, something from a jar with no label. His grandmother swore by it. It works, or the fever was leaving anyway.', 'A watchman knows a remedy. Free, and it usually works.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
+  aid('ref_stress_walk', 'stress', 'instinct', 'Walk It Off', 12, 'Out past the Water-gate and along the river until the case behind your eyes goes quiet. It comes back on the way home, smaller.', 'Walk until it lets go. Quick, and free.');
+  aid('ref_stress_watch', 'stress', 'teammate', 'A Drink with the Watch', 15, 'The sergeant tells the story about the goose again. You laugh in the right place. It helps more than it should.', 'A drink with the Watch. Quick, and you might regret the second one.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
+  aid('ref_fatigue_watch', 'fatigue', 'teammate', 'The Watch Takes the Round', 10, 'You send a watchman out in your place and sit down for the first time since prime.', 'Let a watchman take the round. Quick, and free.');
+
   // Resting. Funds buy a proper night off: a third of the time.
   function rest(id, defId, label, dur, text, preview) {
     R.push({

@@ -9,7 +9,7 @@
   var MAX_OPEN_CASES = 4; // the ceiling; rank sets the real number (maxOpenCases)
   var COLD_WARNING = 60; // seconds left on a case before the warning
   var FADE_WARNING = 30; // seconds left on a clue or witness before the warning
-  var FADING = { clue: 1, evidence: 1, witness: 1, intel: 1, bribe: 1 };
+  var FADING = { clue: 1, evidence: 1, witness: 1, intel: 1, bribe: 1, hunger: 1, sickness: 1, stress: 1 };
   // Strain: two Fatigue is Exhaustion (street verbs slower), three is
   // Burnout. Tunnel Vision slows the careful verbs and warps deductions.
   CF.STRAIN = { exhaustedAt: 2, exhaustedSlow: 1.25, exhaustedVerbs: ['duty', 'investigate', 'interrogate'],
@@ -270,12 +270,23 @@
   // The verbs this card could go into right now: unlocked, not running, not
   // locked, with any slot (visible now or once a primary is placed) that
   // takes it. A card that fits nowhere is shown as unavailable on the board.
+  // Could this slot open at all: it is the primary, or something that could
+  // be the verb's primary (in it now, or on the table) would open it.
+  P.slotReachable = function (vid, sl) {
+    if (sl.primary || !sl.when) return true;
+    var v = this.verb(vid), def = CF.VERBS[vid], pk = this.primaryKey(vid);
+    var held = v.slots[pk] ? this.card(v.slots[pk]) : null;
+    if (held) return !!sl.when(held);
+    var main = def.slots.filter(function (x) { return x.primary; })[0];
+    var self = this;
+    return this.tableCards().some(function (c) { return self.slotAccepts(main, c) && sl.when(c); });
+  };
   P.usableIn = function (card) {
     var self = this, out = [];
     CF.VERB_ORDER.forEach(function (vid) {
       var v = self.verb(vid), def = CF.VERBS[vid];
       if (!v || !v.unlocked || def.auto || v.status === 'running' || self.lockReason(vid)) return;
-      if (def.slots.some(function (sl) { return self.slotAccepts(sl, card); })) out.push(vid);
+      if (def.slots.some(function (sl) { return self.slotAccepts(sl, card) && self.slotReachable(vid, sl); })) out.push(vid);
     });
     return out;
   };
@@ -286,7 +297,7 @@
     var self = this;
     return CF.VERB_ORDER.some(function (vid) {
       var v = self.verb(vid), def = CF.VERBS[vid];
-      return v && v.unlocked && !def.auto && def.slots.some(function (sl) { return self.slotAccepts(sl, card); });
+      return v && v.unlocked && !def.auto && def.slots.some(function (sl) { return self.slotAccepts(sl, card) && self.slotReachable(vid, sl); });
     });
   };
   // Why a card cannot be used right now, or null if it can (or never could).
@@ -1184,6 +1195,7 @@
     if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
     if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
+    if (this.rivalWeek) lines = lines.concat(this.rivalWeek());
     // The Pattern: once a run, from week six, and every week it is open another girl.
     if (s.week >= 6 && !s.flags.patternSeen && this.rng() < 0.2 && this.openCases().length < this.maxOpenCases()) {
       s.flags.patternSeen = true;

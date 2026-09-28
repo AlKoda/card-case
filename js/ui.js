@@ -90,6 +90,7 @@
     }
     if (k === 'district') return pic(DISTRICT_ART[card.data.district] || 'nplace-03', tone);
     if (k === 'teammate' || k === 'personnel' || k === 'hospital') return pic(WATCH[hash(card.data.name || e.labelOf(card)) % WATCH.length], tone, k === 'hospital');
+    if (card.def === 'rival') return pic(PEOPLE[hash(card.data.name || 'rival') % PEOPLE.length], 'dark');
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant' || card.def === 'atlarge' || card.def === 'condemned') {
       return pic(PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length], /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
     }
@@ -332,7 +333,8 @@
       payload.uids.forEach(function (u) { var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]); if (c && el) flyTo(el, bell, c); });
     }
     if (type === 'expiring') {
-      toast({ title: 'Fading: ' + payload.label, text: 'Half a minute before it is gone. Use it or lose it.', kind: 'danger', uid: payload.uid, verb: payload.verb });
+      var fc = UI.e.card(payload.uid), need = fc && CF.NEEDS && CF.NEEDS[fc.def];
+      toast({ title: (need ? 'Pressing: ' : 'Fading: ') + payload.label, text: need ? 'Half a minute before it takes its due. Into Rest, now: Coin, or what you have.' : 'Half a minute before it is gone. Use it or lose it.', kind: 'danger', uid: payload.uid, verb: payload.verb });
     }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
   }
@@ -1072,6 +1074,18 @@
       var open = e.openCases().slice().sort(function (a, b) { return caseLife(a) - caseLife(b); });
       var money = e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; }).length;
       pane.appendChild(h('p', 'vw-desc', 'Coin on the table: ' + money + '. Every week the Council pays ' + ((CF.RANK_DEFS[e.s.rank] || {}).salary || 1) + ' in stipend and the Bell draws ' + e.dues() + ' in dues (lodging ' + CF.ECONOMY.rent + (e.dues() > CF.ECONOMY.rent ? ', and ' + (e.dues() - CF.ECONOMY.rent) + ' for the watchmen you keep' : '') + '); miss it and you sleep on the Watch-house bench.'));
+      var needs = e.tableCards().filter(function (c) { return CF.NEEDS && CF.NEEDS[c.def]; }).sort(function (a, b) { return a.life - b.life; });
+      if (needs.length) {
+        pane.appendChild(h('p', 'vw-desc', 'On your back: deal with these in Rest before their clocks run out.'));
+        needs.forEach(function (nc) {
+          var nrow = h('div', 'clock' + (nc.life < 30 ? ' urgent' : ''));
+          nrow.innerHTML = '<span class="ck-title">' + esc(e.labelOf(nc)) + '</span><span class="ck-bar"><i style="width:' + Math.round((nc.life / nc.maxLife) * 100) + '%"></i></span><span class="ck-days">' + U.fmtTime(nc.life) + '</span>';
+          nrow.addEventListener('click', function () { UI.panTo(nc.uid); });
+          pane.appendChild(nrow);
+        });
+      }
+      var rv = e.cardsOf('rival', true)[0];
+      if (rv) pane.appendChild(h('p', 'vw-desc', 'The Provost\'s Examiner is in the city' + (rv.data.stalled >= e.s.week ? ', and lying low for now.' : '. Every week they act against you unless you act first.')));
       pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first.' : 'No open cases.'));
       open.forEach(function (rec) {
         var cc = e.caseCard(rec.id);
