@@ -51,7 +51,8 @@ by their pixels, so the sheets need no measured boxes.
 `d16.png`, into `css/art/deck-cards.css` (200px), `deck-icons.css` (128px)
 and `deck-menu.css` (the study, 1400px). Tiles are found row by row from the
 sheet's alpha or its background colour; a family is a slice of one row or of
-every row, and may keep only part of each tile (the picture above a word band).
+every row. Every tile is kept whole, at its own size: the page scales a picture
+to fit its frame (`contain`) rather than cutting it.
 
 | sheet | what it holds | keys |
 | --- | --- | --- |
@@ -59,7 +60,7 @@ every row, and may keep only part of each tile (the picture above a word band).
 | d02 | twenty-six square icons (lens, notebook, speech, footprints, shield, insight, crowd, suspect, quarter, print, bulb, map, scales, coins, heart, eye, compass, hourglass, folder, books, lock, unlock, laurel, wax eye, warning, blood) | `dicon` the six proofs, the meters, slot and ask icons, the dossier's kind seals |
 | d03 | twenty-five round buttons (gear, music, sound, play, pause, fast, back, close, yes, no, save, load, help, menu, book, purse, map, scroll, compass, eye, people, exit) | `dui` the top bar, the pause and title menus, a window's close and info buttons |
 | d04 | the study at night, empty | `dmenu` behind the title and every full-screen panel |
-| d08 | sixteen verb tiles (the circle only, without the word band) | `dverb` Attend, Explore, Study, Question, Rest, the Court |
+| d08 | sixteen verb tiles | `dverb` Attend, Explore, Study, Question, Rest, the Court |
 | d09 | eight round resource tokens | `dtok` Health and Coin in slots and asks, Weariness |
 | d10 | sixteen wax seals, six flags | `dwax` the dossier's kind seals; `dflag` the edge markers |
 | d11 | twelve drawn items (letter, seal, dagger, sack, phial, ring, key, map, holy card, blood, rope, book) | `ditem` clues and evidence by their words; the Ledger, orders, bribes, threads, loose ends |
