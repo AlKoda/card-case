@@ -69,18 +69,20 @@ CODE.forEach(function (f) {
 (function html() {
   var src = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');
   var keys = [];
+  var decode = function (t) { return t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"'); };
   var attr = /\s(?:title|placeholder|aria-label)="([^"]+)"/g, m;
-  while ((m = attr.exec(src))) if (isText(m[1]) && !all[m[1]]) { all[m[1]] = 1; keys.push(m[1]); }
+  while ((m = attr.exec(src))) { var av = decode(m[1]); if (isText(av) && !all[av]) { all[av] = 1; keys.push(av); } }
   var unit = /<(p|h[1-6]|label|button|span|option|div)[^>]*>([^<]*(?:<(?:b|i|em|strong|kbd)>[^<]*<\/(?:b|i|em|strong|kbd)>[^<]*)*)<\/\1>/g;
   var rest = src.replace(unit, function (whole, tag, inner) {
     var t = inner.replace(/\s+/g, ' ').trim();
+    if (t.indexOf('<') < 0) t = decode(t); // a text node; innerHTML keeps entities only around tags
     if (!t || /data-no-i18n/.test(whole)) return whole;
     if (isText(t) && !all[t]) { all[t] = 1; keys.push(t); }
     return '<' + tag + '></' + tag + '>';
   });
   src = rest;
   var text = />([^<>{}]+)</g;
-  while ((m = text.exec(src))) { var t2 = m[1].replace(/\s+/g, ' ').trim(); if (isText(t2) && !all[t2] && /^[A-Z]/.test(t2)) { all[t2] = 1; keys.push(t2); } }
+  while ((m = text.exec(src))) { var t2 = decode(m[1].replace(/\s+/g, ' ').trim()); if (isText(t2) && !all[t2] && /^[A-Z]/.test(t2)) { all[t2] = 1; keys.push(t2); } }
   byFile['index.html'] = keys;
 })();
 

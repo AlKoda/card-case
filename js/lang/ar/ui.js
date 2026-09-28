@@ -1,6 +1,9 @@
 // Arabic: ui. Keys are the English strings of js/ui.js, js/screens.js, js/main.js and index.html.
 (function (G) {
   G.CF.addStrings('ar', {
+    "Scholar": "العالِم",
+    "Burgomaster": "العمدة",
+    "Reformer": "المُصلِح",
     "Enter": "إدخال",
     "Space": "مسافة",
     "Escape": "هروب",
@@ -269,7 +272,7 @@
     "SFX": "المؤثرات الصوتية",
     "Display": "العرض",
     "Fullscreen": "ملء الشاشة",
-    "Panel &amp; text size": "حجم اللوحات والنص",
+    "Panel & text size": "حجم اللوحات والنص",
     "Table": "الطاولة",
     "Card spacing": "تباعد البطاقات",
     "Show the grid": "أظهر الشبكة",
