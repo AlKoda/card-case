@@ -90,6 +90,7 @@
     e.dirty = true;
     return true;
   };
+  var ROOM_ICONS = { locker: 'iinv-11', suite: 'ilaw-06', archive: 'iinv-20', intel: 'cwit-03', training: 'ilaw-22', thieftakers: 'itrade-20', lab: 'imed-24', survroom: 'iinv-19' };
   Precinct.open = function (e) {
     Precinct.e = e;
     Precinct.render();
@@ -104,7 +105,7 @@
       if (t.state === 'owned') owned++;
       var d = document.createElement('div');
       d.className = 'room ' + t.state;
-      d.innerHTML = '<div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
+      d.innerHTML = '<div class="rm-icon" style="background-image:var(--art-' + (ROOM_ICONS[t.key] || 'iplace-10') + ')"></div><div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
         '<div class="rm-foot">' + esc(t.state === 'owned' ? 'Built' : t.state === 'locked' ? tr('Needs {rank}', { rank: CF.RANKS[t.rank] }) : t.state === 'ordered' ? 'Petition on the table' : tr('{n} Coin', { n: t.cost })) + '</div>';
       if (t.state === 'open') {
         var b = document.createElement('button');
