@@ -102,6 +102,7 @@
     UI.speed = 1;
     save();
     only(null);
+    UI.fitView();
   }
 
   function continueGame() {
@@ -112,6 +113,7 @@
       UI.setSpeed && UI.setSpeed(1);
       inGame = true;
       only(null);
+      UI.fitView();
     } catch (err) {
       store(SAVE_KEY, null);
       openTitle();
