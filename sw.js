@@ -1,6 +1,6 @@
 // Service worker: the whole game is cached on first visit, so it opens
 // offline and installs to a tablet's home screen. Bump VERSION on release.
-var VERSION = 'casefile-v11';
+var VERSION = 'casefile-v12';
 var FILES = [
   "index.html",
   "manifest.webmanifest",
@@ -16,6 +16,9 @@ var FILES = [
   "css/art/noir-tables.css",
   "css/art/kit-cards.css",
   "css/art/kit-icons.css",
+  "css/art/deck-cards.css",
+  "css/art/deck-icons.css",
+  "css/art/deck-menu.css",
   "js/util.js",
   "js/i18n.js",
   "js/lang/ar/cards.js",
