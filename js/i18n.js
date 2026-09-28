@@ -50,7 +50,7 @@
         lit += part.length;
         return escapeRe(part);
       }).join('');
-      if (!keys.length || !lit) continue;
+      if (!keys.length || !/[A-Za-z]/.test(k.replace(/\{\w+\}/g, ''))) continue;
       list.push({ re: new RegExp('^' + src + '$'), keys: keys, out: d[k], lit: lit });
     }
     list.sort(function (a, b) { return b.lit - a.lit; });
@@ -78,12 +78,6 @@
       for (var j = 0; j < tpls[i].keys.length; j++) out = out.split('{' + tpls[i].keys[j] + '}').join(translate(m[j + 1], depth + 1));
       return t === s ? out : s.replace(t, out);
     }
-    // A trailing full stop or bracket around a known string.
-    var m2 = /^([("'“]?)([\s\S]*?)([.!?:;,)"'”]*)$/.exec(t);
-    if (m2 && m2[2] !== t && m2[2]) {
-      var inner = translate(m2[2], depth + 1);
-      if (inner !== m2[2]) return s.replace(t, m2[1] + inner + m2[3].replace(/,/g, '،').replace(/;/g, '؛'));
-    }
     // Sentence by sentence.
     var parts = t.match(/[^.!?]+[.!?]+["'”)]*(\s+|$)|[^.!?]+$/g);
     if (parts && parts.length > 1) {
@@ -95,6 +89,12 @@
         return tr + ws;
       }).join('');
       if (hit) return s.replace(t, joined);
+    }
+    // A trailing full stop or bracket around a known string.
+    var m2 = /^([("'“]?)([\s\S]*?)([.!?:;,)"'”]*)$/.exec(t);
+    if (m2 && m2[2] !== t && m2[2]) {
+      var inner = translate(m2[2], depth + 1);
+      if (inner !== m2[2]) return s.replace(t, m2[1] + inner + m2[3].replace(/,/g, '،').replace(/;/g, '؛'));
     }
     // A list: 'Wit, Instinct' or 'Trust 1/3 · heat 0/3'.
     var items = t.split(SEP);
