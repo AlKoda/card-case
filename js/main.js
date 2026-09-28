@@ -132,7 +132,7 @@
     var legacy = null;
     if (useLegacy) { try { legacy = JSON.parse(load(LEGACY_KEY)); } catch (err) { legacy = null; } }
     var name = $('name').value.trim().slice(0, 24) || 'Kessler';
-    var e = CF.Engine.newGame({ calling: chosen, who: chosenWho, name: name, legacy: legacy, guided: !!CF.Settings.get('guided') });
+    var e = CF.Engine.newGame({ calling: chosen, who: chosenWho, name: name, legacy: legacy, guided: !!CF.Settings.get('guided'), opening: true });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);
     inGame = true;

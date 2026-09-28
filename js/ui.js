@@ -24,7 +24,7 @@
   // Whole faces: the resources on tarot cards, words on paper.
   var FACES = {
     health: 'ntarot-01', wound: 'ntarot-01', focus: 'ntarot-06', instinct: 'ntarot-02', funds: 'ntarot-03', room: 'ntarot-04',
-    fatigue: 'ntarot-05', burnout: 'ntarot-05', obsession: 'ntar2-03', tunnel: 'ntar2-01',
+    fatigue: 'ntarot-05', burnout: 'ntarot-05', obsession: 'ntar2-03', tunnel: 'ntar2-01', hunger: 'ntar2-06', sickness: 'ntar2-07', stress: 'ntar2-05',
     order: 'npaper-06', intel: 'npaper-01', thread: 'npaper-07', trial: 'npaper-06', paperwork: 'npaper-04', bribe: 'npaper-08',
     promotion: 'npaper-06', promo_inspector: 'npaper-06', promo_chief: 'npaper-06', chair: 'npaper-02', looseend: 'npaper-12',
     ledger: 'npaper-08', notes: 'npaper-05', plea: 'npaper-04', writsale: 'npaper-04', tribute: 'npaper-08', dagger: 'npaper-03',
@@ -142,7 +142,7 @@
     UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
-    pileEl = null;
+    pileEl = null; choiceEl = null;
     // The grid over the whole table: its cells line up with the tidy layout.
     var B = T.BOUNDS, grid = h('div', 'grid');
     grid.style.left = B.x + 'px'; grid.style.top = B.y + 'px'; grid.style.width = B.w + 'px'; grid.style.height = B.h + 'px';
@@ -314,6 +314,19 @@
       toast({ title: CF.VERBS[payload.verb].label + ' asks: ' + payload.label, text: payload.text, kind: 'verb', verb: payload.verb });
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
     }
+    if (type === 'choice') {
+      CF.Audio.play('start');
+      if (UI.openVerbs.length) closeAllWindows();
+      var sp = UI.e.choiceSpot();
+      UI.viewBefore = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
+      panToBoard(sp.x, sp.y, 380, 300);
+    }
+    if (type === 'chosen' && UI.viewBefore) {
+      // Back to where you were looking.
+      var back = UI.viewBefore; UI.viewBefore = null;
+      var r = $('#table').getBoundingClientRect();
+      panToBoard((r.width / 2 - back.x) / back.z, (r.height / 2 - back.y) / back.z, 0, 0);
+    }
     if (type === 'dues') {
       var bell = verbEls.time;
       payload.uids.forEach(function (u) { var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]); if (c && el) flyTo(el, bell, c); });
@@ -390,12 +403,13 @@
   }
 
   function meter(key, label, val, max, shown) {
-    var pct = Math.min(100, (val / max) * 100);
-    var state = key === 'reputation' ? ' rep' : val >= max * 0.8 ? ' crit' : val >= max * 0.6 ? ' warn' : '';
-    var full = { pressure: 'The Crowd: the city\'s patience with you', scrutiny: 'Suspicion: the Council\'s eye on your methods', retaliation: 'Vendetta: the underworld\'s grudge', reputation: 'Standing: your name in the Council chamber' }[key];
-    return '<div class="meter' + state + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
-      '<div class="m-main"><div class="m-label"><span>' + label + '</span><span>' + shown +
-      '</span></div><div class="m-bar"><div class="m-fill" style="width:' + pct + '%"></div></div></div></div>';
+    void shown;
+    var level = Math.min(4, Math.floor((val / Math.max(1, max)) * 4.999));
+    var state = key === 'reputation' ? ' rep' : level >= 4 ? ' crit' : level >= 3 ? ' warn' : '';
+    var full = { pressure: 'The Crowd: the city\'s patience with you', scrutiny: 'Suspicion: the Council\'s eye on your methods', retaliation: 'Vendetta: the underworld\'s grudge', dread: 'Dread: what the city fears you are', reputation: 'Standing: your name in the Council chamber' }[key];
+    var word = (CF.METER_WORDS && CF.METER_WORDS[key] || [])[level] || '';
+    return '<div class="meter lvl-' + level + state + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
+      '<div class="m-main"><div class="m-label"><span>' + label + '</span></div><div class="m-word">' + esc(word) + '</div></div></div>';
   }
 
   function renderTop() {
@@ -710,9 +724,48 @@
     }
     if (!(UI.drag && UI.drag.kind === 'pile')) place(pileEl, pile.x - 9, pile.y - 8);
   }
+  // Glide the camera to a point on the board.
+  function panToBoard(x, y, w, h, done) {
+    var r = $('#table').getBoundingClientRect(), v = UI.view;
+    var z = Math.max(v.z, 0.95);
+    var tx = r.width / 2 - (x + w / 2) * z, ty = r.height / 2 - (y + h / 2) * z;
+    var from = { x: v.x, y: v.y, z: v.z }, t0 = null;
+    function step(now) {
+      if (!t0) t0 = now;
+      var k = Math.min(1, (now - t0) / 650), ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      v.x = from.x + (tx - from.x) * ease; v.y = from.y + (ty - from.y) * ease; v.z = from.z + (z - from.z) * ease;
+      applyView();
+      if (k < 1) requestAnimationFrame(step); else if (done) done();
+    }
+    requestAnimationFrame(step);
+  }
+  var choiceEl = null;
+  function syncChoice() {
+    var e = UI.e, board = $('#board'), c = e.s.choice;
+    if (!c) { if (choiceEl) { choiceEl.classList.add('gone'); var old = choiceEl; setTimeout(function () { old.remove(); }, 300); choiceEl = null; } return; }
+    if (choiceEl && choiceEl.dataset.id === c.id) return;
+    if (choiceEl) choiceEl.remove();
+    var spot = e.choiceSpot();
+    var el = h('div', 'choice');
+    el.dataset.id = c.id;
+    el.innerHTML = '<div class="ch-title">' + esc(c.title) + '</div><p class="ch-text">' + esc(c.text) + '</p>';
+    var opts = h('div', 'ch-options');
+    c.options.forEach(function (o, i) {
+      var b = h('button', 'ch-opt');
+      b.innerHTML = '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + '</span>';
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); e.dirty = true; } });
+      opts.appendChild(b);
+    });
+    el.appendChild(opts);
+    el.appendChild(h('div', 'ch-note', 'The clock waits for your answer.'));
+    place(el, spot.x, spot.y);
+    board.appendChild(el);
+    choiceEl = el;
+  }
   function syncBoard() {
     var e = UI.e, board = $('#board');
     syncPile();
+    syncChoice();
     var lifted = UI.lifted || {};
     var groups = {}, usable = {};
     e.tableCards().forEach(function (c) {
@@ -1497,6 +1550,7 @@
       ev.preventDefault();
       return;
     }
+    if (t.closest && t.closest('.choice')) return;
     var pz = t.closest && t.closest('.pile-zone');
     if (pz && ev.button === 0) {
       var pl = UI.e.pile();
