@@ -1521,7 +1521,8 @@
     if (UI.about === vid) {
       pane.appendChild(h('p', 'vw-desc vw-about', def.desc));
       var sr = e.s.stats.recipes || {};
-      var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && r.label; }).map(function (r) { return tr(r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
+      var ways = e.s.stats.ways || {};
+      var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && (ways[r.id] || typeof r.label === 'string'); }).map(function (r) { return tr(ways[r.id] || r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
       pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: known.join(', ') }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
     }
     var lock = e.lockReason(vid);
@@ -1729,7 +1730,7 @@
     { id: 'conviction', label: 'A conviction', done: function (e) { return (e.s.stats.convictions || 0) >= 1; } },
     { id: 'solid', label: 'Full proof before the Court', done: function (e) { return (e.s.stats.solid || 0) >= 1; } },
     { id: 'sentence', label: 'A sentence passed', done: function (e) { return Object.keys(e.s.stats.recipes || {}).some(function (k) { return /^sen_/.test(k) && k !== 'sen_none'; }); } },
-    { id: 'informer', label: 'An informer of your own', done: function (e) { var cs = e.s.cards; return Object.keys(cs).some(function (u) { return cs[u].def === 'informant'; }); } },
+    { id: 'informer', label: 'An informer of your own', done: function (e) { return !!e.s.flags.hadInformer; } },
     { id: 'insight', label: 'An Insight taken to Rest', done: function (e) { return Object.keys(e.s.perks || {}).some(function (k) { return e.s.perks[k]; }) || Object.keys(e.s.stats.recipes || {}).some(function (k) { return k === 'ref_insight_train' || k === 'ref_insight_keep'; }); } },
     { id: 'week', label: 'A week survived', done: function (e) { return e.s.week >= 2; } },
   ];
