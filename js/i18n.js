@@ -58,7 +58,7 @@
   }
 
   var LETTERS = /[A-Za-z]/;
-  var SEP = /(, |; | · | \/ )/;
+  var SEP = /(, |; | · | \/ |: )/;
 
   function lookup(s, depth) {
     var d = I.dicts[I.lang];
