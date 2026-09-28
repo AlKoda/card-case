@@ -407,6 +407,10 @@
       if (ctx.has('instinct') && ctx.rng() < 0.5) {
         var sc2 = e.revealSuspect(rec, ctx);
         if (sc2) extra.push('A hunch, a likeness on the wall, a name: ' + sc2.label + '.');
+      } else if (!first && e.s.rank <= 1 && ctx.rng() < 0.85) {
+        // A young office's cases keep their names within reach: the neighbours talk.
+        var sc3 = e.revealSuspect(rec, ctx);
+        if (sc3) extra.push(U.fill('A neighbour, leaning on the gate, offers a name: {name}.', { name: sc3.label }));
       }
       maybe(ctx, 0.25, 'fatigue');
       if (!found.length) {
@@ -578,6 +582,7 @@
     requires: ['witness'],
     run: function (ctx) {
       var e = ctx.e, w = ctx.primary;
+      w.data.asked = true;
       var rec = openRec(ctx, w);
       if (!rec) { ctx.consume(w); return closed(); }
       e.caseWork(rec, ctx);
@@ -643,6 +648,7 @@
       var rec = openRec(ctx, sc);
       if (!rec) return closed();
       var sus = e.suspectOf(sc);
+      sus.questioned = true;
       e.caseWork(rec, ctx);
       var P = CF.PROSE;
       var helpers = ctx.with('teammate');

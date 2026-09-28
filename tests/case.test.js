@@ -106,6 +106,8 @@ function fresh(seed) {
   assert.strictEqual(d.rec().identified, d.rec().culprit, 'Hands and Hours names the culprit');
   void th;
   // Forensics alone pile up on one aspect; the timing gives the charge its second leg.
+  // (An Examiner's first case asks little, so the Court is told to want the full weight here.)
+  d.rec().charge = { forensic: 3, opportunity: 2, financial: 2 };
   assert.notStrictEqual(e.assessCharge(d.suspectCard(d.rec().culprit), [d.byLabel(/Blade Read/)[0], d.byLabel(/Hand Matched/)[0]]).tier, 'strong');
   d.run('investigate', [kase]);
   d.charge([d.byLabel(/Blade Read/)[0], d.byLabel(/Hand Matched/)[0], d.byLabel(/The Hours/)[0]]);

@@ -116,7 +116,7 @@
       if (self.rng() < p && self.openCases().length < 4) {
         c.crimes++;
         c.heat++;
-        var card = self.spawnCase(U.pick(self.rng, CF.ORDINARY_CASES), {
+        var card = self.spawnCase(U.pick(self.rng, self.casePool()), {
           culpritName: c.name, culpritTrait: c.trait, criminalId: c.id,
           headline: c.name + ' Again', lead: 'The hand is familiar.',
         });
