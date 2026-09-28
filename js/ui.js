@@ -194,7 +194,7 @@
     CF.setLang(want);
     if (!UI.e) return;
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
-    cardEls = {}; verbEls = {}; winEls = {}; liveCards = []; pileEl = null;
+    cardEls = {}; verbEls = {}; winEls = {}; liveCards = []; pileEl = null; choiceEl = null;
     UI.openVerbs = []; UI.hintMode = null; shownJournal = null; UI.gridPitch = null;
     applyTableSettings();
     UI.e.dirty = true;
@@ -1477,7 +1477,7 @@
     html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
-      return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + CF.ASPECTS[k].label + ' ' + a[k] + '</span>';
+      return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + esc(CF.ASPECTS[k].label) + ' ' + a[k] + '</span>';
     }).join('');
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';

@@ -221,6 +221,7 @@
   window.addEventListener('beforeunload', save);
 
   UI.applyLang();
+  langButton();
   UI.init();
   // A table is always showing behind the title screen.
   UI.attach(CF.Engine.newGame({ calling: chosen, seed: 1 }));
