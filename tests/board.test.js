@@ -9,7 +9,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/systems/life.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -282,4 +282,56 @@ console.error = function (err) { throw err; };
     if (iv.ask) { assert.ok(f.answerAsk('interrogate', f.cardsOf('funds')[0].uid)); f.tick(iv.duration); assert.strictEqual(f.cardsOf('funds').length, coins - 1, 'the Coin is spent'); }
   }
   console.log('asks: ok');
+})();
+
+// The opening: back from the round with Weariness on the desk and no case
+// until you have slept (or the city runs out of patience); then the needs
+// and the choices the city puts to you.
+(function life() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Life', opening: true });
+  assert.strictEqual(e.countOf('fatigue'), 2, 'two Weariness from the round');
+  assert.strictEqual(e.openCases().length, 0, 'no case on the desk yet');
+  var f = e.tableCards().filter(function (c) { return c.def === 'fatigue'; })[0];
+  e.autoSlot('reflect', f.uid); assert.ok(e.start('reflect'));
+  e.tick(e.verb('reflect').duration + 0.01);
+  assert.strictEqual(e.openCases().length, 1, 'the first case knocks once you have slept');
+  assert.ok(CF.FIRST_CASES.indexOf(e.openCases()[0].template) >= 0, 'an ordinary crime: ' + e.openCases()[0].template);
+  var seen = {};
+  for (var i = 0; i < 30; i++) { var g = CF.Engine.newGame({ seed: 900 + i, calling: 'master', opening: true }); g.tick(151); seen[g.openCases()[0].template] = true; }
+  assert.ok(Object.keys(seen).length >= 4, 'the first case varies: ' + Object.keys(seen));
+  // Guided: Attend and Rest first, Explore only when the case knocks.
+  var t = CF.Engine.newGame({ calling: 'crusader', name: 'Guided', opening: true, guided: true });
+  assert.ok(t.verb('duty').unlocked && t.verb('reflect').unlocked && !t.verb('investigate').unlocked);
+  t.tick(151);
+  assert.ok(t.verb('investigate').unlocked && t.openCases().length >= 1, 'the knock opens Explore');
+  // Needs: hunger takes a Health for good when there is a spare, else strength.
+  e.create('health');
+  var hp = e.cardsOf('health', true).length;
+  var hunger = e.create('hunger', { lifetime: 5 });
+  e.tick(5.01);
+  assert.strictEqual(e.cardsOf('health', true).length, hp - 1, 'a spare Health is lost for good');
+  assert.strictEqual(e.countOf('hunger'), 0);
+  var one = e.cardsOf('health', true).length;
+  var fat = e.countOf('fatigue');
+  e.create('hunger', { lifetime: 5 }); e.tick(5.01);
+  assert.strictEqual(e.cardsOf('health', true).length, one, 'the last Health is never taken');
+  assert.ok(e.countOf('fatigue') > fat && e.countOf('hunger') === 1, 'it takes strength and stays');
+  var h2 = e.cardsOf('hunger')[0];
+  e.autoSlot('reflect', h2.uid);
+  assert.ok(/Coin/.test(e.preview('reflect').blocked), 'eating wants Coin');
+  e.autoSlot('reflect', e.cardsOf('funds')[0].uid);
+  assert.ok(!e.preview('reflect').blocked && e.start('reflect'));
+  e.tick(e.verb('reflect').duration + 0.01);
+  assert.strictEqual(e.countOf('hunger'), 0, 'fed');
+  // Choices: the clock waits, and the answer bends the city.
+  var spec = CF.CHOICES.filter(function (c) { return c.id === 'beggar'; })[0];
+  e.offerChoice(spec);
+  var t0 = e.s.t; e.tick(10); assert.strictEqual(e.s.t, t0, 'time stops while the city waits');
+  var d0 = e.s.meters.dread; e.s.meters.dread = 3;
+  assert.ok(e.choose(1));
+  assert.strictEqual(e.s.meters.dread, 4, 'turning her away is remembered');
+  assert.ok(!e.s.choice); e.tick(1); assert.ok(e.s.t > t0, 'and the clock runs again');
+  void d0;
+  var e2 = CF.Engine.load(e.save()); assert.ok(!e2.s.choice && e2.s.choicesSeen.beggar, 'the choice is remembered');
+  console.log('life: opening, needs, choices ok');
 })();

@@ -721,6 +721,22 @@
   rest('ref_fatigue', 'fatigue', 'Sleep', 20, 'You sleep from vespers to terce and wake up hungry. The world is still there. So are you.', 'Close the shutters. Bar the door. Sleep.');
   rest('ref_burnout', 'burnout', 'A Long Rest', 60, 'A week of nothing. Long walks outside the walls. Small beer and bread. Your hands stop shaking on the fourth day. On the seventh you want to go back to the Watch-house, which is either a good sign or a very bad one.', 'Take time away. Real time. The cases will wait. Some of them will not.');
   rest('ref_obsession', 'obsession', 'Let It Go', 30, 'You take the papers off the wall. You go to the players in the inn-yard. You do not think about the case for three whole hours.', 'Put the case down for a night. Just one.');
+  // The needs: hunger wants Coin, sickness wants Coin or the Physician's Case, stress wants time (or Coin for a quick one).
+  R.push({
+    id: 'ref_hunger', verb: 'reflect', label: 'Eat', duration: 8,
+    preview: 'A hot dinner at the Swan, and a second. It costs a Coin.',
+    requires: { primary: 'hunger' },
+    blocked: function (ctx) { return ctx.has('funds') ? null : 'You need Coin to eat. Put a Coin in with it.'; },
+    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'A Hot Dinner', text: 'Mutton, bread, small beer, and a second helping. Your hands stop shaking somewhere around the pudding.' } }],
+  });
+  R.push({
+    id: 'ref_sickness', verb: 'reflect', label: function (ctx) { return ctx.has('kit_bio') ? 'Treat Yourself' : 'See a Physician'; }, duration: function (ctx) { return ctx.has('kit_bio') ? 15 : 25; },
+    preview: 'A physician wants a Coin; with the Physician\'s Case you can dose yourself.',
+    requires: { primary: 'sickness' },
+    blocked: function (ctx) { return ctx.has('funds') || ctx.has('kit_bio') ? null : 'A physician wants Coin, or you need the Physician\'s Case.'; },
+    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'The Fever Breaks', text: 'Bitter bark in wine, two days sweating under every blanket you own, and on the third morning the river smells like a river again.' } }],
+  });
+  rest('ref_stress', 'stress', 'An Evening Off', 25, 'You walk to the mill-race and back without once thinking about a case. On the way home you think about one. It is a start.', 'Put it all down for an evening.');
   rest('ref_tunnel', 'tunnel', 'Clear Your Head', 60, 'You take the string off the walls. You write to your sister. You make yourself admit that you might be wrong. It helps.', 'Step back. Admit you might be wrong about everything.');
 
   R.push({

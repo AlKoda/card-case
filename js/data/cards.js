@@ -69,6 +69,12 @@
     // --- Afflictions ------------------------------------------------------
     fatigue: { label: 'Weariness', kind: 'threat', tags: ['strain'], image: 'icon-fatigue', aspects: { fatigue: 1 }, stackable: true,
       desc: 'Too many nights. Three of these and the fever takes you. Sleep it off in Rest.' },
+    hunger: { label: 'Hunger', kind: 'threat', tags: ['need'], image: 'icon-fatigue', aspects: { hunger: 1 }, decay: 110, onExpire: 'need',
+      desc: 'You cannot remember your last hot meal. Hunger with Coin in Rest is a dinner. Let the clock run out and it takes your Health: for good, if you had it to spare.' },
+    sickness: { label: 'Sickness', kind: 'threat', tags: ['need'], image: 'icon-burnout', aspects: { sickness: 1 }, decay: 130, onExpire: 'need',
+      desc: 'A cough from the river, a heat behind the eyes. Sickness with Coin in Rest is a physician; with the Physician\'s Case you treat yourself. Let the clock run out and it takes your Instinct: for good, if you had it to spare.' },
+    stress: { label: 'Stress', kind: 'threat', tags: ['need'], image: 'icon-obsession', aspects: { stress: 1 }, decay: 110, onExpire: 'need',
+      desc: 'The same case behind your eyes every night. Stress in Rest is an evening off; with Coin it is a quick one. Let the clock run out and it takes your Wit: for good, if you had it to spare.' },
     burnout: { label: 'Fever', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
       desc: 'You cannot face the street. Attend, Walk the Ward, Examine and Question are shut to you. Rest in Rest before this runs out, or they carry you to the pesthouse.' },
     obsession: { label: 'Obsession', kind: 'threat', tags: ['strain'], image: 'icon-obsession', aspects: { obsession: 1 }, stackable: true,

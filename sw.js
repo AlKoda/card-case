@@ -35,6 +35,7 @@ var FILES = [
   "js/systems/network.js",
   "js/systems/callings.js",
   "js/systems/intro.js",
+  "js/systems/life.js",
   "js/core/recipes.js",
   "js/data/recipes.js",
   "js/settings.js",

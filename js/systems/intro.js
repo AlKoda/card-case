@@ -26,12 +26,20 @@
     this.tableCards().forEach(function (c) {
       if (STASHED[c.def]) { s.intro.stash.push({ def: c.def, spec: spec(c) }); self.remove(c); }
     });
-    CF.VERB_ORDER.forEach(function (id) { s.verbs[id].unlocked = !!FIRST_VERBS[id]; });
+    var opening = !!s.flags.opening;
+    var first = opening ? { time: 1, duty: 1, reflect: 1 } : FIRST_VERBS;
+    CF.VERB_ORDER.forEach(function (id) { s.verbs[id].unlocked = !!first[id]; });
     var op = CF.Story.opening(this);
     this.story(op.title, op.text, 'major');
-    var rec = this.openCases()[0];
-    this.story('New Case: ' + rec.title, this.caseCard(rec.id).desc, 'case');
-    s.intro.hint = 'Drag the case onto Explore, then press what it offers. When it is done, open it: what it found lies face down. Tap a card to turn it over, tap it again to take it.';
+    if (opening) {
+      // Back from the round: Wit (the day-book) stays out; the case comes after you have slept.
+      this.introReveal(['focus']);
+      s.intro.hint = 'You are just in from the night round. Enter the day-book first: drag Wit onto Attend and press what it offers.';
+    } else {
+      var rec = this.openCases()[0];
+      this.story('New Case: ' + rec.title, this.caseCard(rec.id).desc, 'case');
+      s.intro.hint = 'Drag the case onto Explore, then press what it offers. When it is done, open it: what it found lies face down. Tap a card to turn it over, tap it again to take it.';
+    }
     this.dirty = true;
   };
 
@@ -52,47 +60,59 @@
   };
 
   // The steps, in order; each waits for its cue on the table.
+  var OPENING_STEPS = [
+    { cue: function (e) { return !!e.s.intro.done.duty; },
+      run: function (e) {
+        e.introUnlock(['reflect']);
+        return { hint: 'The day-book is entered, and you are done in. Sleep it off: drag Weariness onto Rest. (Coin with it buys a proper bed.)' };
+      } },
+    { cue: function (e) { return !!e.s.intro.done.reflect; },
+      run: function (e) {
+        return { hint: 'Rested. The city will knock in a moment.' };
+      } },
+  ];
   var STEPS = [
-    { cue: function (e) { return !!e.s.intro.done.investigate; },
+    { beat: 0, cue: function (e) { return !!e.s.intro.done.investigate; },
       run: function (e) {
         e.introUnlock(['analyze']);
         e.introReveal(['instinct']);
         return { hint: 'Raw proof goes into Study. Put Wit or Instinct in with the case to search differently.' };
       } },
-    { cue: function (e) { return e.countOf('witness') + e.countOf('suspect') > 0; },
+    { beat: 1, cue: function (e) { return e.countOf('witness') + e.countOf('suspect') > 0; },
       run: function (e) {
         e.introUnlock(['interrogate']);
         e.introReveal(['health']);
         return { hint: 'People go into Question: Wit to listen, Instinct to bluff, Health to lean on them.' };
       } },
-    { cue: function (e) { return e.countOf('clue') >= 2; },
+    { beat: 2, cue: function (e) { return e.countOf('clue') >= 2; },
       run: function (e) {
         e.introUnlock(['reflect']);
         return { hint: 'Two tokens side by side in Rest: see whether they tell one story.' };
       } },
-    { cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
+    { beat: 3, cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
       run: function (e) {
         e.introUnlock(['arrest']);
         return { hint: 'An accused and their tokens in The Court make a charge. The window says how it will stand.' };
       } },
-    { cue: function (e) { return e.countOf('trial') > 0 || e.s.cases[Object.keys(e.s.cases)[0]].status !== 'open'; },
+    { beat: 4, cue: function (e) { return e.countOf('trial') > 0 || (Object.keys(e.s.cases).length > 0 && e.s.cases[Object.keys(e.s.cases)[0]].status !== 'open'); },
       run: function (e) {
         e.introReveal(['funds']);
         e.introUnlock(['duty']);
         return { hint: 'The sworn men are out. Meanwhile, Attend: Health walks a hard round for Coin, Wit keeps the day-book.' };
       } },
-    { cue: function (e) { return e.countOf('condemned') > 0 || e.countOf('trial') === 0; },
+    { beat: 5, cue: function (e) { return e.countOf('condemned') > 0 || e.countOf('trial') === 0; },
       run: function (e) { return e.countOf('condemned') > 0 ? { hint: 'A conviction. The Condemned and a rung of the ladder go in The Court; say nothing and the Council sentences by custom.' } : null; } },
     { cue: function (e) { return e.countOf('condemned') === 0; },
       run: function (e) { e.introFinish(); return null; } },
   ];
 
+  P.introSteps = function () { return this.s.flags.opening ? OPENING_STEPS.concat(STEPS) : STEPS; };
   P.introTick = function () {
     var s = this.s;
-    var step = STEPS[s.intro.step];
+    var step = this.introSteps()[s.intro.step];
     if (!step) { this.introFinish(); return; }
     if (!step.cue(this)) return;
-    var beat = CF.Story.beat(this, s.intro.step);
+    var beat = step.beat !== undefined ? CF.Story.beat(this, step.beat) : null;
     var res = step.run(this);
     s.intro.step++;
     if (beat) this.story(beat.title, beat.text, 'major');

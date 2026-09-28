@@ -136,6 +136,13 @@
     if (e.applyOrigin) e.applyOrigin();
     if (opts.legacy) e.applyLegacy(opts.legacy);
 
+    if (opts.opening && e.setupOpening) {
+      // Back from the round: the day-book, then sleep; the first case knocks after.
+      e.setupOpening();
+      if (opts.guided && e.setupIntro) e.setupIntro();
+      e.dirty = true;
+      return e;
+    }
     e.spawnCase('burglary', { lifetime: 300, quiet: !!opts.guided });
     if (opts.guided && e.setupIntro) { e.setupIntro(); return e; }
     if (CF.Story) { var op = CF.Story.opening(e); e.story(op.title, op.text, 'major'); return e; }
@@ -902,6 +909,8 @@
     v.ctxSlots = {};
     v.status = 'done';
     v.story = result;
+    var sv = this.s.stats.verbs || (this.s.stats.verbs = {});
+    sv[verbId] = (sv[verbId] || 0) + 1;
     if (this.s.intro) (this.s.intro.done = this.s.intro.done || {})[verbId] = true;
     this.layoutVerbs();
     this.story(result.title, result.text, result.kind || 'verb');
@@ -1012,6 +1021,7 @@
   P.tick = function (dt) {
     var s = this.s;
     if (s.over || dt <= 0) return;
+    if (s.choice) return; // the city has asked you something: the clock waits
     s.t += dt;
 
     // Card lifetimes. The evidence locker halves decay on clues and evidence.
@@ -1053,12 +1063,16 @@
     }
 
     if (s.intro && !s.intro.finished) this.introTick();
+    if (this.openingTick) this.openingTick();
+    if (this.needsTick) this.needsTick(dt);
+    if (this.choicesTick) this.choicesTick(dt);
     this.tickInformants(dt);
     this.tickDelegates(dt);
     if (s.rooms.intel) this.tickIntelOffice();
 
     // Dispatch: new cases come in on their own clock (or an informant's).
     s.dispatchT -= dt;
+    if (s.flags.opening && !s.flags.firstCase) s.dispatchT = Math.max(s.dispatchT, 60); // the city knocks first
     if (s.dispatchT <= 0) {
       var open = this.openCases().length;
       if (open < this.maxOpenCases()) {
@@ -1112,6 +1126,7 @@
       return;
     }
     if (how === 'verdict') { this.verdict(card); return; }
+    if (how === 'need') { this.needExpired(card); return; }
     if (how === 'ignored') {
       var inf = card.data.informant && this.card(card.data.informant);
       if (inf && inf.def === 'informant') { this.trustInformant(inf, -1); this.story('Nothing Came of It', inf.data.name + ' notices you did nothing with what they told you. They will be slower to tell you again.', 'minor'); }
@@ -1621,6 +1636,8 @@
     var s = this.s;
     var rng = this.rng;
     var tid = templateId || U.pick(rng, CF.ORDINARY_CASES);
+    // The first cases are the ordinary crimes; the lesser ones wait for a few weeks.
+    if (!templateId && s.week < 3 && CF.FIRST_CASES) tid = U.pick(rng, CF.FIRST_CASES);
     var T = CF.CASE_TEMPLATES[tid];
     var id = 'c' + s.nextUid++;
     var victim = opts.victim || this.newName();
