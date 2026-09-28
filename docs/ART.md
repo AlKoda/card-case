@@ -63,9 +63,19 @@ e11, e12 and e15 (the same tiles as e09, e10, e05, e08 in other sizes).
 
 ## Still used from earlier batches
 
-- `noir-tables.css` (`tools/build_noir_art.py`): the teal table with a gold
-  frame under the grid (`ntable`). The tool also holds the WebP encoder the
-  other tools import.
+- `noir-tables.css` (`tools/build_table_art.py`): the table under the grid
+  (`ntable`), laid out from six table sheets (`t01.png` … `t06.png`: the
+  bottom-right, bottom-left, bottom edge, top-left, top-right and top edge
+  of a table). The sheets were drawn separately and do not tile, so the mat
+  is built from parts cut whole from the top-left sheet and mirrored: a
+  quilt of felt from all six, the raised field with its double gold line,
+  corner rosettes and compass medallions, two columns of tall slots down
+  each side, a row of small and wide slots along the top and the bottom, a
+  star pointer in each corner. It is drawn at the size of its box in
+  `css/style.css` (`#board::before`, 2960 x 1900 units), so a tall slot is a
+  little larger than a card; `CF.TABLE.BOUNDS` is that box inset a little.
+  `tools/build_noir_art.py` no longer cuts anything but still holds the WebP
+  encoder the other tools import.
 - `deck-menu.css` (`tools/build_deck_art.py`): the study at night behind the
   title and every panel (`dmenu`).
 - `menu.css`: the title logo (`logo`).

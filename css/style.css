@@ -82,7 +82,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
    (#board's translate/scale) moves over the plane, the plane never moves. */
 #tilt { position: absolute; inset: 0; transform: rotateX(26deg); transform-origin: 50% 50%; background: radial-gradient(ellipse at 50% 40%, #0e4a50, #06282d 70%); }
 #board { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; transition: filter 0.3s; will-change: transform; }
-#board::before { content: ''; position: absolute; left: -1150px; top: -700px; width: 3400px; height: 1674px; border-radius: 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
+#board::before { content: ''; position: absolute; left: -550px; top: -280px; width: 2960px; height: 1900px; border-radius: 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
 #board > * { position: absolute; z-index: 1; }
 /* The token's small box: the magnet (the Bell's shows the weekly dues). */
 .verb .v-magnet { display: none; position: absolute; right: -2px; top: 62%; width: 30px; height: 30px; border-radius: 6px; background: #14161a; border: 2px solid #3a3d44; box-shadow: 0 3px 0 #0a0908, 0 5px 6px rgba(0, 0, 0, 0.6); color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 15px; line-height: 26px; text-align: center; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
