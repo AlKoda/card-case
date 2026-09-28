@@ -9,7 +9,7 @@
   // ------------------------------------------------------------ Settings
   var SettingsUI = (CF.SettingsUI = {});
   var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap', 'uiScale'];
-  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap', 'strings'];
+  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap', 'strings', 'haptics'];
 
   function showValue(input) { input.nextElementSibling.textContent = input.value + (input.id === 's-gap' ? 'px' : '%'); }
 
@@ -19,6 +19,14 @@
     TOGGLES.forEach(function (k) { $('s-' + k).checked = !!v[k]; });
     $('s-lang').value = v.lang || 'en';
     $('s-fullscreen').checked = !!document.fullscreenElement;
+    // In the app the window is already full screen, and the version is worth knowing.
+    var app = null;
+    try { app = window.CaseFileAndroid && window.CaseFileAndroid.isApp && window.CaseFileAndroid.isApp() ? window.CaseFileAndroid : null; } catch (err) { app = null; }
+    $('s-fullscreen').closest('.set-row').classList.toggle('hidden', !!app);
+    var ver = '';
+    try { ver = app && app.version ? String(app.version()) : ''; } catch (err) { ver = ''; }
+    $('s-version').textContent = ver ? tr('App version {v}', { v: ver }) : '';
+    $('s-version').classList.toggle('hidden', !ver);
   };
 
   SettingsUI.apply = function () {
