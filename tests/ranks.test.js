@@ -6,7 +6,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/i18n.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/systems/life.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/i18n.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/systems/life.js', 'js/systems/growth.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 // The precinct board logic lives with the screens; load it without a DOM.
@@ -129,7 +129,7 @@ function run(e, verb, cards) {
   assert.ok(/^★/.test(e.labelOf(kase)));
   assert.ok(byDef(e, 'suspect').length >= 1 && byDef(e, 'witness').length >= 1);
   assert.strictEqual(byDef(e, 'funds').length, money.length - 2);
-  e.autoSlot('duty', kase.uid); e.autoSlot('duty', byDef(e, 'focus')[0].uid);
+  e.autoSlot('duty', kase.uid); e.autoSlot('duty', (byDef(e, 'focus')[0] || e.create('focus')).uid);
   assert.ok(/already/.test(e.preview('duty').blocked));
   e.clearSlots('duty');
   // Focus the division on a district.

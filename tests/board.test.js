@@ -9,7 +9,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/i18n.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/systems/life.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/i18n.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/systems/life.js', 'js/systems/growth.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -284,26 +284,51 @@ console.error = function (err) { throw err; };
   console.log('asks: ok');
 })();
 
-// The opening: back from the round with Weariness on the desk and no case
-// until you have slept (or the city runs out of patience); then the needs
-// and the choices the city puts to you.
+// The opening: no office. Work for bread, a missing neighbour opens Explore,
+// the Watch's questions open Question with Wit, reasoning wins the desk, the
+// Court opens with the first charge and the Bell only after the first keep.
 (function life() {
-  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Life', opening: true });
-  assert.strictEqual(e.countOf('fatigue'), 2, 'two Weariness from the round');
-  assert.strictEqual(e.openCases().length, 0, 'no case on the desk yet');
-  var f = e.tableCards().filter(function (c) { return c.def === 'fatigue'; })[0];
-  e.autoSlot('reflect', f.uid); assert.ok(e.start('reflect'));
-  e.tick(e.verb('reflect').duration + 0.01);
-  assert.strictEqual(e.openCases().length, 1, 'the first case knocks once you have slept');
-  assert.ok(CF.FIRST_CASES.indexOf(e.openCases()[0].template) >= 0, 'an ordinary crime: ' + e.openCases()[0].template);
+  function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function run(g, vid, cards) { cards.forEach(function (c) { g.autoSlot(vid, c.uid); }); assert.ok(g.start(vid), vid + ' starts: ' + JSON.stringify(g.preview(vid))); g.tick(g.verb(vid).duration + 0.01); g.collect(vid); g.tick(0.1); }
+  var e = CF.Engine.newGame({ calling: 'crusader', who: 'clerk', name: 'Life', opening: true });
+  assert.deepStrictEqual(CF.VERB_ORDER.filter(function (v) { return e.verb(v).unlocked; }), ['duty'], 'only Attend at the start');
+  assert.ok(tbl(e, 'health').length >= 2 && !tbl(e, 'focus').length && !tbl(e, 'funds').length, 'Health alone on the table');
+  assert.strictEqual(e.openCases().length, 0, 'no case yet');
+  for (var i = 0; i < 2; i++) { run(e, 'duty', [tbl(e, 'health')[0]]); e.tick(41); }
+  assert.strictEqual(e.s.flags.stage, 'search');
+  assert.ok(e.verb('investigate').unlocked && e.openCases().length === 1 && /Endres/.test(e.openCases()[0].title), 'the notice opens Explore: ' + e.openCases().map(function (r) { return r.title; }));
+  assert.ok(tbl(e, 'funds').length >= 2, 'labour paid');
+  var cc = e.caseCard(e.openCases()[0].id);
+  run(e, 'investigate', [cc]);
+  assert.strictEqual(e.s.flags.stage, 'questioned');
+  assert.ok(e.verb('interrogate').unlocked && tbl(e, 'watchq').length === 1 && tbl(e, 'focus').length >= 1, 'the Watch opens Question and puts Wit on the table');
+  e.autoSlot('interrogate', tbl(e, 'watchq')[0].uid);
+  assert.ok(/Wit/.test(e.preview('interrogate').blocked), 'reason wants Wit');
+  run(e, 'interrogate', [tbl(e, 'focus')[0]]);
+  assert.strictEqual(e.s.flags.stage, 'hired');
+  assert.ok(e.verb('analyze').unlocked && e.verb('reflect').unlocked && !e.verb('arrest').unlocked && !e.verb('time').unlocked, 'the desk, but no Court and no Bell yet');
+  e.tick(200);
+  assert.strictEqual(e.s.weekT, 0, 'the Bell is silent');
+  assert.strictEqual(e.openCases().length, 1, 'no other cases come');
+  // A charge: the Court opens; a conviction: the first keep, and the Bell.
+  var rec = e.openCases()[0];
+  var sus = tbl(e, 'suspect')[0] || e.revealSuspect(rec, null, { key: rec.suspects.filter(function (x) { return x.guilty; })[0].key });
+  e.create('clue', { label: 'y', caseId: rec.id, aspects: { testimony: 2, motive: 2 } }); e.create('clue', { label: 'z', caseId: rec.id, aspects: { digital: 2, testimony: 1 } });
+  e.tick(0.1); e.tick(0.1);
+  assert.ok(e.verb('arrest').unlocked, 'an accused and a token open the Court');
+  run(e, 'arrest', [sus].concat(tbl(e, 'clue')));
+  var trial = tbl(e, 'trial')[0];
+  assert.ok(trial, 'the sworn men are out');
+  e.tick(trial.life + 0.5);
+  assert.ok(e.s.stats.convictions + e.s.stats.acquittals === 1, 'a verdict');
+  if (e.s.stats.convictions === 1) {
+    assert.strictEqual(e.s.flags.stage, 'keep');
+    assert.ok(e.verb('time').unlocked && !e.s.flags.bellSilent, 'the first keep rings the Bell');
+  }
   var seen = {};
-  for (var i = 0; i < 30; i++) { var g = CF.Engine.newGame({ seed: 900 + i, calling: 'master', opening: true }); g.tick(151); seen[g.openCases()[0].template] = true; }
-  assert.ok(Object.keys(seen).length >= 4, 'the first case varies: ' + Object.keys(seen));
-  // Guided: Attend and Rest first, Explore only when the case knocks.
-  var t = CF.Engine.newGame({ calling: 'crusader', name: 'Guided', opening: true, guided: true });
-  assert.ok(t.verb('duty').unlocked && t.verb('reflect').unlocked && !t.verb('investigate').unlocked);
-  t.tick(151);
-  assert.ok(t.verb('investigate').unlocked && t.openCases().length >= 1, 'the knock opens Explore');
+  for (var k = 0; k < 5; k++) { var g = CF.Engine.newGame({ seed: 900 + k, calling: 'master', who: CF.ORIGIN_ORDER[k], opening: true }); seen[g.openingScene().missing] = true; }
+  assert.strictEqual(Object.keys(seen).length, 5, 'every origin has its own missing person');
+  e.openingKeep();
   // Needs: hunger takes a Health for good when there is a spare, else strength.
   e.create('health');
   var hp = e.cardsOf('health', true).length;
@@ -311,6 +336,7 @@ console.error = function (err) { throw err; };
   e.tick(5.01);
   assert.strictEqual(e.cardsOf('health', true).length, hp - 1, 'a spare Health is lost for good');
   assert.strictEqual(e.countOf('hunger'), 0);
+  while (e.cardsOf('health', true).length > 1) e.remove(e.cardsOf('health', true)[0]);
   var one = e.cardsOf('health', true).length;
   var fat = e.countOf('fatigue');
   e.create('hunger', { lifetime: 5 }); e.tick(5.01);
@@ -369,7 +395,9 @@ console.error = function (err) { throw err; };
   assert.strictEqual(r.data.heat, 1); assert.ok(r.data.stalled >= e.s.week, 'they lie low');
   assert.deepStrictEqual(e.rivalWeek(), [], 'nothing while they lie low');
   e.collect('interrogate');
+  assert.strictEqual(wit.def, 'spent_focus', 'Wit comes back spent');
   var rep = e.s.meters.reputation;
+  wit = e.create('focus');
   e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
   assert.ok(e.start('interrogate')); e.tick(e.verb('interrogate').duration + 0.01);
   assert.strictEqual(e.cardsOf('rival', true).length, 0, 'exposed and sent home');

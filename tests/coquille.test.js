@@ -10,7 +10,7 @@ var path = require('path');
 var vm = require('vm');
 var assert = require('assert');
 
-['js/util.js', 'js/i18n.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/systems/life.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
+['js/util.js', 'js/i18n.js', 'js/data/cards.js', 'js/data/cases.js', 'js/data/verbs.js', 'js/data/deductions.js', 'js/data/structures.js', 'js/data/story.js', 'js/engine.js', 'js/systems/charge.js', 'js/systems/reflect.js', 'js/systems/informants.js', 'js/systems/criminals.js', 'js/systems/sentence.js', 'js/systems/purse.js', 'js/systems/origins.js', 'js/systems/coquille.js', 'js/systems/patrons.js', 'js/systems/societies.js', 'js/systems/network.js', 'js/systems/callings.js', 'js/systems/intro.js', 'js/systems/life.js', 'js/systems/growth.js', 'js/core/recipes.js', 'js/data/recipes.js'].forEach(function (f) {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f });
 });
 var CF = globalThis.CF;
@@ -101,7 +101,7 @@ function run(e, verb, cards) {
   var e2 = inside;
   assert.ok(!e2.canTakeThrone());
   assert.ok(/does not crown the honest|weeks/.test(e2.throneReason()));
-  e2.autoSlot('investigate', byDef(e2, 'syndicate')[0].uid); e2.autoSlot('investigate', byDef(e2, 'instinct')[0].uid);
+  e2.autoSlot('investigate', byDef(e2, 'syndicate')[0].uid); e2.autoSlot('investigate', (byDef(e2, 'instinct')[0] || e2.create('instinct')).uid);
   var pv = e2.preview('investigate');
   assert.ok(/Not yet/.test(pv.blocked || pv.text), 'the throne is not yet yours: ' + (pv.blocked || pv.text));
   e2.clearSlots('investigate');

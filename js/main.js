@@ -94,12 +94,22 @@
       var o = CF.ORIGINS[k];
       var b = document.createElement('button');
       b.className = 'origin' + (k === chosenWho ? ' on' : '');
-      b.innerHTML = '<div class="o-face" style="background-image:var(--art-' + o.art + ')"></div><h3>' + tr(o.label) + '</h3><p>' + tr(o.blurb) + '</p><div class="bonus">' + tr(o.bends) + '</div><div class="shut">' + tr(o.shut) + '</div>';
-      b.addEventListener('click', function () { chosenWho = k; CF.Audio.play('pick'); buildOrigins(); });
+      // Only the edge shows: what bends for you and what is shut. The rest is for the story to tell.
+      b.innerHTML = '<div class="o-face" style="background-image:var(--art-' + o.art + ')"></div><h3>' + tr(o.label) + '</h3><div class="o-where">' + tr((CF.OPENING_SCENES[k] || {}).where || '') + '</div><div class="bonus">' + tr(o.bends) + '</div><div class="shut">' + tr(o.shut) + '</div>';
+      b.addEventListener('click', function () { chosenWho = k; CF.Audio.play('pick'); suggestName(); buildOrigins(); });
       box.appendChild(b);
     });
   }
+  // The name follows the origin until the player writes their own.
+  var ORIGIN_NAMES = { advocate: 'Welser', hangman: 'Nagel', monk: 'Anselm', watchman: 'Kunz', clerk: 'Kessler' };
+  var namedBy = 'Kessler'; // the page's default
+  function suggestName() {
+    var f = $('name');
+    if (!f) return;
+    if (!f.value.trim() || f.value.trim() === namedBy) { f.value = ORIGIN_NAMES[chosenWho] || 'Kessler'; namedBy = f.value; }
+  }
   function buildCallings() {
+    suggestName();
     buildOrigins();
     var box = $('callings');
     box.innerHTML = '';
@@ -131,7 +141,7 @@
   function newGame(useLegacy) {
     var legacy = null;
     if (useLegacy) { try { legacy = JSON.parse(load(LEGACY_KEY)); } catch (err) { legacy = null; } }
-    var name = $('name').value.trim().slice(0, 24) || 'Kessler';
+    var name = $('name').value.trim().slice(0, 24) || ORIGIN_NAMES[chosenWho] || 'Kessler';
     var e = CF.Engine.newGame({ calling: chosen, who: chosenWho, name: name, legacy: legacy, guided: !!CF.Settings.get('guided'), opening: true });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);

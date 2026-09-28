@@ -55,12 +55,19 @@
 
   CF.CARDS = {
     // --- You -----------------------------------------------------------
-    health: { label: 'Health', kind: 'ability', tags: ['you', 'body'], image: 'icon-health', aspects: { health: 1 },
-      desc: 'Your body. It walks the ward at night, holds a man against a wall, and stands in the rain outside a door until the door opens.' },
-    focus: { label: 'Wit', kind: 'ability', tags: ['you', 'mind'], image: 'icon-focus', aspects: { focus: 1 },
-      desc: 'Patience and method. The ledger read twice, the witness let talk, the long evening with the candle and the casebook.' },
-    instinct: { label: 'Instinct', kind: 'ability', tags: ['you', 'street'], image: 'icon-instinct', aspects: { instinct: 1 },
-      desc: 'The itch between the shoulder blades. It knows which tavern, which door, which face is lying before the face has finished.' },
+    health: { label: 'Health', kind: 'ability', tags: ['you', 'body'], image: 'icon-health', aspects: { health: 1 }, spends: 'spent_health',
+      desc: 'Your body. It walks the ward at night, holds a man against a wall, and stands in the rain outside a door until the door opens. Work leaves it winded for a while. They say the fencing-master on the Hill can make more of it.' },
+    focus: { label: 'Wit', kind: 'ability', tags: ['you', 'mind'], image: 'icon-focus', aspects: { focus: 1 }, spends: 'spent_focus',
+      desc: 'Patience and method. The ledger read twice, the witness let talk, the long evening with the candle and the casebook. Every use spends it for a while. A certain kind of case teaches more of it.' },
+    instinct: { label: 'Instinct', kind: 'ability', tags: ['you', 'street'], image: 'icon-instinct', aspects: { instinct: 1 }, spends: 'spent_instinct',
+      desc: 'The itch between the shoulder blades. It knows which tavern, which door, which face is lying before the face has finished. It goes restless after use. The street sharpens it, if you walk it enough.' },
+    // Spent: what an ability becomes after work. It comes back on its own, or sooner in Rest.
+    spent_health: { label: 'Winded', kind: 'ability', tags: ['you', 'spent'], image: 'icon-health', aspects: { spent: 1 }, decay: 40, onExpire: 'restore', restores: 'health', stackable: true,
+      desc: 'Your Health, spent. A breath on the stair, a bench in the yard. It comes back on its own; put it in Rest to hurry it.' },
+    spent_focus: { label: 'Wits\' End', kind: 'ability', tags: ['you', 'spent'], image: 'icon-focus', aspects: { spent: 1 }, decay: 40, onExpire: 'restore', restores: 'focus', stackable: true,
+      desc: 'Your Wit, spent. The same line read three times. It comes back on its own; put it in Rest to hurry it.' },
+    spent_instinct: { label: 'Restless', kind: 'ability', tags: ['you', 'spent'], image: 'icon-instinct', aspects: { spent: 1 }, decay: 40, onExpire: 'restore', restores: 'instinct', stackable: true,
+      desc: 'Your Instinct, spent. Every face looks like the wrong face. It comes back on its own; put it in Rest to hurry it.' },
     wound: { label: 'Wound', kind: 'threat', tags: ['you', 'injury'], image: 'icon-health', aspects: { wound: 1 }, decay: 150, onExpire: 'heal',
       desc: 'Stitched by the barber-surgeon and bound in linen. When it knits you have your Health back. Take another before then and you may not get up.' },
     funds: { label: 'Coin', kind: 'funds', tags: ['money'], image: 'icon-funds', aspects: { funds: 1 }, stackable: true,
@@ -93,6 +100,8 @@
       desc: 'A token: a thing found, a thing said, a thing that points.' },
     evidence: { label: 'Raw Proof', kind: 'evidence', tags: ['casework', 'raw'], aspects: { evidence: 1 }, decay: 260, onExpire: 'vanish',
       desc: 'Something carried away from a scene that has not yet said what it means. Take it to Study.' },
+    watchq: { label: 'The Sergeant\'s Questions', kind: 'witness', tags: ['person', 'opening'], aspects: { watchq: 1 },
+      desc: 'A sergeant of the Watch with a body and a list of questions, and you on it. Reason with him: put this in Question with your Wit.' },
     witness: { label: 'Witness', kind: 'witness', tags: ['casework', 'person'], aspects: { witness: 1 }, decay: 170, onExpire: 'vanish',
       desc: 'Someone who saw something. Witnesses leave town, forget, or are reminded to forget.' },
     suspect: { label: 'Accused', kind: 'suspect', tags: ['casework', 'person'], aspects: { suspect: 1 },
@@ -138,6 +147,8 @@
 
     front: { label: 'Front', kind: 'place', tags: ['place', 'crime'], image: 'icon-court', aspects: { front: 1 },
       desc: 'A place the Coquille works through.' },
+    insight: { label: 'Insight', kind: 'insight', tags: ['insight', 'lesson'], image: 'icon-folder', aspects: { lesson: 1 },
+      desc: 'Something the city taught you. In Rest on its own it becomes a lesson; with the ability it speaks of beside it, a trick you keep.' },
     thread: { label: 'Thread', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { thread: 1 },
       desc: 'Two cases that touch the same door. They are one case, and now you know it.' },
 

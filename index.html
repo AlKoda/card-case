@@ -92,8 +92,8 @@
   <!-- New game -->
   <div class="modal screen hidden" id="start">
     <div class="screen-box">
-      <div class="banner"><span>A Letter of Office</span></div>
-      <p class="lead">The Council has made you Examiner of the Watch-house on the Market, with a stipend, a desk under the stair and the Emperor's law to work by. The cases come faster than anyone can answer them. Every name the crier sings that walks free makes the city a little darker, and remembers yours.</p>
+      <div class="banner"><span>Before the Office</span></div>
+      <p class="lead">No office, no stipend, not yet. Choose who you were and what you want; the city will find you.</p>
       <div class="field">
         <label for="name">Your name</label>
         <input type="text" id="name" maxlength="24" value="Kessler">
@@ -220,6 +220,8 @@
           <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due.</p>
           <h4>Keys</h4>
           <p><b>S</b> or <b>Enter</b> starts the open verb (on a finished one: turns its finds over, then takes them). <b>C</b> collects every finished verb. <b>Esc</b> closes it. <b>Tab</b> stacks, <b>T</b> tidies, <b>Z</b> undoes that, <b>J</b> opens the journal, <b>+</b> and <b>−</b> zoom.</p>
+          <h4>Yourself</h4>
+          <p>Work spends you: Health comes back <b>Winded</b>, Wit at <b>Wits' End</b>, Instinct <b>Restless</b>. Each recovers on its own in a little while, or at once in Rest. The city also teaches, now and then, to those who do certain things often or well; what it hands you goes to Rest, alone or with the ability it speaks of. Some of the city's questions take a card to answer.</p>
           <h4>Needs</h4>
           <p>Between cases the desk comes for you: <b>Hunger</b>, <b>Sickness</b>, <b>Stress</b>, each with a clock. Hunger with Coin in Rest is a dinner; Sickness wants Coin for a physician, or the Physician's Case; Stress wants an evening in Rest, quicker with Coin. Coin is never the only way: a watchman feeds you from the pot or takes the round, a Quarter feeds you on credit, an informer feeds you and remembers it, Health sweats a fever out, Instinct walks stress off. Let a clock run out and it takes what it came for: a Health, an Instinct, a Wit, for good if you had a spare, and if you did not it takes your strength and stays. The Bell's window lists what is on your back.</p>
           <h4>The Rival</h4>
@@ -300,6 +302,7 @@
   <script src="js/lang/ar/engine.js"></script>
   <script src="js/lang/ar/recipes-1.js"></script>
   <script src="js/lang/ar/recipes-2.js"></script>
+  <script src="js/lang/ar/round3.js"></script>
   <script src="js/lang/ar/story.js"></script>
   <script src="js/lang/ar/structures-1.js"></script>
   <script src="js/lang/ar/structures-2.js"></script>
@@ -326,6 +329,7 @@
   <script src="js/systems/callings.js"></script>
   <script src="js/systems/intro.js"></script>
   <script src="js/systems/life.js"></script>
+  <script src="js/systems/growth.js"></script>
   <script src="js/core/recipes.js"></script>
   <script src="js/data/recipes.js"></script>
   <script src="js/settings.js"></script>
