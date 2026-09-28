@@ -176,6 +176,9 @@
     s.meters.dread = s.meters.dread || 0; // the Free City's fear of you (Part II)
     s.counts = s.counts || { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
     s.counts.debt = s.counts.debt || 0;
+    // The week's ledger counts from the last bell: an older save starts counting now, not from the beginning.
+    if (!s.weekSnap) s.weekSnap = { convictions: s.stats.convictions || 0, acquittals: s.stats.acquittals || 0, cold: s.stats.cold || 0 };
+    if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
       var dy = T.TOP - 200;
@@ -260,6 +263,7 @@
   // Create a card directly on the table.
   P.create = function (defId, spec, prefer) {
     var card = this.make(defId, spec);
+    if (defId === 'informant') this.s.flags.hadInformer = true;   // a first that stays ticked when the informer is gone
     if (defId === 'witness' && card.life && this.perkHas('longmemory')) { card.life = Math.round(card.life * 1.5); card.maxLife = card.life; }
     this.placeOnTable(card, prefer);
     this.dirty = true;
@@ -340,7 +344,7 @@
   P.kindOf = function (card) { return this.def(card).kind; };
   P.stackKey = function (card) {
     var d = card.data || {};
-    return [card.def, this.labelOf(card), card.caseId || '', JSON.stringify(card.aspects || ''), d.name || '', d.order || '', d.district || '', d.rung || ''].join('|');
+    return [card.def, this.labelOf(card), card.caseId || '', JSON.stringify(card.aspects || ''), d.name || '', d.order || '', d.district || '', d.rung || '', d.mark ? 'm' : ''].join('|');
   };
 
   P.tableCards = function () {
@@ -870,6 +874,7 @@
     v.ask = null;
     v.askSkipped = false;
     v.recipe = r.recipe.id;
+    v.recipeLabel = typeof r.recipe.label === 'function' ? r.recipe.label(r.ctx) : r.recipe.label;
     v.duration = this.durationOf(r.recipe, r.ctx);
     v.elapsed = 0;
     v.story = null;
@@ -974,6 +979,7 @@
     sv[verbId] = (sv[verbId] || 0) + 1;
     var sr = this.s.stats.recipes || (this.s.stats.recipes = {});
     sr[v.recipe] = (sr[v.recipe] || 0) + 1;
+    if (v.recipeLabel) (this.s.stats.ways = this.s.stats.ways || {})[v.recipe] = v.recipeLabel;   // the way's name as it read, for the verb's about pane
     if (/^ref_(hunger|sickness|stress)/.test(v.recipe)) this.s.stats.needsMet = (this.s.stats.needsMet || 0) + 1;
     if (v.recipe === 'duty_beat' && this.perkHas('surefoot')) { var extra = this.make('funds'); extra.loc = { t: 'out', verb: verbId }; v.out.push(extra.uid); }
     if (this.s.intro) (this.s.intro.done = this.s.intro.done || {})[verbId] = true;
@@ -1308,6 +1314,14 @@
     if (s.meters.scrutiny >= 7) lines.push('The Council\'s clerks have started asking your watchmen about you. They are not subtle about it.');
     if (s.meters.pressure >= 7) lines.push('The Burgomaster calls you in to ask why the city is burning. It is not a question.');
 
+    var snap = s.weekSnap || { convictions: 0, acquittals: 0, cold: 0 };
+    var ledger = [];
+    var dc = (s.stats.convictions || 0) - (snap.convictions || 0), da = (s.stats.acquittals || 0) - (snap.acquittals || 0), dk = (s.stats.cold || 0) - (snap.cold || 0);
+    if (dc) ledger.push(dc + (dc === 1 ? ' conviction' : ' convictions'));
+    if (da) ledger.push(da + (da === 1 ? ' acquittal' : ' acquittals'));
+    if (dk) ledger.push(dk + (dk === 1 ? ' case gone cold' : ' cases gone cold'));
+    lines.push('The ledger: ' + (ledger.length ? ledger.join(', ') : 'no case closed') + '; ' + this.openCases().length + ' open; ' + this.countOf('funds') + ' Coin in hand.');
+    s.weekSnap = { convictions: s.stats.convictions || 0, acquittals: s.stats.acquittals || 0, cold: s.stats.cold || 0 };
     this.story('Week ' + s.week, lines.join(' '), 'week');
     if (this.checkPurseEndings) this.checkPurseEndings();
   };
