@@ -142,7 +142,7 @@ function run(e, verb, cards) {
   e.tick(31);
   var latest = byDef(e, 'case').filter(function (c) { return e.caseRec(c.caseId).district === d.data.district && c !== kase; })[0];
   assert.ok(byDef(e, 'case').length === n + 1 && latest, 'the next case came from there');
-  assert.strictEqual(latest.maxLife, Math.round(CF.CASE_TEMPLATES[e.caseRec(latest.caseId).template].lifetime * 1.5) + 60);
+  assert.strictEqual(latest.maxLife, Math.round(CF.CASE_TEMPLATES[e.caseRec(latest.caseId).template].lifetime * e.caseClock()) + 60);
   console.log('major crimes: ok');
 })();
 

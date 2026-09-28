@@ -625,6 +625,12 @@
     },
   };
 
+  // The crimes by rank (js/engine.js casePool): an Examiner gets the plain
+  // ones, a Sworn Examiner the deaths and the frauds, a Bailiff the strange
+  // and the professional, a Magistrate the rest.
+  CF.CASE_TIERS = [['burglary', 'extortion', 'coining', 'arson'], ['missing', 'harbor', 'poison', 'fraud'], ['witch', 'scriptorium', 'contract'], ['threedays']];
+  // How often an ordinary case is one the whole city watches, by rank.
+  CF.HIGH_PROFILE_CHANCE = [0, 0.08, 0.15, 0.2];
   CF.ORDINARY_CASES = ['burglary', 'missing', 'harbor', 'arson', 'fraud', 'extortion', 'poison', 'coining', 'scriptorium', 'witch', 'contract', 'threedays'];
   // Crimes that arrive on their own clock: the Pattern, once a run, from week six.
   CF.RARE_CASES = ['pattern'];

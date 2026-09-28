@@ -154,7 +154,7 @@
       e.dirty = true;
       return e;
     }
-    e.spawnCase('burglary', { lifetime: 300, quiet: !!opts.guided });
+    e.spawnCase('burglary', { lifetime: 300, quiet: !!opts.guided, first: true });
     if (opts.guided && e.setupIntro) { e.setupIntro(); return e; }
     if (CF.Story) { var op = CF.Story.opening(e); e.story(op.title, op.text, 'major'); return e; }
     e.story('Your First Day',
@@ -861,6 +861,7 @@
     v.slots = {};
     v.status = 'running';
     v.ask = null;
+    v.askSkipped = false;
     v.recipe = r.recipe.id;
     v.duration = this.durationOf(r.recipe, r.ctx);
     v.elapsed = 0;
@@ -883,7 +884,11 @@
   };
   P.tickAsk = function (vid) {
     var v = this.verb(vid), spec = this.askSpec(v);
-    if (!spec || v.ask || v.status !== 'running' || v.elapsed < spec.at * v.duration) return;
+    if (!spec || v.ask || v.askSkipped || v.status !== 'running' || v.elapsed < spec.at * v.duration) return;
+    // Nothing on the table could answer it: no ask, no penalty. A locked door
+    // is only a question when you have someone to put a shoulder to it.
+    var self = this, probe = { key: 'ask', label: spec.label, accepts: spec.accepts };
+    if (!this.tableCards().some(function (c) { return self.slotAccepts(probe, c); })) { v.askSkipped = true; return; }
     v.ask = { label: spec.label, text: spec.text, accepts: spec.accepts, filled: null };
     this.dirty = true;
     this.emit('ask', { verb: vid, label: spec.label, text: spec.text });
@@ -919,8 +924,9 @@
     } else if (v.ask && spec && spec.penalty) {
       // The ask was put and ignored: the work still finishes, but thinner.
       if (spec.penalty === 'thin') {
-        var finds = ctx.out.filter(function (c) { return c.def === 'clue' || c.def === 'evidence'; });
-        if (finds.length >= 2) { var lost = finds[finds.length - 1]; this.remove(lost); ctx.out.splice(ctx.out.indexOf(lost), 1); }
+        // What the case turns on (the culprit's trait, the front's link) is never the thing left behind.
+        var finds = ctx.out.filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && !(c.data && (c.data.trait || c.data.link)); });
+        if (finds.length >= 1 && ctx.out.filter(function (c) { return c.def === 'clue' || c.def === 'evidence'; }).length >= 2) { var lost = finds[finds.length - 1]; this.remove(lost); ctx.out.splice(ctx.out.indexOf(lost), 1); }
       }
       if (spec.penalty === 'fatigue') ctx.give('fatigue');
       if (result && spec.miss) result.text = (result.text ? result.text + ' ' : '') + spec.miss;
@@ -1690,13 +1696,22 @@
   }
 
   // Generate a case record and put its card on the table (or into ctx output).
+  // The crimes an office is sent: the tiers up to your rank, the first tier
+  // always; a new tier joins a week after the promotion that opened it.
+  P.casePool = function () {
+    var s = this.s, pool = [];
+    CF.CASE_TIERS.forEach(function (tier, i) { if (i <= s.rank) pool = pool.concat(tier); });
+    return pool;
+  };
+  // How long a case keeps, as a share of its template's clock: a young office is given more time.
+  P.caseClock = function () { return this.s.rank === 0 ? 1.8 : this.s.rank === 1 ? 1.6 : 1.5; };
   P.spawnCase = function (templateId, opts) {
     opts = opts || {};
     var s = this.s;
     var rng = this.rng;
-    var tid = templateId || U.pick(rng, CF.ORDINARY_CASES);
-    // The first cases are the ordinary crimes; the lesser ones wait for a few weeks.
-    if (!templateId && s.week < 3 && CF.FIRST_CASES) tid = U.pick(rng, CF.FIRST_CASES);
+    // The crimes come by rank: an Examiner gets the plain ones; the killings
+    // and the strange cases wait until you have risen to them.
+    var tid = templateId || U.pick(rng, this.casePool());
     var T = CF.CASE_TEMPLATES[tid];
     var id = 'c' + s.nextUid++;
     var victim = opts.victim || this.newName();
@@ -1732,16 +1747,23 @@
     var culprit = suspects[guiltyIdx];
     vars.culprit = culprit.name;
 
-    var highProfile = !!T.highProfile || rng() < 0.15;
+    var highProfile = !!T.highProfile || (!opts.first && rng() < (CF.HIGH_PROFILE_CHANCE[Math.min(s.rank, CF.HIGH_PROFILE_CHANCE.length - 1)] || 0));
     var difficulty = T.difficulty + (highProfile && !T.highProfile ? 1 : 0);
     // The charge profile: what a court will want proven. A high-profile
     // case wants one more point of its main aspect.
     var charge = U.clone(T.charge);
     if (highProfile && !T.highProfile) charge[T.keyAspects[0]]++;
-    // A known criminal's crimes are harder to prove the further they have risen.
-    charge[T.keyAspects[0]] += this.caseRankBonus(opts.criminalId);
     // The Court asks a little less of the first case's kind of proof than the template's full weight.
     if (!T.special && !highProfile) { var ck = T.keyAspects[T.keyAspects.length - 1]; if (charge[ck] > 1) charge[ck]--; }
+    // And it asks by your rank: an Examiner's cases want two of anything at most;
+    // a Bailiff's want one more of what they turn on; a Magistrate's, two more.
+    if (!T.special) {
+      if (s.rank === 0) for (var ca in charge) charge[ca] = Math.min(charge[ca], 2);
+      if (s.rank >= 2) charge[T.keyAspects[0]] = Math.min(4, charge[T.keyAspects[0]] + 1);
+      if (s.rank >= 3) charge[T.keyAspects[1]] = Math.min(4, charge[T.keyAspects[1]] + 1);
+    }
+    // A known criminal's crimes are harder to prove the further they have risen.
+    charge[T.keyAspects[0]] += this.caseRankBonus(opts.criminalId);
     // A Careful criminal leaves less behind.
     var known = opts.criminalId && this.criminal(opts.criminalId);
 
@@ -1773,7 +1795,7 @@
     s.cases[id] = rec;
     s.stats.cases++;
 
-    var life = Math.round((opts.lifetime || T.lifetime) * 1.5) + (opts.extraTime || 0);
+    var life = Math.round((opts.lifetime || T.lifetime) * this.caseClock()) + (opts.extraTime || 0);
     var brief = U.fill(structure && !opts.culpritName ? structure.brief : T.brief, vars);
     // An informant's warning: you were ready for this one.
     var warning = !T.special && this.warningFor(tid);
@@ -1919,7 +1941,7 @@
     this.emit('resolved', this.caseRecord(rec, 'cold'));
     this.clearCaseCards(caseId);
     var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
-    this.meter('pressure', (rec.highProfile ? 2 : 1) + (rec.major ? 1 : 0));
+    this.meter('pressure', (rec.highProfile ? 2 : 1) + (rec.major ? 1 : 0) - (this.s.rank === 0 && !rec.highProfile && !rec.major ? 1 : 0));
 
     if (rec.template === 'gang') {
       this.meter('retaliation', 2);

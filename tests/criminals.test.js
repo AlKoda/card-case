@@ -66,7 +66,7 @@ function run(e, verb, cards) {
   var newRec = w.caseRec(cases[cases.length - 1].caseId);
   assert.strictEqual(newRec.template, warn.data.template, 'the warned-of case arrived');
   assert.ok(!w.card(warn.uid), 'the warning was used up');
-  assert.strictEqual(cases[cases.length - 1].maxLife, Math.round(CF.CASE_TEMPLATES[newRec.template].lifetime * 1.5) + CF.INFORMANT.warningExtraTime);
+  assert.strictEqual(cases[cases.length - 1].maxLife, Math.round(CF.CASE_TEMPLATES[newRec.template].lifetime * w.caseClock()) + CF.INFORMANT.warningExtraTime);
   assert.ok(newRec.suspects.some(function (x) { return x.revealed; }), 'a first name on the board');
   assert.strictEqual(winf.data.trust, trust0 + 1, 'a warning that came true earns trust');
 
@@ -151,7 +151,8 @@ function run(e, verb, cards) {
   assert.ok(/^Old Offender: /.test(e.labelOf(al)), 'the card follows the record');
   // Rank makes the court want more.
   var T = CF.CASE_TEMPLATES[again.template];
-  assert.strictEqual(again.charge[T.keyAspects[0]], T.charge[T.keyAspects[0]] + 1 + (again.highProfile && !T.highProfile ? 1 : 0));
+  // (An Examiner's Court wants two of anything at most; the offender's record adds one on top.)
+  assert.strictEqual(again.charge[T.keyAspects[0]], Math.min(2, T.charge[T.keyAspects[0]] + (again.highProfile && !T.highProfile ? 1 : 0)) + 1);
 
   // A conviction jails them; a wrongful conviction puts the real culprit at large.
   e.criminalCaught(culprit.name);

@@ -35,7 +35,7 @@
   var CASE_ART = { burglary: ['ccrime-02', 'icrime-10'], missing: ['csign-01', 'icrime-12'], harbor: ['ccrime-06', 'icrime-03'], arson: ['ccrime-03', 'icrime-09'],
     fraud: ['ccrime-07', 'icrime-07'], extortion: ['ccrime-01', 'icrime-08'], poison: ['ccrime-04', 'icrime-04'], coining: ['citem-03', 'icrime-21'],
     scriptorium: ['citem2-02', 'ilaw-12'], witch: ['coccult-07', 'icrime-19'], highway: ['citem-01', 'icrime-16'], contract: ['citem2-07', 'icrime-01'],
-    eumenides: ['coccult-03', 'icrime-06'], pattern: ['coccult-06', 'icrime-07'], threedays: ['csign-06', 'icrime-02'], manhunt: ['ccrime-08', 'ilaw-18'],
+    eumenides: ['coccult-03', 'imyst-07'], pattern: ['coccult-06', 'icrime-05'], threedays: ['csign-06', 'icrime-02'], manhunt: ['ccrime-08', 'ilaw-18'],
     gang: ['ccrime-05', 'icrime-22'], syndicate: ['cherald2-07', 'icrime-19'], architect: ['csign-04', 'icrime-16'] };
   var CASE_DEFAULT = ['csign-01', 'imark-16'];
   // Tokens about the body: an icon of the case's kind of death.
@@ -117,7 +117,7 @@
   var EV_BY_ASPECT = { forensic: 'citem2-01', testimony: 'csign-02', motive: 'citem-08', opportunity: 'csign-06', digital: 'cmyst-08', financial: 'citem-03' };
   var VERB_TOKENS = { time: 'cmyst-03', duty: 'cverb-04', investigate: 'cverb-01', analyze: 'cverb-06', interrogate: 'cverb-02', reflect: 'cmyst-04', arrest: 'cverb-03' };
   var ASK_ART = { instinct: 'iinv-06', focus: 'cres-05', funds: 'itrade-20', teammate: 'rrole-03', health: 'imed-01' };
-  var ASPECT_ART = { forensic: 'iev-01', testimony: 'cwit-01', motive: 'icrime-06', opportunity: 'iinv-22', digital: 'ilaw-12', financial: 'itrade-20' };
+  var ASPECT_ART = { forensic: 'iev-01', testimony: 'cwit-01', motive: 'icrime-06', opportunity: 'iev-02', digital: 'ilaw-12', financial: 'itrade-20' };
   var METER_ICONS = { pressure: 'imark-08', scrutiny: 'iinv-13', retaliation: 'icrime-01', reputation: 'ilaw-17', dread: 'icrime-19' };
   var TOAST_BARS = { case: 'clabel-01', danger: 'clabel-01', defeat: 'clabel-01', major: 'clabel-02', victory: 'clabel-02', week: 'clabel-04', verb: 'clabel-03', minor: 'clabel-05' };
   var TOAST_ICONS = { case: 'imark-01', danger: 'cmark-04', defeat: 'imark-04', major: 'cwax-02', victory: 'imark-12', week: 'ccirc-02', verb: 'cwit-02', minor: 'cmark-05' };
@@ -496,6 +496,45 @@
   // guided start's hint while it runs, then the plain how-to until the
   // player has moved something (remembered across games).
   var PLAIN_HINT = 'Drag cards onto the verbs above, or tap an empty slot to pick a card for it. Drag the table to look around, pinch or scroll to zoom. Drag a stack by its number to move all of it.';
+  // What to do next, read off the table: the first thing that applies.
+  UI.advice = function () {
+    var e = UI.e, s = e.s;
+    if (!e || s.over || s.choice) return null;
+    var verbs = CF.VERB_ORDER.filter(function (v) { return e.verb(v).unlocked; });
+    var can = function (v) { return e.verb(v).unlocked && !e.lockReason(v); };
+    var running = verbs.filter(function (v) { return e.verb(v).status === 'running'; });
+    var asking = running.filter(function (v) { return e.verb(v).ask && !e.verb(v).ask.filled; });
+    if (asking.length) return tr('{verb} asks for something: open it, or drop the card on it.', { verb: CF.VERBS[asking[0]].label });
+    var done = verbs.filter(function (v) { return e.verb(v).status === 'done'; });
+    if (done.length) return tr('{verb} has finished: open it and take what it found.', { verb: CF.VERBS[done[0]].label });
+    if (running.length) return null;
+    var table = e.tableCards(), has = function (d) { return table.filter(function (c) { return c.def === d && !e.unavailableReason(c); }); };
+    var cases = table.filter(function (c) { return c.def === 'case'; });
+    var open = cases.map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
+    var wit = has('focus')[0], hp = has('health')[0];
+    // The fever locks the street: Rest comes before anything the locked verbs would do.
+    if (e.countOf('burnout') && can('reflect')) return tr('The fever has you: put Fever into Rest before anything else.');
+    if (can('investigate')) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
+    var raw = has('evidence')[0];
+    if (raw && can('analyze')) return tr('Raw proof waits: put {label} into Study to read it.', { label: e.labelOf(raw) });
+    var w = has('witness').filter(function (c) { return !c.data.asked; })[0];
+    if (w && wit && can('interrogate')) return tr('A witness: put {name} into Question with Wit.', { name: e.labelOf(w) });
+    if (can('arrest')) for (var j = 0; j < open.length; j++) {
+      var rec = open[j].rec, sc = table.filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; });
+      var tokens = table.filter(function (c) { return (c.def === 'clue') && c.caseId === rec.id; });
+      for (var k = 0; k < sc.length; k++) { var a = e.assessCharge(sc[k], tokens); if (a && a.tier === 'strong') return tr('The proof is enough: put {name} and the tokens into the Court.', { name: e.labelOf(sc[k]) }); }
+    }
+    var unasked = table.filter(function (c) { if (c.def !== 'suspect' || e.unavailableReason(c)) return false; var su = e.suspectOf(c); return su && !su.questioned; })[0];
+    if (unasked && wit && can('interrogate')) return tr('Question {name} with Wit: people say more than they mean to.', { name: e.labelOf(unasked) });
+    if (can('investigate')) for (var m = 0; m < open.length; m++) if (open[m].rec.found < open[m].rec.items.length) return tr('The scene has more to give: search {title} again.', { title: open[m].rec.title });
+    var fat = has('fatigue').length;
+    if (fat >= 2 && can('reflect')) return tr('Weariness is piling up: put one into Rest before the fever takes you.');
+    if (has('funds').length < 2 && hp && can('duty')) return tr('Coin is short: Attend with Health earns your keep.');
+    if (!open.length && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
+    if (open.length && can('investigate')) return tr('The trail is thin. Search the scene again, or go door to door with the Quarter.');
+    return null;
+  };
+  var adviceShown = null;
   function renderHint() {
     var e = UI.e, hint = $('#hint');
     var text = e.introHint ? e.introHint() : null;
@@ -503,6 +542,14 @@
       if (UI.hintMode !== 'intro' || hint.textContent !== tr(text)) { hint.textContent = tr(text); hint.classList.remove('gone'); UI.hintMode = 'intro'; }
       return;
     }
+    // Idle for a while with nothing running: a nudge, read off the table.
+    var idle = performance.now() - (UI.lastInput || 0) > 6000 && !UI.drag && !UI.openVerbs.length && !UI.modal;
+    var advice = idle ? UI.advice() : null;
+    if (advice) {
+      if (UI.hintMode !== 'advice' || adviceShown !== advice) { hint.textContent = advice; hint.classList.remove('gone'); hint.classList.add('advice'); UI.hintMode = 'advice'; adviceShown = advice; }
+      return;
+    }
+    if (UI.hintMode === 'advice') { hint.classList.add('gone'); hint.classList.remove('advice'); UI.hintMode = 'gone'; adviceShown = null; return; }
     if (UI.hintMode === 'plain' || UI.hintMode === 'gone') return;
     UI.hintMode = 'plain';
     var seen = false;
@@ -1238,6 +1285,7 @@
   function updateLive() {
     var e = UI.e;
     updateWeekBar();
+    if (!UI.drag) renderHint();
     advanceTyping();
     if (UI.notices.length) updateNotices();
     // The dossier's clock, and the card pictured in it.
@@ -1687,15 +1735,21 @@
       lines.push('Accused met: ' + (met.length ? met.map(function (x) { return x.name.split(' ')[1] + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); }).join(', ') : 'none'));
       lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched') + (rec.delegate ? ' · ' + rec.delegate.card.label + ' on it' : '') + (rec.major ? ' · cried' : ''));
       lines.push(CF.daysLeft(card.life) + ' days left (' + U.fmtTime(card.life) + ')' + (rec.highProfile ? ' · the city watches' : ''));
+      var cprof = CF.Charge.profileOf(rec); lines.push('To convict: ' + Object.keys(cprof).map(function (k) { return CF.ASPECTS[k].label + ' ' + cprof[k]; }).join(', '));
       if (rec.commission) lines.push('Commission: ' + CF.PATRONS[rec.commission.from].label + ' wants ' + { quiet: 'it quiet', mercy: 'mercy', square: 'the square' }[rec.commission.wants]);
     } else if (card.def === 'suspect') {
       var sus = e.suspectOf(card);
       if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1) + (rec && rec.identified === card.data.key ? ' · the one it points to' : ''));
       if (rec) lines.push('Case: ' + rec.title);
-      if (rec) { var prof = CF.Charge.profileOf(rec); lines.push('To convict: ' + Object.keys(prof).map(function (k) { return CF.ASPECTS[k].short + ' ' + prof[k]; }).join(', ')); }
+      if (rec) { var prof = CF.Charge.profileOf(rec); lines.push('To convict: ' + Object.keys(prof).map(function (k) { return CF.ASPECTS[k].label + ' ' + prof[k]; }).join(', ')); }
+      if (sus && sus.questioned) lines.push('Questioned already'); else lines.push('Question them with Wit');
     } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
       if (rec) lines.push('Case: ' + rec.title);
-      if (asp) lines.push(asp);
+      if (k === 'evidence') lines.push(card.data.item && card.data.item.needs ? 'Raw proof: read it in Study with the right instrument' : 'Raw proof: read it in Study before it counts');
+      else if (k === 'clue') lines.push(asp ? tr('Proves {asp}: into the Court with the Accused', { asp: asp }) : 'Into the Court with the Accused');
+      else if (card.def === 'witness') lines.push(card.data.asked ? 'Questioned already' : 'Question them with Wit for their word');
+      if (card.data.points) { var pto = rec && rec.suspects.filter(function (x) { return x.key === card.data.points; })[0]; if (pto) lines.push(tr('Names {name}', { name: pto.name })); }
+      if (card.data.trait && !card.data.points) { var ptr = CF.TRAITS.filter(function (t) { return t.id === card.data.trait; })[0]; if (ptr) lines.push(tr('Describes someone who: {desc}', { desc: tr(ptr.desc).replace(/\.$/, '').toLowerCase() })); }
       if (card.data.stake && CF.STAKES[card.data.stake]) lines.push(CF.STAKES[card.data.stake].label + (card.data.againstInterest ? ' · against interest' : '') + (card.data.coerced ? ' · not credible' : ''));
       if (card.data.confession) lines.push(card.data.confession === 'free' ? 'Confessed freely' : 'Under the question');
       if (card.data.frame) lines.push('The thief-takers\' men');
@@ -1855,6 +1909,7 @@
   }
 
   function onPointerDown(ev) {
+    UI.lastInput = performance.now();
     if (UI.modal || (ev.button !== 0 && ev.button !== 1)) return;
     if (ev.pointerType === 'touch') {
       pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };

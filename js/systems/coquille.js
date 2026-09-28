@@ -107,7 +107,7 @@
 
   // A case that arrives with its answer: the Court's culprit and the Court's word.
   P.courtHandsOver = function (why) {
-    var card = this.spawnCase(U.pick(this.rng, CF.ORDINARY_CASES), { quiet: true, headline: 'From the Court: ' });
+    var card = this.spawnCase(U.pick(this.rng, this.casePool()), { quiet: true, headline: 'From the Court: ' });
     var rec = this.caseRec(card.caseId);
     var sc = this.revealSuspect(rec, null, { key: rec.culprit });
     var clue = this.clueSpec(rec, { label: 'The Court\'s Word', text: 'A boy brings a paper with a name on it and no signature. The Court of Miracles has decided this one is not worth protecting.', aspects: { testimony: 3, opportunity: 1 } }, [], { points: rec.culprit, noMisread: true, stake: 'hates', witness: 'the Court' });
@@ -118,7 +118,7 @@
   // A case the Court closed its own way: no trial, the Court's culprit, sometimes a scapegoat.
   P.closedByCourt = function () {
     var s = this.s;
-    var card = this.spawnCase(U.pick(this.rng, CF.ORDINARY_CASES), { quiet: true });
+    var card = this.spawnCase(U.pick(this.rng, this.casePool()), { quiet: true });
     var rec = this.caseRec(card.caseId);
     var scapegoat = this.rng() < 0.3;
     var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];

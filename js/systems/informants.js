@@ -80,7 +80,7 @@
     }
     // A warning: something is about to happen. One at a time.
     if (this.s.nextCase) return null;
-    var tid = U.pick(this.rng, CF.ORDINARY_CASES);
+    var tid = U.pick(this.rng, this.casePool());
     var T = CF.CASE_TEMPLATES[tid];
     var district = U.pick(this.rng, T.districts);
     this.s.nextCase = { template: tid, district: district };
