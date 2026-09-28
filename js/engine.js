@@ -19,10 +19,10 @@
   // The table is a free board measured in board pixels. Cards and verbs can
   // sit anywhere; placement keeps them from covering each other.
   var T = {
-    CW: 116, CH: 158, GAP: 14,   // card footprint
-    VW: 124, VH: 150,            // verb token footprint
+    CW: 116, CH: 168, GAP: 14,   // card footprint (the painted cards' own shape)
+    VW: 124, VH: 178,            // verb token footprint: a card with a ring round it
     COLS: 8,                     // width of the automatic layout, in cards
-    TOP: 180,                    // cards start below the row of verbs
+    TOP: 200,                    // cards start below the row of verbs
     verbsOnBoard: true,          // the verbs are tokens on the felt, movable like cards
   };
   // The edge of the table: nothing goes beyond it.

@@ -15,6 +15,7 @@
     "The back room stayed locked, and the hard way in wore you out.": "بقيت الغرفة الخلفية مقفلة، وأنهكك الدخول بالطريقة الشاقة.",
     "Vibration on touches": "اهتزاز عند اللمس",
     "App version {v}": "إصدار التطبيق {v}",
+    "A Question": "سؤال",
     "One house will not open to the Watch. It opens to Coin. Shut, it keeps what it knows.": "بيت واحد لا يفتح للحرس. يفتح للنقود. ومغلقًا، يحتفظ بما يعرف.",
     "One door stayed shut, and the street talked less for it.": "بقي باب واحد مغلقًا، وتكلم الشارع أقل بسببه.",
     "A boy offers to show you the short way through the yards, for a Coin. The long way is on your legs.": "صبي يعرض أن يدلّك على الطريق القصير عبر الأفنية، مقابل نقود. والطريق الطويل على ساقيك.",

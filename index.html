@@ -14,17 +14,11 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/art/menu.css">
-  <link rel="stylesheet" href="css/art/city-ui.css">
-  <link rel="stylesheet" href="css/art/city-icons.css">
-  <link rel="stylesheet" href="css/art/noir-cards.css">
-  <link rel="stylesheet" href="css/art/noir-icons.css">
-  <link rel="stylesheet" href="css/art/noir-verbs.css">
   <link rel="stylesheet" href="css/art/noir-tables.css">
-  <link rel="stylesheet" href="css/art/kit-cards.css">
-  <link rel="stylesheet" href="css/art/kit-icons.css">
-  <link rel="stylesheet" href="css/art/deck-cards.css">
-  <link rel="stylesheet" href="css/art/deck-icons.css">
   <link rel="stylesheet" href="css/art/deck-menu.css">
+  <link rel="stylesheet" href="css/art/cm-cards.css">
+  <link rel="stylesheet" href="css/art/cm-icons.css">
+  <link rel="stylesheet" href="css/art/cm-ui.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -37,15 +31,15 @@
       <div id="meters"></div>
       <div id="controls">
         <div class="speed">
-          <button class="ctl dbi" data-speed="0" title="Pause (Space)" style="--i:var(--art-dui-07)"></button>
-          <button class="ctl dbi" data-speed="1" title="Normal speed (1)" style="--i:var(--art-dui-06)"></button>
-          <button class="ctl dbi" data-speed="2" title="Fast (2)" style="--i:var(--art-dui-08)"><small>2</small></button>
-          <button class="ctl dbi" data-speed="3" title="Fastest (3)" style="--i:var(--art-dui-08)"><small>3</small></button>
+          <button class="ctl dbi" data-speed="0" title="Pause (Space)" style="--i:var(--art-bround-04)"></button>
+          <button class="ctl dbi" data-speed="1" title="Normal speed (1)" style="--i:var(--art-bround-05)"></button>
+          <button class="ctl dbi" data-speed="2" title="Fast (2)" style="--i:var(--art-bround-06)"><small>2</small></button>
+          <button class="ctl dbi" data-speed="3" title="Fastest (3)" style="--i:var(--art-bround-06)"><small>3</small></button>
         </div>
-        <button class="ctl dbi" id="btn-journal" title="Journal" style="--i:var(--art-dui-17)"></button>
-        <button class="ctl dbi" id="btn-precinct" title="The Watch-house" style="--i:var(--art-dui-23)"></button>
-        <button class="ctl dbi" id="btn-help" title="How to play" style="--i:var(--art-dui-15)"></button>
-        <button class="ctl dbi" id="btn-menu" title="Menu" style="--i:var(--art-dui-16)"></button>
+        <button class="ctl dbi" id="btn-journal" title="Journal" style="--i:var(--art-bround-24)"></button>
+        <button class="ctl dbi" id="btn-precinct" title="The Watch-house" style="--i:var(--art-bround-26)"></button>
+        <button class="ctl dbi" id="btn-help" title="How to play" style="--i:var(--art-bround-22)"></button>
+        <button class="ctl dbi" id="btn-menu" title="Menu" style="--i:var(--art-bround-13)"></button>
       </div>
     </header>
     <div id="main">
@@ -81,11 +75,11 @@
       <div class="title-scene">
       <div class="title-logo" role="img" aria-label="Case File: The Free City"></div>
       <div class="title-buttons">
-        <button class="plate-btn gold" id="t-new"><i class="mi" style="--i:var(--art-dui-25)"></i>New Game</button>
-        <button class="plate-btn red" id="t-continue"><i class="mi" style="--i:var(--art-dui-06)"></i>Continue</button>
-        <button class="plate-btn teal" id="t-archive"><i class="mi" style="--i:var(--art-dui-14)"></i>The Rolls</button>
-        <button class="plate-btn grey" id="t-settings"><i class="mi" style="--i:var(--art-dui-01)"></i>Settings</button>
-        <button class="plate-btn red" id="t-help"><i class="mi" style="--i:var(--art-dui-15)"></i>How to Play</button>
+        <button class="plate-btn gold" id="t-new"><i class="mi" style="--i:var(--art-bround-24)"></i>New Game</button>
+        <button class="plate-btn red" id="t-continue"><i class="mi" style="--i:var(--art-bround-05)"></i>Continue</button>
+        <button class="plate-btn teal" id="t-archive"><i class="mi" style="--i:var(--art-bround-09)"></i>The Rolls</button>
+        <button class="plate-btn grey" id="t-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
+        <button class="plate-btn red" id="t-help"><i class="mi" style="--i:var(--art-bround-22)"></i>How to Play</button>
         <button class="plate-btn grey lang" id="t-lang" data-no-i18n title="Language / اللغة">English</button>
       </div>
       </div>
@@ -98,11 +92,11 @@
       <div class="banner dark"><span>Settings</span></div>
       <div class="settings-body">
         <nav class="settings-tabs">
-          <button data-sec="audio" class="on"><i class="ico" style="background-image:var(--art-dbtn-02)"></i>Audio</button>
-          <button data-sec="display"><i class="ico" style="background-image:var(--art-dbtn-08)"></i>Display</button>
-          <button data-sec="table"><i class="ico" style="background-image:var(--art-dbtn2-02)"></i>Table</button>
-          <button data-sec="gameplay"><i class="ico" style="background-image:var(--art-dbtn2-03)"></i>Gameplay</button>
-          <button data-sec="language"><i class="ico" style="background-image:var(--art-dbtn2-01)"></i>Language</button>
+          <button data-sec="audio" class="on"><i class="ico" style="background-image:var(--art-cset-03)"></i>Audio</button>
+          <button data-sec="display"><i class="ico" style="background-image:var(--art-cset-02)"></i>Display</button>
+          <button data-sec="table"><i class="ico" style="background-image:var(--art-bsq-26)"></i>Table</button>
+          <button data-sec="gameplay"><i class="ico" style="background-image:var(--art-cset-04)"></i>Gameplay</button>
+          <button data-sec="language"><i class="ico" style="background-image:var(--art-cset2-01)"></i>Language</button>
         </nav>
         <div class="paper settings-paper">
           <h3 id="sec-audio">Audio</h3>
@@ -163,14 +157,14 @@
     <div class="modal-box" style="max-width:420px">
       <div class="banner small"><span>Paused</span></div>
       <div class="row column">
-        <button class="plate-btn gold" id="m-resume"><i class="mi" style="--i:var(--art-dui-06)"></i>Resume</button>
-        <button class="plate-btn teal" id="m-save"><i class="mi" style="--i:var(--art-dui-13)"></i>Save Now</button>
-        <button class="plate-btn grey" id="m-tidy"><i class="mi" style="--i:var(--art-dui-19)"></i>Tidy the Table</button>
-        <button class="plate-btn grey" id="m-settings"><i class="mi" style="--i:var(--art-dui-01)"></i>Settings</button>
-        <button class="plate-btn teal" id="m-precinct"><i class="mi" style="--i:var(--art-dui-23)"></i>The Watch-house</button>
-        <button class="plate-btn teal" id="m-archive"><i class="mi" style="--i:var(--art-dui-14)"></i>The Rolls</button>
-        <button class="plate-btn grey" id="m-title"><i class="mi" style="--i:var(--art-dui-24)"></i>Main Menu</button>
-        <button class="plate-btn red" id="m-new"><i class="mi" style="--i:var(--art-dui-25)"></i>Abandon File</button>
+        <button class="plate-btn gold" id="m-resume"><i class="mi" style="--i:var(--art-bround-05)"></i>Resume</button>
+        <button class="plate-btn teal" id="m-save"><i class="mi" style="--i:var(--art-bround-08)"></i>Save Now</button>
+        <button class="plate-btn grey" id="m-tidy"><i class="mi" style="--i:var(--art-bround-07)"></i>Tidy the Table</button>
+        <button class="plate-btn grey" id="m-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
+        <button class="plate-btn teal" id="m-precinct"><i class="mi" style="--i:var(--art-bround-26)"></i>The Watch-house</button>
+        <button class="plate-btn teal" id="m-archive"><i class="mi" style="--i:var(--art-bround-09)"></i>The Rolls</button>
+        <button class="plate-btn grey" id="m-title"><i class="mi" style="--i:var(--art-bround-10)"></i>Main Menu</button>
+        <button class="plate-btn red" id="m-new"><i class="mi" style="--i:var(--art-bround-11)"></i>Abandon File</button>
       </div>
     </div>
   </div>
@@ -192,7 +186,7 @@
       <div class="help-grid">
         <div>
           <h4>Cards and verbs</h4>
-          <p>Everything is a card. The <b>verbs</b> are the square tokens on the table; move them like cards. Drag a card onto a verb, or tap the verb to open it at the side of the table. A small box appears on a token only when the verb, part-way through its work, <b>asks for one more card</b>: a locked door wants Instinct or a watchman, a shut door wants Coin, failing light wants Wit. The box shows what kind; tap it to pull a fitting card from the table, or drop one on the token. Answering earns something (the work finishes sooner, no Weariness, a fuller word); ignoring it costs nothing (never your Health, Wit, Instinct or Coin: those are yours to choose). The Bell's box shows the <b>dues</b> it is about to draw: lodging, and a Coin for every two watchmen you keep. Tap a verb to open it: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <p>Everything is a card. The <b>verbs</b> are the cards with a ring round them; move them like any card. Drag a card onto a verb, or tap the verb to open it at the side of the table. A small box appears on a token only when the verb, part-way through its work, <b>asks for one more card</b>: a locked door wants Instinct or a watchman, a shut door wants Coin, failing light wants Wit. The box shows what kind; tap it to pull a fitting card from the table, or drop one on the token. Answering earns something (the work finishes sooner, no Weariness, a fuller word); ignoring it costs nothing (never your Health, Wit, Instinct or Coin: those are yours to choose). The Bell's box shows the <b>dues</b> it is about to draw: lodging, and a Coin for every two watchmen you keep. Tap a verb to open it: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
           <h4>What a verb finds</h4>
           <p>A finished verb shows a card back on its token. Open it: what it found lies face down. Tap a card to turn it over, tap it again to take it, or <b>Take all</b>. Closing the window leaves everything where it is, story included. Taken cards join a stack of their kind if one is on the table, else they land in the <b>collection pile</b>, the yellow strip; drag the strip anywhere. New cases land there too.</p>
           <h4>Your table</h4>
@@ -240,9 +234,10 @@
   <!-- Confirm -->
   <div class="modal dialog hidden" id="confirm">
     <div class="dlg dlg-confirm">
+      <div class="dlg-head">A Question</div>
       <div class="dlg-text" id="confirm-text"></div>
-      <button class="dlg-hot yes" id="confirm-yes" aria-label="Yes"></button>
-      <button class="dlg-hot no" id="confirm-no" aria-label="No"></button>
+      <button class="dlg-hot yes" id="confirm-yes">Yes</button>
+      <button class="dlg-hot no" id="confirm-no">No</button>
     </div>
   </div>
 

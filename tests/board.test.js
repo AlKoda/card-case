@@ -69,11 +69,11 @@ console.error = function (err) { throw err; };
   assert.strictEqual(decayed.life, 10, 'decay can be set per instance');
 
   // Move: a card lands where dropped when the spot is free, else nearby.
-  e.moveCard(clue.uid, 700, 700);
-  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, CF.snapGrid(700, 700), 'a card settles on the grid cell it was dropped in');
+  e.moveCard(clue.uid, 1500, 700);
+  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, CF.snapGrid(1500, 700), 'a card settles on the grid cell it was dropped in');
   T.snap = false;
-  e.moveCard(clue.uid, 700, 700);
-  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, { x: 700, y: 700 }, 'without the setting it lands where it was dropped');
+  e.moveCard(clue.uid, 1500, 700);
+  assert.deepStrictEqual({ x: clue.loc.x, y: clue.loc.y }, { x: 1500, y: 700 }, 'without the setting it lands where it was dropped');
   T.snap = true;
   e.moveCard(clue.uid, 99999, -99999);
   assert.ok(clue.loc.x + T.CW <= T.BOUNDS.x + T.BOUNDS.w && clue.loc.y >= T.BOUNDS.y, 'but never off the table');

@@ -7,142 +7,154 @@
   // Art lives in css/art/*.css as --art-* custom properties (see tools/build_art.py).
   function art(name) { return 'var(--art-' + name + ')'; }
   function hash(str) { var x = 0; str = String(str); for (var i = 0; i < str.length; i++) x = (x * 31 + str.charCodeAt(i)) >>> 0; return x; }
-  // ---- The Free City's art (css/art/city-*.css, cut by tools/build_city_art.py).
-  // Three families of card face: illustrated pieces that carry their own
-  // frame (characters, scenes, evidence, tarot backs), and plain emblem
-  // frames for cards that are only words (your Health, a Petition...).
-  // ---- The Candlemark Noir art (css/art/noir-*.css, cut by tools/build_noir_art.py).
-  // Simple is king: a card is a picture over a strip of paper that carries
-  // one name. Families (css: .card.face-<family>):
-  //   pic    a picture in a frame the stylesheet draws, in the kind's colour
-  //   tarot  a whole face with its own paper band (the resources)
-  //   paper  a whole paper face with a corner icon (words on paper)
-  //   back   a tarot back (callings, endings)
+  // ---- The Candlemark art (css/art/cm-*.css, cut by tools/build_cm_art.py).
+  // One style for everything: cream paper, a coloured frame, a black ink
+  // picture. Two families of card face (css: .card.face-<family>):
+  //   full   a whole painted card from the sheets; the name sits on a strip at its foot
+  //   icon   a square icon from the sheets on an empty framed card, in the kind's colour
   var PIC_TONE = { case: 'red', coldcase: 'grey', clue: 'blue', evidence: 'blue', witness: 'blue', suspect: 'red', informant: 'gold',
-    district: 'gold', place: 'gold', room: 'gold', equipment: 'teal', teammate: 'teal', personnel: 'teal', hospital: 'teal',
-    criminal: 'red', condemned: 'dark', court: 'dark', threat: 'dark', career: 'gold', intel: 'blue', order: 'gold' };
-  // Whole faces: the resources on tarot cards, words on paper.
-  var FACES = {
-    health: 'ntarot-01', wound: 'ntarot-01', focus: 'ntarot-06', instinct: 'ntarot-02', spent_health: 'ntarot-01', spent_focus: 'ntarot-06', spent_instinct: 'ntarot-02', funds: 'ntarot-03',
-    fatigue: 'ntarot-05', burnout: 'ntarot-05', obsession: 'ntar2-03', tunnel: 'ntar2-01', hunger: 'ntar2-06', sickness: 'ntar2-07', stress: 'ntar2-05',
+    district: 'gold', place: 'gold', room: 'grey', equipment: 'teal', teammate: 'teal', personnel: 'teal', hospital: 'grey',
+    criminal: 'red', condemned: 'dark', court: 'dark', threat: 'red', career: 'gold', intel: 'blue', order: 'gold', ability: 'gold', funds: 'gold',
+    insight: 'teal', sentence: 'dark', plea: 'blue', paper: 'gold', temptation: 'gold', calling: 'gold' };
+  // Square icons on a framed card.
+  var ICONS = {
+    health: 'imed-01', wound: 'imed-09', focus: 'cres-05', instinct: 'iinv-06', spent_health: 'imed-08', spent_focus: 'iinv-09', spent_instinct: 'imed-22', funds: 'itrade-20',
+    fatigue: 'imed-13', burnout: 'imed-10', hunger: 'imed-20', sickness: 'imed-07', stress: 'imed-21', obsession: 'imyst-05', tunnel: 'iinv-13',
+    kit: 'iinv-16', labpass: 'ilaw-19', plea: 'ilaw-13',
   };
-  // Pictures in a drawn frame.
-  var PICS = {
-    calling_commissioner: 'dhero-01', calling_master: 'dhero-05', calling_crusader: 'dhero-06',
-    camera: 'nsq-16', prints: 'nsq-09', kit: 'nsq-32', surveillance: 'nsq-23', labpass: 'nsq-22',
-    gang: 'dloc-03', syndicate: 'dloc-09', front: 'dloc-05', room: 'dloc-10', insight: 'dicon-11', watchq: 'kfolk-05',
-    // Words on paper carry a picture of what they are about (the kit).
-    order: 'ditem-02', intel: 'kfolk-04', thread: 'ditem-08', paperwork: 'kcourt-17', bribe: 'ditem-04', promotion: 'kcourt-25', promo_inspector: 'kcourt-25', promo_chief: 'kcourt-25',
-    chair: 'dloc-01', looseend: 'ditem-11', ledger: 'ditem-12', notes: 'ditem-01', plea: 'kcourt-19', writsale: 'kcourt-23', tribute: 'kfolk-28', dagger: 'ditem-03',
+  // Whole painted cards.
+  var FULLS = {
+    calling_commissioner: 'ctrade-04', calling_master: 'ctrade-06', calling_crusader: 'ctrade-05',
+    camera: 'cstory-04', prints: 'cstory-02', surveillance: 'cverb-08',
+    gang: 'ccrime-05', syndicate: 'cherald2-07', insight: 'cstory-05', watchq: 'csign-01',
+    order: 'ccrime-07', intel: 'cstory-03', thread: 'cstory-02', paperwork: 'ccourt-06', bribe: 'cverb-07', promotion: 'cstory-06', promo_inspector: 'cstory-06', promo_chief: 'cstory-06',
+    chair: 'cherald2-04', looseend: 'citem-07', ledger: 'cmyst-08', notes: 'citem2-02', writsale: 'ccrime-07', tribute: 'citem-03', dagger: 'citem2-07',
+    personnel: 'citem2-08', condemned: 'ccourt-07', atlarge: 'ccrime-08', trial: 'ccourt-04',
   };
-  // The crime on a case card: a dark silhouette of the body or the deed
-  // (css/art/kit-cards.css), and a wax seal in the corner for the kind of crime.
-  var CASE_ART = { burglary: 'kinv-15', missing: 'kdeath-01', harbor: 'kdrown-05', arson: 'kev-15', fraud: 'kfolk-27', extortion: 'kfolk-26',
-    poison: 'kpoison-06', coining: 'kfolk-28', manhunt: 'kcourt-07', gang: 'kfolk-25', syndicate: 'kfolk-22', architect: 'kfolk-21', eumenides: 'kdeath-04',
-    scriptorium: 'kdeath-16', witch: 'kpoison-03', highway: 'kshot-05', contract: 'kstab-11', pattern: 'kdeath-13', threedays: 'kdeath-07' };
-  var CRIME_SEAL = { burglary: 'kseal-08', missing: 'kseal-12', harbor: 'kseal-07', arson: 'kseal-06', fraud: 'kseal-16', extortion: 'kseal-23',
-    poison: 'kseal-05', coining: 'kseal-22', manhunt: 'kseal-15', gang: 'kseal-11', syndicate: 'kseal-25', architect: 'kseal-18', eumenides: 'kseal-01',
-    scriptorium: 'kseal-29', witch: 'kseal-06', highway: 'kseal-02', contract: 'kseal-02', pattern: 'kseal-03', threedays: 'kseal-14' };
-  // Tokens about the body take a silhouette from the family of the case's death.
-  var BODY_FAM = { harbor: 'kdrown', poison: 'kpoison', contract: 'kstab', highway: 'kshot', eumenides: 'kbody', pattern: 'kstab', threedays: 'kbody',
-    scriptorium: 'kblunt', missing: 'kbody', witch: 'khang', manhunt: 'kbody' };
-  var BODY_TILES = { kdrown: [1, 3, 4, 5, 7, 8, 9, 15], kpoison: [6, 7, 8, 9, 10, 15, 19], kstab: [2, 5, 7, 11, 12, 14, 15], kshot: [3, 6, 7, 10, 15],
-    kbody: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], kblunt: [1, 2, 3, 4, 6, 10, 15], khang: [1, 2, 3, 4, 5, 6, 7, 8] };
+  // A case: the crime as a card, and a stamp of its kind on the corner.
+  var CASE_ART = { burglary: ['ccrime-02', 'icrime-10'], missing: ['csign-01', 'icrime-12'], harbor: ['ccrime-06', 'icrime-03'], arson: ['ccrime-03', 'icrime-09'],
+    fraud: ['ccrime-07', 'icrime-07'], extortion: ['ccrime-01', 'icrime-08'], poison: ['ccrime-04', 'icrime-04'], coining: ['citem-03', 'icrime-21'],
+    scriptorium: ['citem2-02', 'ilaw-12'], witch: ['coccult-07', 'icrime-19'], highway: ['citem-01', 'icrime-16'], contract: ['citem2-07', 'icrime-01'],
+    eumenides: ['coccult-03', 'icrime-06'], pattern: ['coccult-06', 'icrime-07'], threedays: ['csign-06', 'icrime-02'], manhunt: ['ccrime-08', 'ilaw-18'],
+    gang: ['ccrime-05', 'icrime-22'], syndicate: ['cherald2-07', 'icrime-19'], architect: ['csign-04', 'icrime-16'] };
+  var CASE_DEFAULT = ['csign-01', 'imark-16'];
+  // Tokens about the body: an icon of the case's kind of death.
+  var BODY_ART = { harbor: ['icrime-03', 'iev-21'], poison: ['icrime-04', 'iev-07'], contract: ['icrime-01', 'iev-21'], highway: ['icrime-16', 'iev-21'], eumenides: ['icrime-05', 'iev-20'],
+    pattern: ['icrime-13', 'iev-21'], threedays: ['icrime-02', 'iev-21'], scriptorium: ['iev-21', 'iev-03'], missing: ['imark-09', 'iev-21'], witch: ['icrime-02', 'iev-20'], manhunt: ['iev-21', 'icrime-13'] };
   var BODY_WORDS = /body|corpse|wound|blood|dead|drown|hang|poison|shot|stab|bruise|throat|lungs|stitched|cut\b|marks on/i;
   // The ladder: each rung has its picture.
-  var RUNG_ART = { pardon: 'kcourt-09', fine: 'kfolk-28', pillory: 'kcourt-13', banish: 'kinv-18', brand: 'kev-15', sword: 'kcourt-22', rope: 'kev-03', wheel: 'kdeath-08' };
-  var DISTRICT_ART = { docks: 'dloc-02', market: 'dloc-08', neon: 'dloc-05', uptown: 'dloc-09', warrens: 'dloc-03', canal: 'nplace-07' };
-  // Portrait cards: one per person, chosen by their name, and kept.
-  var PEOPLE = [];
-  for (var pi = 1; pi <= 35; pi++) PEOPLE.push('dport-' + (pi < 10 ? '0' : '') + pi);
-  // A role named in the record gets the face of its trade (css/art/deck-cards.css).
-  var ROLE_ART = [
-    [/magistrat|judge|alderman|justice|council|burgomaster|sheriff|bailiff|recorder/i, 'drole-01'],
-    [/doctor|physician|surgeon|apothecar|barber/i, 'drole-02'],
-    [/\bnun\b|sister|abbess|novice/i, 'drole-03'],
-    [/sailor|seaman|boatman|lighterman|docker|bargee|mariner|captain|mate\b|shipwright|waterman/i, 'drole-04'],
-    [/clerk|scholar|student|scrivener|tutor|notary|schoolmaster|copyist|bookseller|printer/i, 'drole-05'],
-    [/watch|guard|sergeant|constable|soldier|beadle|porter|warden|gaoler|turnkey/i, 'drole-06'],
-    [/\blady\b|dame\b|widow|mistress|countess|gentlewoman|heiress|duchess/i, 'drole-07'],
-    [/thief|cutpurse|burglar|fence\b|beggar|footpad|housebreaker|picklock|smuggler/i, 'drole-08'],
-    [/priest|vicar|curate|parson|chaplain|friar|monk|deacon|sexton|preacher/i, 'drole-09'],
-    [/merchant|trader|dealer|broker|pawn|grocer|vintner|goldsmith|draper|mercer|shopkeeper|innkeeper|landlord|factor/i, 'drole-10'],
-    [/healer|midwife|nurse|herb|wise woman|laundress|maid|servant|cook|housekeeper/i, 'drole-11'],
-    [/hangman|executioner|butcher|knacker|slaughter/i, 'drole-12'],
+  var RUNG_ART = { pardon: 'ccourt-06', fine: 'citem-03', pillory: 'ccourt-07', banish: 'cverb-05', brand: 'citem2-04', sword: 'ccourt-08', rope: 'citem-07', wheel: 'ccourt-05' };
+  var DISTRICT_ART = { docks: 'cplace-02', market: 'cplace-05', neon: 'cplace-01', uptown: 'cplace-04', warrens: 'cplace-06', canal: 'cplace-03' };
+  var FRONT_POOL = ['cplace3-07', 'cplace3-11', 'cplace3-15', 'cplace3-01', 'cplace3-03', 'cplace3-10'];
+  var ROOM_ART = { intel: 'cplace3-08', lab: 'cplace3-06', locker: 'charb2-05', suite: 'cplace3-13' };
+  // People: the portrait cards, in pools by trade. A named person keeps one face (by their name).
+  var POOL = {
+    noble: ['cnoble-01', 'cnoble-02', 'cnoble-03', 'cnoble-04', 'cnoble-05', 'cnoble-06', 'cnoble-07', 'cnoble-08', 'cnoble2-01', 'cnoble2-02', 'cnoble2-03', 'cnoble2-04', 'cnoble2-05', 'cnoble2-06', 'cnoble2-07', 'cnoble2-08', 'cink-06'],
+    judge: ['cclerk-06', 'cink-02', 'ctrade-02'],
+    cleric: ['cclerk-07', 'cclerk-08', 'cwoman-02', 'ctrade-05'],
+    clerk: ['cclerk-01', 'cclerk-03', 'cclerk-04', 'cclerk-05', 'cink-07', 'ctrade-06', 'cwoman-06'],
+    watch: ['cwatch-01', 'cwatch-02', 'cwatch-03', 'cwatch-04', 'cwatch-05', 'cwatch-06', 'cwatch-07', 'cwatch-08'],
+    rogue: ['crogue-01', 'crogue-02', 'crogue-06', 'coutlaw-01', 'coutlaw-02', 'coutlaw-03', 'coutlaw-04', 'coutlaw-05', 'coutlaw-06', 'coutlaw-07', 'coutlaw-08', 'cink-03'],
+    sailor: ['crogue-04', 'cink-05', 'ctrade-08', 'cfolk-07'],
+    poor: ['crogue-07', 'crogue-08', 'cink-08', 'cfolk-08', 'cink-01'],
+    woman: ['cwoman-01', 'cwoman-03', 'cwoman-04', 'cwoman-05', 'cwoman-07', 'cwoman-08', 'cfolk-01', 'cfolk-03', 'cfolk-05', 'crogue-05', 'cink-04', 'ctrade-07'],
+    trader: ['crogue-03', 'cfolk-02', 'cfolk-04', 'cfolk-06', 'cink-06', 'cnoble-05'],
+  };
+  POOL.any = [].concat(POOL.noble, POOL.judge, POOL.cleric, POOL.clerk, POOL.rogue, POOL.sailor, POOL.poor, POOL.woman, POOL.trader);
+  var ROLE_POOL = [
+    [/judge|magistrat|justice|recorder|advocate|lawyer|doctor of laws|alderman/i, 'judge'],
+    [/priest|vicar|curate|parson|chaplain|friar|monk|deacon|sexton|preacher|\bnun\b|novice|abbess|confessor|cardinal|bishop|cellarer|of the abbey/i, 'cleric'],
+    [/patrician|councillor|heir|benefactor|gentleman|burgomaster|nephew of the house|jilted|\blady\b|dame\b|countess|mistress|of the hill/i, 'noble'],
+    [/watch|sergeant|constable|soldier|lieutenant|beadle|guard|warden|gaoler|turnkey|night porter|night-clerk/i, 'watch'],
+    [/smuggler|thief|cutpurse|burglar|bravo|fire-setter|fugitive|upright man|receiver|coquille|thunes|brotherhood|band\b|highway|footpad|beffleur|envoyeur|planteur|espieur|desrocheur|crocheteur|coulon|rival|discharged|fence\b/i, 'rogue'],
+    [/sailor|seaman|boatman|lighterman|docker|bargee|mariner|captain|shipwright|waterman|harbourmaster|crane-walker|fisherman/i, 'sailor'],
+    [/beggar|tenant|servant|journeyman|vagrant|apprentice|porter/i, 'poor'],
+    [/widow|midwife|laundress|spouse|wife|maid|nurse|lover|daughter|barmaid|herb|cook|housekeeper|spinning-house|wise woman/i, 'woman'],
+    [/clerk|scholar|scrivener|notary|librarian|tutor|schoolmaster|copyist|bookseller|printer|student|physician|surgeon|apothecar|barber|counting-house/i, 'clerk'],
+    [/merchant|trader|dealer|broker|pawn|grocer|vintner|goldsmith|draper|mercer|shopkeeper|innkeeper|landlord|factor|moneychanger|miller|stallholder|carrier|perfumer|wool|tavern|bathhouse|owner/i, 'trader'],
   ];
-  function roleArt(role) {
-    if (!role) return null;
-    for (var i = 0; i < ROLE_ART.length; i++) if (ROLE_ART[i][0].test(role)) return ROLE_ART[i][1];
-    return null;
+  function personArt(name, role) {
+    var pool = POOL.any;
+    for (var i = 0; i < ROLE_POOL.length && role; i++) if (ROLE_POOL[i][0].test(role)) { pool = POOL[ROLE_POOL[i][1]]; break; }
+    return pool[hash(name || role || '') % pool.length];
   }
-  var WATCH = ['nface-05', 'nface-04', 'nface-01', 'nface-03', 'nface-08', 'nface-06', 'nface-02', 'nface-07'];
-  // Evidence pictures, chosen by what a token is about.
+  // Evidence pictures, chosen by what a token is about: a painted card where
+  // there is one, a square icon otherwise (['key', 'icon']).
   var EV_RULES = [
-    [/deposition|account|word from|confession|cover story|slip of|own account|statement|rumour/i, 'nev-07'],
-    [/rope|noose|cord|hanged|strangl|garrott/i, 'ditem-11'],
-    [/relic|saint|prayer|rosary|holy|church|chapel|icon\b|shrine/i, 'ditem-09'],
-    [/letter|correspondence|bond|unfinished|message|note\b|notes|casebook|commonplace/i, 'ditem-01'],
-    [/blood|cut|stitched/i, 'ditem-10'],
-    [/hand\b|thumb|print|surfaces|glove/i, 'nev-01'],
-    [/key|entry|lodging|house|home|door|shutter|latch/i, 'ditem-07'],
-    [/ledger|account|tally|investors|profits|spending|goldsmith|will\b/i, 'ditem-12'],
-    [/coin|clipping|mould|silver|pledged|pawn|chit|purse|jointure|wage/i, 'ditem-04'],
-    [/powder|poison|needle|cup|phial|oil|smell|tobacco|ash|clove|scent|herb/i, 'ditem-05'],
-    [/hours|night|tide|bell|timeline|reckoned|meeting|round|schedule|curfew|smoke|watch|clock|hour/i, 'ntp-08'],
-    [/cipher|code|book|leaf|register|roll|hand read|hand matched|hand examined/i, 'ditem-12'],
-    [/paper|prospectus|papers|sketch|drawn/i, 'ntp-04'],
-    [/seen|sighting|face|likeness|caught|identification|witness|placed/i, 'nev-09'],
-    [/carrier|ticket|wagon|ferry|token|seal|writ|warrant|licence/i, 'ditem-02'],
-    [/pick|blade|chisel|crow|tool|marks|forced|pried|kindling|fire|match|taper|knife|dagger/i, 'ditem-03'],
-    [/map|quarter|front|place|thread|where/i, 'ditem-08'],
-    [/locket|ring|signet|scratch|jewel/i, 'ditem-06'],
-    [/compass|harbour|quay|barge|boat|water|drown|street|city/i, 'ntp-05'],
+    [/deposition|word from|confession|cover story|slip of|own account|statement|rumour/i, ['citem2-02']],
+    [/rope|noose|cord|hanged|strangl|garrott/i, ['citem-07']],
+    [/relic|saint|prayer|rosary|holy|church|chapel|shrine/i, ['coccult-01']],
+    [/letter|correspondence|bond|unfinished|message|note\b|notes|casebook|commonplace/i, ['citem-08']],
+    [/blood|stitched|wound/i, ['iev-03', 'icon']],
+    [/glove/i, ['citem2-05']],
+    [/hand\b|thumb|print|surfaces/i, ['iev-01', 'icon']],
+    [/\bkey|entry|lodging|house|home|door|shutter|latch/i, ['citem2-03']],
+    [/lock\b|padlock|chest|strongbox/i, ['citem2-06']],
+    [/ledger|account|tally|investors|profits|spending|goldsmith|will\b/i, ['cmyst-08']],
+    [/coin|clipping|mould|silver|pledged|pawn|chit|purse|jointure|wage/i, ['citem-03']],
+    [/powder|poison|needle|phial|oil|smell|tobacco|clove|scent|herb/i, ['citem-04']],
+    [/\bcup\b|chalice|wine|goblet|drink/i, ['citem-02']],
+    [/hours|night|tide|bell|timeline|reckoned|meeting|round|schedule|curfew|watch|clock|hour/i, ['csign-06']],
+    [/cipher|code|book|leaf|register|roll|hand read|hand matched|hand examined/i, ['cmyst-08']],
+    [/paper|prospectus|papers|sketch|drawn/i, ['citem2-02']],
+    [/seen|sighting|face|likeness|caught|identification|witness|placed/i, ['csign-04']],
+    [/carrier|ticket|wagon|ferry|token|seal|writ|warrant|licence/i, ['ccrime-07']],
+    [/pistol|shot\b|gun|musket/i, ['citem-01']],
+    [/pick|blade|chisel|crow|tool|marks|forced|pried|knife|dagger|cut\b/i, ['citem2-07']],
+    [/kindling|fire|match|taper|ash|burn|candle|wax/i, ['citem2-04']],
+    [/map|quarter|front|place|thread|where/i, ['charb-06']],
+    [/locket|ring|signet|scratch|jewel/i, ['citem-06']],
+    [/lantern|light|lamp/i, ['charb2-02']],
+    [/barrel|cask|cellar/i, ['charb2-03']],
+    [/crate|cargo|bale|warehouse/i, ['charb-04']],
+    [/compass|harbour|quay|barge|boat|water|drown|street|city|ship|sail/i, ['charb-05']],
+    [/raven|bird|crow|feather/i, ['coccult-03']],
+    [/mask|disguise/i, ['iev-19', 'icon']],
+    [/cloak|cloth|rag|dress|coat/i, ['iev-17', 'icon']],
+    [/boot|footprint|track|mud/i, ['iev-02', 'icon']],
+    [/ink|pen\b|quill/i, ['iev-30', 'icon']],
   ];
-  var EV_BY_ASPECT = { forensic: 'nev-01', testimony: 'nev-07', motive: 'ditem-01', opportunity: 'ditem-08', digital: 'ditem-12', financial: 'ditem-04' };
-  var VERB_TOKENS = { time: 'nverb-12', duty: 'dverb-10', investigate: 'dverb-01', analyze: 'dverb-12', interrogate: 'dverb-02', reflect: 'dverb-03', arrest: 'dverb-16' };
-  var ASK_ART = { instinct: 'dicon-06', focus: 'dicon-11', funds: 'dtok-02', teammate: 'dicon-07', health: 'dtok-01' };
-  var ASPECT_ART = { forensic: 'dicon-10', testimony: 'dicon-03', motive: 'dicon-15', opportunity: 'dicon-04', digital: 'dicon-20', financial: 'dicon-14' };
-  var METER_ICONS = { pressure: 'dicon-07', scrutiny: 'dicon-16', retaliation: 'dicon-26', reputation: 'dicon-23', dread: 'dicon-25' };
-  var TOAST_BARS = { case: 'plate-seal', danger: 'plate-i-star', defeat: 'plate-i-star', major: 'plate-sun', victory: 'plate-moon', week: 'plate-i-moon', verb: 'plate-i-eye', minor: 'plate-i-dark' };
-  var RING_LEN = 4 * 114 - 8 * 19 + 2 * Math.PI * 19; // the rounded square's perimeter
+  var EV_BY_ASPECT = { forensic: 'citem2-01', testimony: 'csign-02', motive: 'citem-08', opportunity: 'csign-06', digital: 'cmyst-08', financial: 'citem-03' };
+  var VERB_TOKENS = { time: 'cmyst-03', duty: 'cverb-04', investigate: 'cverb-01', analyze: 'cverb-06', interrogate: 'cverb-02', reflect: 'cmyst-04', arrest: 'cverb-03' };
+  var ASK_ART = { instinct: 'iinv-06', focus: 'cres-05', funds: 'itrade-20', teammate: 'rrole-03', health: 'imed-01' };
+  var ASPECT_ART = { forensic: 'iev-01', testimony: 'cwit-01', motive: 'icrime-06', opportunity: 'iinv-22', digital: 'ilaw-12', financial: 'itrade-20' };
+  var METER_ICONS = { pressure: 'imark-08', scrutiny: 'iinv-13', retaliation: 'icrime-01', reputation: 'ilaw-17', dread: 'icrime-19' };
+  var TOAST_BARS = { case: 'clabel-01', danger: 'clabel-01', defeat: 'clabel-01', major: 'clabel-02', victory: 'clabel-02', week: 'clabel-04', verb: 'clabel-03', minor: 'clabel-05' };
+  var TOAST_ICONS = { case: 'imark-01', danger: 'cmark-04', defeat: 'imark-04', major: 'cwax-02', victory: 'imark-12', week: 'ccirc-02', verb: 'cwit-02', minor: 'cmark-05' };
+  var RANK_ART = ['cwax-01', 'cwax-03', 'cwax-02'];
+  // The tokens are cards too: a tall rounded ring drawn just outside their edge.
+  var RING_LEN = 2 * (124 + 176) - 8 * 14 + 2 * Math.PI * 14;
 
-  // The face of a card: {art, fam, tone, gray}.
-  function pic(art, tone, gray) { return { art: art, fam: 'pic', tone: tone || 'gold', gray: !!gray }; }
-  function face(art, gray) {
-    var p = art.split('-')[0];
-    return { art: art, fam: p === 'npaper' ? 'paper' : /^ntarot-0[789]$/.test(art) ? 'back' : 'tarot', tone: 'none', gray: !!gray };
-  }
+  // The face of a card: {art, fam, tone, gray, banded}.
+  function full(art, tone, gray) { return { art: art, fam: 'full', tone: tone || 'gold', gray: !!gray, banded: /^(cplace3|cstory)-/.test(art) }; }
+  function icon(art, tone, gray) { return { art: art, fam: 'icon', tone: tone || 'gold', gray: !!gray }; }
   function cardPicture(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, tone = PIC_TONE[k] || 'gold';
-    if (k === 'case') { var r = e.caseRec(card.caseId); return pic(CASE_ART[r && r.template] || 'nloc-07', r && r.highProfile ? 'gold' : tone); }
-    if (k === 'coldcase') return pic(CASE_ART[card.data.template] || 'nloc-07', tone, true);
+    if (k === 'case') { var r = e.caseRec(card.caseId); return full((CASE_ART[r && r.template] || CASE_DEFAULT)[0], r && r.highProfile ? 'gold' : tone); }
+    if (k === 'coldcase') return full((CASE_ART[card.data.template] || CASE_DEFAULT)[0], tone, true);
     if (k === 'clue' || k === 'evidence') {
       var label = e.labelOf(card);
       var a = CF.clueAspects(card), best = null;
       for (var key in a) if (!best || a[key] > a[best]) best = key;
-      var crec = card.caseId && e.caseRec(card.caseId), fam = crec && BODY_FAM[crec.template];
-      if (fam && (BODY_WORDS.test(label) || (best === 'forensic' && !/print|hand|thumb|letter|ledger|paper|key|coin/i.test(label)))) {
-        var tiles = BODY_TILES[fam];
-        return pic(fam + '-' + ('0' + tiles[hash(label) % tiles.length]).slice(-2), 'dark');
-      }
-      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) return pic(EV_RULES[i][1], tone);
-      return pic(EV_BY_ASPECT[best] || 'ntp-04', tone);
+      var crec = card.caseId && e.caseRec(card.caseId), body = crec && BODY_ART[crec.template];
+      if (body && (BODY_WORDS.test(label) || (best === 'forensic' && !/print|hand|thumb|letter|ledger|paper|key|coin/i.test(label)))) return icon(body[hash(label) % body.length], 'dark');
+      for (var i = 0; i < EV_RULES.length; i++) if (EV_RULES[i][0].test(label)) { var ev = EV_RULES[i][1]; return ev[1] ? icon(ev[0], tone) : full(ev[0], tone); }
+      return full(EV_BY_ASPECT[best] || 'citem2-01', tone);
     }
-    if (k === 'district') return pic(DISTRICT_ART[card.data.district] || 'nplace-03', tone);
-    if (k === 'teammate' || k === 'personnel' || k === 'hospital') return pic(WATCH[hash(card.data.name || e.labelOf(card)) % WATCH.length], tone, k === 'hospital');
-    if (card.def === 'rival') return pic(roleArt(card.data.role) || PEOPLE[hash(card.data.name || 'rival') % PEOPLE.length], 'dark');
-    if (card.def === 'condemned') return pic('kcourt-14', 'dark');
-    if (card.def === 'atlarge') return pic('kcourt-07', tone);
-    if (card.def === 'trial') return pic('kcourt-16', 'dark');
+    if (k === 'district') return full(DISTRICT_ART[card.data.district] || 'cplace-05', tone);
+    if (card.def === 'front') return full(FRONT_POOL[hash(e.labelOf(card)) % FRONT_POOL.length], tone);
+    if (card.def === 'room') return full(ROOM_ART[card.data.room || card.data.key] || 'cplace3-09', tone);
+    if (k === 'teammate' || k === 'hospital') return full(personArt(card.data.name || e.labelOf(card), 'watch'), tone, k === 'hospital');
+    if (card.def === 'rival') return full(personArt(card.data.name || 'rival', card.data.role || 'rival'), 'dark');
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant') {
       var srec = card.caseId && e.caseRec(card.caseId), sus = srec && card.data.key && srec.suspects.filter(function (x) { return x.key === card.data.key; })[0];
-      var role = card.data.role || (sus && sus.role) || '';
-      return pic(roleArt(role) || PEOPLE[hash(card.data.name || e.labelOf(card)) % PEOPLE.length], /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
+      var role = card.data.role || (sus && sus.role) || (card.def === 'informant' ? 'smuggler' : '');
+      return full(personArt(card.data.name || e.labelOf(card), role), /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
     }
-    if (card.def === 'rung') return pic(RUNG_ART[card.data.rung] || 'kcourt-01', 'dark');
-    if (PICS[card.def]) return pic(PICS[card.def], tone);
-    if (FACES[card.def]) return face(FACES[card.def], card.def === 'wound' || card.def === 'burnout' || /^spent_/.test(card.def));
-    return face('npaper-04');
+    if (card.def === 'rung') return full(RUNG_ART[card.data.rung] || 'ccourt-01', 'dark');
+    if (FULLS[card.def]) return full(FULLS[card.def], tone);
+    if (ICONS[card.def]) return icon(ICONS[card.def], card.def === 'wound' || card.def === 'burnout' || /^spent_/.test(card.def) ? 'red' : tone, /^spent_/.test(card.def));
+    return full('csign-01', tone);
   }
 
   var UI = (CF.UI = {
@@ -151,9 +163,10 @@
     view: { x: 16, y: 16, z: 1 }, winPos: {}, lifted: null, spawn: {},
     onGameOver: null, onSave: null,
   });
+  UI.personArt = personArt;
 
   var T = CF.TABLE;
-  UI.verbArt = function (v) { return VERB_TOKENS[v] || 'nverb-03'; };
+  UI.verbArt = function (v) { return VERB_TOKENS[v] || 'cverb-01'; };
   var wheelAcc = 0, wheelAt = null, wheelRaf = 0;
   var cardEls = {};   // top card uid -> board element
   var pileEl = null;  // the collection pile's zone on the board
@@ -443,7 +456,8 @@
     if (UI.modal) return;
     var box = $('#toasts');
     var t = h('div', 'toast k-' + (entry.kind || 'event'));
-    t.style.backgroundImage = art(TOAST_BARS[entry.kind] || 'plate-i-dark');
+    t.style.backgroundImage = art(TOAST_BARS[entry.kind] || 'clabel-06');
+    t.style.setProperty('--icon', art(TOAST_ICONS[entry.kind] || 'ccirc-01'));
     t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
@@ -547,7 +561,7 @@
     $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
       meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
     $('#rank').textContent = tr(s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + (s.flags.callingOpen ? '' : ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '')));
-    $('#rank-badge').style.backgroundImage = art(['medal-moon', 'medal-sun', 'medal-lion'][((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'medal-sun');
+    $('#rank-badge').style.backgroundImage = art(RANK_ART[((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'cwax-01');
     $('#rank-badge').title = tr(CF.RANKS[s.rank]);
     if (UI.lastRank !== undefined && s.rank > UI.lastRank && UI.onPromotion) UI.onPromotion(s.rank);
     UI.lastRank = s.rank;
@@ -574,10 +588,10 @@
   // live in the dossier: a person's card is their name, a token's card is
   // what kind of token it is, a case's card is the crime.
   // The seal beside the kind of card in the dossier (a wax seal or a square icon from the deck).
-  var KIND_ART = { case: 'dwax-01', coldcase: 'dwax-12', witness: 'dwax-02', suspect: 'dwax-03', informant: 'dicon-03', clue: 'dicon-01', evidence: 'dwax-14',
-    threat: 'dwax-15', court: 'dwax-10', order: 'dwax-11', career: 'dicon-23', district: 'dflag-06', place: 'dflag-06', room: 'dicon-20', teammate: 'dicon-07', personnel: 'dicon-07', hospital: 'dtok-01',
-    equipment: 'dicon-10', intel: 'dicon-02', criminal: 'dwax-03', condemned: 'dwax-12', calling: 'dicon-17', ability: 'dicon-06', resource: 'dtok-02', health: 'dtok-01', funds: 'dtok-02', focus: 'dicon-11', instinct: 'dicon-06',
-    trial: 'dwax-10', atlarge: 'dwax-16', rung: 'dwax-10', fatigue: 'dtok-08', burnout: 'dwax-15', insight: 'dicon-11', wound: 'dtok-01' };
+  var KIND_ART = { case: 'cwax-01', coldcase: 'imark-06', witness: 'cwit-01', suspect: 'csus-01', informant: 'csus-02', clue: 'iinv-02', evidence: 'iinv-16',
+    threat: 'imed-10', court: 'cwax-03', order: 'ilaw-05', career: 'ilaw-17', district: 'iinv-17', place: 'iplace-16', room: 'iplace-10', teammate: 'rrole-03', personnel: 'ilaw-11', hospital: 'imed-02',
+    equipment: 'iinv-16', intel: 'cwit-01', criminal: 'csus-02', condemned: 'ilaw-06', calling: 'cwax-02', ability: 'cres-02', funds: 'itrade-20', health: 'imed-01', focus: 'cres-05', instinct: 'iinv-06',
+    trial: 'cwax-03', atlarge: 'ilaw-18', rung: 'ilaw-01', sentence: 'ilaw-01', plea: 'ilaw-13', paper: 'ilaw-21', temptation: 'itrade-20', insight: 'imyst-05', fatigue: 'imed-13', burnout: 'imed-10', wound: 'imed-09' };
   var PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
   var SHORTS = [
     [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
@@ -619,8 +633,8 @@
     n.dataset.sig = cardSig(card, count);
     n.dataset.uid = card.uid;
     n.classList.toggle('facedown', !!card.hidden);
-    n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b/g, '').trim() +
-      ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (count > 1 ? ' stack-' + Math.min(3, count) : '');
+    n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b|\bbanded\b/g, '').trim() +
+      ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (pic.banded ? ' banded' : '') + (count > 1 ? ' stack-' + Math.min(3, count) : '');
     n.innerHTML = '';
     for (var i = Math.min(2, count - 1); i > 0; i--) {
       var u = h('div', 'c-under u' + i);
@@ -640,13 +654,13 @@
     if (asp.children.length) into.appendChild(asp);
     if (card.def === 'informant') {
       var st = h('div', 'c-stats');
-      st.innerHTML = '<span class="c-stat trust" title="' + esc(tr('Trust {n} of 3', { n: card.data.trust || 0 })) + '"><i style="background-image:' + art('kseal-25') + '"></i>' + (card.data.trust || 0) + '</span>' +
-        '<span class="c-stat heat" title="' + esc(tr('Heat {n} of {max}', { n: card.data.heat || 0, max: CF.INFORMANT.compromisedAt })) + '"><i style="background-image:' + art('kseal-06') + '"></i>' + (card.data.heat || 0) + '</span>';
+      st.innerHTML = '<span class="c-stat trust" title="' + esc(tr('Trust {n} of 3', { n: card.data.trust || 0 })) + '"><i style="background-image:' + art('crel-02') + '"></i>' + (card.data.trust || 0) + '</span>' +
+        '<span class="c-stat heat" title="' + esc(tr('Heat {n} of {max}', { n: card.data.heat || 0, max: CF.INFORMANT.compromisedAt })) + '"><i style="background-image:' + art('icrime-24') + '"></i>' + (card.data.heat || 0) + '</span>';
       into.appendChild(st);
     }
     if (card.maxLife) {
       n.classList.add('timed');
-      n.insertAdjacentHTML('afterbegin', '<svg class="c-ringsvg" viewBox="0 0 128 170"><rect class="track" x="3" y="3" width="122" height="164" rx="12" /><rect x="3" y="3" width="122" height="164" rx="12" /></svg>');
+      n.insertAdjacentHTML('afterbegin', '<svg class="c-ringsvg" viewBox="0 0 128 180"><rect class="track" x="3" y="3" width="122" height="174" rx="12" /><rect x="3" y="3" width="122" height="174" rx="12" /></svg>');
       var tm = h('div', 'c-time', U.fmtTime(card.life));
       face.appendChild(tm);
     }
@@ -655,7 +669,7 @@
     if (def.kind === 'case' || def.kind === 'coldcase') {
       var crec2 = def.kind === 'case' ? e.caseRec(card.caseId) : { template: card.data.template };
       var seal = h('div', 'c-seal');
-      seal.style.backgroundImage = art(CRIME_SEAL[crec2 && crec2.template] || 'kseal-01');
+      seal.style.backgroundImage = art((CASE_ART[crec2 && crec2.template] || CASE_DEFAULT)[1]);
       face.appendChild(seal);
     }
     n.appendChild(face);
@@ -663,7 +677,7 @@
     updateCardLive(n, card);
   }
 
-  var CARD_RING_LEN = 2 * (122 + 164) - 8 * 12 + 2 * Math.PI * 12;
+  var CARD_RING_LEN = 2 * (122 + 174) - 8 * 12 + 2 * Math.PI * 12;
   function updateCardLive(n, card) {
     if (!card || !card.maxLife) return;
     var t = n.querySelector('.c-timer');
@@ -884,7 +898,7 @@
       el.classList.add('noticed');
       setTimeout(function () { el.classList.remove('noticed'); }, 4000);
       var mark = h('div', 'edge-mark');
-      var flag = spec.verb ? 'dflag-04' : spec.kind === 'case' ? 'dflag-01' : spec.kind === 'insight' ? 'dflag-03' : spec.kind === 'place' ? 'dflag-06' : 'dflag-05';
+      var flag = spec.verb ? 'cmark-04' : spec.kind === 'case' ? 'cmark-03' : spec.kind === 'insight' ? 'cmark-05' : spec.kind === 'place' ? 'ctab-03' : 'cmark-04';
       mark.innerHTML = '<b style="background-image:' + art(flag) + '"></b><span>' + esc(spec.label || '') + '</span>';
       mark.addEventListener('click', function () {
         if (spec.uid) UI.panTo(spec.uid);
@@ -957,7 +971,7 @@
     var opts = h('div', 'ch-options');
     c.options.forEach(function (o, i) {
       var b = h('button', 'ch-opt' + (e.canChoose(i) ? '' : ' cant'));
-      var cost = o.cost ? '<i class="ch-cost" style="background-image:' + art(ASK_ART[o.cost] || 'ncoin-04') + '" title="' + esc(tr('Takes {card}', { card: CF.CARDS[o.cost].label })) + '"></i>' : '';
+      var cost = o.cost ? '<i class="ch-cost" style="background-image:' + art(ASK_ART[o.cost] || 'itrade-20') + '" title="' + esc(tr('Takes {card}', { card: CF.CARDS[o.cost].label })) + '"></i>' : '';
       b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em>' + esc(tr('Takes {card}.', { card: CF.CARDS[o.cost].label })) + '</em>' : '') + '</span>';
       b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); UI.haptic(15); e.dirty = true; } else if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' }); });
       opts.appendChild(b);
@@ -1121,8 +1135,8 @@
         el.dataset.verb = vid;
         el.title = tr(def.label + ': ' + def.desc);
         var tok = h('div', 'v-token');
-        tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
-        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 120 120"><rect class="track" x="3" y="3" width="114" height="114" rx="19" /><rect x="3" y="3" width="114" height="114" rx="19" /></svg>');
+        tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'cverb-01');
+        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 130 182"><rect class="track" x="3" y="3" width="124" height="176" rx="14" /><rect x="3" y="3" width="124" height="176" rx="14" /></svg>');
         if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
         tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
         el.appendChild(tok);
@@ -1154,7 +1168,7 @@
       else {
         var ask = v.status === 'running' && v.ask && !v.ask.filled ? v.ask : null;
         mag.classList.toggle('asks', !!ask);
-        mag.style.backgroundImage = ask ? art(ASK_ART[ask.accepts[0]] || 'nsmall-05') : '';
+        mag.style.backgroundImage = ask ? art(ASK_ART[ask.accepts[0]] || 'iinv-05') : '';
         mag.textContent = '';
         mag.title = tr(ask ? ask.label + ': ' + ask.text : '');
         el.classList.toggle('asking', !!ask);
@@ -1321,7 +1335,7 @@
         w.dataset.win = vid;
         w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-info" title="' + esc('What this verb does') + '">i</button><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
         w.querySelector('.vw-info').addEventListener('click', function (ev) { ev.stopPropagation(); UI.about = UI.about === vid ? null : vid; UI.e.dirty = true; });
-        w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'nverb-03');
+        w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'cverb-01');
         w.querySelector('h3').textContent = tr(CF.VERBS[vid].label);
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
         layer.appendChild(w);
@@ -1614,9 +1628,9 @@
   }
 
   // A picture of what a slot takes, from its first accepted kind.
-  var SLOT_ART = { health: 'dtok-01', focus: 'dicon-11', instinct: 'dicon-06', funds: 'dtok-02', teammate: 'dicon-07', case: 'dicon-19', witness: 'dwax-02', suspect: 'dicon-08', rival: 'dwax-03',
-    clue: 'dicon-01', evidence: 'dicon-10', district: 'dicon-09', order: 'dwax-11', personnel: 'dicon-07', informant: 'dicon-03', condemned: 'dwax-12', rung: 'dicon-13', trial: 'dicon-13', coldcase: 'dwax-12',
-    fatigue: 'dtok-08', hunger: 'dtok-08', sickness: 'dwax-15', stress: 'dtok-08', spent: 'dtok-08', lesson: 'dicon-11', kit_bio: 'dicon-10', tool: 'dicon-10', paperwork: 'dicon-19', watchq: 'dicon-03', intel: 'dicon-02', thread: 'dicon-12', looseend: 'dicon-12', bribe: 'dtok-02', gang: 'dicon-08', syndicate: 'dwax-03' };
+  var SLOT_ART = { health: 'imed-01', focus: 'cres-05', instinct: 'iinv-06', funds: 'itrade-20', teammate: 'rrole-03', case: 'imark-01', witness: 'rrole-01', suspect: 'rrole-02', rival: 'csus-02',
+    clue: 'iinv-02', evidence: 'iinv-16', district: 'iinv-17', order: 'ilaw-05', personnel: 'ilaw-11', informant: 'cwit-01', condemned: 'ilaw-06', rung: 'ilaw-01', trial: 'ilaw-02', coldcase: 'imark-06',
+    fatigue: 'imed-13', hunger: 'imed-20', sickness: 'imed-07', stress: 'imed-21', spent: 'imed-08', lesson: 'iinv-20', kit_bio: 'iinv-16', tool: 'iinv-16', paperwork: 'ilaw-21', watchq: 'iinv-05', intel: 'cwit-01', thread: 'iinv-24', looseend: 'iinv-24', bribe: 'itrade-20', gang: 'icrime-22', syndicate: 'imyst-09' };
   function slotArt(sl) {
     for (var i = 0; i < sl.accepts.length; i++) if (SLOT_ART[sl.accepts[i]]) return SLOT_ART[sl.accepts[i]];
     return null;
@@ -1654,7 +1668,7 @@
     var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
-      html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'nsmall-05') + '"></span>' +
+      html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'iinv-05') + '"></span>' +
         '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + r.have + ' / ' + r.need + '</span></div>';
     });
     d.notes.forEach(function (n) { html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
@@ -1774,7 +1788,7 @@
     html += '<div class="i-kind">' + (kindArt ? '<span class="k-icon" style="background-image:' + art(kindArt) + '"></span>' : '') + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
-      return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'nsmall-05') + '"></span>' + esc(CF.ASPECTS[k].label) + ' ' + a[k] + '</span>';
+      return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'iinv-05') + '"></span>' + esc(CF.ASPECTS[k].label) + ' ' + a[k] + '</span>';
     }).join('');
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
