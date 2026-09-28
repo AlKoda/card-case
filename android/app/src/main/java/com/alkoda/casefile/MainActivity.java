@@ -81,10 +81,15 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         hideSystemBars();
         web.onResume();
+        web.resumeTimers();
+        web.evaluateJavascript("window.CF && CF.Audio && CF.Audio.resume && CF.Audio.resume();", null);
     }
 
+    /** Another app, the home screen or a locked screen: the game pauses and goes silent. */
     @Override
     protected void onPause() {
+        web.evaluateJavascript("window.CF && CF.Audio && CF.Audio.suspend && CF.Audio.suspend(); window.CF && CF.UI && CF.UI.onBackground && CF.UI.onBackground();", null);
+        web.pauseTimers();
         web.onPause();
         super.onPause();
     }

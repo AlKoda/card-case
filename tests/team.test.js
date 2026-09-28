@@ -21,9 +21,16 @@ function run(e, verb, cards) {
   assert.ok(pv && !pv.blocked, verb + ' blocked: ' + (pv && pv.blocked));
   assert.ok(e.start(verb));
   var dur = e.verb(verb).duration;
-  e.tick(dur + 0.01);
-  var v = e.verb(verb), out = v.out.map(function (u) { return e.card(u); }), story = v.story, id = v.recipe;
+  // Tick it through, answering what the verb asks for part-way when a card fits.
+  var v = e.verb(verb), guard = 0;
+  while (v.status === 'running' && guard++ < 400) {
+    e.tick(1);
+    if (v.ask && !v.ask.filled) { var cand = e.askCandidates(verb)[0]; if (cand) e.answerAsk(verb, cand.uid); }
+  }
+  var out = v.out.map(function (u) { return e.card(u); }), story = v.story, id = v.recipe;
   if (v.status === 'done') e.collect(verb);
+  // And rests between jobs: spent Health, Wit and Instinct come straight back.
+  e.tableCards().filter(function (c) { return /^spent_/.test(c.def); }).forEach(function (c) { e.transform(c, CF.CARDS[c.def].restores); });
   return { out: out, story: story, duration: dur, id: id };
 }
 function officer(e, key, traits) {

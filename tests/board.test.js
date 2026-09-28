@@ -249,9 +249,9 @@ console.error = function (err) { throw err; };
   var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
   assert.ok(e.autoSlot('investigate', kase.uid) && e.start('investigate'));
   var v = e.verb('investigate');
-  e.tick(v.duration * 0.3);
-  assert.ok(!v.ask, 'nothing asked yet');
   e.tick(v.duration * 0.2);
+  assert.ok(!v.ask, 'nothing asked yet');
+  e.tick(v.duration * 0.15);
   assert.ok(v.ask && !v.ask.filled && v.ask.label === 'A locked door', 'the search asks part-way: ' + JSON.stringify(v.ask));
   var inst = e.tableCards().filter(function (c) { return c.def === 'instinct'; })[0];
   var coin = e.tableCards().filter(function (c) { return c.def === 'funds'; })[0];
@@ -268,9 +268,17 @@ console.error = function (err) { throw err; };
   assert.strictEqual(inst.loc.t, 'held');
   assert.ok(!e.askAccepts('investigate', e.create('instinct')), 'answered once');
   e.tick(0.01);
-  assert.strictEqual(v.status, 'done', 'Instinct opens the door: the search is done');
+  assert.strictEqual(v.status, 'running', 'answering does not finish the work early');
+  e.tick(v.duration);
+  assert.strictEqual(v.status, 'done');
   assert.ok(v.out.indexOf(inst.uid) >= 0 && !v.ask, 'and Instinct comes back');
   assert.ok(/door gave/.test(v.story.text), v.story.text);
+  // Ignored, the ask costs the result.
+  var g2 = CF.Engine.newGame({ calling: 'crusader', name: 'Asks3' });
+  var k2 = g2.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  g2.autoSlot('investigate', k2.uid); g2.start('investigate');
+  var v2 = g2.verb('investigate'); g2.tick(v2.duration + 0.01);
+  assert.ok(/stayed locked/.test(v2.story.text), 'the miss is told: ' + v2.story.text);
   // Coin asked for is spent.
   var f = CF.Engine.newGame({ calling: 'crusader', name: 'Asks2' });
   var w = f.create('witness', { label: 'Witness: Anna', caseId: Object.keys(f.s.cases)[0], data: { name: 'Anna', knows: 1 } });
@@ -290,22 +298,24 @@ console.error = function (err) { throw err; };
 (function life() {
   function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
   function run(g, vid, cards) { cards.forEach(function (c) { g.autoSlot(vid, c.uid); }); assert.ok(g.start(vid), vid + ' starts: ' + JSON.stringify(g.preview(vid))); g.tick(g.verb(vid).duration + 0.01); g.collect(vid); g.tick(0.1); }
-  var e = CF.Engine.newGame({ calling: 'crusader', who: 'clerk', name: 'Life', opening: true });
+  var e = CF.Engine.newGame({ who: 'clerk', name: 'Life', opening: true });
   assert.deepStrictEqual(CF.VERB_ORDER.filter(function (v) { return e.verb(v).unlocked; }), ['duty'], 'only Attend at the start');
-  assert.ok(tbl(e, 'health').length >= 2 && !tbl(e, 'focus').length && !tbl(e, 'funds').length, 'Health alone on the table');
+  assert.ok(tbl(e, 'health').length === 1 && tbl(e, 'focus').length === 1 && !tbl(e, 'funds').length, 'one Health and one Wit on the table');
+  assert.ok(e.s.flags.callingOpen && !tbl(e, 'calling_crusader').length, 'no calling yet');
   assert.strictEqual(e.openCases().length, 0, 'no case yet');
-  for (var i = 0; i < 2; i++) { run(e, 'duty', [tbl(e, 'health')[0]]); e.tick(41); }
+  run(e, 'duty', [tbl(e, 'health')[0]]); e.tick(41);
+  run(e, 'duty', [tbl(e, 'health')[0]]);
   assert.strictEqual(e.s.flags.stage, 'search');
   assert.ok(e.verb('investigate').unlocked && e.openCases().length === 1 && /Endres/.test(e.openCases()[0].title), 'the notice opens Explore: ' + e.openCases().map(function (r) { return r.title; }));
+  assert.strictEqual(e.verb('investigate').status, 'running', 'and the search starts by itself');
   assert.ok(tbl(e, 'funds').length >= 2, 'labour paid');
-  var cc = e.caseCard(e.openCases()[0].id);
-  run(e, 'investigate', [cc]);
+  e.tick(e.verb('investigate').duration + 0.01); e.collect('investigate'); e.tick(0.1);
   assert.strictEqual(e.s.flags.stage, 'questioned');
-  assert.ok(e.verb('interrogate').unlocked && tbl(e, 'watchq').length === 1 && tbl(e, 'focus').length >= 1, 'the Watch opens Question and puts Wit on the table');
-  e.autoSlot('interrogate', tbl(e, 'watchq')[0].uid);
-  assert.ok(/Wit/.test(e.preview('interrogate').blocked), 'reason wants Wit');
-  run(e, 'interrogate', [tbl(e, 'focus')[0]]);
+  assert.ok(e.verb('interrogate').unlocked && e.verb('interrogate').status === 'running', 'the sergeant sits you down by himself');
+  e.tick(e.verb('interrogate').duration + 0.01); e.collect('interrogate'); e.tick(0.1);
   assert.strictEqual(e.s.flags.stage, 'hired');
+  assert.ok(e.s.choice && e.s.choice.id === 'calling', 'the desk asks what you want');
+  assert.ok(e.choose(2)); assert.strictEqual(e.s.calling, 'crusader'); assert.ok(tbl(e, 'calling_crusader').length === 1 && !e.s.flags.callingOpen, 'the calling is chosen in play');
   assert.ok(e.verb('analyze').unlocked && e.verb('reflect').unlocked && !e.verb('arrest').unlocked && !e.verb('time').unlocked, 'the desk, but no Court and no Bell yet');
   e.tick(200);
   assert.strictEqual(e.s.weekT, 0, 'the Bell is silent');

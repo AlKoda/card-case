@@ -45,8 +45,6 @@
   };
   click('promo-box', function () { show('promo', false); });
 
-  var chosen = 'master';
-  var chosenWho = 'clerk';
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
 
@@ -86,63 +84,16 @@
     only('title');
   }
 
-  function buildOrigins() {
-    var box = $('origins');
-    if (!box) return;
-    box.innerHTML = '';
-    CF.ORIGIN_ORDER.forEach(function (k) {
-      var o = CF.ORIGINS[k];
-      var b = document.createElement('button');
-      b.className = 'origin' + (k === chosenWho ? ' on' : '');
-      // Only the edge shows: what bends for you and what is shut. The rest is for the story to tell.
-      b.innerHTML = '<div class="o-face" style="background-image:var(--art-' + o.art + ')"></div><h3>' + tr(o.label) + '</h3><div class="o-where">' + tr((CF.OPENING_SCENES[k] || {}).where || '') + '</div><div class="bonus">' + tr(o.bends) + '</div><div class="shut">' + tr(o.shut) + '</div>';
-      b.addEventListener('click', function () { chosenWho = k; CF.Audio.play('pick'); suggestName(); buildOrigins(); });
-      box.appendChild(b);
-    });
-  }
-  // The name follows the origin until the player writes their own.
-  var ORIGIN_NAMES = { advocate: 'Welser', hangman: 'Nagel', monk: 'Anselm', watchman: 'Kunz', clerk: 'Kessler' };
-  var namedBy = 'Kessler'; // the page's default
-  function suggestName() {
-    var f = $('name');
-    if (!f) return;
-    if (!f.value.trim() || f.value.trim() === namedBy) { f.value = ORIGIN_NAMES[chosenWho] || 'Kessler'; namedBy = f.value; }
-  }
-  function buildCallings() {
-    suggestName();
-    buildOrigins();
-    var box = $('callings');
-    box.innerHTML = '';
-    Object.keys(CF.CALLINGS).forEach(function (k) {
-      var c = CF.CALLINGS[k];
-      var b = document.createElement('button');
-      b.className = 'calling' + (k === chosen ? ' on' : '');
-      b.innerHTML = '<div class="pcard" style="background-image:var(--art-' + CALLING_ART[k] + ')"><span class="pc-top">' + tr(c.label.replace('The ', '')) +
-        '</span><span class="pc-bottom">' + tr(c.theme) + '</span></div><div class="calling-text"><h3>' + tr(c.label) + '</h3><p>' + tr(c.blurb) + '</p><div class="bonus">' + tr(c.bonus) + '</div></div>';
-      b.addEventListener('click', function () { chosen = k; CF.Audio.play('pick'); buildCallings(); });
-      box.appendChild(b);
-    });
-  }
-
-  function openStart(withLegacy) {
-    buildCallings();
-    var legacy = load(LEGACY_KEY);
-    $('legacy-row').classList.toggle('hidden', !legacy);
-    $('legacy').checked = !!(legacy && withLegacy);
-    if (legacy) {
-      try {
-        var L = JSON.parse(legacy);
-        $('legacy-label').textContent = tr('Succeed {who} ({ending}): inherit {cold} unanswered case(s) and {enemies} enemies', { who: L.predecessor, ending: L.ending, cold: (L.cold || []).length, enemies: (L.atlarge || []).length + (L.gangs || []).length });
-      } catch (err) { $('legacy-row').classList.add('hidden'); }
-    }
-    only('start');
-  }
+  // A new game starts at once: a name and a past drawn for you, the calling
+  // chosen in play. A predecessor's desk is taken up when the ending offers it.
+  function openStart(withLegacy) { newGame(withLegacy); }
 
   function newGame(useLegacy) {
     var legacy = null;
     if (useLegacy) { try { legacy = JSON.parse(load(LEGACY_KEY)); } catch (err) { legacy = null; } }
-    var name = $('name').value.trim().slice(0, 24) || ORIGIN_NAMES[chosenWho] || 'Kessler';
-    var e = CF.Engine.newGame({ calling: chosen, who: chosenWho, name: name, legacy: legacy, guided: !!CF.Settings.get('guided'), opening: true });
+    var who = CF.ORIGIN_ORDER[Math.floor(Math.random() * CF.ORIGIN_ORDER.length)];
+    var name = CF.NAMES.last[Math.floor(Math.random() * CF.NAMES.last.length)];
+    var e = CF.Engine.newGame({ who: who, name: name, legacy: legacy, guided: !!CF.Settings.get('guided'), opening: true });
     if (legacy) store(LEGACY_KEY, null);
     UI.attach(e);
     inGame = true;
@@ -186,8 +137,6 @@
     langButton();
   });
   langButton();
-  click('start-back', openTitle);
-  click('btn-new', function () { newGame($('legacy').checked); });
   click('set-back', function () { CF.SettingsUI.cancel(); goBack(); });
   click('set-apply', function () { CF.SettingsUI.apply(); goBack(); });
   click('arc-back', goBack);
@@ -199,7 +148,6 @@
     if (open && open.id === 'confirm') { closeConfirm(); return true; }
     if (open && open.id === 'title') return false;
     if (open && (open.id === 'settings' || open.id === 'archive')) { goBack(); return true; }
-    if (open && open.id === 'start') { openTitle(); return true; }
     if (open && open.id === 'end') return true;
     if (open) { only(inGame ? null : 'title'); return true; }
     if (inGame) { only('menu'); return true; }
@@ -234,6 +182,6 @@
   langButton();
   UI.init();
   // A table is always showing behind the title screen.
-  UI.attach(CF.Engine.newGame({ calling: chosen, seed: 1 }));
+  UI.attach(CF.Engine.newGame({ calling: 'master', seed: 1 }));
   openTitle();
 })();

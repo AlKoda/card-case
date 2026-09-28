@@ -30,10 +30,12 @@
     var first = opening ? { duty: 1 } : FIRST_VERBS;
     CF.VERB_ORDER.forEach(function (id) { s.verbs[id].unlocked = !!first[id]; });
     if (opening) {
-      // No office: only your Health, and work. The rest comes with the story.
-      this.introReveal(['health']);
+      // No office: one Health, one Wit, and work. The rest comes with the story.
+      this.introRevealOne('health');
+      this.introRevealOne('focus');
       s.intro.hint = 'You have no office yet. Drag Health onto Attend and press what it offers: a day\'s labour, a Coin.';
     } else {
+      this.introReveal(['focus']); // a plain start keeps Wit out
       var op = CF.Story.opening(this);
       this.story(op.title, op.text, 'major');
       var rec = this.openCases()[0];
@@ -54,9 +56,19 @@
     });
     return out;
   };
+  // One card of a kind out of the stash (the rest stay for later).
+  P.introRevealOne = function (def) {
+    var s = this.s;
+    for (var i = 0; i < s.intro.stash.length; i++) {
+      if (s.intro.stash[i].def !== def) continue;
+      var it = s.intro.stash.splice(i, 1)[0];
+      return this.create(it.def, it.spec);
+    }
+    return null;
+  };
   P.introUnlock = function (ids) {
     var self = this;
-    ids.forEach(function (id) { if (self.s.verbs[id]) self.s.verbs[id].unlocked = true; });
+    ids.forEach(function (id) { if (self.s.verbs[id] && !self.s.verbs[id].unlocked) { self.s.verbs[id].unlocked = true; self.emit('unlock', { verb: id }); } });
     this.layoutVerbs();
   };
 
