@@ -18,7 +18,7 @@
     insight: 'teal', sentence: 'dark', plea: 'blue', paper: 'gold', temptation: 'gold', calling: 'gold' };
   // Square icons on a framed card.
   var ICONS = {
-    health: 'imed-01', wound: 'imed-09', focus: 'cres-05', instinct: 'iinv-06', spent_health: 'imed-08', spent_focus: 'iinv-09', spent_instinct: 'imed-22', funds: 'itrade-20',
+    health: 'imed-01', wound: 'imed-09', focus: 'iinv-20', instinct: 'iinv-06', spent_health: 'imed-08', spent_focus: 'iinv-09', spent_instinct: 'imed-22', funds: 'itrade-20',
     fatigue: 'imed-13', burnout: 'imed-10', hunger: 'imed-20', sickness: 'imed-07', stress: 'imed-21', obsession: 'imyst-05', tunnel: 'iinv-13',
     kit: 'iinv-16', labpass: 'ilaw-19', plea: 'ilaw-13',
   };
@@ -115,7 +115,8 @@
     [/ink|pen\b|quill/i, ['iev-30', 'icon']],
   ];
   var EV_BY_ASPECT = { forensic: 'citem2-01', testimony: 'csign-02', motive: 'citem-08', opportunity: 'csign-06', digital: 'cmyst-08', financial: 'citem-03' };
-  var VERB_TOKENS = { time: 'cmyst-03', duty: 'cverb-04', investigate: 'cverb-01', analyze: 'cverb-06', interrogate: 'cverb-02', reflect: 'cmyst-04', arrest: 'cverb-03' };
+  // The verbs: square tiles, one glyph each.
+  var VERB_TOKENS = { time: 'cvtok-time', duty: 'cvtok-duty', investigate: 'cvtok-investigate', analyze: 'cvtok-analyze', interrogate: 'cvtok-interrogate', reflect: 'cvtok-reflect', arrest: 'cvtok-arrest' };
   var ASK_ART = { instinct: 'iinv-06', focus: 'cres-05', funds: 'itrade-20', teammate: 'rrole-03', health: 'imed-01' };
   var ASPECT_ART = { forensic: 'iev-01', testimony: 'cwit-01', motive: 'icrime-06', opportunity: 'iev-02', digital: 'ilaw-12', financial: 'itrade-20' };
   var METER_ICONS = { pressure: 'imark-08', scrutiny: 'iinv-13', retaliation: 'icrime-01', reputation: 'ilaw-17', dread: 'icrime-19' };
@@ -123,7 +124,7 @@
   var TOAST_ICONS = { case: 'imark-01', danger: 'cmark-04', defeat: 'imark-04', major: 'cwax-02', victory: 'imark-12', week: 'ccirc-02', verb: 'cwit-02', minor: 'cmark-05' };
   var RANK_ART = ['cwax-01', 'cwax-03', 'cwax-02'];
   // The tokens are cards too: a tall rounded ring drawn just outside their edge.
-  var RING_LEN = 2 * (124 + 176) - 8 * 14 + 2 * Math.PI * 14;
+  var RING_LEN = 2 * (240 + 240) - 8 * 20 + 2 * Math.PI * 20;
 
   // The face of a card: {art, fam, tone, gray, banded}.
   function full(art, tone, gray) { return { art: art, fam: 'full', tone: tone || 'gold', gray: !!gray, banded: /^(cplace3|cstory)-/.test(art) }; }
@@ -166,7 +167,7 @@
   UI.personArt = personArt;
 
   var T = CF.TABLE;
-  UI.verbArt = function (v) { return VERB_TOKENS[v] || 'cverb-01'; };
+  UI.verbArt = function (v) { return VERB_TOKENS[v] || 'cvtok-investigate'; };
   var wheelAcc = 0, wheelAt = null, wheelRaf = 0;
   var cardEls = {};   // top card uid -> board element
   var pileEl = null;  // the collection pile's zone on the board
@@ -514,6 +515,8 @@
     var wit = has('focus')[0], hp = has('health')[0];
     // The fever locks the street: Rest comes before anything the locked verbs would do.
     if (e.countOf('burnout') && can('reflect')) return tr('The fever has you: put Fever into Rest before anything else.');
+    var insight = table.filter(function (c) { return c.def === 'insight' && c.data && CF.INSIGHTS[c.data.insight] && !e.unavailableReason(c); })[0];
+    if (insight && can('reflect')) return tr('An Insight waits: put {label} into Rest alone to learn it, or with your {ability} to keep it as a trick.', { label: e.labelOf(insight), ability: tr(CF.CARDS[CF.INSIGHTS[insight.data.insight].trains].label) });
     if (can('investigate')) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
     var raw = has('evidence')[0];
     if (raw && can('analyze')) return tr('Raw proof waits: put {label} into Study to read it.', { label: e.labelOf(raw) });
@@ -532,6 +535,12 @@
     if (has('funds').length < 2 && hp && can('duty')) return tr('Coin is short: Attend with Health earns your keep.');
     if (!open.length && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
     if (open.length && can('investigate')) return tr('The trail is thin. Search the scene again, or go door to door with the Quarter.');
+    // Nothing pressing: the nearest way to grow.
+    if (CF.growthWays) {
+      var best = null;
+      ['health', 'focus', 'instinct'].forEach(function (ab) { CF.growthWays(e, ab).forEach(function (w) { if (w.state === 'open' && (!best || w.n / w.need > best.n / best.need)) best = w; }); });
+      if (best) return tr('{ability} can grow: {how}', { ability: tr(CF.CARDS[CF.INSIGHTS[best.id].trains].label), how: tr(best.how) });
+    }
     return null;
   };
   var adviceShown = null;
@@ -1019,7 +1028,7 @@
     c.options.forEach(function (o, i) {
       var b = h('button', 'ch-opt' + (e.canChoose(i) ? '' : ' cant'));
       var cost = o.cost ? '<i class="ch-cost" style="background-image:' + art(ASK_ART[o.cost] || 'itrade-20') + '" title="' + esc(tr('Takes {card}', { card: CF.CARDS[o.cost].label })) + '"></i>' : '';
-      b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em>' + esc(tr('Takes {card}.', { card: CF.CARDS[o.cost].label })) + '</em>' : '') + '</span>';
+      b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em>' + esc(tr('Takes {card}.', { card: CF.CARDS[o.cost].label })) + '</em>' : '') + '</span>' + (o.gain ? '<span class="ch-gain">' + esc(tr(o.gain)) + '</span>' : '');
       b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); UI.haptic(15); e.dirty = true; } else if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' }); });
       opts.appendChild(b);
     });
@@ -1182,8 +1191,8 @@
         el.dataset.verb = vid;
         el.title = tr(def.label + ': ' + def.desc);
         var tok = h('div', 'v-token');
-        tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'cverb-01');
-        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 130 182"><rect class="track" x="3" y="3" width="124" height="176" rx="14" /><rect x="3" y="3" width="124" height="176" rx="14" /></svg>');
+        tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'cvtok-investigate');
+        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 248 248"><rect class="track" x="4" y="4" width="240" height="240" rx="20" /><rect x="4" y="4" width="240" height="240" rx="20" /></svg>');
         if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
         tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
         el.appendChild(tok);
@@ -1383,7 +1392,7 @@
         w.dataset.win = vid;
         w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-info" title="' + esc('What this verb does') + '">i</button><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
         w.querySelector('.vw-info').addEventListener('click', function (ev) { ev.stopPropagation(); UI.about = UI.about === vid ? null : vid; UI.e.dirty = true; });
-        w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'cverb-01');
+        w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'cvtok-investigate');
         w.querySelector('h3').textContent = tr(CF.VERBS[vid].label);
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
         layer.appendChild(w);
@@ -1724,6 +1733,21 @@
   }
 
   // Short handwritten notes for the inspector's dossier.
+  // Health, Wit and Instinct: the tricks you keep, and how the ability grows.
+  function abilityNotes(card) {
+    var e = UI.e, lines = e.perkList().map(function (k) { return tr('Trick: {perk}', { perk: e.perkLabel(k) }); });
+    var ab = /^spent_/.test(card.def) ? CF.CARDS[card.def].restores : card.def;
+    if (!CF.growthWays || !CF.CARDS[ab] || CF.CARDS[ab].kind !== 'ability') return lines;
+    var ways = CF.growthWays(e, ab);
+    if (!ways.length) return lines;
+    lines.push(tr('How {ability} grows (an Insight, taken to Rest):', { ability: tr(CF.CARDS[ab].label) }));
+    ways.forEach(function (w) {
+      if (w.state === 'learned') lines.push(tr('{label}: learned.', { label: tr(w.label) }));
+      else if (w.state === 'waiting') lines.push(tr('{label}: the Insight is on the table. Put it into Rest.', { label: tr(w.label) }));
+      else lines.push(tr('{label}: {how} ({n} of {need})', { label: tr(w.label), how: tr(w.how), n: w.n, need: w.need }));
+    });
+    return lines;
+  }
   function dossierNotes(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, lines = [];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
@@ -1837,7 +1861,7 @@
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
     var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' ? 'paper' : null;
     var html = '<div class="i-card"></div>';
-    var notes = dz ? dossierNotes(card) : def.kind === 'ability' ? e.perkList().map(function (k) { return tr('Trick: {perk}', { perk: e.perkLabel(k) }); }) : [];
+    var notes = dz ? dossierNotes(card) : def.kind === 'ability' ? abilityNotes(card) : [];
     var kindArt = KIND_ART[card.def] || KIND_ART[def.kind];
     html += '<div class="i-kind">' + (kindArt ? '<span class="k-icon" style="background-image:' + art(kindArt) + '"></span>' : '') + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);

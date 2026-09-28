@@ -369,6 +369,41 @@ console.error = function (err) { throw err; };
   assert.ok(!e.s.choice); e.tick(1); assert.ok(e.s.t > t0, 'and the clock runs again');
   void d0;
   var e2 = CF.Engine.load(e.save()); assert.ok(!e2.s.choice && e2.s.choicesSeen.beggar, 'the choice is remembered');
+  // A question that follows a verb, about its case, with a return you can point to.
+  var e4 = CF.Engine.newGame({ seed: 3, calling: 'master', name: 'Hodge Ebner' });
+  e4.s.flags.firstCase = true; if (e4.s.intro) e4.s.intro.finished = true;
+  var k4 = e4.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  var rec4 = e4.caseRec(k4.caseId);
+  e4.autoSlot('investigate', k4.uid); assert.ok(e4.start('investigate'), 'a search starts');
+  e4.tick(e4.verb('investigate').duration + 0.01);
+  assert.ok(e4.s.choiceHook && e4.s.choiceHook.verb === 'investigate' && e4.s.choiceHook.caseId === rec4.id, 'a finished search invites a question about its case');
+  var lamp = CF.CHOICES.filter(function (c) { return c.id === 'lamplighter'; })[0];
+  assert.ok(lamp.after === 'investigate' && lamp.when(e4, { caseId: rec4.id }), 'the lamplighter has a word about an unsolved case');
+  e4.create('funds');
+  e4.offerChoice(lamp, { caseId: rec4.id });
+  assert.ok(e4.s.choice && e4.s.choice.options[0].gain && e4.s.choice.options[0].cost === 'funds', 'the answer says what it gives and what it takes');
+  var w0 = e4.cardsOf('witness').length, f0 = e4.cardsOf('funds').length;
+  assert.ok(e4.choose(0));
+  assert.strictEqual(e4.cardsOf('witness').length, w0 + 1, 'a Coin buys a witness for the case');
+  assert.strictEqual(e4.cardsOf('funds').length, f0 - 1, 'and the Coin is gone');
+  var wit = e4.cardsOf('witness').filter(function (c) { return /Lamplighter/.test(c.label); })[0];
+  assert.ok(wit && wit.caseId === rec4.id && wit.data.knows, 'it is the lamplighter, who knows');
+  assert.ok(e4.s.journal.some(function (j) { return /A Witness who saw it/.test(j.text || ''); }), 'the journal says what the answer gave');
+  assert.ok(!e4.s.choiceHook || e4.s.choiceHook.verb !== 'x', 'the hook is state, not a choice');
+  // Growth: each ability lists its ways and how far along they are.
+  var ways = CF.growthWays(e4, 'health');
+  assert.ok(ways.length === 2 && ways.every(function (w) { return w.state === 'open' && w.n === 0 && w.need > 0 && w.how; }), 'Health has two ways to grow, both open and explained');
+  e4.s.stats.recipes = { duty_beat: 2 };
+  assert.strictEqual(CF.growthWays(e4, 'health').filter(function (w) { return w.id === 'fencing'; })[0].n, 2, 'two rounds walked of three');
+  e4.growthTick(); assert.ok(!e4.s.insights.fencing, 'not yet earned');
+  e4.s.stats.recipes.duty_beat = 3; e4.growthTick();
+  assert.ok(e4.s.insights.fencing && CF.growthWays(e4, 'health').filter(function (w) { return w.id === 'fencing'; })[0].state === 'waiting', 'the third round earns the Insight, which waits on the table');
+  // An old save: the cards below the verb row move down with the taller verbs.
+  var old = JSON.parse(e4.save()); old.version = 1;
+  var y0 = e4.tableCards()[0].loc.y, uid0 = e4.tableCards()[0].uid;
+  var e5 = CF.Engine.load(old);
+  assert.strictEqual(e5.card(uid0).loc.y, y0 >= 200 ? y0 + CF.TABLE.TOP - 200 : y0, 'an old save is moved down once');
+  assert.strictEqual(CF.Engine.load(e5.save()).card(uid0).loc.y, e5.card(uid0).loc.y, 'and only once');
   console.log('life: opening, needs, choices ok');
 })();
 

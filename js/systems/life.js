@@ -246,6 +246,31 @@
   // The city puts a question to you and the clock stops until you answer.
   // Each answer bends what comes after: the Crowd, the Council's eye, the
   // underworld's grudge, the city's Dread of you, your purse.
+  // Helpers for what an answer gives.
+  function anyOpenCase(e, ctx) {
+    var rec = ctx && ctx.caseId ? e.caseRec(ctx.caseId) : null;
+    if (rec && rec.status === 'open') return rec;
+    return e.openCases()[0] || null;
+  }
+  function unsolvedCase(e, ctx) {
+    var rec = anyOpenCase(e, ctx);
+    return rec && !rec.identified ? rec : null;
+  }
+  function giveClue(e, rec, item, points) {
+    if (!rec) return;
+    e.create('clue', e.clueSpec(rec, item, [], points ? { points: rec.culprit } : {}));
+  }
+  function giveWitness(e, rec, who, text) {
+    if (!rec) return;
+    e.create('witness', { label: 'Witness: ' + who, desc: text + ' (Witness in: ' + rec.title + ')', caseId: rec.id, data: { knows: true, stake: 'reward' } });
+  }
+  function lift(e, def) { var c = e.cardsOf(def, true)[0]; if (c) e.remove(c); return !!c; }
+  function coins(e, n) { for (var i = 0; i < n; i++) e.create('funds'); }
+
+  // Every answer gives something you can point to (gain), and most cost a
+  // card. Choices with `after` are put to you when that verb finishes, about
+  // the case it worked on; the rest come on the city's clock, when their
+  // `when` holds.
   CF.CHOICES = [
     // Put to you once you have the desk: what you want from it. Never offered by the clock.
     { id: 'calling', when: function () { return false; },
@@ -255,83 +280,165 @@
         { label: 'The Scholar', text: 'Knowledge. Trace every small crime back to the hidden hand that drew it. A Sketch-book, and Loose Ends on sound convictions.', effect: function (e) { e.applyCalling('master'); } },
         { label: 'The Reformer', text: 'Justice. Break the Coquille by any means, even if it costs your office. An Informer, and the Council\'s eye looks away a little longer.', effect: function (e) { e.applyCalling('crusader'); } },
       ] },
+    // --- On the city's clock ---------------------------------------------------
     { id: 'beggar', when: function (e) { return e.cardsOf('funds').length >= 1; },
-      title: 'The Beggar at the Door', text: 'A woman with a child on her hip has been at the Watch-house door since prime. She does not ask for anything. She just stands there, where the Council\'s clerks can see her.',
+      title: 'The Beggar at the Door', text: 'A woman with a child on her hip has been at the Watch-house door since prime. She does not ask for anything. She just stands there, where the Council\'s clerks can see her, and she has seen everyone who passed.',
       options: [
-        { label: 'Give her a Coin', cost: 'funds', text: 'The child gets bread. The clerks get a story about you.', effect: function (e) { e.meter('dread', -1); e.meter('pressure', -1); } },
-        { label: 'Have the sergeant move her on', text: 'She goes. The lane remembers.', effect: function (e) { e.meter('dread', 1); } },
+        { label: 'Give her a Coin', cost: 'funds', gain: 'The Crowd and Dread ease; her word on the case', text: 'The child gets bread. She tells you who came and went, and the clerks get a story about you.',
+          effect: function (e, ctx) { e.meter('dread', -1); e.meter('pressure', -1); giveClue(e, anyOpenCase(e, ctx), { label: 'The Beggar\'s Word', text: 'She stood where everyone passes, and nobody looks at a beggar. She looked at them.', aspects: { testimony: 1, opportunity: 1 } }); } },
+        { label: 'Have the sergeant move her on', gain: 'Nothing; the lane remembers', text: 'She goes. The lane remembers.', effect: function (e) { e.meter('dread', 1); } },
       ] },
     { id: 'clerk', when: function (e) { return e.s.week >= 2; },
       title: 'The Clerk\'s Favour', text: 'The Council\'s clerk lingers after delivering the stipend. A councillor\'s son was found where he should not have been, with people he should not have known. There is a file. It would be a kindness if there were not.',
       options: [
-        { label: 'Lose the file', cost: 'focus', text: 'The Council owes you one, and knows you can be asked.', effect: function (e) { e.favour().council += 2; e.count('purse'); e.meter('scrutiny', -1); e.meter('dread', 1); } },
-        { label: 'Keep the file', text: 'The clerk\'s smile does not reach his eyes. Your name is spoken in the chamber, not warmly.', effect: function (e) { e.favour().council -= 1; e.meter('reputation', 1); } },
+        { label: 'Lose the file', cost: 'focus', gain: 'Council favour +2; a Coin in thanks', text: 'The Council owes you one, and knows you can be asked. A purse follows the clerk out.',
+          effect: function (e) { e.favour().council += 2; e.count('purse'); e.meter('scrutiny', -1); e.meter('dread', 1); coins(e, 1); } },
+        { label: 'Keep the file', gain: 'Standing rises', text: 'The clerk\'s smile does not reach his eyes. Your name is spoken in the chamber, not warmly, and in the lanes, warmly.', effect: function (e) { e.favour().council -= 1; e.meter('reputation', 1); } },
       ] },
     { id: 'crowd', when: function (e) { return e.s.stats.cold >= 1 && e.s.meters.pressure >= 3; },
       title: 'The Crowd Wants a Name', text: 'The unanswered case has a song now, and the song has a verse about you. A sergeant suggests, carefully, that there is a vagrant in the cells who would confess to anything for a dry bed.',
       options: [
-        { label: 'Give them the vagrant', text: 'The Crowd is fed. Someone who did nothing hangs for it, and the city learns what you are.', effect: function (e) { e.meter('pressure', -3); e.meter('dread', 2); e.count('cruelty', 2); e.s.stats.wrongful++; } },
-        { label: 'Hold the line', cost: 'health', text: 'You say the case is open. The song gets another verse.', effect: function (e) { e.meter('pressure', 1); e.meter('reputation', 1); e.count('mercy'); } },
+        { label: 'Give them the vagrant', gain: 'The Crowd goes quiet; Dread rises', text: 'The Crowd is fed. Someone who did nothing hangs for it, and the city learns what you are.', effect: function (e) { e.meter('pressure', -3); e.meter('dread', 2); e.count('cruelty', 2); e.s.stats.wrongful++; } },
+        { label: 'Hold the line', cost: 'health', gain: 'Standing rises; Mercy', text: 'You say the case is open. The song gets another verse.', effect: function (e) { e.meter('pressure', 1); e.meter('reputation', 1); e.count('mercy'); } },
       ] },
     { id: 'purse', when: function (e) { return e.s.week >= 2; },
       title: 'A Purse on the Desk', text: 'Nobody saw who left it. Three Coin, good silver, and a note with the name of a case on it and nothing else.',
       options: [
-        { label: 'Pocket it', text: 'Silver is silver. Somebody now believes you can be bought, because you can.', effect: function (e) { for (var i = 0; i < 3; i++) e.create('funds'); e.count('purse'); e.meter('scrutiny', 1); } },
-        { label: 'Find who left it', cost: 'instinct', text: 'A boy, a lane, a door on the Hill that does not open to you. You know a name now, and they know you looked.', effect: function (e) { e.meter('scrutiny', -1); e.meter('retaliation', 1); e.favour().council += 1; } },
-        { label: 'Give it to the poor-box', text: 'The chaplain blinks. The Council hears of it, and so does whoever left it.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); e.favour().bishop += 1; } },
+        { label: 'Pocket it', gain: '+3 Coin; the Council\'s eye', text: 'Silver is silver. Somebody now believes you can be bought, because you can.', effect: function (e) { coins(e, 3); e.count('purse'); e.meter('scrutiny', 1); } },
+        { label: 'Find who left it', cost: 'instinct', gain: 'An Informer on the Hill', text: 'A boy, a lane, a door on the Hill that does not open to you. But the boy will, for a coin now and then.',
+          effect: function (e) { e.meter('scrutiny', -1); e.meter('retaliation', 1); e.favour().council += 1; e.create('informant', e.informantSpec('uptown')); } },
+        { label: 'Give it to the poor-box', gain: 'The Bishop\'s favour; Standing rises', text: 'The chaplain blinks. The Council hears of it, and so does whoever left it.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); e.favour().bishop += 1; } },
       ] },
     { id: 'informer', when: function (e) { return e.cardsOf('informant').length >= 1; },
       title: 'The Informer\'s Brother', text: 'Your informer asks a favour, the first they have ever asked. Their brother runs untaxed wine through the Water-gate. The Watch is due there on Thursday.',
       options: [
-        { label: 'Look away on Thursday', cost: 'focus', text: 'The wine comes through. Your informer will remember, and so will the Council if it ever learns.', effect: function (e) { e.meter('scrutiny', 1); e.meter('dread', -1); e.cardsOf('informant').forEach(function (c) { if (e.trustInformant) e.trustInformant(c, 1); }); } },
-        { label: 'Send the Watch as planned', text: 'The brother is taken. Your informer stops meeting your eye.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); e.cardsOf('informant').forEach(function (c) { if (e.trustInformant) e.trustInformant(c, -1); }); } },
+        { label: 'Look away on Thursday', cost: 'focus', gain: 'Your informer\'s trust', text: 'The wine comes through. Your informer will remember, and so will the Council if it ever learns.', effect: function (e) { e.meter('scrutiny', 1); e.meter('dread', -1); e.cardsOf('informant').forEach(function (c) { if (e.trustInformant) e.trustInformant(c, 1); }); } },
+        { label: 'Send the Watch as planned', gain: 'Standing rises; Vendetta', text: 'The brother is taken. Your informer stops meeting your eye.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); e.cardsOf('informant').forEach(function (c) { if (e.trustInformant) e.trustInformant(c, -1); }); } },
       ] },
     { id: 'bishop', when: function (e) { return e.s.week >= 3; },
       title: 'The Bishop\'s Invitation', text: 'The Bishop would be glad to see the Examiner at the cathedral on Sunday, in the front pew, where the city can see him too.',
       options: [
-        { label: 'Go, and be seen', cost: 'health', text: 'The Bishop is pleased. The Council notes whose pew you sat in.', effect: function (e) { e.favour().bishop += 2; e.favour().council -= 1; e.meter('dread', -1); } },
-        { label: 'Send your regrets', text: 'The Council is pleased. The Bishop\'s chaplain stops greeting you in the street.', effect: function (e) { e.favour().council += 1; e.favour().bishop -= 1; } },
+        { label: 'Go, and be seen', cost: 'health', gain: 'The Bishop\'s favour +2; Dread eases', text: 'The Bishop is pleased. The Council notes whose pew you sat in.', effect: function (e) { e.favour().bishop += 2; e.favour().council -= 1; e.meter('dread', -1); } },
+        { label: 'Send your regrets', gain: 'The Council\'s favour', text: 'The Council is pleased. The Bishop\'s chaplain stops greeting you in the street.', effect: function (e) { e.favour().council += 1; e.favour().bishop -= 1; } },
       ] },
     { id: 'swan', when: function (e) { return e.countOf('fatigue') >= 1 && e.cardsOf('funds').length >= 1; },
       title: 'A Room at the Swan', text: 'The landlord of the Swan, who owes the Watch a kindness, offers a room with a fire and a door that locks. One night. Tonight.',
       options: [
-        { label: 'Take the room', cost: 'funds', text: 'You sleep like the dead and wake like the living.', effect: function (e) { var f = e.cardsOf('fatigue', true)[0]; if (f) e.remove(f); } },
-        { label: 'Work through', cost: 'focus', text: 'A Coin for the night\'s writing, and the ache goes a little deeper.', effect: function (e) { e.create('funds'); e.create('fatigue'); } },
+        { label: 'Take the room', cost: 'funds', gain: 'Weariness lifts', text: 'You sleep like the dead and wake like the living.', effect: function (e) { lift(e, 'fatigue'); } },
+        { label: 'Work through', cost: 'focus', gain: '+1 Coin; +1 Weariness', text: 'A Coin for the night\'s writing, and the ache goes a little deeper.', effect: function (e) { e.create('funds'); e.create('fatigue'); } },
       ] },
     { id: 'watchman', when: function (e) { return e.cardsOf('teammate', true).length >= 1; },
       title: 'The Watchman\'s Mother', text: 'One of your watchmen asks for the week: his mother is dying in the Warrens and there is nobody else. The round will be short a man.',
       options: [
-        { label: 'Give him the week, and his wage', cost: 'funds', text: 'He goes. The others see it.', effect: function (e) { e.meter('reputation', 1); e.meter('dread', -1); } },
-        { label: 'The round comes first', text: 'He stays. He does his work. He does not sing on the round any more.', effect: function (e) { e.meter('dread', 1); e.meter('retaliation', 1); } },
+        { label: 'Give him the week, and his wage', cost: 'funds', gain: 'Standing rises; Dread eases', text: 'He goes. The others see it.', effect: function (e) { e.meter('reputation', 1); e.meter('dread', -1); } },
+        { label: 'The round comes first', gain: '+1 Coin from a full round; Dread rises', text: 'He stays. He does his work, and the round brings in its dues. He does not sing on the round any more.', effect: function (e) { e.meter('dread', 1); e.meter('retaliation', 1); coins(e, 1); } },
+      ] },
+    // --- Because of something you just did ------------------------------------
+    { id: 'lamplighter', after: 'investigate', when: function (e, ctx) { return !!unsolvedCase(e, ctx); },
+      title: 'The Lamplighter\'s Word', text: 'The lamplighter was on his ladder across the lane when it happened. He says so to anyone with a coin, and now he is saying it to you.',
+      options: [
+        { label: 'A Coin for his trouble', cost: 'funds', gain: 'A Witness who saw it', text: 'He saw a face, and he will say so again where it counts.',
+          effect: function (e, ctx) { giveWitness(e, unsolvedCase(e, ctx), 'the Lamplighter', 'On his ladder across the lane when it happened, and not too proud to say what he saw.'); } },
+        { label: 'Lean on him', cost: 'health', gain: 'A Witness who saw it; Dread rises', text: 'He remembers a great deal, suddenly. So does the lane.',
+          effect: function (e, ctx) { giveWitness(e, unsolvedCase(e, ctx), 'the Lamplighter', 'On his ladder across the lane when it happened. He told you what he saw, once you had made the question plain.'); e.meter('dread', 1); } },
+        { label: 'Let him talk to the lane instead', gain: 'The Crowd eases', text: 'By evening the lane knows an examiner is asking. The lane, for once, approves.', effect: function (e) { e.meter('pressure', -1); } },
+      ] },
+    { id: 'pawnbroker', after: 'analyze', when: function (e, ctx) { return !!unsolvedCase(e, ctx); },
+      title: 'The Pawnbroker\'s Book', text: 'A pawnbroker keeps a book of everything that came through his door this week, and who brought it. Something from your case is in it. He would part with the page.',
+      options: [
+        { label: 'Buy the page', cost: 'funds', gain: 'A token that names a name', text: 'A page in a bad hand, with a name on it that you were going to have to find the hard way.',
+          effect: function (e, ctx) { giveClue(e, unsolvedCase(e, ctx), { label: 'The Pawnbroker\'s Page', text: 'What came through the pawnbroker\'s door this week, and who brought it.', aspects: { financial: 2 } }, true); } },
+        { label: 'Threaten his licence', cost: 'focus', gain: 'The token; the Council hears of it', text: 'He gives you the page and a look. The Council\'s clerk hears how the Examiner does business.',
+          effect: function (e, ctx) { giveClue(e, unsolvedCase(e, ctx), { label: 'The Pawnbroker\'s Page', text: 'What came through the pawnbroker\'s door this week, and who brought it.', aspects: { financial: 2 } }, true); e.meter('scrutiny', 1); } },
+        { label: 'Leave it', gain: 'Standing rises', text: 'You do not deal with pawnbrokers. The word gets round that you do not.', effect: function (e) { e.meter('reputation', 1); } },
+      ] },
+    { id: 'confessor', after: 'interrogate', when: function (e, ctx) { var rec = unsolvedCase(e, ctx); return !!rec && rec.suspects.some(function (x) { return x.revealed; }); },
+      title: 'The Confessor', text: 'A priest of the parish asks for a word. Someone told him something under the seal, and it is eating him. He will not break the seal. He might point.',
+      options: [
+        { label: 'Ask him to point', cost: 'instinct', gain: 'A token that names a name; the Bishop frowns', text: 'He does not say a word. He looks, once, at a door, and goes back inside to pray for both of you.',
+          effect: function (e, ctx) { giveClue(e, unsolvedCase(e, ctx), { label: 'The Confessor\'s Glance', text: 'A priest looked at a door and would not say why. You know why.', aspects: { testimony: 1 } }, true); e.favour().bishop -= 1; } },
+        { label: 'Leave the seal alone', gain: 'The Bishop\'s favour', text: 'He is grateful, and says so where the Bishop can hear it.', effect: function (e) { e.favour().bishop += 1; } },
+      ] },
+    { id: 'widow', after: 'arrest', when: function (e) { return e.cardsOf('condemned', true).length >= 1; },
+      title: 'The Condemned\'s Wife', text: 'She waits at the Watch-house door with a purse, three Coin in it, and asks only that a word for mercy reach the Council before it speaks.',
+      options: [
+        { label: 'Take the purse and say the word', gain: '+3 Coin; Mercy; the Council\'s eye', text: 'The word goes to the Council. So, in time, does the story of the purse.', effect: function (e) { coins(e, 3); e.count('purse'); e.count('mercy'); e.meter('scrutiny', 1); } },
+        { label: 'Say the word for nothing', gain: 'Mercy; Dread eases', text: 'The word goes to the Council. She keeps her silver, and tells the Warrens what you did.', effect: function (e) { e.count('mercy'); e.meter('dread', -1); } },
+        { label: 'Send her home', gain: 'The Council\'s favour; Dread rises', text: 'The Council likes an examiner who does not plead. The Warrens do not.', effect: function (e) { e.favour().council += 1; e.meter('dread', 1); } },
+      ] },
+    { id: 'tapster', after: 'duty',
+      title: 'Trouble at the Swan', text: 'The round passes the Swan as two carters go through its window. The tapster is shouting your name.',
+      options: [
+        { label: 'Break it up', cost: 'health', gain: '+2 Coin from a grateful tapster', text: 'Two carters in the cells and a tapster who remembers who kept his window. He pays in silver.', effect: function (e) { coins(e, 2); } },
+        { label: 'Watch who leaves', cost: 'instinct', gain: 'An Informer at the Swan', text: 'You let it burn out and watch the door. The potboy sees you watching, and sees a living in it.', effect: function (e) { e.create('informant', e.informantSpec('market')); } },
+        { label: 'Walk on', gain: 'The round ends early: Weariness lifts', text: 'Not your window. You are home before the bell for once.', effect: function (e) { if (!lift(e, 'fatigue')) e.meter('dread', -1); } },
+      ] },
+    // --- Because of what you need ----------------------------------------------
+    { id: 'pieman', when: function (e) { return e.countOf('hunger') >= 1; },
+      title: 'The Pie-man\'s Credit', text: 'The pie-man at the corner has watched you not eat for two days. He offers one on credit, which in the Warrens is a kind of contract.',
+      options: [
+        { label: 'Take the pie', gain: 'Hunger goes; a Debt is noted', text: 'Mutton, mostly. He writes nothing down. He does not need to.', effect: function (e) { lift(e, 'hunger'); e.count('debt'); } },
+        { label: 'Pay him', cost: 'funds', gain: 'Hunger goes; the Crowd eases', text: 'Mutton, mostly, and the corner decides you are all right.', effect: function (e) { lift(e, 'hunger'); e.meter('pressure', -1); } },
+        { label: 'Refuse', gain: 'Dread eases', text: 'The Warrens watch you refuse charity, and understand it.', effect: function (e) { e.meter('dread', -1); } },
+      ] },
+    { id: 'barber', when: function (e) { return e.countOf('sickness') >= 1; },
+      title: 'The Barber\'s Knife', text: 'The barber-surgeon will bleed you for nothing, for the story of it. Or you could pay a physician, like a gentleman.',
+      options: [
+        { label: 'Let him bleed you', cost: 'health', gain: 'Sickness goes', text: 'A basin, a knife, a week of feeling lighter than you should.', effect: function (e) { lift(e, 'sickness'); } },
+        { label: 'Pay the physician', cost: 'funds', gain: 'Sickness goes; Standing rises', text: 'Latin, a draught, and a bill. The Hill hears you keep a physician.', effect: function (e) { lift(e, 'sickness'); e.meter('reputation', 1); } },
+        { label: 'Sweat it out', gain: 'Nothing yet', text: 'Rest will do what silver would. Slower.', effect: function () {} },
       ] },
   ];
-  // Where the choice is put to you on the table: past the verbs, to the right.
+  // Where the choice is put to you on the table: beside the tidy layout, to the right.
   P.choiceSpot = function () {
     var T = CF.TABLE;
-    return { x: 8 * (T.VW + T.GAP) + 40, y: -20 };
+    return { x: T.COLS * (T.CW + T.GAP) + 40, y: T.TOP };
   };
   P.spend = function (n) {
     var funds = this.cardsOf('funds').filter(function (c) { return c.loc && c.loc.t === 'table'; });
     for (var i = 0; i < n && funds[i]; i++) this.remove(funds[i]);
   };
   function nextChoiceIn(e) { return U.randInt(e.rng, 130, 220); }
-  P.choicesTick = function (dt) {
+  function choiceOpen(e, c, ctx) { return !(e.s.choicesSeen || {})[c.id] && (!c.when || c.when(e, ctx)); }
+  // A verb has finished: remember which, and about what, so a choice can follow from it.
+  P.choiceHook = function (verbId, v) {
     var s = this.s;
     if (s.choice || !s.flags.firstCase || (s.intro && !s.intro.finished)) return;
+    if (!CF.CHOICES.some(function (c) { return c.after === verbId && !(s.choicesSeen || {})[c.id]; })) return;
+    var self = this, caseId = null;
+    // The verb's cards at this point sit in its outputs (the case comes back that way), else in its slots or held.
+    (v.out || []).concat(v.held || [], Object.keys(v.slots || {}).map(function (k) { return v.slots[k]; })).map(function (u) { return self.card(u); })
+      .forEach(function (c) { if (c && c.caseId && !caseId) caseId = c.caseId; });
+    s.choiceHook = { verb: verbId, caseId: caseId, t: s.t };
+  };
+  P.choicesTick = function (dt) {
+    var s = this.s, self = this;
+    if (s.choice || !s.flags.firstCase || (s.intro && !s.intro.finished)) return;
+    // Something you just did invites a question about it: soon after, and not on the heels of the last one.
+    if (s.choiceHook) {
+      var hook = s.choiceHook;
+      if (s.t - hook.t > 6) s.choiceHook = null;
+      else if (s.t - hook.t >= 2 && s.t - (s.choiceLast || -999) > 60) {
+        s.choiceHook = null;
+        var ctx = { caseId: hook.caseId };
+        var tied = CF.CHOICES.filter(function (c) { return c.after === hook.verb && choiceOpen(self, c, ctx); });
+        if (tied.length && this.rng() < 0.7) { this.offerChoice(U.pick(this.rng, tied), ctx); return; }
+      }
+    }
     if (s.choiceT === undefined) s.choiceT = 90;
     s.choiceT -= dt;
     if (s.choiceT > 0) return;
     s.choiceT = nextChoiceIn(this);
-    var seen = s.choicesSeen || (s.choicesSeen = {});
-    var self = this;
-    var open = CF.CHOICES.filter(function (c) { return !seen[c.id] && (!c.when || c.when(self)); });
+    var open = CF.CHOICES.filter(function (c) { return !c.after && choiceOpen(self, c, null); });
     if (!open.length) return;
-    this.offerChoice(U.pick(this.rng, open));
+    this.offerChoice(U.pick(this.rng, open), null);
   };
-  P.offerChoice = function (spec) {
+  P.offerChoice = function (spec, ctx) {
     var s = this.s;
     (s.choicesSeen || (s.choicesSeen = {}))[spec.id] = true;
-    s.choice = { id: spec.id, title: spec.title, text: spec.text, options: spec.options.map(function (o) { return { label: o.label, text: o.text }; }) };
+    s.choiceLast = s.t;
+    s.choice = { id: spec.id, title: spec.title, text: spec.text, ctx: ctx || null,
+      options: spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null }; }) };
     this.story(spec.title, spec.text + ' (The clock waits for your answer.)', 'major');
     this.emit('choice', s.choice);
     this.dirty = true;
@@ -356,8 +463,8 @@
     if (opt.cost && !pay) return false;
     if (pay) this.remove(pay);
     s.choice = null;
-    opt.effect(this);
-    this.story(c.title + ': ' + opt.label, opt.text, 'verb');
+    opt.effect(this, c.ctx || null);
+    this.story(c.title + ': ' + opt.label, opt.text + (opt.gain ? ' (' + opt.gain + ')' : ''), 'major');
     this.emit('chosen', { id: c.id, option: i });
     this.dirty = true;
     return true;
