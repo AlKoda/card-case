@@ -1369,7 +1369,8 @@
 
   function windowSig(vid) {
     var e = UI.e, v = e.verb(vid), pv = v.status === 'idle' ? e.preview(vid) : null;
-    return [v.status, JSON.stringify(v.slots), v.out.join(','), v.held.join(','), v.story ? v.story.title : '', v.ask ? (v.ask.filled || 'open') : '',
+    // The finds' face-down state is part of it, so a turned card redraws (with its flip) at once.
+    return [v.status, JSON.stringify(v.slots), v.out.map(function (u) { var c = e.card(u); return u + (c && c.hidden ? 'h' : ''); }).join(','), v.held.join(','), v.story ? v.story.title : '', v.ask ? (v.ask.filled || 'open') : '',
       pv ? pv.label + '|' + pv.blocked + '|' + pv.text : '', e.lockReason(vid) || '', v.recipe || '',
       vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : ''].join('#');
   }
@@ -1415,7 +1416,8 @@
 
   function miniCard(card) {
     var mc = miniCard0(card);
-    if (UI.flipIn[card.uid]) { mc.classList.add('flip-in'); delete UI.flipIn[card.uid]; }
+    // The second half of the flip plays on the card itself, not its wrapper.
+    if (UI.flipIn[card.uid]) { var face = mc.querySelector('.card') || mc; face.classList.add('flip-in'); delete UI.flipIn[card.uid]; }
     return mc;
   }
   function miniCard0(card) {
@@ -1628,18 +1630,25 @@
     if (el) el.classList.add('flip-out');
     CF.Audio.play('click');
     UI.haptic(12);
+    UI.hoverBlock = card.uid;   // the mouse resting on it does not open the inspect: a tap does
+    if (UI.hover === card.uid) UI.hover = null;
     setTimeout(function () {
       UI.flipIn[card.uid] = true;
       e.reveal(card.uid);
-      select(card.uid);
-      e.dirty = true;
+      e.dirty = true;   // the window redraws the card face up, where it lies; a tap on it then reads it
     }, 180);
   }
   function revealAll(vid) {
-    var e = UI.e;
-    e.verb(vid).out.forEach(function (u) { e.reveal(u); });
+    var e = UI.e, w = winEls[vid];
+    var hidden = e.verb(vid).out.filter(function (u) { var c = e.card(u); return c && c.hidden; });
+    if (!hidden.length) return;
+    if (w) hidden.forEach(function (u) { var el = w.querySelector('.card[data-uid="' + u + '"]'); if (el) el.classList.add('flip-out'); });
     CF.Audio.play('click');
-    e.dirty = true;
+    UI.haptic(12);
+    setTimeout(function () {
+      hidden.forEach(function (u) { UI.flipIn[u] = true; e.reveal(u); });
+      e.dirty = true;
+    }, 180);
   }
   function collectAll(vid) {
     var e = UI.e, w = winEls[vid];
@@ -1852,7 +1861,8 @@
     var box = $('#peek');
     var uid = UI.hover || UI.selected;
     var card = uid && e.card(uid);
-    if (!card) { box.classList.remove('open'); box.dataset.uid = ''; return; }
+    // A face-down find keeps its secret: nothing to read until it is turned over.
+    if (!card || card.hidden) { box.classList.remove('open'); box.dataset.uid = ''; return; }
     box.classList.add('open');
     box.classList.toggle('pinned', UI.selected === uid);
     if (box.dataset.uid === String(uid) && box.dataset.sig === cardSig(card, 1)) return;
@@ -1909,6 +1919,7 @@
 
   function select(uid) {
     UI.selected = uid;
+    UI.hoverBlock = null;
     renderInspector();
     Object.keys(cardEls).forEach(function (k) { cardEls[k].classList.toggle('selected', +k === uid); });
   }
@@ -2004,6 +2015,7 @@
       if (ev.target.closest && ev.target.closest('#peek')) return;
       var n = cardAt(ev.target);
       var uid = n ? +n.dataset.uid : null;
+      if (uid === UI.hoverBlock) uid = null; else UI.hoverBlock = null;
       if (uid !== UI.hover) { UI.hover = uid; renderInspector(); }
       return;
     }
