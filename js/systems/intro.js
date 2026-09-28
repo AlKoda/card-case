@@ -8,7 +8,7 @@
   var CF = G.CF;
   var P = CF.Engine.prototype;
 
-  var STASHED = { health: 1, instinct: 1, funds: 1, order: 1, personnel: 1, camera: 1, teammate: 1, informant: 1, district: 1, notes: 1, coldcase: 1, atlarge: 1, gang: 1, syndicate: 1 };
+  var STASHED = { health: 1, focus: 1, instinct: 1, funds: 1, order: 1, personnel: 1, camera: 1, teammate: 1, informant: 1, district: 1, notes: 1, coldcase: 1, atlarge: 1, gang: 1, syndicate: 1 };
   var FIRST_VERBS = { time: 1, investigate: 1 };
 
   function spec(card) {
@@ -20,26 +20,27 @@
 
   // Called once by newGame: put everything but the case, the Calling and
   // Focus away, close every verb but Investigate, and tell the opening.
-  P.setupIntro = function () {
+  P.setupIntro = function (silent) {
     var self = this, s = this.s;
-    s.intro = { step: 0, stash: [], done: {}, hint: null, finished: false };
+    s.intro = { step: 0, stash: [], done: {}, hint: null, finished: false, silent: !!silent };
     this.tableCards().forEach(function (c) {
       if (STASHED[c.def]) { s.intro.stash.push({ def: c.def, spec: spec(c) }); self.remove(c); }
     });
     var opening = !!s.flags.opening;
-    var first = opening ? { time: 1, duty: 1, reflect: 1 } : FIRST_VERBS;
+    var first = opening ? { duty: 1 } : FIRST_VERBS;
     CF.VERB_ORDER.forEach(function (id) { s.verbs[id].unlocked = !!first[id]; });
-    var op = CF.Story.opening(this);
-    this.story(op.title, op.text, 'major');
     if (opening) {
-      // Back from the round: Wit (the day-book) stays out; the case comes after you have slept.
-      this.introReveal(['focus']);
-      s.intro.hint = 'You are just in from the night round. Enter the day-book first: drag Wit onto Attend and press what it offers.';
+      // No office: only your Health, and work. The rest comes with the story.
+      this.introReveal(['health']);
+      s.intro.hint = 'You have no office yet. Drag Health onto Attend and press what it offers: a day\'s labour, a Coin.';
     } else {
+      var op = CF.Story.opening(this);
+      this.story(op.title, op.text, 'major');
       var rec = this.openCases()[0];
       this.story('New Case: ' + rec.title, this.caseCard(rec.id).desc, 'case');
       s.intro.hint = 'Drag the case onto Explore, then press what it offers. When it is done, open it: what it found lies face down. Tap a card to turn it over, tap it again to take it.';
     }
+    if (s.intro.silent) s.intro.hint = null;
     this.dirty = true;
   };
 
@@ -60,17 +61,6 @@
   };
 
   // The steps, in order; each waits for its cue on the table.
-  var OPENING_STEPS = [
-    { cue: function (e) { return !!e.s.intro.done.duty; },
-      run: function (e) {
-        e.introUnlock(['reflect']);
-        return { hint: 'The day-book is entered, and you are done in. Sleep it off: drag Weariness onto Rest. (Coin with it buys a proper bed.)' };
-      } },
-    { cue: function (e) { return !!e.s.intro.done.reflect; },
-      run: function (e) {
-        return { hint: 'Rested. The city will knock in a moment.' };
-      } },
-  ];
   var STEPS = [
     { beat: 0, cue: function (e) { return !!e.s.intro.done.investigate; },
       run: function (e) {
@@ -106,9 +96,10 @@
       run: function (e) { e.introFinish(); return null; } },
   ];
 
-  P.introSteps = function () { return this.s.flags.opening ? OPENING_STEPS.concat(STEPS) : STEPS; };
+  P.introSteps = function () { return STEPS; };
   P.introTick = function () {
     var s = this.s;
+    if (s.flags.opening && s.flags.stage !== 'hired' && s.flags.stage !== 'keep') return; // the opening tells its own story
     var step = this.introSteps()[s.intro.step];
     if (!step) { this.introFinish(); return; }
     if (!step.cue(this)) return;
@@ -116,7 +107,7 @@
     var res = step.run(this);
     s.intro.step++;
     if (beat) this.story(beat.title, beat.text, 'major');
-    if (res && res.hint) s.intro.hint = res.hint;
+    if (res && res.hint && !s.intro.silent) s.intro.hint = res.hint;
     this.dirty = true;
   };
 
@@ -125,7 +116,7 @@
     var s = this.s;
     if (!s.intro || s.intro.finished) return;
     s.intro.finished = true;
-    this.introUnlock(CF.VERB_ORDER.filter(function (id) { return CF.VERBS[id].rank === 0; }));
+    this.introUnlock(CF.VERB_ORDER.filter(function (id) { return CF.VERBS[id].rank === 0 && !(id === 'time' && s.flags.bellSilent); }));
     var all = s.intro.stash.map(function (it) { return it.def; });
     this.introReveal(all);
     s.intro.hint = null;

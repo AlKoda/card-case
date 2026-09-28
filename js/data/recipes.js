@@ -758,6 +758,67 @@
   aid('ref_stress_watch', 'stress', 'teammate', 'A Drink with the Watch', 15, 'The sergeant tells the story about the goose again. You laugh in the right place. It helps more than it should.', 'A drink with the Watch. Quick, and you might regret the second one.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
   aid('ref_fatigue_watch', 'fatigue', 'teammate', 'The Watch Takes the Round', 10, 'You send a watchman out in your place and sit down for the first time since prime.', 'Let a watchman take the round. Quick, and free.');
 
+  // An Insight alone is a lesson (one more of the ability); with the ability
+  // beside it, a perk you keep.
+  R.push({
+    id: 'ref_insight_keep', verb: 'reflect', priority: 7, label: 'Keep the Trick', duration: 15,
+    preview: function (ctx) { var sp = CF.INSIGHTS[ctx.primary.data.insight]; return sp ? 'Keep it as a trick instead of a lesson: ' + sp.perkText : ''; },
+    requires: { primary: 'lesson', when: function (ctx) { var sp = CF.INSIGHTS[ctx.primary.data.insight]; return !!sp && !!ctx.slots.grow && ctx.slots.grow.def === sp.trains; } },
+    run: function (ctx) {
+      var sp = CF.INSIGHTS[ctx.primary.data.insight], e = ctx.e, id = e.perkId(ctx.primary.data.insight);
+      ctx.consume(ctx.primary);
+      e.s.perks = e.s.perks || {}; e.s.perks[id] = true;
+      return { title: sp.perk, text: sp.perkText + ' It is yours now.' };
+    },
+  });
+  R.push({
+    id: 'ref_insight_wrong', verb: 'reflect', priority: 6, label: 'Keep the Trick',
+    blocked: function (ctx) { var sp = CF.INSIGHTS[ctx.primary.data.insight]; return sp ? 'This lesson is about ' + CF.CARDS[sp.trains].label + '; put that beside it, or nothing.' : 'Nothing to learn here.'; },
+    requires: { primary: 'lesson', when: function (ctx) { return !!ctx.slots.grow; } },
+  });
+  R.push({
+    id: 'ref_insight_train', verb: 'reflect', priority: 5, label: 'Learn the Lesson', duration: 20,
+    preview: function (ctx) { var sp = CF.INSIGHTS[ctx.primary.data.insight]; return sp ? 'Learn it: one more ' + CF.CARDS[sp.trains].label + ', for good.' : ''; },
+    requires: { primary: 'lesson' },
+    run: function (ctx) {
+      var sp = CF.INSIGHTS[ctx.primary.data.insight];
+      ctx.consume(ctx.primary);
+      if (sp) ctx.give(sp.trains);
+      return { title: sp ? sp.lesson : 'A Lesson', text: sp ? sp.text.split('.')[0] + '. You are more than you were.' : '' };
+    },
+  });
+
+  // The opening: work for your bread, then reason with the Watch.
+  R.push({
+    id: 'duty_labour', verb: 'duty', priority: 20, label: 'A Day\'s Labour', duration: 15,
+    preview: function (ctx) { return 'A day of ' + ctx.e.openingScene().work + '. A Coin, and it leaves you winded.'; },
+    requires: { primary: 'health', when: function (ctx) { return !!ctx.e.s.flags.opening && ctx.e.s.flags.stage !== 'hired' && ctx.e.s.flags.stage !== 'keep'; } },
+    effects: [{ give: 'funds' }, { story: { title: 'A Day\'s Labour', text: 'A Coin, honestly earned, and your back knows it.' } }],
+  });
+  R.push({
+    id: 'int_watchq', verb: 'interrogate', priority: 20, label: 'Reason with the Sergeant', duration: 15,
+    preview: 'Tell him what you saw, in order, and why you were there. Wit, not temper.',
+    requires: { primary: 'watchq' },
+    blocked: function (ctx) { return ctx.has('focus') ? null : 'He is not asking for your fists or your hunches. Put Wit beside him.'; },
+    run: function (ctx) {
+      ctx.consume(ctx.primary);
+      ctx.e.openingHired();
+      return { title: 'The Sergeant Listens', text: ctx.e.openingScene().hired };
+    },
+  });
+
+  // Spent Health, Wit or Instinct: a short rest brings it back at once.
+  R.push({
+    id: 'ref_spent', verb: 'reflect', priority: 6, label: 'Catch Your Breath', duration: 8,
+    preview: 'Sit down for a moment and let it come back.',
+    requires: { primary: 'spent' },
+    run: function (ctx) {
+      var def = CF.CARDS[ctx.primary.def];
+      ctx.e.transform(ctx.primary, def.restores);
+      return { title: 'Yourself Again', text: 'A moment on the bench, and the ' + CF.CARDS[def.restores].label + ' is back.' };
+    },
+  });
+
   // Resting. Funds buy a proper night off: a third of the time.
   function rest(id, defId, label, dur, text, preview) {
     R.push({

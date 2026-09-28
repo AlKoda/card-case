@@ -23,7 +23,7 @@
     criminal: 'red', condemned: 'dark', court: 'dark', threat: 'dark', career: 'gold', intel: 'blue', order: 'gold' };
   // Whole faces: the resources on tarot cards, words on paper.
   var FACES = {
-    health: 'ntarot-01', wound: 'ntarot-01', focus: 'ntarot-06', instinct: 'ntarot-02', funds: 'ntarot-03', room: 'ntarot-04',
+    health: 'ntarot-01', wound: 'ntarot-01', focus: 'ntarot-06', instinct: 'ntarot-02', spent_health: 'ntarot-01', spent_focus: 'ntarot-06', spent_instinct: 'ntarot-02', funds: 'ntarot-03', room: 'ntarot-04',
     fatigue: 'ntarot-05', burnout: 'ntarot-05', obsession: 'ntar2-03', tunnel: 'ntar2-01', hunger: 'ntar2-06', sickness: 'ntar2-07', stress: 'ntar2-05',
     order: 'npaper-06', intel: 'npaper-01', thread: 'npaper-07', trial: 'npaper-06', paperwork: 'npaper-04', bribe: 'npaper-08',
     promotion: 'npaper-06', promo_inspector: 'npaper-06', promo_chief: 'npaper-06', chair: 'npaper-02', looseend: 'npaper-12',
@@ -33,7 +33,7 @@
   // Pictures in a drawn frame.
   var PICS = {
     camera: 'nsq-16', prints: 'nsq-09', kit: 'nsq-32', surveillance: 'nsq-23', labpass: 'nsq-22',
-    gang: 'nroom-05', syndicate: 'nplace-07', front: 'nplace-02',
+    gang: 'nroom-05', syndicate: 'nplace-07', front: 'nplace-02', insight: 'kinv-03', watchq: 'kfolk-05',
   };
   // The crime on a case card: a dark silhouette of the body or the deed
   // (css/art/kit-cards.css), and a wax seal in the corner for the kind of crime.
@@ -115,7 +115,7 @@
     }
     if (card.def === 'rung') return face('npaper-06');
     if (PICS[card.def]) return pic(PICS[card.def], tone);
-    if (FACES[card.def]) return face(FACES[card.def], card.def === 'wound' || card.def === 'burnout');
+    if (FACES[card.def]) return face(FACES[card.def], card.def === 'wound' || card.def === 'burnout' || /^spent_/.test(card.def));
     return face('npaper-04');
   }
 
@@ -365,7 +365,7 @@
     }
     if (type === 'dues') {
       var bell = verbEls.time;
-      payload.uids.forEach(function (u) { var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]); if (c && el) flyTo(el, bell, c); });
+      payload.uids.forEach(function (u, i) { var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]); if (c && el) setTimeout(function () { flyTo(el, bell, c); }, i * 220); });
     }
     if (type === 'expiring') {
       var fc = UI.e.card(payload.uid), need = fc && CF.NEEDS && CF.NEEDS[fc.def];
@@ -787,7 +787,10 @@
   function syncChoice() {
     var e = UI.e, board = $('#board'), c = e.s.choice;
     if (!c) { if (choiceEl) { choiceEl.classList.add('gone'); var old = choiceEl; setTimeout(function () { old.remove(); }, 300); choiceEl = null; } return; }
-    if (choiceEl && choiceEl.dataset.id === c.id) return;
+    if (choiceEl && choiceEl.dataset.id === c.id) {
+      choiceEl.querySelectorAll('.ch-opt').forEach(function (b, i) { b.classList.toggle('cant', !e.canChoose(i)); });
+      return;
+    }
     if (choiceEl) choiceEl.remove();
     var spot = e.choiceSpot();
     var el = h('div', 'choice');
@@ -795,9 +798,10 @@
     el.innerHTML = '<div class="ch-title">' + esc(c.title) + '</div><p class="ch-text">' + esc(c.text) + '</p>';
     var opts = h('div', 'ch-options');
     c.options.forEach(function (o, i) {
-      var b = h('button', 'ch-opt');
-      b.innerHTML = '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + '</span>';
-      b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); e.dirty = true; } });
+      var b = h('button', 'ch-opt' + (e.canChoose(i) ? '' : ' cant'));
+      var cost = o.cost ? '<i class="ch-cost" style="background-image:' + art(ASK_ART[o.cost] || 'ncoin-04') + '" title="' + esc(tr('Takes {card}', { card: CF.CARDS[o.cost].label })) + '"></i>' : '';
+      b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em>' + esc(tr('Takes {card}.', { card: CF.CARDS[o.cost].label })) + '</em>' : '') + '</span>';
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); e.dirty = true; } else if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' }); });
       opts.appendChild(b);
     });
     el.appendChild(opts);
@@ -1568,12 +1572,8 @@
     var def = CF.CARDS[card.def];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
     var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' ? 'paper' : null;
-    var html = '';
-    if (dz) {
-      html += '<div class="dossier dossier-' + dz + '" style="background-image:' + art('dlg-star') + '">' +
-        '<div class="d-plate"><span>' + esc(cardTitle(card)) + '</span></div>' +
-        '<div class="d-lines">' + dossierNotes(card).map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div></div>';
-    }
+    var html = '<div class="i-card"></div>';
+    var notes = dz ? dossierNotes(card) : def.kind === 'ability' ? e.perkList().map(function (k) { return tr('Trick: {perk}', { perk: e.perkLabel(k) }); }) : [];
     html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
@@ -1581,10 +1581,14 @@
     }).join('');
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
     html += '<p>' + esc(e.descOf(card)) + '</p>';
+    if (notes.length) html += '<div class="i-lines">' + notes.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
     if (!dz && card.maxLife) html += '<div class="i-note">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' + html;
+    var shown = buildCard(card, 1);
+    delete shown.dataset.uid; // a picture of the card, not a card to drag
+    box.querySelector('.i-card').appendChild(shown);
     box.querySelector('.peek-close').addEventListener('click', function () { select(null); UI.hover = null; renderInspector(); });
     box.querySelectorAll('.chip[data-aspect]').forEach(function (chip) {
       chip.addEventListener('click', function (ev) {
@@ -1666,7 +1670,6 @@
       var uid = +n.dataset.uid;
       var card = UI.e.card(uid);
       if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
-      if (!win && UI.openVerbs.length) closeAllWindows(); // a card on the felt puts the window away
       // The number badge is the handle for the whole stack; the card is one card.
       var whole = ev.shiftKey || !!(t.closest && t.closest('.c-count'));
       UI.drag = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole };
@@ -1734,6 +1737,7 @@
       applyView();
       return;
     }
+    if (d.kind !== 'pan' && !d.started && Math.abs(ev.clientX - d.x0) + Math.abs(ev.clientY - d.y0) < 7) return; // a tap, not a drag
     if (d.kind === 'verb' || d.kind === 'pile') {
       if (!d.started) {
         d.started = true; d.el.classList.add('dragging'); hideHint();
@@ -1931,6 +1935,11 @@
         else { markSpawn(card.uid, d.src); e.takeOutput(card.loc.verb, card.uid); CF.Audio.play('drop'); }
         e.dirty = true;
         return;
+      }
+      // With a verb open, a tap on a card that fits puts it in; the window stays.
+      if (card && card.loc && card.loc.t === 'table' && UI.openVerbs.length) {
+        var openVid = UI.openVerbs[UI.openVerbs.length - 1];
+        if (e.verb(openVid).status === 'idle' && e.autoSlot(openVid, card.uid)) { markSpawn(card.uid, d.src); CF.Audio.play('drop'); e.dirty = true; return; }
       }
       select(d.uid);
       // Clicking a card in a slot sends it back to the table.

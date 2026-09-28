@@ -137,9 +137,9 @@
     if (opts.legacy) e.applyLegacy(opts.legacy);
 
     if (opts.opening && e.setupOpening) {
-      // Back from the round: the day-book, then sleep; the first case knocks after.
+      // No office yet: Health and Attend, then the notice, the Watch, the desk.
       e.setupOpening();
-      if (opts.guided && e.setupIntro) e.setupIntro();
+      if (e.setupIntro) e.setupIntro(!opts.guided);
       e.dirty = true;
       return e;
     }
@@ -242,6 +242,7 @@
   // Create a card directly on the table.
   P.create = function (defId, spec, prefer) {
     var card = this.make(defId, spec);
+    if (defId === 'witness' && card.life && this.perkHas('longmemory')) { card.life = Math.round(card.life * 1.5); card.maxLife = card.life; }
     this.placeOnTable(card, prefer);
     this.dirty = true;
     return card;
@@ -448,6 +449,7 @@
   };
   P.movePile = function (x, y) {
     var p = this.clampToTable(x, y, T.PILE_COLS * T.PX, T.CH);
+    if (T.snap) p = this.clampToTable(snap(p.x, p.y).x, snap(p.x, p.y).y, T.PILE_COLS * T.PX, T.CH);
     this.s.pile = { x: p.x, y: p.y };
     this.dirty = true;
   };
@@ -813,7 +815,8 @@
   };
   P.durationOf = function (rec, ctx) {
     var d = typeof rec.duration === 'function' ? rec.duration(ctx) : rec.duration;
-    return Math.max(3, Math.round((d || 10) * this.strainFactor(ctx.verb) * (this.originFactor ? this.originFactor(rec.src || ctx.verb) : 1)));
+    var perk = ctx.verb === 'investigate' && this.perkHas('nose') ? 0.8 : 1;
+    return Math.max(3, Math.round((d || 10) * perk * this.strainFactor(ctx.verb) * (this.originFactor ? this.originFactor(rec.src || ctx.verb) : 1)));
   };
 
   P.start = function (verbId) {
@@ -909,10 +912,13 @@
     }
     this.settleAsk(v, ctx, result);
     var self = this;
-    // Anything still held (not consumed) comes back out.
+    // Anything still held (not consumed) comes back out. Your Health, Wit and
+    // Instinct come back spent, and recover with time or in Rest.
     v.held.slice().forEach(function (uid) {
       var c = self.card(uid);
       if (!c) return;
+      var spends = CF.CARDS[c.def].spends;
+      if (spends) self.transform(c, spends, { decay: CF.CARDS[spends].decay / (self.perkHas('secondwind') ? 2 : 1) });
       c.loc = { t: 'out', verb: verbId };
       v.out.push(uid);
     });
@@ -922,6 +928,10 @@
     v.story = result;
     var sv = this.s.stats.verbs || (this.s.stats.verbs = {});
     sv[verbId] = (sv[verbId] || 0) + 1;
+    var sr = this.s.stats.recipes || (this.s.stats.recipes = {});
+    sr[v.recipe] = (sr[v.recipe] || 0) + 1;
+    if (/^ref_(hunger|sickness|stress)/.test(v.recipe)) this.s.stats.needsMet = (this.s.stats.needsMet || 0) + 1;
+    if (v.recipe === 'duty_beat' && this.perkHas('surefoot')) { var extra = this.make('funds'); extra.loc = { t: 'out', verb: verbId }; v.out.push(extra.uid); }
     if (this.s.intro) (this.s.intro.done = this.s.intro.done || {})[verbId] = true;
     this.layoutVerbs();
     this.story(result.title, result.text, result.kind || 'verb');
@@ -955,7 +965,8 @@
 
   // Where a verb's output lands: back where it came from, or beside the verb.
   P.outputSpot = function (verbId, card) {
-    card.lastPos = null; // placeOnTable joins a stack, else the collection pile
+    // A card that came off the table goes back where it was (placeOnTable
+    // keeps card.lastPos); a new find joins its stack, else the collection pile.
     return null;
   };
 
@@ -1065,8 +1076,8 @@
       if (s.over) return;
     }
 
-    // The week.
-    s.weekT += dt;
+    // The week (the Bell is silent until you have earned your first keep).
+    if (!s.flags.bellSilent) s.weekT += dt;
     if (s.weekT >= WEEK) {
       s.weekT -= WEEK;
       this.weekTick();
@@ -1083,7 +1094,7 @@
 
     // Dispatch: new cases come in on their own clock (or an informant's).
     s.dispatchT -= dt;
-    if (s.flags.opening && !s.flags.firstCase) s.dispatchT = Math.max(s.dispatchT, 60); // the city knocks first
+    if (s.flags.opening) s.dispatchT = Math.max(s.dispatchT, 60); // no more cases until you have the desk and your first keep
     if (s.dispatchT <= 0) {
       var open = this.openCases().length;
       if (open < this.maxOpenCases()) {
@@ -1127,6 +1138,7 @@
       this.gameOver('burnout');
       return;
     }
+    if (how === 'restore') { this.transform(card, def.restores); return; }
     if (how === 'recover') {
       var spec = card.data.teammate;
       this.remove(card);
@@ -1152,6 +1164,9 @@
 
   // What the Bell draws each week: lodging, and a Coin for every two
   // watchmen in your service.
+  // Perks: lasting edges found in play (see js/systems/growth.js).
+  P.perkHas = function (id) { return !!(this.s.perks && this.s.perks[id]); };
+
   P.dues = function () {
     return CF.ECONOMY.rent + Math.floor(this.cardsOf('teammate', true).length / 2);
   };
@@ -2002,6 +2017,8 @@
         s.stats.frames = (s.stats.frames || 0) + 1;
         notes.push('The reward for the conviction is paid out, and the thief-takers take their share of it at the Red Ox. Blood money, the ballad-sellers will call it later.');
       }
+      if (d.solid) s.stats.solid = (s.stats.solid || 0) + 1;
+      if (this.openingKeep) this.openingKeep();
       if (d.solid && d.guilty) {
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend');

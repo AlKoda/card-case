@@ -70,7 +70,7 @@
       label: 'Question', rank: 0, lockedBy: 'burnout',
       desc: 'Question a Witness or an Accused. Your manner matters: Wit to listen, Instinct to bluff, Health to lean. Confronting the accused with a token from their own case can break them.',
       slots: [
-        { key: 'main', label: 'Subject', accepts: ['witness', 'suspect', 'rival'], primary: true },
+        { key: 'main', label: 'Subject', accepts: ['witness', 'suspect', 'rival', 'watchq'], primary: true },
         { key: 'mind', label: 'Manner', accepts: ['focus', 'instinct', 'health'], when: function (p) { return !!p; } },
         { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'rival'); } },
         { key: 'clue', label: 'Confront With', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
@@ -81,7 +81,8 @@
       label: 'Rest', rank: 0,
       desc: 'Your study, and your bed. Sleep off Weariness and Fever. Let go of Obsession. Lay tokens side by side and reason: two descriptions of one person become an identification, coin and motive become a theory. Bring a Case with its tokens to see who it points to.',
       slots: [
-        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'hunger', 'sickness', 'stress', 'coldcase', 'looseend', 'notes', 'clue', 'intel', 'thread', 'dagger'], primary: true },
+        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'hunger', 'sickness', 'stress', 'coldcase', 'looseend', 'notes', 'clue', 'intel', 'thread', 'dagger', 'spent', 'lesson'], primary: true },
+        { key: 'grow', label: 'Keep it', accepts: ['health', 'focus', 'instinct'], when: function (p) { return has(p, 'lesson'); } },
         { key: 'a', label: 'Token', accepts: ['clue', 'atlarge', 'looseend', 'gang', 'syndicate'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue', 'intel', 'thread']); } },
         { key: 'b', label: 'Token', accepts: ['clue', 'looseend'], when: function (p) { return any(p, ['case', 'looseend', 'clue']); } },
         { key: 'c', label: 'Token', accepts: ['clue'], when: function (p) { return any(p, ['case', 'clue']); } },

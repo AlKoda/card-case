@@ -23,10 +23,11 @@
     return heat >= CF.INFORMANT.burnedAt ? 'burned' : heat >= CF.INFORMANT.compromisedAt ? 'compromised' : 'safe';
   };
   P.informantInterval = function (card) {
-    return Math.max(30, CF.INFORMANT.tipEvery - CF.INFORMANT.tipTrustBonus * (card.data.trust || 0));
+    return Math.max(30, Math.round((CF.INFORMANT.tipEvery - CF.INFORMANT.tipTrustBonus * (card.data.trust || 0)) * (this.perkHas('whisperer') ? 0.7 : 1)));
   };
   P.trustInformant = function (card, delta) {
     card.data.trust = U.clamp((card.data.trust || 0) + delta, 0, 3);
+    if (card.data.trust >= 3) this.s.flags.trusted = true;
   };
   P.heatInformant = function (card, delta) {
     card.data.heat = Math.max(0, (card.data.heat || 0) + delta);
