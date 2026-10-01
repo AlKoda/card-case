@@ -108,7 +108,8 @@ globalThis.matchMedia = function () { return { matches: false, addEventListener:
 globalThis.addEventListener = function () {};
 globalThis.innerWidth = 1280; globalThis.innerHeight = 800;
 var realSetTimeout = setTimeout;
-globalThis.setTimeout = function (fn) { timers.push(fn); return timers.length; };
+var delays = [];
+globalThis.setTimeout = function (fn, ms) { timers.push(fn); delays.push(ms || 0); return timers.length; };
 globalThis.clearTimeout = function () {};
 function flushTimers() { var t = timers; timers = []; t.forEach(function (fn) { fn(); }); }
 
@@ -266,6 +267,141 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   e.emit('resolved', { title: 'Nothing', outcome: 'cold' });
   assert.ok(/ccirc-05/.test(tok.querySelector('.verdict').style.backgroundImage), 'a cold case takes the eye');
   console.log('ui: the verdict has its moment on the table');
+})();
+
+// ---- The Standing meter honours the rank cap and says when the letter is held.
+(function standing() {
+  var e = CF.Engine.newGame({ who: 'hangman', name: 'Gall', calling: 'master', seed: 11 });
+  UI.attach(e);
+  assert.strictEqual(e.rankCap(), 2, 'a hangman ends at Bailiff');
+  e.s.rank = 2; e.s.meters.reputation = 5;
+  render(e);
+  var rep = $('#meters').querySelector('.meter[data-meter=reputation]');
+  assert.ok(rep.classList.contains('lvl-4'), 'at the cap the meter is full, not measured against an office that will not come: ' + rep.className);
+  assert.ok(/cres-09/.test(rep.querySelector('.m-icon').style.backgroundImage), 'Standing wears the crown');
+  assert.ok(/cres-04/.test($('#meters').querySelector('.meter[data-meter=pressure] .m-icon').style.backgroundImage), 'the Crowd wears the fire');
+  UI.showMeterInfo('reputation');
+  var peek = $('#peek').innerHTML;
+  assert.ok(/last office the Council will give a hangman/.test(peek), 'the dossier says where the ladder ends: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 200));
+  assert.ok(!/Blocked/.test(peek), 'nothing is blocked yet');
+  e.s.who = 'monk'; e.s.flags.promoHeld2 = true;
+  UI.showMeterInfo('reputation');
+  peek = $('#peek').innerHTML;
+  assert.ok(/Blocked: the Council/.test(peek) && !/hangman/.test(peek), 'a held letter is told, and only to the one it concerns');
+  console.log('ui: the Standing meter honours the cap and the held letter');
+})();
+
+// ---- The Court reads the charge first and marks the tokens that hurt it.
+(function court() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 13 });
+  UI.attach(e);
+  e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  assert.ok(sc && e.autoSlot('arrest', sc.uid), 'the accused goes before the Court');
+  // The offending tokens come from the charge (charge.bad): stood in for here.
+  var preview = e.preview;
+  e.preview = function (vid) { var pv = preview.call(this, vid); if (vid === 'arrest' && pv && pv.detail && pv.detail.charge) pv.detail.charge.bad = [sc.uid]; return pv; };
+  UI.openWindow('arrest');
+  render(e);
+  assert.ok(document.body.classList.contains('has-window'), 'the page knows a window is open');
+  var w = $('#windows').querySelector('.vwin');
+  var pane = w.querySelector('.vw-body');
+  assert.ok(pane.firstChild && pane.firstChild.classList.contains('charge-box'), 'the charge comes first in the window');
+  assert.ok(pane.firstChild.querySelector('.charge .ch-row'), 'with the case\'s rows');
+  assert.strictEqual(pane.querySelectorAll('.charge').length, 1, 'and only once');
+  var lab = pane.querySelector('.slot.primary .s-label');
+  assert.strictEqual(lab.textContent, 'Accused', 'the primary slot wears its first name');
+  assert.strictEqual(lab.title, 'Accused / Condemned', 'with the whole list in the title');
+  assert.ok(pane.querySelector('.slot.primary .card').classList.contains('bad'), 'the offending token is marked');
+  w.querySelector('.vw-close').click();
+  render(e);
+  assert.ok(!document.body.classList.contains('has-window'), 'and the page knows when it closes');
+  e.preview = preview;
+  console.log('ui: the Court shows the charge first and marks the bad tokens');
+})();
+
+// ---- The pile has its tab and label; toasts stay longer for stories and say only the title for verbs.
+(function pileAndToasts() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 17 });
+  UI.attach(e);
+  render(e);
+  var pz = $('#board').querySelector('.pile-zone');
+  assert.ok(pz && pz.querySelector('.pz-tab'), 'the pile has a tab');
+  assert.strictEqual(pz.querySelector('.pz-label').textContent, 'New cards', 'and its label');
+  delays.length = 0;
+  e.emit('story', { title: 'A Letter', text: 'Long words.', kind: 'major' });
+  var t = $('#toasts').children[$('#toasts').children.length - 1];
+  assert.ok(t && /Long words/.test(t.innerHTML), 'a story toast carries its text');
+  assert.ok(t.style['--bar'] && /clabel-02/.test(t.style['--bar']), 'the bar is a property for the stylesheet');
+  assert.strictEqual(delays[delays.length - 1], 9000, 'a story stays nine seconds');
+  delays.length = 0;
+  e.verb('duty').story = { title: 'A Quiet Shift', text: 'Nothing happened, at length.' };
+  e.emit('complete', { verb: 'duty' });
+  t = $('#toasts').children[$('#toasts').children.length - 1];
+  assert.ok(/A Quiet Shift/.test(t.innerHTML) && /Tap to read/.test(t.innerHTML) && !/at length/.test(t.innerHTML), 'a verb\'s toast is title-only: ' + t.innerHTML);
+  assert.strictEqual(delays[delays.length - 1], 6000, 'and goes in six');
+  console.log('ui: the pile is labelled; toasts know their length');
+})();
+
+// ---- The advisor is read once a second, and not at all while the hint is hidden.
+(function advisorCache() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 19 });
+  UI.attach(e);
+  UI.lastInput = performance.now() - 7000;
+  var calls = 0, advice = UI.advice;
+  UI.advice = function () { calls++; return advice.call(UI); };
+  render(e);
+  assert.strictEqual(calls, 1, 'one reading on render');
+  UI.updateLive(); UI.updateLive(); UI.updateLive();
+  assert.strictEqual(calls, 1, 'the live frames reuse it');
+  UI.adviceAt -= 1000;
+  UI.updateLive();
+  assert.strictEqual(calls, 2, 'a second later it is read again');
+  UI.hintHidden = true;
+  UI.adviceAt -= 1000;
+  UI.updateLive();
+  assert.strictEqual(calls, 2, 'a hidden hint is never computed');
+  UI.hintHidden = false;
+  UI.advice = advice;
+  console.log('ui: the advisor is computed once a second, never on a hidden hint');
+})();
+
+// ---- The play button cycles the speed on a narrow screen; the week shade is a scale, written when it moves.
+(function speedAndFrame() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 23 });
+  UI.attach(e);
+  var ctl = $('#controls');
+  var btns = [0, 1, 2, 3].map(function (sp) { var b = new El('button'); b.dataset.speed = String(sp); ctl.appendChild(b); return b; });
+  var wb = new El('div'); wb.id = 'weekbar'; var sh = new El('div'); sh.className = 'wb-shade'; wb.appendChild(sh); body.appendChild(wb);
+  var click = function (sp) { ctl.listeners.click[0]({ target: { closest: function () { return btns[sp]; } } }); };
+  UI.setSpeed(1);
+  click(1);
+  assert.strictEqual(UI.speed, 1, 'on a wide screen the play button is plain');
+  var mm = globalThis.matchMedia;
+  globalThis.matchMedia = function () { return { matches: true, addEventListener: function () {}, addListener: function () {} }; };
+  click(1); assert.strictEqual(UI.speed, 2, 'narrow: play cycles to 2');
+  assert.strictEqual(btns[1].querySelector('small').textContent, '2', 'and the badge shows it');
+  assert.ok(btns[1].classList.contains('on'), 'the play button stays lit');
+  click(1); assert.strictEqual(UI.speed, 3, 'then 3');
+  click(1); assert.strictEqual(UI.speed, 1, 'then round to 1');
+  assert.strictEqual(btns[1].querySelector('small').textContent, '', 'with no badge at 1');
+  globalThis.matchMedia = mm;
+  render(e);
+  UI.updateLive();
+  assert.strictEqual(sh.style.transform, 'scaleX(1)', 'a fresh week: the shade covers the bar');
+  assert.ok(!sh.style.transform || sh.style.left === '19%', 'anchored at the sun end');
+  e.tick(CF.WEEK / 2);
+  UI.updateLive();
+  assert.ok(/scaleX\(0\.6/.test(sh.style.transform), 'half the week gone, the shade has drawn back: ' + sh.style.transform);
+  var timed = $('#board').querySelectorAll('.card.timed')[0];
+  assert.ok(timed, 'a timed card is on the table');
+  assert.strictEqual(timed.style['--pct'], undefined, 'no --pct is written on cards');
+  var time = timed.querySelector('.c-time'), was = time.textContent;
+  e.tick(1); UI.updateLive();
+  assert.notStrictEqual(time.textContent, was, 'the clock still moves');
+  console.log('ui: speed cycles on the play button; the week shade is a scale');
 })();
 
 void realSetTimeout;

@@ -135,9 +135,11 @@
   var TRAIT_ART = 'imark-11';
   var PATH_HINTS = { commissioner: 'offices, rooms, calm weeks', master: 'threads, identifications, reopened cases', crusader: 'bands broken, the abroad put away, disguises' };
   var RIVAL_TITLES = /Rival|Scene Spoiled|Paid to Forget/;
-  var METER_ICONS = { pressure: 'imark-08', scrutiny: 'iinv-13', retaliation: 'icrime-01', reputation: 'ilaw-17', dread: 'icrime-19' };
+  // The meters are the coloured counters: fire for the Crowd, the eye for Suspicion, the masked man for Vendetta, the moon for Dread, the crown for Standing.
+  var METER_ICONS = { pressure: 'cres-04', scrutiny: 'cres-03', retaliation: 'casp-01', dread: 'cres-12', reputation: 'cres-09' };
   var TOAST_BARS = { case: 'clabel-01', danger: 'clabel-01', defeat: 'clabel-01', major: 'clabel-02', victory: 'clabel-02', week: 'clabel-04', verb: 'clabel-03', minor: 'clabel-05' };
   var TOAST_ICONS = { case: 'imark-01', danger: 'cmark-04', defeat: 'imark-04', major: 'cwax-02', victory: 'imark-12', week: 'ccirc-02', verb: 'cwit-02', minor: 'cmark-05' };
+  var TOAST_LONG = { major: 1, case: 1, danger: 1, victory: 1, defeat: 1 };
   var RANK_ART = ['cwax-01', 'cwax-03', 'cwax-02'];
   // The tokens are cards too: a tall rounded ring drawn just outside their edge.
   var RING_LEN = 2 * (240 + 240) - 8 * 20 + 2 * Math.PI * 20;
@@ -325,6 +327,8 @@
       var b = ev.target.closest('button[data-speed]');
       if (!b) return;
       var sp = +b.dataset.speed;
+      // On a narrow screen the play button is the only speed button: it cycles 1, 2, 3.
+      if (sp === 1 && narrow() && !UI.paused) sp = UI.speed >= 3 ? 1 : (UI.speed || 1) + 1;
       if (sp === 0) UI.setPaused(!UI.paused); else UI.setSpeed(sp);
     });
     $('#zoom').addEventListener('click', function (ev) {
@@ -381,15 +385,19 @@
     window.addEventListener('resize', function () {
       // Keep open windows inside the (possibly smaller) table.
       Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
+      checkHint();
       if (UI.e) UI.e.dirty = true;
     });
+    // A hidden hint (narrow screens) gets no advisor at all; looked at again on resize.
+    function checkHint() { UI.hintHidden = $('#hint').offsetParent === null; }
+    checkHint();
     window.addEventListener('blur', cancelDrag);
     document.addEventListener('visibilitychange', function () {
       if (document.hidden && CF.Settings.get('pauseOnBlur') && UI.e && !UI.e.s.over) UI.setPaused(true);
     });
 
     var last = performance.now();
-    var saveT = 0;
+    var saveT = 0, liveAt = 0;
     function frame(now) {
       var dt = Math.min(0.1, (now - last) / 1000);
       last = now;
@@ -402,8 +410,12 @@
             saveT += dt;
             if (saveT > 8 && UI.onSave) { saveT = 0; UI.onSave(); }
           }
-          if (e.dirty) { e.dirty = false; render(); }
-          updateLive();
+          var dirty = e.dirty;
+          if (dirty) { e.dirty = false; render(); }
+          // Nothing moves under a modal, and little while paused: the idle
+          // frame touches no DOM (a paused table still gets four looks a second).
+          var live = dirty || (!UI.modal && (!UI.paused || now - liveAt >= 250));
+          if (live) { liveAt = now; updateLive(); }
         }
       } catch (err) {
         if (typeof console !== 'undefined') console.error(err);
@@ -519,9 +531,13 @@
     if (UI.modal) return;
     var box = $('#toasts');
     var t = h('div', 'toast k-' + (entry.kind || 'event'));
-    t.style.backgroundImage = art(TOAST_BARS[entry.kind] || 'clabel-06');
+    // The bar is the stylesheet's border-image, read from --bar; a verb's toast
+    // is title-only (the window has the text); a story stays longer.
+    t.style.setProperty('--bar', art(TOAST_BARS[entry.kind] || 'clabel-06'));
     t.style.setProperty('--icon', art(TOAST_ICONS[entry.kind] || 'ccirc-01'));
-    t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(entry.text || '') + '</span>';
+    var text = entry.kind === 'verb' ? 'Tap to read' : entry.text || '';
+    t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(text) + '</span>';
+    var stay = TOAST_LONG[entry.kind] ? 9000 : 6000;
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
       else if (entry.uid) { if (!UI.panTo(entry.uid) && entry.verb) openWindow(entry.verb); }
@@ -530,12 +546,15 @@
       t.remove();
     });
     box.appendChild(t);
+    // Until the stylesheet paints the bar from --bar, it is the background.
+    try { if (typeof getComputedStyle === 'function' && /^(none)?$/.test(getComputedStyle(t).borderImageSource || '')) t.style.backgroundImage = 'var(--bar)'; } catch (err) { /* no layout here */ }
     while (box.children.length > 3) box.removeChild(box.firstChild);
-    setTimeout(function () { t.classList.add('leaving'); setTimeout(function () { t.remove(); }, 300); }, 6000);
+    setTimeout(function () { t.classList.add('leaving'); setTimeout(function () { t.remove(); }, 300); }, stay);
   }
 
   // ---------------------------------------------------------------- Render
   function render() {
+    UI.adviceAt = undefined; // the table changed: the advisor reads it afresh
     renderTop();
     syncBoard();
     syncLinks();
@@ -549,6 +568,8 @@
 
   // One render, now: for the tests, which have no frame loop.
   UI.renderNow = function () { if (UI.e) { UI.e.dirty = false; render(); } };
+  // One live frame's writes, now: for the tests, which have no frame loop.
+  UI.updateLive = function () { if (UI.e) updateLive(); };
 
   // The journal is a drawer over the table, shown only when asked for.
   UI.toggleJournal = function (on) {
@@ -663,8 +684,17 @@
     if (UI.hintMode !== 'advice' || adviceShown !== text) { hint.textContent = text; hint.classList.remove('gone'); hint.classList.add('advice'); UI.hintMode = 'advice'; adviceShown = text; }
     hint.classList.toggle('go', !!UI.hintGo);
   }
+  // The advisor reads the whole table: once a second is enough, and not at all
+  // while the hint is hidden (narrow screens); render() forgets the cached word.
+  function cachedAdvice() {
+    var now = performance.now();
+    if (UI.adviceAt === undefined || now - UI.adviceAt >= 1000) { UI.adviceCache = UI.advice(); UI.adviceGo = UI.hintGo; UI.adviceAt = now; }
+    else UI.hintGo = UI.adviceGo || null; // the word's target, kept with it
+    return UI.adviceCache;
+  }
   function renderHint() {
     var e = UI.e, hint = $('#hint');
+    if (UI.hintHidden) return;
     // A finished verb or an unanswered ask comes before any lesson: the guided start waits until it clears.
     var pressing = e.s.over ? null : pressingLine();
     if (pressing) { UI.hintGo = null; showAdvice(hint, pressing); return; }
@@ -675,7 +705,7 @@
     }
     // Idle for a while with nothing running: a nudge, read off the table.
     var idle = performance.now() - (UI.lastInput || 0) > 6000 && !UI.drag && !UI.openVerbs.length && !UI.modal;
-    var advice = idle ? UI.advice() : null;
+    var advice = idle ? cachedAdvice() : null;
     if (advice) { showAdvice(hint, advice); return; }
     UI.hintGo = null;
     if (UI.hintMode === 'advice') { hint.classList.add('gone'); hint.classList.remove('advice', 'go'); UI.hintMode = 'gone'; adviceShown = null; return; }
@@ -687,11 +717,22 @@
     hint.classList.toggle('gone', seen);
   }
 
+  // A phone-width screen: the stylesheet folds the speed buttons into one.
+  function narrow() {
+    try { return typeof matchMedia === 'function' && !!matchMedia('(max-width:980px)').matches; } catch (err) { return false; }
+  }
   function renderControls() {
     UI.wake();
+    var fold = narrow();
     document.querySelectorAll('#controls button[data-speed]').forEach(function (b) {
       var sp = +b.dataset.speed;
-      b.classList.toggle('on', sp === 0 ? UI.paused : !UI.paused && UI.speed === sp);
+      b.classList.toggle('on', sp === 0 ? UI.paused : !UI.paused && (UI.speed === sp || (sp === 1 && fold)));
+      if (sp === 1) {
+        // The small badge on the play button shows the speed it cycled to.
+        var small = b.querySelector('small');
+        if (!small) { small = h('small', 'sp-badge'); b.appendChild(small); }
+        small.textContent = fold && !UI.paused && UI.speed > 1 ? String(UI.speed) : '';
+      }
     });
     $('#table').classList.toggle('paused', !!UI.paused);
   }
@@ -722,9 +763,17 @@
       '<div class="i-meter"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span><h4>' + esc(info.title) + '</h4></div>' +
       '<div class="i-kind">' + esc(tr('Now: {word}', { word: (CF.METER_WORDS[key] || [])[meterLevel(key)] || '' })) + '</div>' +
       '<p>' + esc(info.what) + '</p><p>' + esc(info.ends) + '</p>';
+    if (key === 'reputation') {
+      // Where the ladder ends for you, and what holds the next letter back.
+      var e = UI.e, s = e.s;
+      if (s.who === 'hangman' && s.rank >= rankCap(e)) box.insertAdjacentHTML('beforeend', '<p class="i-cap">' + esc('Bailiff is the last office the Council will give a hangman.') + '</p>');
+      if (s.flags && s.flags['promoHeld' + s.rank]) box.insertAdjacentHTML('beforeend', '<p class="i-blocked">' + esc('Blocked: the Council\'s displeasure. Answer a commission, or let the Bishop speak for you.') + '</p>');
+    }
     box.classList.add('open', 'pinned');
     box.querySelector('.peek-close').addEventListener('click', function () { box.classList.remove('open', 'pinned'); box.dataset.uid = ''; });
   };
+  // The highest office open to you: the origins system caps a hangman at Bailiff.
+  function rankCap(e) { return e.rankCap ? e.rankCap() : CF.TOP_RANK; }
   function meterLevel(key) {
     var e = UI.e, m = e.s.meters, max = e.meterMax(key);
     if (key === 'reputation') return Math.min(4, Math.floor(m.reputation / Math.max(1, CF.COMMISSIONER_REP) * 4.999));
@@ -732,10 +781,12 @@
   }
   function renderTop() {
     var e = UI.e, s = e.s, m = s.meters;
-    var nextRep = s.rank < CF.TOP_RANK ? CF.RANK_REP[s.rank + 1] : (s.calling === 'commissioner' ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
+    // The next office is the next threshold up to the rank cap (a hangman's ends at Bailiff); at the cap there is no next.
+    var cap = rankCap(e), chair = s.calling === 'commissioner' && s.rank === CF.TOP_RANK;
+    var nextRep = s.rank < cap ? CF.RANK_REP[s.rank + 1] : (chair ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
     var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
     $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
-      meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < CF.TOP_RANK || s.calling === 'commissioner' ? '/' + nextRep : ''));
+      meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < cap || chair ? '/' + nextRep : ''));
     $('#rank').textContent = tr(s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + (s.flags.callingOpen ? '' : ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '')));
     $('#rank-badge').style.backgroundImage = art(RANK_ART[((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'cwax-01');
     $('#rank-badge').title = tr(CF.RANKS[s.rank]);
@@ -812,6 +863,7 @@
     n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b|\bbanded\b/g, '').trim() +
       ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (pic.banded ? ' banded' : '') + (count > 1 ? ' stack-' + Math.min(3, count) : '');
     n.innerHTML = '';
+    n._time = undefined; n._ring = null; n._urgent = undefined; // the live children are rebuilt below
     for (var i = Math.min(2, count - 1); i > 0; i--) {
       var u = h('div', 'c-under u' + i);
       u.style.setProperty('--pic', art(pic.art));
@@ -859,18 +911,24 @@
   }
 
   var CARD_RING_LEN = 2 * (122 + 174) - 8 * 12 + 2 * Math.PI * 12;
+  // A ring's dash, to the half pixel: written only when it moves that far.
+  function setDash(ring, len, total) {
+    var d = Math.round(len * 2) / 2;
+    if (ring._dash === d) return;
+    ring._dash = d;
+    ring.style.strokeDasharray = d + ' ' + total;
+  }
+  function setText(el, text) { if (el._txt !== text) { el._txt = text; el.textContent = text; } }
+  // The card's clock and ring. The children are found once and kept on the element.
   function updateCardLive(n, card) {
     if (!card || !card.maxLife) return;
-    var t = n.querySelector('.c-timer');
-    if (t) t.textContent = tr(U.fmtTime(card.life));
-    var ct = n.querySelector('.c-time');
-    if (ct) ct.textContent = U.fmtTime(card.life);
+    if (n._time === undefined) { n._time = n.querySelector('.c-time'); n._ring = n.querySelector('.c-ringsvg rect:not(.track)'); }
+    if (n._time) setText(n._time, U.fmtTime(card.life));
     var pct = Math.max(0, Math.min(1, card.life / card.maxLife));
-    var ring = n.querySelector('.c-ringsvg rect:not(.track)');
-    if (ring) ring.style.strokeDasharray = (pct * CARD_RING_LEN) + ' ' + CARD_RING_LEN;
-    n.style.setProperty('--pct', (pct * 100).toFixed(1) + '%');
+    if (n._ring) setDash(n._ring, pct * CARD_RING_LEN, CARD_RING_LEN);
     var k = CF.CARDS[card.def].kind;
-    n.classList.toggle('urgent', (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30));
+    var urgent = (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30);
+    if (n._urgent !== urgent) { n._urgent = urgent; n.classList.toggle('urgent', urgent); }
   }
 
   // ---------------------------------------------------------------- Board
@@ -1063,6 +1121,8 @@
       pileEl.title = tr('The collection pile: new cards land here. Drag it anywhere.');
       pileEl.style.width = (T.PILE_COLS * T.PX + 4) + 'px';
       pileEl.style.height = (T.CH + 16) + 'px';
+      // A tab hangs off the corner and the label sits above the cards (both painted by the stylesheet).
+      pileEl.appendChild(h('span', 'pz-tab'));
       pileEl.appendChild(h('span', 'pz-label', 'New cards'));
       board.appendChild(pileEl);
     }
@@ -1328,6 +1388,11 @@
         var mag = h('div', 'v-magnet');
         mag.title = tr(vid === 'time' ? 'Dues: what the Bell draws from the table each week' : 'Magnet: pull in the cards this verb\'s open slots take');
         el.appendChild(mag);
+        // The live children, found once: the frame loop writes them without a query.
+        el._ring = tok.querySelector('.v-ring rect:not(.track)');
+        el._status = el.querySelector('.v-status');
+        el._week = tok.querySelector('.v-week');
+        el._magnet = mag;
         place(el, v.x, v.y);
         board.appendChild(el);
         verbEls[vid] = el;
@@ -1344,8 +1409,8 @@
       // The token's small box: hidden until the verb, part-way through its
       // work, asks for one more card. It shows what kind, and a tap pulls a
       // fitting card in from the table. The Bell's shows the dues when due.
-      var mag = el.querySelector('.v-magnet');
-      if (vid === 'time') { mag.textContent = String(e.dues()); mag.classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
+      var mag = el._magnet || el.querySelector('.v-magnet');
+      if (vid === 'time') { var dues = e.dues(); mag.textContent = String(dues); mag.classList.toggle('due', dues > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
       else {
         var ask = v.status === 'running' && v.ask && !v.ask.filled ? v.ask : null;
         mag.classList.toggle('asks', !!ask);
@@ -1397,23 +1462,41 @@
     e.dirty = true;
   };
 
+  // The tokens' rings, clocks and the Bell's dues, every frame: each write is
+  // guarded by the last value, so a still table costs nothing.
   function updateVerbRings() {
-    var e = UI.e;
+    var e = UI.e, dues = null;
     Object.keys(verbEls).forEach(function (vid) {
       var el = verbEls[vid], v = e.verb(vid);
       var pct = vid === 'time' ? e.s.weekT / CF.WEEK : v.status === 'running' ? v.elapsed / v.duration : v.status === 'done' ? 1 : 0;
-      var ring = el.querySelector('.v-ring rect:not(.track)');
-      ring.style.strokeDasharray = (Math.min(1, pct) * RING_LEN) + ' ' + RING_LEN;
-      el.querySelector('.v-status').textContent = tr(verbStatus(vid));
-      var wk = el.querySelector('.v-week');
-      if (wk) { wk.textContent = tr('Wk {n}', { n: e.s.week }); el.querySelector('.v-magnet').classList.toggle('due', e.dues() > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
+      if (el._ring) setDash(el._ring, Math.min(1, pct) * RING_LEN, RING_LEN);
+      if (el._status) setText(el._status, tr(verbStatus(vid)));
+      if (el._week) {
+        if (dues === null) dues = e.dues();
+        setText(el._week, tr('Wk {n}', { n: e.s.week }));
+        var due = dues > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10;
+        if (el._due !== due) { el._due = due; el._magnet.classList.toggle('due', due); }
+      }
     });
   }
 
-  // The sun-to-moon bar: six dots light up as the week passes.
+  // The sun-to-moon bar: the shade draws back from the sun as the week passes.
+  // It is anchored at the moon end and scaled, written only when it has moved.
+  var weekShade = null, weekScale = -1;
   function updateWeekBar() {
-    var sh = document.querySelector('#weekbar .wb-shade');
-    if (sh && UI.e) sh.style.left = (19 + 62 * Math.min(1, UI.e.s.weekT / CF.WEEK)) + '%';
+    if (!UI.e) return;
+    if (!weekShade) {
+      weekShade = document.querySelector('#weekbar .wb-shade');
+      if (!weekShade) return;
+      weekShade.style.left = '19%';
+      weekShade.style.transformOrigin = 'right center';
+      weekShade.style.transition = 'transform 0.5s linear';
+    }
+    var p = Math.min(1, UI.e.s.weekT / CF.WEEK);
+    var sc = Math.round((81 - 62 * p) / 81 * 200) / 200;
+    if (Math.abs(sc - weekScale) < 0.005) return;
+    weekScale = sc;
+    weekShade.style.transform = 'scaleX(' + sc + ')';
   }
 
   function updateLive() {
@@ -1478,6 +1561,7 @@
     if (i >= 0) UI.openVerbs.splice(i, 1);
     UI.openVerbs.push(vid);
     if (verbEls[vid]) verbEls[vid].classList.remove('new');
+    document.body.classList.add('has-window'); // the page makes room (toasts move clear of the window)
     UI.e.dirty = true;
   }
   function closeWindow(vid) {
@@ -1487,6 +1571,7 @@
     UI.openVerbs = UI.openVerbs.filter(function (x) { return x !== vid; });
     UI.hoverSlot = null;
     if (UI.pick && UI.pick.verb === vid) UI.pick = null;
+    if (!UI.openVerbs.length) document.body.classList.remove('has-window');
     e.dirty = true;
   }
   function closeAllWindows() { UI.openVerbs.slice().forEach(closeWindow); }
@@ -1511,6 +1596,7 @@
       }
     });
     UI.openVerbs = UI.openVerbs.filter(function (vid) { return e.verb(vid).unlocked; });
+    document.body.classList.toggle('has-window', UI.openVerbs.length > 0);
     UI.openVerbs.forEach(function (vid, i) {
       var w = winEls[vid];
       if (!w) {
@@ -1654,6 +1740,17 @@
       pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: known.join(', ') }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
     }
     var lock = e.lockReason(vid);
+    var pv = e.preview(vid);
+    // The Court reads the charge first: what the case needs against what the
+    // tokens give, above the slots, and the tokens that hurt it are marked.
+    var charge = vid === 'arrest' && pv && pv.detail && pv.detail.charge ? pv.detail.charge : null;
+    var bad = {};
+    if (charge) {
+      var cbox = h('div', 'charge-box');
+      cbox.innerHTML = chargeHtml(charge);
+      pane.insertBefore(cbox, pane.firstChild);
+      (charge.bad || []).forEach(function (u) { bad[u] = true; });
+    }
     var slots = h('div', 'slots');
     e.visibleSlots(vid).forEach(function (sl) {
       var s = h('div', 'slot' + (sl.primary ? ' primary' : ''));
@@ -1661,8 +1758,11 @@
       s.dataset.slot = sl.key;
       var box = h('div', 's-box');
       var uid = v.slots[sl.key];
-      if (uid && e.card(uid)) box.appendChild(miniCard(e.card(uid)));
-      else {
+      if (uid && e.card(uid)) {
+        var mc = miniCard(e.card(uid));
+        if (bad[uid]) { var mcard = mc.querySelector('.card'); (mcard || mc).classList.add('bad'); }
+        box.appendChild(mc);
+      } else {
         // An empty slot, tapped, says what it takes and offers the cards that fit.
         box.classList.add('empty');
         box.title = tr('Pick a card for this slot');
@@ -1674,8 +1774,10 @@
         if (UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key) s.classList.add('picking');
       }
       s.appendChild(box);
-      var lab = h('div', 's-label', sl.label);
-      lab.title = tr(sl.accepts.map(prettyAspect).join(' / '));
+      // The primary slot wears its first name; the whole list is in the title.
+      var parts = sl.label.split(' / ');
+      var lab = h('div', 's-label', sl.primary ? parts[0] : sl.label);
+      lab.title = sl.primary && parts.length > 1 ? tr(sl.label) : tr(sl.accepts.map(prettyAspect).join(' / '));
       var slotIcon = slotArt(sl);
       if (slotIcon) { var si = h('i', 's-icon'); si.style.backgroundImage = art(slotIcon); si.title = lab.title; s.appendChild(si); }
       s.appendChild(lab);
@@ -1695,11 +1797,10 @@
       else pane.appendChild(slotPicker(vid, UI.pick.slot));
     }
 
-    var pv = e.preview(vid);
     var rbox = h('div', 'recipe');
     if (pv) {
       rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
-        (pv.detail && pv.detail.charge ? chargeHtml(pv.detail.charge) : '') +
+        (pv.detail && pv.detail.charge && !charge ? chargeHtml(pv.detail.charge) : '') +
         (pv.strain ? '<div class="r-strain">' + esc(pv.strain) + '</div>' : '') +
         (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
         (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');

@@ -394,5 +394,8 @@
     "the hours and the doors: the scene searched again, a canvass, two descriptions in Rest": "الساعات والأبواب: مسرح الجريمة مفتَّشًا ثانية، ومسح من باب إلى باب، ووصفان في الراحة",
     "papers: a search of the accused's lodging with a Writ, ledgers read in Study, the Rolls": "الأوراق: تفتيش مسكن المتهم بصكّ، والسجلات تُقرأ في الدراسة، والسجلات الرسمية",
     "ledgers, pledges and chits read in Study; a pawnbroker's page": "دفاتر الحسابات والرهون والوصول تُقرأ في الدراسة؛ وصفحة مرابٍ",
+    "Tap to read": "انقر لتقرأ",
+    "Bailiff is the last office the Council will give a hangman.": "رئيس الحرس آخر منصب يمنحه المجلس لجلاد.",
+    "Blocked: the Council's displeasure. Answer a commission, or let the Bishop speak for you.": "محجوب: سخط المجلس. أجب تكليفًا، أو دع الأسقف يتكلم باسمك.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);
