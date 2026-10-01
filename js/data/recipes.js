@@ -319,7 +319,8 @@
         if (e.revealSuspect(rec, ctx)) return { title: 'A Name', text: 'A tapster in ' + dl + ' gives you a name connected to ' + rec.title + '. Then he asks you to leave.' };
       }
       var al = e.cardsOf('atlarge').filter(function (c) { return !c.data.hunted || !e.caseRec(c.data.hunted) || e.caseRec(c.data.hunted).status !== 'open'; });
-      if (al.length && ctx.rng() < 0.45 && e.roomForCase(1)) {
+      var heat = al.reduce(function (h, c) { var r = c.data.criminalId ? e.criminal(c.data.criminalId) : e.criminalByName(c.data.name); return Math.max(h, r ? r.heat || 0 : 0); }, 0);
+      if (al.length && ctx.rng() < 0.45 + 0.1 * heat && e.roomForCase(1)) {
         var t = U.pick(ctx.rng, al);
         var card = e.spawnCase('manhunt', { ctx: ctx, district: d, culpritName: t.data.name, culpritTrait: t.data.trait, atLargeUid: t.uid,
           headline: 'Sighting: ' + t.data.name, lead: 'You catch a glimpse of a face you know in ' + dl + '.' });
@@ -889,6 +890,25 @@
     requires: { primary: 'sickness' },
     blocked: function (ctx) { return ctx.has('funds') || ctx.has('kit_bio') ? null : 'A physician wants Coin, or you need the Physician\'s Case.'; },
     effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'The Fever Breaks', text: 'Bitter bark in wine, two days sweating under every blanket you own, and on the third morning the river smells like a river again.' } }],
+  });
+  // A Wound: dressed from the Case, paid to the barber-surgeon, or slept off. First match wins.
+  R.push({
+    id: 'ref_wound_case', verb: 'reflect', priority: 2, label: 'The Physician\'s Case', duration: 15,
+    preview: 'Nurse it yourself with the Case: no Coin, no waiting.',
+    requires: { primary: 'wound', when: function (ctx) { return ctx.has('kit_bio'); } },
+    effects: [{ consume: 'primary' }, { give: 'health' }, { story: { title: 'The Physician\'s Case', text: 'You dress it yourself, as you have dressed a hundred others. The stitches come out early.' } }],
+  });
+  R.push({
+    id: 'ref_wound_barber', verb: 'reflect', priority: 1, label: 'The Barber-surgeon', duration: 20,
+    preview: 'A Coin to the barber-surgeon and the stitches come out now.',
+    requires: { primary: 'wound', when: function (ctx) { return ctx.has('funds'); } },
+    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { give: 'health' }, { story: { title: 'The Barber-surgeon', text: 'Silver on the counter and the stitches come out early. You can take a blow again. Probably.' } }],
+  });
+  R.push({
+    id: 'ref_wound_lie', verb: 'reflect', label: 'Lie Still', duration: 40,
+    preview: 'Lie still and let it knit faster.',
+    requires: { primary: 'wound' },
+    effects: [{ modify: 'primary', life: function (ctx) { return ctx.primary.life - 60; } }, { story: { title: 'Lie Still', text: 'A day in the dark with the shutters closed and the barber-surgeon\'s bottle. The stitches hold.' } }],
   });
   rest('ref_stress', 'stress', 'An Evening Off', 25, 'You walk to the mill-race and back without once thinking about a case. On the way home you think about one. It is a start.', 'Put it all down for an evening.');
   rest('ref_tunnel', 'tunnel', 'Clear Your Head', 60, 'You take the string off the walls. You write to your sister. You make yourself admit that you might be wrong. It helps.', 'Step back. Admit you might be wrong about everything.');

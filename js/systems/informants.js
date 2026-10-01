@@ -68,7 +68,12 @@
       return 'rumor';
     }
     if (al.length && roll < 0.75) {
-      var target = U.pick(this.rng, al);
+      // The hotter the record, the more often they are seen.
+      var self = this;
+      var weights = al.map(function (c) { var r = c.data.criminalId ? self.criminal(c.data.criminalId) : self.criminalByName(c.data.name); return 1 + (r ? r.heat || 0 : 0); });
+      var total = weights.reduce(function (a, w) { return a + w; }, 0);
+      var pickRoll = this.rng() * total, target = al[al.length - 1];
+      for (var wi = 0; wi < al.length; wi++) { pickRoll -= weights[wi]; if (pickRoll <= 0) { target = al[wi]; break; } }
       target.data.sighted = true;
       this.create('intel', {
         label: 'Sighting: ' + target.data.name,

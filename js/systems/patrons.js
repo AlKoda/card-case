@@ -120,6 +120,10 @@
     if (f.council >= 3 && s.meters.scrutiny > 0) { this.meter('scrutiny', -1); lines.push('A word from your patron on the Council, and a leaf of the clerks\' list is lost.'); }
     if (f.bishop >= 3 && this.countOf('fatigue')) { this.remove(this.cardsOf('fatigue')[0]); lines.push('The Abbey hospital keeps a bed for you. You sleep a night in it.'); }
     if (f.guild >= 3 && this.rng() < 0.5) { this.create('funds'); lines.push('The Market Warden sends the guilds\' fee for a quiet Market.'); }
+    // The letter of office the Council is not writing.
+    if (this.promotionHeld && this.promotionHeld() && s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
+      lines.push('You have the Standing for a new office. The letter does not come; the Council is displeased.');
+    }
     // Elections: every twelve weeks the Council may turn, and Favour becomes Suspicion.
     if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0 && this.rng() < 0.4) {
       this.meter('scrutiny', f.council);
@@ -151,7 +155,7 @@
     this.clearCaseCards(rec.id);
     var named = U.pick(this.rng, rec.suspects);
     s.stats.inquisitor = (s.stats.inquisitor || 0) + 1;
-    if (!named.guilty) { s.stats.wrongful++; var cul = rec.suspects.filter(function (x) { return x.guilty; })[0]; var c = this.criminalEscapes(rec, cul, 'wrongful'); this.abroadCard(c, 'Somebody else burned for what they did.'); }
+    if (!named.guilty) { s.stats.wrongful++; var cul = rec.suspects.filter(function (x) { return x.guilty; })[0]; var c = this.criminalEscapes(rec, cul, 'wrongful'); if (this.atLargeCardFor(c)) this.refreshAtLarge(c); else this.hideCriminal(c, rec); }
     this.meter('dread', 2);
     this.meter('pressure', -1);
     this.emit('resolved', this.caseRecord(rec, 'inquisitor', named.name));

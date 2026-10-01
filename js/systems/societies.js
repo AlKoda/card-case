@@ -31,12 +31,33 @@
   };
 
   // ---- Endings from the counts, every week --------------------------------------
+  // Each ending is told a week or more before it lands: the warning and the
+  // ending never fall in the same tick.
   P.checkCountEndings = function () {
     var s = this.s, cnt = s.counts || {}, f = s.favour || {};
     if (s.over) return;
-    if ((cnt.mercy || 0) >= Soc.MERCIFUL.mercy && (cnt.cruelty || 0) <= Soc.MERCIFUL.cruelty && this.reformedCount() >= Soc.MERCIFUL.reformed) { this.gameOver('merciful'); return; }
-    if ((cnt.cruelty || 0) >= Soc.HANGMANS.cruelty && s.meters.dread >= Soc.HANGMANS.dread) { this.gameOver('hangmans'); return; }
-    if ((f.bishop || 0) <= -4 && s.flags.inquisitor && (s.stats.wrongful || 0) >= 1 && this.rng() < 0.15) { this.gameOver('stake'); return; }
+    var M = Soc.MERCIFUL, H = Soc.HANGMANS;
+    var mercy = cnt.mercy || 0, cruelty = cnt.cruelty || 0, reformed = this.reformedCount();
+    if (!s.flags.mercifulWarned && mercy >= M.mercy - 2 && cruelty <= M.cruelty && reformed >= M.reformed - 1) {
+      s.flags.mercifulWarned = true;
+      this.story('The Merciful Judge', 'The Council has begun to call you the merciful judge. One more pardon and it will be your name.', 'major');
+      return;
+    }
+    if (s.flags.mercifulWarned && mercy >= M.mercy && cruelty <= M.cruelty && reformed >= M.reformed) { this.gameOver('merciful'); return; }
+    if (!s.flags.hangmanWarned && cruelty >= H.cruelty - 2) {
+      s.flags.hangmanWarned = true;
+      this.story('The Executioner\'s Table', 'The executioner has started saving you a place at his table.', 'danger');
+      return;
+    }
+    if (s.flags.hangmanWarned && cruelty >= H.cruelty && s.meters.dread >= H.dread) { this.gameOver('hangmans'); return; }
+    if ((f.bishop || 0) <= -4 && s.flags.inquisitor && (s.stats.wrongful || 0) >= 1) {
+      if (!s.flags.stakeWarned) {
+        s.flags.stakeWarned = true;
+        this.story('The Inquisitor Asks for Your Name', 'The Inquisitor has asked the Rolls for your name.', 'danger');
+        return;
+      }
+      if (this.rng() < 0.15) { this.gameOver('stake'); return; }
+    }
   };
 
   // ---- The Order of the Mountain ---------------------------------------------------
@@ -71,17 +92,27 @@
     s.flags.eumenidesFront = f.id;
     return f;
   };
+  // A torso, and once it is a week old, a second from the same door. Never a third.
   P.eumenidesWeek = function () {
     var s = this.s, lines = [];
     if (s.calling !== 'master' || s.week < Soc.EUMENIDES.week || s.flags.eumenidesBroken) return lines;
-    if (this.rng() >= Soc.EUMENIDES.chance || this.openCases().length >= this.maxOpenCases()) return lines;
-    if (this.openCases().some(function (r) { return r.society === 'eumenides'; })) return lines;
+    if ((s.flags.eumenidesTorsos || 0) >= 2 || this.openCases().length >= this.maxOpenCases()) return lines;
+    var open = this.openCases().filter(function (r) { return r.society === 'eumenides'; });
+    var second = open.length === 1 || (s.flags.eumenidesTorsos || 0) === 1;
+    if (open.length === 1 && open[0].week >= s.week) return lines;
+    if (this.rng() >= (second ? 0.5 : Soc.EUMENIDES.chance)) return lines;
     var front = this.eumenidesFront();
     var card = this.spawnCase('harbor', { quiet: true, frontId: front.id });
     var rec = this.caseRec(card.caseId);
     rec.society = 'eumenides';
-    card.desc += ' Another torso. The Harbour has given up one a season for years, and every case closes on some sailor. This one has a patrician\'s ring-mark on its finger.';
-    this.story('A Torso at the Harbour', 'The Harbour has given up another one: a body without a head or hands, wrapped like a parcel, with a ring-mark on one finger that no sailor ever wore. The last three closed on sailors. Find what this one has in common with the next.', 'case');
+    s.flags.eumenidesTorsos = (s.flags.eumenidesTorsos || 0) + 1;
+    if (second) {
+      card.desc += ' Another torso, the same ring-mark, and a chit in its pocket from the same door.';
+      this.story('Another Torso', 'Another torso, the same ring-mark. The Harbour has given up two in a season now, and the second has a chit in its pocket from the same door.', 'case');
+    } else {
+      card.desc += ' Another torso. The Harbour has given up one a season for years, and every case closes on some sailor. This one has a patrician\'s ring-mark on its finger.';
+      this.story('A Torso at the Harbour', 'The Harbour has given up another one: a body without a head or hands, wrapped like a parcel, with a ring-mark on one finger that no sailor ever wore. The last three closed on sailors. Find what this one has in common with the next.', 'case');
+    }
     lines.push('The Harbour gave up a torso this week.');
     return lines;
   };

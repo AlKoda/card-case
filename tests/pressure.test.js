@@ -208,3 +208,72 @@ function run(e, verb, cards) {
   assert.ok(d.s.over && d.s.over.id === 'death', 'a second blow with no Health is death');
   console.log('wounds: ok');
 })();
+
+// ---- The Vendetta: capped at the Bell, cooled by a quiet week and a conviction, told before the stair ----
+(function vendetta() {
+  var e = game(10);
+  e.s.week = 1;
+  e.create('syndicate'); e.create('gang', { label: 'Band: a', data: { name: 'a', members: [] } }); e.create('gang', { label: 'Band: b', data: { name: 'b', members: [] } });
+  var r0 = e.s.meters.retaliation;
+  e.weekTick();
+  assert.strictEqual(e.s.meters.retaliation - r0, 2, 'the Bell feeds the Vendetta two at most: ' + (e.s.meters.retaliation - r0));
+  // A week in which no case went cold cools it.
+  var q = game(11);
+  q.s.meters.retaliation = 3;
+  q.weekTick();
+  assert.strictEqual(q.s.meters.retaliation, 2, 'nothing abroad, nothing cold: the Vendetta cools');
+  // A guilty conviction cools it.
+  var c = game(12);
+  var kase = byDef(c, 'case')[0], rec = c.caseRec(kase.caseId);
+  var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  c.remove(kase);
+  c.s.meters.retaliation = 3;
+  var t = c.create('trial', { data: { caseId: rec.id, name: culprit.name, guilty: true, solid: true, tier: 'strong', real: 9, need: 6, coerced: 0, planted: 0, illegal: 0, contradictions: 0 } });
+  var saved = c.save(), done = false;
+  for (var i = 0; i < 20 && !done; i++) {
+    var cc = CF.Engine.load(saved);
+    cc.rng.setState(i * 101 + 7);
+    cc.verdict(cc.card(t.uid));
+    if (cc.caseRec(rec.id).status === 'closed') { done = true; assert.strictEqual(cc.s.meters.retaliation, 2, 'a conviction cools the Vendetta'); }
+  }
+  assert.ok(done, 'convicted');
+  // At five the city asks which stair is yours, and that week nobody climbs it.
+  for (var k = 0; k < 20; k++) {
+    var w = game(20 + k);
+    w.s.meters.retaliation = 6;
+    w.weekTick();
+    assert.strictEqual(w.s.stats.attacks, 0, 'the warning week never attacks');
+    assert.ok(w.s.flags.stairWarned && w.s.journal.some(function (j) { return j.title === 'Which Stair Is Yours'; }), 'the warning');
+  }
+  console.log('vendetta: ok');
+})();
+
+// ---- A Wound can be nursed in Rest ----------------------------------------------------
+(function nursing() {
+  var e = game(13);
+  var wound = e.create('wound');
+  var coin = byDef(e, 'funds')[0] || e.create('funds');
+  var h0 = byDef(e, 'health').length, f0 = byDef(e, 'funds').length;
+  var r = run(e, 'reflect', [wound, coin]);
+  assert.strictEqual(r.story.title, 'The Barber-surgeon');
+  assert.strictEqual(byDef(e, 'health').length, h0 + 1, 'a Health for a Coin');
+  assert.strictEqual(e.countOf('wound'), 0);
+  assert.strictEqual(byDef(e, 'funds').length, f0 - 1, 'one Coin spent');
+  // With the Physician's Case: no Coin, and the Case stays.
+  var g = game(14);
+  var w2 = g.create('wound'), kit = g.create('kit');
+  var gh = byDef(g, 'health').length, gf = byDef(g, 'funds').length;
+  var r2 = run(g, 'reflect', [w2, kit]);
+  assert.strictEqual(r2.story.title, 'The Physician\'s Case');
+  assert.strictEqual(byDef(g, 'health').length, gh + 1);
+  assert.strictEqual(byDef(g, 'funds').length, gf, 'no Coin');
+  assert.ok(g.card(kit.uid), 'the Case is kept');
+  // Alone: lie still, and it knits faster.
+  var l = game(15);
+  var w3 = l.create('wound');
+  var life0 = w3.life;
+  var r3 = run(l, 'reflect', [w3]);
+  assert.strictEqual(r3.story.title, 'Lie Still');
+  assert.ok(l.card(w3.uid) && w3.life <= life0 - 60, 'the Wound has less to run: ' + w3.life + ' vs ' + life0);
+  console.log('nursing: ok');
+})();

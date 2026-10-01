@@ -106,6 +106,50 @@
     this.dirty = true;
   };
 
+  // The real culprit behind a wrongful conviction keeps their head down for
+  // a few weeks: no Abroad card until the city hears the wrong name hanged.
+  P.hideCriminal = function (c, rec) {
+    c.hidden = true;
+    c.surfaceWeek = this.s.week + U.randInt(this.rng, 2, 4);
+    c.wrongfulTitle = rec.title;
+    c.district = rec.district;
+    return c;
+  };
+  // The hidden record surfaces: the card, the Crowd, and unless a new crime
+  // tells it first, the ballad.
+  P.surfaceCriminal = function (c, crimeFirst) {
+    delete c.hidden;
+    var title = c.wrongfulTitle || 'an old case';
+    var dl = CF.DISTRICTS[c.district] ? CF.DISTRICTS[c.district].label : 'the Warrens';
+    this.abroadCard(c, 'Someone else went to the rope for ' + title + '.');
+    this.meter('pressure', 1);
+    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': the one you sent down was in the Hole for drunkenness that night. The Warrens have known for a week. Now the Market does.', 'danger');
+  };
+
+  // The crime a record keeps coming back to: their trade, when the city
+  // still has it, else whatever the pool gives.
+  P.criminalTrade = function (c) {
+    var pool = this.casePool();
+    if (c.role && pool.indexOf(c.role) >= 0 && this.rng() < 0.7) return c.role;
+    return U.pick(this.rng, pool);
+  };
+
+  // A spared man pays his debt: word of a crime before it happens, in the
+  // shape of an informer's warning, with no informer behind it.
+  P.sparedWarning = function (c) {
+    var tid = this.criminalTrade(c);
+    var T = CF.CASE_TEMPLATES[tid];
+    var district = U.pick(this.rng, T.districts);
+    this.s.nextCase = { template: tid, district: district, extraTime: 0 };
+    this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
+    this.create('intel', {
+      label: 'Warning: ' + T.label,
+      desc: 'A spared man pays his debt: ' + c.name + ' sends word of ' + T.label.toLowerCase() + ' in ' + CF.DISTRICTS[district].label + '. Keep this on the table.',
+      data: { kind: 'warning', template: tid, district: district, informant: null, spared: c.id },
+    });
+    return c.name + ' pays a debt: a warning, not a crime.';
+  };
+
   // Every week: the ones who got away keep working.
   P.criminalsAct = function () {
     var self = this, lines = [];
@@ -113,12 +157,22 @@
       if (c.traits.indexOf('violent') >= 0) self.meter('retaliation', 1);
       if (c.status === 'hunted') return;
       var p = Crim.WEEKLY_CRIME + (c.crimes >= 2 ? 0.1 : 0);
-      if (self.rng() >= p) return;
+      var fires = self.rng() < p;
       var room = self.roomForCase();
+      var canAct = fires && (room || !self.s.nextCase);
+      var surfaced = false;
+      if (c.hidden) {
+        if (!canAct && self.s.week < c.surfaceWeek) return;
+        self.surfaceCriminal(c, canAct);
+        if (!canAct) return;
+        surfaced = true;
+      }
+      if (!fires) return;
       if (!room && self.s.nextCase) return; // the desk is full and something already waits
+      if (c.traits.indexOf('spared') >= 0 && !self.s.nextCase && self.rng() < 0.5) { lines.push(self.sparedWarning(c)); return; }
       c.crimes++;
       c.heat++;
-      var spec = { template: U.pick(self.rng, self.casePool()), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again', lead: 'The hand is familiar.' };
+      var spec = { template: self.criminalTrade(c), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again', lead: surfaced ? 'The hand is familiar. It should be: somebody else hanged for it.' : 'The hand is familiar.' };
       self.refreshAtLarge(c);
       if (room) {
         var card = self.spawnCase(spec.template, spec);

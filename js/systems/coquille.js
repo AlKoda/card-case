@@ -51,7 +51,7 @@
     var s = this.s, court = this.court(), best = null;
     for (var k in s.criminals) {
       var c = s.criminals[k];
-      if (c.status === 'dead' || c.status === 'reformed') continue;
+      if (c.status === 'dead' || c.status === 'reformed' || c.hidden) continue;
       if (!best || c.crimes > best.crimes) best = c;
     }
     if (!best) {
@@ -145,7 +145,7 @@
       if ((s.week - court.since) % 2 === 0) this.closedByCourt();
       if (!this.countOf('tribute')) { this.create('tribute'); lines.push('The King\'s tribute waits on the desk: a purse and no note. Attend to it, or let it lie.'); }
       if ((s.week - court.since) % 3 === 0) { this.meter('scrutiny', 1); lines.push('The Bishop preaches on the Examiner who dines with thieves. The Council pretends not to hear.'); }
-      lines.push('The Stews are quiet under the Treaty.');
+      lines.push('The Stews are quiet under the Treaty: week ' + court.quietWeeks + ' of ' + Coq.TREATY_WEEKS + '.');
       if (court.quietWeeks >= Coq.TREATY_WEEKS) { this.gameOver('treatycity'); return lines; }
     }
     if (court.stance === 'rule' && court.inside) {

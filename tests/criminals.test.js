@@ -256,3 +256,84 @@ function run(e, verb, cards) {
   assert.ok(next.criminalByName('Crook 2'), 'the successor inherits the record');
   console.log('criminals: ok');
 })();
+
+// ---- A wrongful conviction surfaces later ---------------------------------------------
+(function wrongful() {
+  var p0 = CF.Criminals.WEEKLY_CRIME;
+  CF.Criminals.WEEKLY_CRIME = 0; // no new crime: the ballad tells it
+  var e = game(61);
+  var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+  var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  e.remove(kase);
+  var t = e.create('trial', { data: { caseId: rec.id, name: innocent.name, guilty: false, solid: false, tier: 'reasonable', real: 6, need: 6, coerced: 0, planted: 1, illegal: 0, contradictions: 0 } });
+  var saved = e.save(), g = null;
+  for (var i = 0; i < 40 && !g; i++) {
+    var gg = CF.Engine.load(saved);
+    gg.rng.setState(i * 77 + 3);
+    gg.verdict(gg.card(t.uid));
+    if (gg.caseRec(rec.id).status === 'closed') g = gg;
+  }
+  assert.ok(g, 'a wrongful conviction');
+  var guilty = g.s.journal.filter(function (j) { return /^Guilty: /.test(j.title); })[0];
+  assert.ok(guilty && /down to the Hole/.test(guilty.text) && !/staff/.test(guilty.text), 'the staff waits for the sentence');
+  var crim = g.criminalByName(culprit.name);
+  assert.ok(crim && crim.hidden && crim.surfaceWeek >= g.s.week + 2 && crim.surfaceWeek <= g.s.week + 4, 'hidden for a few weeks');
+  assert.strictEqual(byDef(g, 'atlarge').length, 0, 'no Abroad card the same tick');
+  g.criminalsAct();
+  assert.strictEqual(byDef(g, 'atlarge').length, 0, 'nor the same week');
+  var pr0 = g.s.meters.pressure;
+  for (var wk = 0; wk < 4; wk++) { g.s.week++; g.criminalsAct(); }
+  assert.ok(!crim.hidden, 'surfaced');
+  var al = byDef(g, 'atlarge')[0];
+  assert.ok(al && al.data.criminalId === crim.id && /went to the rope for/.test(al.desc), 'the Abroad card, after four weeks');
+  assert.strictEqual(g.s.meters.pressure, pr0 + 1, 'the Crowd hears the ballad');
+  var story = g.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
+  assert.ok(story && story.text.indexOf(culprit.name) === 0 && story.text.indexOf(rec.title) > 0, 'the ballad names them');
+  // The staff: a death sentence breaks it.
+  CF.Criminals.WEEKLY_CRIME = p0;
+  console.log('wrongful: ok');
+})();
+
+// ---- Criminals keep their trade; a spared man owes a debt --------------------------
+(function trade() {
+  var same = 0;
+  for (var i = 0; i < 10; i++) {
+    var e = game(70 + i);
+    byDef(e, 'case').forEach(function (c) { e.remove(c); });
+    var c = e.criminalEscapes({ title: 'x', template: 'burglary' }, { name: 'Crook ' + i, trait: 'limp' }, 'cold');
+    assert.strictEqual(c.role, 'burglary');
+    var again = null;
+    for (var wk = 0; wk < 40 && !again; wk++) { e.criminalsAct(); again = e.openCases().filter(function (r) { return r.criminalId === c.id; })[0]; }
+    assert.ok(again, 'a new crime');
+    if (again.template === 'burglary') same++;
+  }
+  assert.ok(same >= 5, 'a burglar burgles: ' + same + '/10');
+  // Spared records never join a band.
+  var g = game(81);
+  for (var k = 0; k < 3; k++) {
+    var r = g.criminalEscapes({ title: 'y' + k }, { name: 'Spared ' + k, trait: 'limp' }, 'cold');
+    r.traits.push('spared');
+    g.create('atlarge', { label: 'Abroad: Spared ' + k, data: { name: 'Spared ' + k, trait: 'limp', criminalId: r.id } });
+  }
+  g.organise();
+  assert.strictEqual(g.countOf('gang'), 0, 'a spared man is sworn to nobody');
+  // A spared man's crime roll is, half the time, a warning instead.
+  var warned = false;
+  for (var s = 0; s < 40 && !warned; s++) {
+    var h = game(90 + s);
+    byDef(h, 'case').forEach(function (c) { h.remove(c); });
+    var sp = h.criminalEscapes({ title: 'z', template: 'burglary' }, { name: 'Debtor', trait: 'limp' }, 'cold');
+    sp.traits.push('spared');
+    var lines = h.criminalsAct();
+    var warn = byDef(h, 'intel').filter(function (c) { return c.data.kind === 'warning' && c.data.spared === sp.id; })[0];
+    if (warn) {
+      warned = true;
+      assert.ok(h.s.nextCase && h.s.nextCase.template === warn.data.template, 'the warned-of case is coming');
+      assert.ok(/pays a debt/.test(lines.join(' ')) && /A spared man pays his debt/.test(warn.desc));
+      assert.strictEqual(sp.crimes, 1, 'a warning, not a crime');
+    }
+  }
+  assert.ok(warned, 'a spared man pays his debt');
+  console.log('trade: ok');
+})();

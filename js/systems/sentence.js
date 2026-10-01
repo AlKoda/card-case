@@ -232,14 +232,14 @@
         this.meter('pressure', d.highProfile ? -2 : -1);
         if (L.capital && d.custom === 'wheel') { count('mercy', 1); notes.push('Commuted from ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ', out of mercy. The Bishop approves.'); }
         c.status = 'dead';
-        text = name + ' kneels on the Ravenstone at first light and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for a man who died well.';
+        text = 'The judge breaks the white staff over the head of ' + name + '. At first light they kneel on the Ravenstone and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for a man who died well.';
         break;
       case 'rope':
         count('cruelty', 1);
         this.meter('pressure', -2);
         this.meter('retaliation', 1);
         c.status = 'dead';
-        text = name + ' hangs on the Ravenstone before the whole city, and the ballad-sellers have the verses printed by nones. ' + (c.organization !== 'none' ? 'Their band drinks to them in a cellar and to you in a different tone.' : 'The crowd goes home satisfied.');
+        text = 'The staff is broken. ' + name + ' hangs on the Ravenstone before the whole city, and the ballad-sellers have the verses printed by nones. ' + (c.organization !== 'none' ? 'Their band drinks to them in a cellar and to you in a different tone.' : 'The crowd goes home satisfied.');
         break;
       case 'wheel':
         count('cruelty', 2);
@@ -247,7 +247,7 @@
         this.meter('dread', 2);
         this.meter('retaliation', 2);
         c.status = 'dead';
-        text = Sen.rungLabel(d.template, 'wheel') + ', before the whole city. It takes most of the morning. The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
+        text = 'The staff is broken, and ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ' follows, before the whole city. It takes most of the morning. The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
         break;
     }
     if (!d.guilty && Sen.DEATH.indexOf(rung) >= 0) {

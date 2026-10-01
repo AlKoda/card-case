@@ -1263,8 +1263,11 @@
     var atLarge = this.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length;
     var gangs = this.countOf('gang');
     var synd = this.countOf('syndicate');
-    var ret = (atLarge ? 1 : 0) + (atLarge >= 3 ? 1 : 0) + gangs * 2 + synd * 3;
+    var ret = Math.min(2, (atLarge ? 1 : 0) + (atLarge >= 3 ? 1 : 0) + gangs * 2 + synd * 3);
     if (ret) { this.meter('retaliation', ret); lines.push('Out there, the people who walked are talking about you.'); }
+    // A week in which no case went cold lets the Vendetta cool, unless the bands are feeding it.
+    var coldBefore = (s.weekSnap || {}).cold || 0;
+    if ((s.stats.cold || 0) === coldBefore && ret <= 1 && s.meters.retaliation > 0) this.meter('retaliation', -1);
     // The Crowd counts the thieves abroad: not while a hue and cry is up, and under a Bailiff every week, below that every other.
     if (atLarge + gangs * 2 + synd * 3 >= 4 && !this.manhuntOpen() && (s.rank >= 2 || s.week % 2 === 0)) { this.meter('pressure', 1); lines.push('The broadsheet-sellers count the thieves abroad, and sing the number in the Market.'); }
     this.organise();
@@ -1294,9 +1297,13 @@
     }
     if (s.over) return;
 
-    // Retaliation strikes.
+    // Retaliation strikes. The first week it could reach the stair, it only asks the way.
     var r = s.meters.retaliation;
-    if (r >= 3 && this.rng() < r * 0.07) this.attack();
+    if (r < 5) s.flags.stairWarned = false;
+    if (r >= 5 && !s.flags.stairWarned) {
+      s.flags.stairWarned = true;
+      this.story('Which Stair Is Yours', 'A man has been asking in the Red Ox which stair is yours. He was not asking for the landlord.', 'danger');
+    } else if (r >= 3 && this.rng() < r * 0.07) this.attack();
 
     // Temptation.
     if (!this.countOf('bribe') && this.rng() < 0.15 + 0.1 * (gangs + synd * 2)) {
@@ -1346,7 +1353,11 @@
   P.organise = function () {
     var s = this.s;
     var self = this;
-    var al = this.cardsOf('atlarge').filter(function (c) { return c.loc.t === 'table' && !c.data.band; });
+    var al = this.cardsOf('atlarge').filter(function (c) {
+      if (c.loc.t !== 'table' || c.data.band) return false;
+      var rec = c.data.criminalId ? self.criminal(c.data.criminalId) : self.criminalByName(c.data.name);
+      return !(rec && rec.traits.indexOf('spared') >= 0); // a spared man owes the Examiner, and no band trusts him
+    });
     if (al.length >= 3) {
       var members = al.slice(0, 3);
       var name = U.pick(this.rng, CF.NAMES.gang);
@@ -1449,6 +1460,12 @@
   };
 
   // ---- Thresholds ----------------------------------------------------------
+  // The Council withholds the letter of office while it is displeased, unless
+  // the Bishop speaks for you. The UI reads this to mark the Standing meter.
+  P.promotionHeld = function () {
+    var f = this.s.favour || {};
+    return (f.council || 0) <= -2 && (f.bishop || 0) < 3;
+  };
   P.checkThresholds = function () {
     var s = this.s;
     if (s.over) return;
@@ -1477,11 +1494,18 @@
     if (s.meters.dread >= this.meterMax('dread')) { this.gameOver('riot'); return; }
     if (s.meters.scrutiny >= this.meterMax('scrutiny')) { this.gameOver('corruption'); return; }
 
-    // Promotion boards.
-    if (s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length && !(s.favour && s.favour.council <= -2)) {
+    // Promotion boards. A displeased Council does not write, unless the Bishop speaks for you.
+    if (s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
       var next = CF.RANK_DEFS[s.rank + 1];
-      this.create('promotion', { label: 'The Council\'s Letter: ' + next.label, desc: next.text + ' Attend on the Council.', data: { rank: s.rank + 1 } });
-      this.story('The Council Takes Notice', 'A letter, on heavy paper, under the city\'s seal: the Council will see you. Your attendance is expected.', 'major');
+      if (this.promotionHeld()) {
+        if (!s.flags['promoHeld' + (s.rank + 1)]) {
+          s.flags['promoHeld' + (s.rank + 1)] = true;
+          this.story('The Council Does Not Write', 'You have the Standing for the office of ' + next.label + ', and the letter does not come. Your patron on the Council is not your patron any more. Answer a commission of the Council\'s, or let the Bishop speak for you, and it will.', 'danger');
+        }
+      } else {
+        this.create('promotion', { label: 'The Council\'s Letter: ' + next.label, desc: next.text + ' Attend on the Council.', data: { rank: s.rank + 1 } });
+        this.story('The Council Takes Notice', 'A letter, on heavy paper, under the city\'s seal: the Council will see you. Your attendance is expected.', 'major');
+      }
     }
     if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && s.meters.reputation >= CF.COMMISSIONER_REP && !this.countOf('chair') && !s.flags.chairCooldown) {
       this.create('chair');
@@ -1539,7 +1563,7 @@
   P.applyLegacy = function (L) {
     var self = this;
     (L.cold || []).slice(0, 4).forEach(function (c) { self.create('coldcase', c); });
-    (L.criminals || []).forEach(function (c) { var copy = U.clone(c); copy.heat = 0; self.s.criminals[copy.id] = copy; });
+    (L.criminals || []).forEach(function (c) { var copy = U.clone(c); copy.heat = 0; delete copy.hidden; delete copy.surfaceWeek; self.s.criminals[copy.id] = copy; });
     (L.atlarge || []).slice(0, 2).forEach(function (c) { self.create('atlarge', c); });
     (L.gangs || []).slice(0, 1).forEach(function (c) { self.create('gang', c); });
     if (L.syndicate) this.create('syndicate');
@@ -1971,9 +1995,17 @@
   // Remove every card belonging to a case (optionally sparing some).
   P.clearCaseCards = function (caseId, spare) {
     spare = spare || [];
+    var fronts = this.s.network && this.s.network.fronts || {};
     for (var k in this.s.cards) {
       var c = this.s.cards[k];
-      if (c.caseId === caseId && spare.indexOf(c) < 0) this.remove(c);
+      if (c.caseId !== caseId || spare.indexOf(c) >= 0) continue;
+      // A clue that names a society's door outlives its case: the thread needs two of them.
+      var f = c.def === 'clue' && c.data && c.data.link && fronts[c.data.link];
+      if (f && f.society && c.loc) {
+        if (!c.data.kept) { c.data.kept = true; c.label = 'Kept: ' + this.labelOf(c); c.life = 400; c.maxLife = 400; this.dirty = true; }
+        continue;
+      }
+      this.remove(c);
     }
   };
 
@@ -2109,6 +2141,7 @@
       s.stats.convictions++;
       if (!d.guilty) s.stats.wrongful++;
       if (d.guilty) {
+        this.meter('retaliation', -1);
         var caught = this.criminalCaught(d.name);
         var alc = caught && this.atLargeCardFor(caught);
         if (alc) { this.remove(alc); notes.push('Their name comes off the wall.'); }
@@ -2149,17 +2182,13 @@
         if (!rec.special) {
           var crimW = this.criminalEscapes(rec, culprit, 'wrongful');
           if (this.atLargeCardFor(crimW)) this.refreshAtLarge(crimW);
-          else this.create('atlarge', {
-            label: CF.Criminals.rankOf(crimW).label + ': ' + culprit.name,
-            desc: culprit.name + ', ' + culprit.role + '. Someone else went to the rope for what they did. ' + this.criminalDesc(crimW),
-            data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crimW.id },
-          });
+          else this.hideCriminal(crimW, rec);
         }
       }
       var lesser = tier !== 'strong' && !d.solid && !rec.special && d.confession !== 'free';
       var T = CF.CASE_TEMPLATES[rec.template];
       if (lesser) notes.unshift('On half proof the Court convicts of the lesser crime only: ' + (T && T.lesser ? T.lesser : 'the lesser charge') + '.');
-      this.story('Guilty: ' + d.name, 'The sworn men are out for ' + (d.solid ? 'the length of a Paternoster' : 'two days') + '. ' + d.name + ' is convicted of ' + rec.title + ', and the judge breaks his staff. ' +
+      this.story('Guilty: ' + d.name, 'The sworn men are out for ' + (d.solid ? 'the length of a Paternoster' : 'two days') + '. ' + d.name + ' is convicted of ' + rec.title + ', and the sergeants take them down to the Hole to wait for the sentence. ' +
         (d.guilty ? '' : 'You tell yourself it was the right person. ') + notes.join(' '), 'victory');
     } else {
       s.stats.acquittals++;

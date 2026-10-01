@@ -428,7 +428,12 @@ card is a view of the record and follows it.
 
 Every week each criminal at large may commit another crime (20%, 30% for
 repeat offenders), which arrives as a new case with their name and trait
-on it: "*Name* again." Rank follows the record: Petty Criminal → Repeat
+on it: "*Name* again," and seven times in ten it is their own trade. A
+*Spared* man pays his debt instead, half the time: a Warning in the shape
+of an informer's, and no band will swear him. The real culprit behind a
+wrongful conviction keeps their head down (`hidden`, two to four weeks):
+no card until the ballad-sellers have the wrong name, then the Crowd +1
+and "The Wrong Name". Rank follows the record: Petty Criminal → Repeat
 Offender (2 crimes) → Gang Member (three At Large form a gang) → Gang
 Lieutenant (4 crimes) → Syndicate Member (two gangs). Each rank adds a
 point to what the court wants for their cases. A conviction jails them;
