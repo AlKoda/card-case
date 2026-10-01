@@ -66,7 +66,7 @@
       { when: function (st) { return st.attacks >= 2; }, text: 'They came for you twice and warned you both times. The third time there was no warning. They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     ],
-    merciful: [{ text: 'Twelve times you sent a poor sinner home instead of to the Ravenstone, and four of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' }],
+    merciful: [{ text: '{sentHome} times you sent a poor sinner home instead of to the Ravenstone, and {reformed} of them are citizens now with stalls in the Market and children who do not know what their parents were. The Council never understood it. The city did. When you go, they carry the bier themselves.' }],
     hangmans: [
       { when: function (st, s) { return s.who === 'hangman'; }, text: 'You began outside the walls and you end there. The Council keeps you because the city is quiet, and the city is quiet because it knows what you are. The executioner\'s house by the Ravenstone was always going to be your house. The work goes on.' },
       { text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
@@ -99,9 +99,9 @@
       { text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
     ],
     master: [
-      { when: function (st, s) { return s.origin !== 'master'; }, text: 'You did not come to this city to find a pattern. The pattern found you. The Architect is sentenced on a grey Tuesday, and every case you ever worked turns out to have been a line in someone else\'s drawing. You fold a paper crane, and throw it in the fire.' },
-      { when: function (st) { return st.cold >= 4; }, text: 'The Architect is sentenced on a grey Tuesday. Half your unanswered cases answer themselves the same week; the other half never will, and you know exactly which. The scriveners are already copying your casebook. You fold a paper crane, and throw it in the fire.' },
-      { text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties, and it will be called after you for a hundred years. You fold a paper crane, and throw it in the fire.' },
+      { when: function (st, s) { return s.origin !== 'master'; }, text: 'You did not come to this city to find a pattern. The pattern found you. The Architect is sentenced on a grey Tuesday, and every case you ever worked turns out to have been a line in someone else\'s drawing. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
+      { when: function (st) { return st.cold >= 4; }, text: 'The Architect is sentenced on a grey Tuesday. Half your unanswered cases answer themselves the same week; the other half never will, and you know exactly which. The scriveners are already copying your casebook. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
+      { text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties, and it will be called after you for a hundred years. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
     ],
     crusader: [
       { when: function (st, s) { return s.meters.scrutiny >= 7; }, text: 'The Court of Miracles is a wet cellar with nobody in it. So, very nearly, is your file in the Council chamber: they have been keeping it for the day the Coquille fell, and now they open it. It cost you more than you will ever say, and it may cost your office yet. For one bright season, nobody in this city was above the law.' },
@@ -130,15 +130,15 @@
     var extra = (CALLING_BEATS[e.s.calling] || {})[key] || '';
     return { title: b.title, text: b.text + extra };
   };
+  // The ending's text, with the run's own numbers where it counts them ({sentHome}, {reformed}).
   Story.ending = function (e, id) {
     var list = CF.ENDING_VARIANTS[id];
     if (!list || !list.length) return CF.ENDINGS[id].text;
     // The first variant whose condition fits; otherwise one of the plain ones.
     var fit = list.filter(function (v) { return v.when && v.when(e.s.stats, e.s); });
-    if (fit.length) return fit[0].text;
+    if (fit.length) return U.fill(fit[0].text, e.s.stats || {});
     var plain = list.filter(function (v) { return !v.when; });
     var pool = plain.length ? plain : [list[list.length - 1]];
-    return pool[e.s.seed % pool.length].text;
+    return U.fill(pool[e.s.seed % pool.length].text, e.s.stats || {});
   };
-  void U;
 })(typeof window !== 'undefined' ? window : globalThis);
