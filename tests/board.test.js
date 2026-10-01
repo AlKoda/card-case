@@ -203,20 +203,102 @@ console.error = function (err) { throw err; };
   console.log('fade warning: once, at 30s');
 })();
 
-// A fading card inside a verb warns too, and names the verb.
+// A card at work in a running verb keeps its time; one left in an idle
+// verb's slot keeps aging, warns naming the verb, and frees the slot when it goes.
 (function fadeInVerb() {
   var e = CF.Engine.newGame({ calling: 'crusader', name: 'FadeSlot' });
   var seen = [];
   e.on(function (type, p) { if (type === 'expiring') seen.push(p); });
   var w = e.create('witness', { label: 'Nervous Clerk', lifetime: 35 });
-  assert.ok(e.slotCard('interrogate', CF.VERBS.interrogate.slots[0].key, w.uid), 'the witness goes into Interrogate');
+  var main = CF.VERBS.interrogate.slots[0].key;
+  assert.ok(e.slotCard('interrogate', main, w.uid), 'the witness goes into Interrogate');
+  assert.ok(e.autoSlot('interrogate', e.cardsOf('focus')[0].uid) && e.start('interrogate'), 'the hearing starts');
   e.tick(8);
-  assert.strictEqual(w.life, 35, 'the clock waits while the card is in a verb');
+  assert.strictEqual(w.life, 35, 'the clock waits while the card is at work in a verb');
   assert.strictEqual(seen.length, 0);
-  e.unslot('interrogate', CF.VERBS.interrogate.slots[0].key);
-  e.tick(8);
-  assert.strictEqual(seen.length, 1, 'warned once back on the table');
-  console.log('fade warning: also inside a verb');
+  e.tick(e.verb('interrogate').duration);
+  e.collect('interrogate');
+  // Idle: the witness waits in the slot, and the clock does not.
+  var f = CF.Engine.newGame({ calling: 'crusader', name: 'IdleSlot' });
+  var seen2 = [];
+  f.on(function (type, p) { if (type === 'expiring') seen2.push(p); });
+  var w2 = f.create('witness', { label: 'Nervous Clerk', lifetime: 35 });
+  assert.ok(f.slotCard('interrogate', main, w2.uid));
+  f.tick(8);
+  assert.strictEqual(w2.life, 27, 'a card in an idle verb\'s slot keeps aging');
+  assert.strictEqual(seen2.length, 1, 'warned once in the slot');
+  assert.strictEqual(seen2[0].verb, 'interrogate', 'the warning names the verb');
+  f.tick(30);
+  assert.ok(!f.card(w2.uid), 'the witness has gone');
+  assert.deepStrictEqual(f.verb('interrogate').slots, {}, 'the slot is empty, and the verb\'s secondaries with it');
+  console.log('fade warning: at work the clock waits; idle in a slot it does not');
+})();
+
+// Coin left in an idle verb's slot still pays the Bell: the table first, then the slot.
+(function duesFromSlot() {
+  var e = CF.Engine.newGame({ seed: 3, calling: 'crusader', name: 'SlotCoin' });
+  var letter = e.tableCards().filter(function (c) { return c.def === 'personnel'; })[0];
+  var funds = e.cardsOf('funds');
+  assert.ok(e.slotCard('duty', 'main', letter.uid) && e.slotCard('duty', 'f1', funds[0].uid), 'a Coin waits in Attend');
+  funds.slice(1).forEach(function (c) { e.remove(c); });
+  var seen = null; e.on(function (t, p) { if (t === 'dues') seen = p; });
+  e.weekTick();
+  assert.deepStrictEqual(seen, { uids: [funds[0].uid] }, 'the Coin in the slot pays the dues');
+  assert.strictEqual(e.countOf('fatigue'), 0, 'no night on the bench');
+  assert.strictEqual(e.verb('duty').slots.f1, undefined, 'the slot is empty');
+  console.log('dues from a slot: ok');
+})();
+
+// Catch Your Breath brings back every spent faculty on the table at once.
+(function spentAll() {
+  var e = CF.Engine.newGame({ seed: 5, calling: 'crusader', name: 'Breath' });
+  var a = e.create('spent_health'), b = e.create('spent_focus'), c = e.create('spent_instinct');
+  assert.ok(e.autoSlot('reflect', a.uid));
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_spent');
+  assert.ok(e.start('reflect')); e.tick(e.verb('reflect').duration + 0.01);
+  e.collect('reflect');
+  var defs = e.tableCards().map(function (x) { return x.def; });
+  assert.ok(defs.indexOf('spent_health') < 0 && defs.indexOf('spent_focus') < 0 && defs.indexOf('spent_instinct') < 0, 'nothing spent is left: ' + defs);
+  assert.ok(defs.indexOf('health') >= 0 && defs.indexOf('focus') >= 0 && defs.indexOf('instinct') >= 0, 'all three are back: ' + defs);
+  assert.deepStrictEqual([b.def, c.def], ['focus', 'instinct'], 'the ones on the table were restored in place');
+  void a;
+  console.log('catch your breath: every spent card');
+})();
+
+// The round hears things: a watchman on the round brings the fee, now and then a word about an open case, now and then Weariness.
+(function roundHears() {
+  var words = 0, tired = 0;
+  for (var i = 0; i < 40 && !(words && tired); i++) {
+    var e = CF.Engine.newGame({ seed: 100 + i, calling: 'commissioner', name: 'Round' });
+    var t = e.cardsOf('teammate')[0];
+    assert.ok(e.autoSlot('duty', t.uid));
+    assert.strictEqual(e.currentRecipe('duty').recipe.id, 'duty_team');
+    var before = e.cardsOf('funds').length;
+    assert.ok(e.start('duty')); e.tick(e.verb('duty').duration + 0.01);
+    var out = e.verb('duty').out.map(function (u) { return e.card(u); });
+    assert.strictEqual(out.filter(function (c) { return c.def === 'funds'; }).length, 1, 'one Coin');
+    var word = out.filter(function (c) { return c.def === 'clue'; })[0];
+    if (word) { words++; assert.strictEqual(e.labelOf(word), 'Heard on the Round'); assert.ok(word.caseId && word.data.trait, 'about an open case, with the culprit\'s trait'); }
+    if (out.some(function (c) { return c.def === 'fatigue'; })) tired++;
+    e.collect('duty');
+    assert.strictEqual(e.cardsOf('funds').length, before + 1);
+  }
+  assert.ok(words && tired, 'a word and a tired desk in 40 rounds: ' + words + '/' + tired);
+  console.log('the round hears things: ok');
+})();
+
+// The week's story turns: three lines by the week, and the band named when there is one.
+(function weekStory() {
+  var e = CF.Engine.newGame({ seed: 8, calling: 'master', name: 'Week' });
+  e.create('atlarge', { label: 'At Large: Some One', data: { name: 'Some One', trait: 'limp' } });
+  var seen = {};
+  for (var w = 0; w < 3; w++) { e.s.week = 1 + w; e.s.meters.retaliation = 0; e.weekTick(); e.s.journal.slice(0, 3).forEach(function (j) { if (/walls|Red Ox|Stews/.test(j.text)) seen[j.text.match(/(walls|Red Ox|Stews)/)[1]] = 1; }); }
+  assert.ok(Object.keys(seen).length >= 2, 'the line changes with the week: ' + Object.keys(seen));
+  e.create('gang', { label: 'Band: the Lanternless', data: { name: 'the Lanternless', members: [] } });
+  e.s.meters.retaliation = 0;
+  e.weekTick();
+  assert.ok(e.s.journal.slice(0, 3).some(function (j) { return /the Lanternless keep a cellar now, and a tally\./.test(j.text); }), 'the band is named');
+  console.log('week story: ok');
 })();
 
 // The magnet: a verb with its subject pulls in what its open slots take; the Bell's dues grow with the Watch.

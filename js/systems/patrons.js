@@ -133,12 +133,23 @@
     // The Inquisitor arrives when the Bishop's Favour is low.
     if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican in a grey cloak has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
     if (f.bishop >= 0 && s.flags.inquisitor) { s.flags.inquisitor = false; lines.push('The Inquisitor has been recalled. The Bishop is satisfied, for now.'); }
-    // A case that smells of heresy, left open two weeks, is his.
+    // The week before an election, the seat your patron holds is in play.
+    if (s.week % Pat.ELECTION_EVERY === Pat.ELECTION_EVERY - 1 && f.council > 0) lines.push('The Council elects next week. Your patron\'s seat is contested.');
+    // A case that smells of heresy is asked after at a week, and taken at two:
+    // by the Inquisitor when he is here, else only while the Bishop is cold.
     var self = this;
     this.openCases().forEach(function (rec) {
       var T = CF.CASE_TEMPLATES[rec.template];
-      if (!T.heresy || s.week - (rec.week || 0) < 2) return;
-      if (!s.flags.inquisitor && self.rng() < 0.7) return;
+      if (!T.heresy) return;
+      var age = s.week - (rec.week || 0);
+      if (age === 1 && !rec.dominican) {
+        rec.dominican = true;
+        self.story('A Dominican at the Rolls', 'A Dominican has asked the Rolls for the file on ' + rec.title + '. He has a week\'s start on you.', 'danger');
+        lines.push('A Dominican has asked the Rolls for the file on ' + rec.title + '.');
+        return;
+      }
+      if (age < 2) return;
+      if (!s.flags.inquisitor && (f.bishop > 0 || self.rng() < 0.7)) return;
       self.inquisitorSeizes(rec);
       lines.push('The Inquisitor has taken ' + rec.title + ' out of your hands.');
     });

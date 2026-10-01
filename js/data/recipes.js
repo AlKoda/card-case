@@ -198,14 +198,32 @@
       return { title: 'Watched', text: 'The band drinks somewhere else this week. The Vendetta cools a little, and nobody is caught.' };
     },
   });
+  // A watchman on the round earns the fee, and the round hears things: now
+  // and then a word about an open case, now and then the desk left to you.
   R.push({
-    id: 'duty_team', verb: 'duty', label: 'Put Them on the Round', duration: 20,
-    preview: 'They walk a round in your name. The fee comes to you.',
+    id: 'duty_team', verb: 'duty', label: 'Put Them on the Round', duration: 45,
+    preview: 'They walk a round in your name. The fee comes to you, and sometimes what the round hears.',
     requires: { primary: 'teammate' }, forbids: ['funds'],
-    effects: [
-      { give: 'funds' },
-      { story: { title: 'A Round Walked', text: function (ctx) { return ctx.primary.data.name + ' walks the round without complaint. The Council\'s ledger reads your name.'; } } },
-    ],
+    run: function (ctx) {
+      var e = ctx.e, name = ctx.primary.data.name || e.labelOf(ctx.primary);
+      ctx.give('funds');
+      var open = e.openCases().filter(function (r) { return !r.identified && !r.special; });
+      var roll = ctx.rng();
+      if (open.length && roll < 0.3) {
+        var rec = U.pick(ctx.rng, open), cul = culpritOf(rec);
+        ctx.give('clue', e.clueSpec(rec, {
+          label: 'Heard on the Round',
+          text: name + ' heard it at the conduit, about ' + rec.title + ': "' + CF.TRAIT_SEEN[cul.trait] + '"',
+          aspects: { testimony: 1 }, trait: cul.trait,
+        }, [], { noMisread: true }));
+        return { title: 'A Round Walked', text: 'The round hears things: a word about ' + rec.title + '.' };
+      }
+      if (roll >= 0.3 && roll < 0.4) {
+        ctx.give('fatigue');
+        return { title: 'A Round Walked', text: 'You covered the desk yourself while they walked.' };
+      }
+      return { title: 'A Round Walked', text: name + ' walks the round without complaint. The Council\'s ledger reads your name.' };
+    },
   });
   R.push({
     id: 'duty_file', verb: 'duty', label: 'Enter the Rolls', duration: 15,
@@ -795,6 +813,7 @@
   }
   aid('ref_hunger_pot', 'hunger', 'teammate', 'The Watch-house Pot', 25, 'Whatever the Watch is eating, you are eating. It is mostly barley. It is hot.', 'Eat with the Watch. Slow, and free.');
   aid('ref_hunger_credit', 'hunger', 'district', 'Eat on Credit', 12, 'The cookshop on the corner knows the Examiner. The Examiner will pay next week. The cookshop writes it down.', 'A meal on the Quarter\'s credit. Quick, and it is written down.', [{ call: function (ctx) { ctx.e.count('debt'); } }]);
+  aid('ref_hunger_dole', 'hunger', 'health', 'The Abbey Dole', 25, 'You stand in the line at the Abbey gate with the beggars and take the bread. The clerks on the Hill hear of it, and so does the Warrens, which thinks better of you for it.', 'Bread at the Abbey gate. Free, and seen.', [{ meter: { reputation: -1, dread: -1 } }]);
   aid('ref_hunger_informer', 'hunger', 'informant', 'A Bowl at Their Table', 15, 'They feed you without asking why. They will not forget that they did.', 'Your informer feeds you. They remember it.', [{ call: function (ctx) { var inf = ctx.first('informant'); if (inf && ctx.e.trustInformant) ctx.e.trustInformant(inf, -1); } }]);
   aid('ref_sickness_sweat', 'sickness', 'health', 'Sweat It Out', 60, 'Every blanket you own, a jug of water, and two days you do not remember. On the third the fever is gone and so is most of your strength.', 'No physician. Sweat it out. Slow, and it costs you.', [{ give: 'fatigue' }]);
   aid('ref_sickness_watch', 'sickness', 'teammate', 'A Watchman\'s Remedy', 45, 'Onion, honey, something from a jar with no label. His grandmother swore by it. It works, or the fever was leaving anyway.', 'A watchman knows a remedy. Free, and it usually works.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
@@ -857,9 +876,16 @@
     preview: 'Sit down for a moment and let it come back.',
     requires: { primary: 'spent' },
     run: function (ctx) {
-      var def = CF.CARDS[ctx.primary.def];
-      ctx.e.transform(ctx.primary, def.restores);
-      return { title: 'Yourself Again', text: 'A moment on the bench, and the ' + CF.CARDS[def.restores].label + ' is back.' };
+      var e = ctx.e;
+      // The primary comes back out whole (a held card would be spent again on its way out).
+      var restores = CF.CARDS[ctx.primary.def].restores;
+      ctx.consume(ctx.primary);
+      ctx.give(restores);
+      // Every other spent faculty on the table comes back with it.
+      e.cardsOf('spent_health').concat(e.cardsOf('spent_focus'), e.cardsOf('spent_instinct')).forEach(function (c) {
+        if (c.loc && c.loc.t === 'table') { e.transform(c, CF.CARDS[c.def].restores); e.placeOnTable(c, { x: c.loc.x, y: c.loc.y }); }
+      });
+      return { title: 'Yourself Again', text: 'A moment on the bench, and you are yourself again.' };
     },
   });
 
@@ -881,7 +907,7 @@
     id: 'ref_hunger', verb: 'reflect', label: 'Eat', duration: 8,
     preview: 'A hot dinner at the Swan, and a second. It costs a Coin.',
     requires: { primary: 'hunger' },
-    blocked: function (ctx) { return ctx.has('funds') ? null : 'You need Coin to eat. Put a Coin in with it.'; },
+    blocked: function (ctx) { return ctx.has('funds') ? null : 'You need Coin to eat, or a watchman, a Quarter, an Informer or your Health beside it.'; },
     effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'A Hot Dinner', text: 'Mutton, bread, small beer, and a second helping. Your hands stop shaking somewhere around the pudding.' } }],
   });
   R.push({

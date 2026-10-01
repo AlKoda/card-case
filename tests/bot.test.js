@@ -34,13 +34,30 @@ function bestTool(e, need) {
   return tools.filter(function (t) { return need && asp(t)[map[need]]; })[0] || tools[0];
 }
 
+// The city has asked something: the first answer the table can pay for. The
+// clock waits until it is given, so an idle verb's slots are emptied to pay.
+function answerChoice(e) {
+  var c = e.s.choice;
+  if (!c) return false;
+  for (var i = 0; i < c.options.length; i++) if (e.canChoose(i)) return e.choose(i);
+  CF.VERB_ORDER.forEach(function (vid) { if (e.verb(vid).status === 'idle') e.clearSlots(vid); });
+  for (var j = 0; j < c.options.length; j++) if (e.canChoose(j)) return e.choose(j);
+  return false;
+}
+
 function step(e, temper) {
   var s = e.s;
   temper = temper || 'custom';
+  answerChoice(e);
   CF.VERB_ORDER.forEach(function (vid) { if (e.verb(vid).status === 'done') e.collect(vid); });
   var fatigue = of(e, 'fatigue').length;
   var funds = of(e, 'funds');
   var team = of(e, 'teammate');
+  // A need goes into Rest with whatever the table has for it: Coin, a watchman, a Quarter or Health.
+  ['hunger', 'sickness', 'stress'].forEach(function (need) {
+    var card = of(e, need)[0];
+    if (card) tryRun(e, 'reflect', [card, funds[0] || team[0] || of(e, 'district')[0] || of(e, 'health')[0]]);
+  });
 
   // Rest first.
   var restCard = of(e, 'burnout')[0] || of(e, 'tunnel')[0] || (fatigue >= 1 ? of(e, 'fatigue')[0] : null) || (of(e, 'obsession').length >= 2 ? of(e, 'obsession')[0] : null);
@@ -158,12 +175,14 @@ if (require.main !== module) return;
 var GAMES = +process.argv[2] || 45;
 var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
-var insights = 0, bands = [], rank2By20 = 0;
+var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
   var temper = TEMPERS[Math.floor(g / 3) % 4];
-  var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who });
+  // The whole city: the needs and the choices run from the first day.
+  var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who, life: true });
+  e.on(function (type, p) { if (type === 'story' && /^Lost: /.test(p.title)) lost++; if (type === 'chosen') choices++; });
   var band = null, reached2 = false;
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
     step(e, temper);
@@ -173,6 +192,7 @@ for (var g = 0; g < GAMES; g++) {
     if (e.s.rank >= 2 && e.s.week <= 20) reached2 = true;
   }
   insights += Object.keys(e.s.insights || {}).length;
+  needsMet += e.s.stats.needsMet || 0;
   if (reached2) rank2By20++;
   if (band) bands.push({ week: band.week, rank: band.rank, ending: e.s.over ? e.s.over.id : 'survived', endWeek: e.s.week });
   var end = e.s.over ? calling.slice(0, 4) + ':' + e.s.over.id : calling.slice(0, 4) + ':survived';
@@ -194,9 +214,14 @@ console.log('by origin', JSON.stringify(byWho));
 console.log('counts per game', JSON.stringify(Object.keys(counts).reduce(function (o, k) { o[k] = +(counts[k] / GAMES).toFixed(2); return o; }, {})));
 console.log('recipes never run:', CF.RECIPES.map(function (r) { return r.id; }).filter(function (id) { return !seen[id]; }).join(', ') || 'none');
 console.log('insights earned', insights, '| bands formed', bands.length, '| Bailiff by week 20 in', rank2By20, 'games');
+console.log('per game: needs met', (needsMet / GAMES).toFixed(2), '| abilities lost', (lost / GAMES).toFixed(2), '| choices answered', (choices / GAMES).toFixed(2));
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
 // The city teaches: Insights are earned in play.
 assert.ok(insights >= 1, 'somebody earned an Insight');
+// The needs are met in Rest with what the table has, and the choices answered: the city rarely takes an ability for good.
+assert.ok(needsMet >= 1, 'a need was met in Rest');
+assert.ok(choices >= 1, 'a choice was answered');
+assert.ok(lost / GAMES < 1.5, 'abilities lost per game: ' + (lost / GAMES).toFixed(2));
 // A band formed under an Examiner or a Sworn Examiner can be fought from the Watch-house (the Watch posted on its
 // stair, its sworn hunted one by one): the bot does so, and such a band is not a quick death. The Vendetta itself is
 // still uncapped (a later item), so a stray death stays possible; it must not be the rule.

@@ -154,6 +154,8 @@
       e.dirty = true;
       return e;
     }
+    // A harness that wants the whole city (opts.life): the needs and the choices run from the first day, as they do after the opening.
+    if (opts.life) s.flags.firstCase = true;
     e.spawnCase('burglary', { lifetime: 300, quiet: !!opts.guided, first: true });
     if (opts.guided && e.setupIntro) { e.setupIntro(); return e; }
     if (CF.Story) { var op = CF.Story.opening(e); e.story(op.title, op.text, 'major'); return e; }
@@ -1124,7 +1126,7 @@
       var c = s.cards[ids[i]];
       if (!c || c.life === undefined || c.life === null) continue;
       var rate = 1;
-      if (c.loc && c.loc.t !== 'table') continue; // in a verb: the clock waits
+      if (c.loc && (c.loc.t === 'held' || c.loc.t === 'out')) continue; // at work in a verb, or waiting to be collected: the clock waits
       if (s.rooms.locker && (c.def === 'clue' || c.def === 'evidence')) rate = 0.5;
       c.life -= dt * rate;
       if (c.life <= 0) this.expire(c);
@@ -1263,7 +1265,12 @@
 
     // Dues first, out of what is on the table; then the salary.
     var salary = (CF.RANK_DEFS[s.rank] || {}).salary || CF.ECONOMY.salary[s.rank] || 1;
-    var funds = this.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; });
+    // Coin on the table pays first, then Coin waiting in an idle verb's slot or among its outputs.
+    var funds = this.cardsOf('funds', true).filter(function (c) {
+      var vb = c.loc.verb && s.verbs[c.loc.verb];
+      return c.loc.t === 'table' || (c.loc.t === 'slot' && vb && vb.status !== 'running') || c.loc.t === 'out';
+    });
+    funds.sort(function (a, b) { return (a.loc.t === 'table' ? 0 : 1) - (b.loc.t === 'table' ? 0 : 1); });
     var dues = this.dues();
     var paid = funds.length >= dues;
     if (paid) {
@@ -1284,7 +1291,12 @@
     var gangs = this.countOf('gang');
     var synd = this.countOf('syndicate');
     var ret = Math.min(2, (atLarge ? 1 : 0) + (atLarge >= 3 ? 1 : 0) + gangs * 2 + synd * 3);
-    if (ret) { this.meter('retaliation', ret); lines.push('Out there, the people who walked are talking about you.'); }
+    if (ret) {
+      this.meter('retaliation', ret);
+      var talk = [U.fill('{n} who walked from you are still inside the walls.', { n: atLarge }), 'A name you let go was heard in the Red Ox this week.', 'Somebody who walked from a case of yours bought a round in the Stews and drank to your health, the wrong way.'];
+      var bandCards = this.cardsOf('gang', true);
+      lines.push(gangs && bandCards.length ? bandCards[0].data.name + ' keep a cellar now, and a tally.' : talk[s.week % 3]);
+    }
     // A week in which no case went cold lets the Vendetta cool, unless the bands are feeding it.
     var coldBefore = (s.weekSnap || {}).cold || 0;
     if ((s.stats.cold || 0) === coldBefore && ret <= 1 && s.meters.retaliation > 0) this.meter('retaliation', -1);

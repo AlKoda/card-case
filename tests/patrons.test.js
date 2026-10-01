@@ -132,6 +132,25 @@ function commission(seed, from) {
   h.favour().bishop = 0;
   h.patronsWeek();
   assert.ok(!h.s.flags.inquisitor, 'and is recalled');
+  // A heresy case is asked after at a week, once; without the Inquisitor it is taken only while the Bishop is cold.
+  var d = game(11); d.s.rank = 3;
+  var hrec = d.caseRec(d.spawnCase('scriptorium', { quiet: true }).caseId);
+  hrec.week = d.s.week - 1;
+  var dl = d.patronsWeek();
+  assert.ok(dl.some(function (l) { return /A Dominican has asked the Rolls/.test(l); }) && d.s.journal[0].title === 'A Dominican at the Rolls', 'a Dominican at the Rolls');
+  assert.ok(!d.patronsWeek().some(function (l) { return /Dominican/.test(l); }), 'told once');
+  hrec.week = d.s.week - 2; d.favour().bishop = 1;
+  for (var q = 0; q < 20; q++) d.patronsWeek();
+  assert.strictEqual(hrec.status, 'open', 'the Bishop in favour keeps the Dominican from the file');
+  d.favour().bishop = 0;
+  var seized = false;
+  for (var q2 = 0; q2 < 40 && !seized; q2++) { d.patronsWeek(); seized = hrec.status === 'inquisitor'; }
+  assert.ok(seized, 'with the Bishop cold, the file is taken');
+  // The week before an election the seat is contested.
+  var el = game(12); el.favour().council = 1; el.s.week = 11;
+  assert.ok(el.patronsWeek().some(function (l) { return /The Council elects next week/.test(l); }), 'the election is foreshadowed');
+  el.favour().council = 0;
+  assert.ok(!el.patronsWeek().some(function (l) { return /elects next week/.test(l); }), 'not without a patron');
   var old = JSON.parse(game(1).save()); delete old.favour;
   assert.deepStrictEqual(CF.Engine.load(old).favour(), { council: 0, bishop: 0, guild: 0 });
   console.log('favour: ok');
