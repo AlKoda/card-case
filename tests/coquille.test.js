@@ -95,6 +95,28 @@ function run(e, verb, cards) {
   assert.strictEqual(t.recipe, 'duty_tribute');
   assert.strictEqual(byDef(e, 'funds').length - f0, 2);
   assert.strictEqual(e.s.counts.purse, 1);
+  // A tribute left to lie is counted; twice, and the Court's boy stops bringing names until it is taken.
+  var open1 = e.openCases().length;
+  e.expire(e.create('tribute'));
+  assert.strictEqual(e.court().ignoredTribute, 1, 'the King counts a purse that came back');
+  e.expire(e.create('tribute'));
+  assert.strictEqual(e.court().ignoredTribute, 2);
+  e.openCases().forEach(function (r) { e.goCold(r.id); });
+  e.s.meters.pressure = 3; e.s.week = e.court().since + 1;
+  var l2 = e.coquilleWeek();
+  assert.strictEqual(e.openCases().length, 0, 'no name comes up from the Warrens while the purse lies');
+  assert.ok(l2.some(function (l) { return /stops bringing names/.test(l); }), 'and the week says so once');
+  e.s.week++;
+  var l3 = e.coquilleWeek();
+  assert.ok(!l3.some(function (l) { return /stops bringing names/.test(l); }), 'said once');
+  assert.strictEqual(e.openCases().length, 0, 'still no names');
+  var t2 = run(e, 'duty', [byDef(e, 'tribute')[0]]);
+  assert.strictEqual(t2.recipe, 'duty_tribute');
+  assert.strictEqual(e.court().ignoredTribute, 0, 'taking the tribute makes it good');
+  e.s.meters.pressure = 3; e.s.week++;
+  e.coquilleWeek();
+  assert.ok(e.openCases().length >= 1, 'and the names come back');
+  void open1;
   // Two weeks in, a case arrives closed by the Court.
   e.s.week = e.court().since + 2;
   e.coquilleWeek();

@@ -781,7 +781,7 @@
       e.s.flags.rivalGone = e.s.week + 8;
       e.meter('reputation', 2);
       e.favour().council += 1;
-      return { title: 'The Rival Exposed', text: how + ' The Council reads the file in silence and sends the Provost\'s Examiner back to the Provost. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
+      return { title: 'The Rival Exposed', text: how + ' The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
     }
     rivalStall(ctx, 1);
     return { title: 'A Weakness Found', text: how + ' They will be careful for a week. One more, and you will have them.', kind: 'verb' };
@@ -792,15 +792,15 @@
     run: function (ctx) { return rivalHeat(ctx, 'Two hours of polite questions, and a name they did not want spoken: a moneylender, a widow, a file of their own.'); } });
   R.push({ id: 'int_rival_buy', verb: 'interrogate', label: 'Buy a Quiet Fortnight', duration: 8,
     preview: 'A Coin, and they find other things to do for two weeks.', requires: { primary: 'rival', aspects: ['funds'] },
-    effects: [{ consume: 'funds', n: 1 }, { call: function (ctx) { rivalStall(ctx, 2); } }, { story: { title: 'Bought', text: 'They take it without counting it. Two weeks, they say, and then the Provost will ask why nothing is happening.' } }] });
+    effects: [{ consume: 'funds', n: 1 }, { call: function (ctx) { rivalStall(ctx, 2); } }, { story: { title: 'Bought', text: 'They take it without counting it. Two weeks, they say, and then the Harbourmaster will ask why nothing is happening.' } }] });
   R.push({ id: 'int_rival_threat', verb: 'interrogate', label: 'Frighten Them', duration: 10,
     preview: 'Lean on them. It works for a week, and the city hears about it.', requires: { primary: 'rival', aspects: ['health'] },
-    effects: [{ call: function (ctx) { rivalStall(ctx, 1); } }, { meter: { dread: 1, retaliation: 1 } }, { story: { title: 'Frightened', text: 'You explain what happens to examiners who spoil scenes. They go pale. They also go to the Provost.' } }] });
+    effects: [{ call: function (ctx) { rivalStall(ctx, 1); } }, { meter: { dread: 1, retaliation: 1 } }, { story: { title: 'Frightened', text: 'You explain what happens to examiners who spoil scenes. They go pale. They also go to the Harbourmaster.' } }] });
   R.push({ id: 'int_rival_none', verb: 'interrogate', label: 'A Polite Conversation', duration: 5,
     preview: 'Without Wit, Coin or Health, this is a chat about the weather.', requires: { primary: 'rival' },
     effects: [{ story: { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' } }] });
   R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: 'Shadow Them', duration: 30,
-    preview: 'Follow the Provost\'s Examiner through a night. See where they go, and who pays.', requires: { primary: 'rival', aspects: ['instinct'] },
+    preview: 'Follow the Harbourmaster\'s Examiner through a night. See where they go, and who pays.', requires: { primary: 'rival', aspects: ['instinct'] },
     run: function (ctx) { return rivalHeat(ctx, 'A night in doorways, and at the end of it a door you can name and a purse you saw change hands.'); } });
 
   // ================================================================== REFLECT
@@ -1412,6 +1412,9 @@
       ctx.consume(ctx.primary);
       ctx.give('funds'); ctx.give('funds');
       ctx.e.count('purse', 1);
+      var court = ctx.e.court();
+      court.ignoredTribute = 0;
+      court.tributeNoted = false;
       return { title: 'The Tribute', text: 'Two Coin, clipped and heavy. You do not ask whose they were.' };
     },
   });
@@ -1581,7 +1584,7 @@
   // ============================================================= MAJOR CRIMES
   R.push({
     id: 'major_declare', verb: 'duty', src: 'majorcrimes', rank: 3, label: 'Have It Cried', duration: 20,
-    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.major ? 'The crier has already sung it.' : 'Costs 2 Coin. The case gets two minutes more, a name on the board, a witness, and the whole city watching. Convictions pay in Standing; an unanswered case costs the Crowd.'; },
+    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.major ? 'The crier has already sung it.' : 'Costs 2 Coin. The case gets two weeks more, a name in the casebook, a witness, and the whole city watching. Convictions pay in Standing; an unanswered case costs the Crowd.'; },
     blocked: function (ctx) {
       var rec = ctx.caseOf(ctx.primary);
       if (rec && rec.major) return 'The crier has already sung this one.';

@@ -5,7 +5,8 @@
 // election, and the Bishop's displeasure brings the Inquisitor.
 //
 //   s.favour = { council, bishop, guild }
-//   rec.commission = { from, wants, ofCouncil?, deadline? }
+//   rec.commission = { from, wants, ofCouncil?, deadline?, days? }
+//   e.commissionDays(rec)  the Council's days still left on it (null when none)
 //     council  wants it quiet: answered quickly, and not against a Council family
 //     bishop   wants mercy for the penitent: Pardon or a Fine
 //     guild    wants a cheat shamed, a brother fined, not hanged: the Pillory or a Fine
@@ -50,9 +51,16 @@
       com.ofCouncil = pick.key;
       com.wants = 'quiet';
       com.deadline = this.s.t + (CF.CASE_TEMPLATES[rec.template].lifetime || 250) * 0.66;
+      com.days = CF.daysLeft(com.deadline - this.s.t);
     } else if (from === 'bishop') com.wants = 'mercy';
     else com.wants = 'square';
     return com;
+  };
+  // How many of the Council's days are left on a commission, for the dossier.
+  P.commissionDays = function (rec) {
+    var c = rec && rec.commission;
+    if (!c || c.from !== 'council' || !c.deadline) return null;
+    return CF.daysLeft(c.deadline - this.s.t);
   };
   Pat.describe = function (rec) {
     var c = rec.commission;
@@ -60,7 +68,8 @@
     var who = CF.PATRONS[c.from].label;
     if (c.from === 'council') {
       var sus = rec.suspects.filter(function (x) { return x.key === c.ofCouncil; })[0];
-      return who + ' wants it answered by ' + 'the end of the week' + ', and would take it kindly if ' + (sus ? sus.name : 'a certain patrician') + ', of a Council family, were not the name.';
+      return U.fill('{who} wants it answered within {days} days, and would take it kindly if {name}, of a Council family, were not the name.',
+        { who: who, days: c.days || CF.daysLeft((CF.CASE_TEMPLATES[rec.template].lifetime || 250) * 0.66), name: sus ? sus.name : 'a certain patrician' });
     }
     if (c.from === 'bishop') return who + ' asks mercy for whoever did this, if they repent: a Pardon or a Fine, not the rope.';
     return who + ' want the culprit shamed in the square or fined, and a brother of the guild not hanged.';
@@ -131,7 +140,7 @@
       f.council = 0;
     }
     // The Inquisitor arrives when the Bishop's Favour is low.
-    if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican in a grey cloak has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
+    if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican, white habit under a black cloak, has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
     if (f.bishop >= 0 && s.flags.inquisitor) { s.flags.inquisitor = false; lines.push('The Inquisitor has been recalled. The Bishop is satisfied, for now.'); }
     // The week before an election, the seat your patron holds is in play.
     if (s.week % Pat.ELECTION_EVERY === Pat.ELECTION_EVERY - 1 && f.council > 0) lines.push('The Council elects next week. Your patron\'s seat is contested.');

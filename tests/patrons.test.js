@@ -43,6 +43,12 @@ function commission(seed, from) {
   assert.ok(n >= 10 && seen.council >= 1 && seen.bishop >= 1 && seen.guild >= 1, JSON.stringify(seen));
   var c = commission(1, 'council');
   assert.ok(c.rec.commission.ofCouncil && c.rec.commission.deadline > c.e.s.t);
+  // The Council's commission says what its clock is, in the city's days.
+  assert.ok(c.rec.commission.days >= 1, 'the commission carries its days: ' + c.rec.commission.days);
+  assert.ok(new RegExp('within ' + c.rec.commission.days + ' days').test(CF.Patrons.describe(c.rec)), CF.Patrons.describe(c.rec));
+  assert.strictEqual(c.e.commissionDays(c.rec), c.rec.commission.days, 'the days left, live, for the dossier');
+  c.e.tick(60);
+  assert.ok(c.e.commissionDays(c.rec) < c.rec.commission.days, 'and they run down');
   assert.ok(/Council/.test(c.e.caseCard(c.rec.id).desc), 'the case says who wants what');
   console.log('arrive: ok');
 })();

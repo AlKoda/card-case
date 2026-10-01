@@ -125,7 +125,7 @@
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
       rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', who: opts.who || null, detective: opts.name || 'Examiner',
       over: null,
-      stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0 },
+      stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0, sentHome: 0, reformed: 0 },
     };
     var e = new Engine(s);
     e.initPaths();
@@ -1193,7 +1193,8 @@
     var rec = this.caseRec(card.caseId);
     if (!rec || rec.status !== 'open' || rec.warned) return;
     rec.warned = true;
-    this.story('Going Unanswered: ' + rec.title, 'A minute left, and the trail is fading. Indict somebody, or let it go and live with it.', 'danger');
+    this.story('Going Unanswered: ' + rec.title, (rec.searches === 0 ? 'Seven days left on a case you never opened, and the trail is fading. ' : 'Seven days left, and the trail is fading. ') +
+      'Charge somebody, or let it go and live with it.', 'danger');
   };
   // How long a case has left, in the city's days (a week is a game minute).
   CF.daysLeft = function (seconds) { return Math.max(0, Math.ceil(seconds / (WEEK / 7))); };
@@ -1242,7 +1243,14 @@
       return;
     }
     if (card.def === 'witness') this.story('A Witness Moves On', label + ' has left the city. Whatever they saw went with them.', 'minor');
-    if (card.def === 'bribe') this.story('The Purse Is Gone', 'Somebody came back for it. They will remember you left it alone.', 'minor');
+    if (card.def === 'bribe') {
+      // With a Band or the Coquille in the city, the purse had owners who keep a tally.
+      var organized = this.countOf('gang') > 0 || (this.countOf('syndicate') > 0 && !this.s.flags.syndicateFallen);
+      if (organized) this.meter('retaliation', 1);
+      this.story('The Purse Is Gone', 'Somebody came back for it. They will remember you left it alone.' + (organized ? ' The people who left it remember.' : ''), 'minor');
+    }
+    // The King's purse left to lie: he counts the times (see coquilleWeek).
+    if (card.def === 'tribute' && this.court) { var court = this.court(); court.ignoredTribute = (court.ignoredTribute || 0) + 1; }
     if (card.def === 'clue' || card.def === 'evidence') this.story('The Trail Fades', label + ' has faded beyond use.', 'minor');
     this.remove(card);
   };
@@ -1576,6 +1584,7 @@
     var s = this.s;
     if (s.over) return;
     var end = CF.ENDINGS[id];
+    if (this.reformedCount) s.stats.reformed = this.reformedCount();
     var text = CF.Story ? CF.Story.ending(this, id) : end.text;
     s.over = { id: id, win: end.win, title: end.title, text: text, week: s.week, origin: s.origin, calling: s.calling };
     this.story(end.title, text, end.win ? 'victory' : 'defeat');
@@ -1606,7 +1615,7 @@
     if (L.syndicate) this.create('syndicate');
     this.create('notes', { desc: 'The casebook of ' + L.predecessor + ' (' + L.ending + '). Half of it is water-stained. Read it in Rest.' });
     this.meter('retaliation', Math.min(4, (L.atlarge || []).length + (L.gangs || []).length * 2));
-    this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a dagger, on the pillow.', 'major');
+    this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a cask of very good Rhenish, with the King\'s compliments.', 'major');
   };
 
   // ---- Specs for generated cards ------------------------------------------
@@ -1912,7 +1921,7 @@
     };
     rec.week = s.week;
     if (this.commissionFor) rec.commission = this.commissionFor(rec, T);
-    if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: null, deadline: s.t + (T.lifetime || 250) * 0.66 };
+    if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: null, deadline: s.t + (T.lifetime || 250) * 0.66, days: CF.daysLeft((T.lifetime || 250) * 0.66) };
     s.cases[id] = rec;
     s.stats.cases++;
 
@@ -2105,8 +2114,8 @@
       desc: 'The trail went cold. ' + culprit.name + ' walked. With the Rolls, this can be opened again in Study.',
       data: { template: rec.template, culpritName: culprit.name, culpritTrait: culprit.trait, atLargeUid: al.uid, title: rec.title },
     });
-    this.story('The Trail Goes Cold', rec.title + ' goes into a box in the basement. Somewhere in ' + CF.DISTRICTS[rec.district].label +
-      ', ' + culprit.name + ' hears the crier and laughs.', 'danger');
+    this.story('The Trail Goes Cold', rec.title + ' goes into the Rolls unanswered. Somewhere in ' + CF.DISTRICTS[rec.district].label +
+      ', ' + culprit.name + ' hears the crier and laughs.' + (rec.template === 'pattern' && rec.patternRead ? ' You knew the door, and nobody stood in it.' : ''), 'danger');
   };
 
   // ---- Charges and trials ---------------------------------------------------

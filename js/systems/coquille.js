@@ -154,7 +154,10 @@
       this.meter('pressure', -1);
       this.meter('retaliation', -1);
       court.quietWeeks = s.meters.pressure <= 3 ? court.quietWeeks + 1 : 0;
-      if (this.openCases().length < this.maxOpenCases()) {
+      // The purse left to lie twice: the King notices, and the names stop until it is taken.
+      if ((court.ignoredTribute || 0) >= 2) {
+        if (!court.tributeNoted) { court.tributeNoted = true; lines.push('The King notices the purse came back. The Court\'s boy stops bringing names.'); }
+      } else if (this.openCases().length < this.maxOpenCases()) {
         this.courtHandsOver(['The Treaty holds.', 'The King keeps his word.', 'A name comes up from the Warrens, as agreed.'][(s.week - court.since) % 3]);
         court.handed++;
       }

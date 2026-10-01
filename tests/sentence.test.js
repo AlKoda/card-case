@@ -78,13 +78,25 @@ function rung(e, id) { return byDef(e, 'rung').filter(function (c) { return c.da
   }
   var p = pass('pardon');
   assert.strictEqual(p.e.s.counts.mercy - p.before.c.mercy, 2, 'Pardon: Mercy +2');
+  assert.strictEqual(p.e.s.stats.sentHome, 1, 'a pardon sends one home: the Merciful Judge counts it');
   assert.strictEqual(p.e.s.meters.scrutiny - p.before.m.scrutiny, 1, 'a pardon without a reason: Suspicion +1');
   assert.ok(p.crim && (p.crim.status === 'reformed' || p.crim.traits.indexOf('spared') >= 0), 'reformed or spared: ' + p.crim.status);
   var f = pass('fine');
   assert.strictEqual(f.e.s.counts.mercy - f.before.c.mercy, 1);
+  assert.strictEqual(f.e.s.stats.sentHome, 1, 'a fine sends one home too');
+  assert.strictEqual(f.crim.status, 'reformed', 'and as far as the city learns they stay honest');
   assert.strictEqual(byDef(f.e, 'funds').length - f.before.funds, 1, 'a fee to the Watch-house');
   var pi = pass('pillory');
   assert.ok(pi.crim.traits.indexOf('pilloried') >= 0);
+  assert.strictEqual(pi.crim.status, 'at_large', 'the pilloried walk');
+  assert.ok(pi.e.atLargeCardFor(pi.crim), 'and are Abroad, marked');
+  assert.ok(/Pilloried/.test(pi.e.atLargeCardFor(pi.crim).desc), 'the card says how the quarter knows them');
+  assert.strictEqual(pi.e.s.stats.sentHome || 0, 0, 'the Pillory is not sending anyone home');
+  // The ending counts the reformed at the moment it lands.
+  var fe = pass('fine');
+  fe.e.gameOver('merciful');
+  assert.strictEqual(fe.e.s.stats.reformed, fe.e.reformedCount(), 'gameOver records the reformed for the ending');
+  assert.ok(fe.e.s.stats.reformed >= 1);
   var b = pass('banish');
   assert.strictEqual(b.crim.status, 'banished');
   assert.ok(b.crim.returnWeek > b.e.s.week);

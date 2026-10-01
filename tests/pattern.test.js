@@ -72,6 +72,13 @@ function run(e, verb, cards) {
   var late = 0;
   for (var j = 0; j < 20; j++) { var g2 = game(660 + j); g2.s.week = 12; g2.s.rank = 1; for (var w2 = 0; w2 < 10 && !g2.s.over; w2++) { g2.s.meters.pressure = 0; g2.weekTick(); } if (g2.s.flags.patternSeen) late++; }
   assert.ok(late >= 8, 'a Sworn Examiner sees it from week twelve: ' + late);
+  // A Pattern read and then left to go cold says so: you knew the door.
+  var pc = game(22);
+  var prec = pc.caseRec(pc.spawnCase('pattern', { quiet: true }).caseId);
+  prec.patternRead = true;
+  pc.goCold(prec.id);
+  var coldLine = pc.s.journal.filter(function (j) { return j.title === 'The Trail Goes Cold'; })[0];
+  assert.ok(coldLine && /You knew the door, and nobody stood in it/.test(coldLine.text), coldLine && coldLine.text);
   console.log('pattern: ok');
 })();
 

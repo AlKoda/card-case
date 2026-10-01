@@ -245,6 +245,33 @@ function run(e, verb, cards) {
     assert.strictEqual(w.s.stats.attacks, 0, 'the warning week never attacks');
     assert.ok(w.s.flags.stairWarned && w.s.journal.some(function (j) { return j.title === 'Which Stair Is Yours'; }), 'the warning');
   }
+  // A purse left to lie is remembered by whoever left it, when there is somebody to remember.
+  var b1 = game(30);
+  var rb = b1.s.meters.retaliation;
+  b1.expire(b1.create('bribe'));
+  assert.strictEqual(b1.s.meters.retaliation, rb, 'with nobody organized about, the purse is just gone');
+  var b2 = game(31);
+  b2.create('gang', { label: 'Band: a', data: { name: 'a', members: [] } });
+  rb = b2.s.meters.retaliation;
+  b2.expire(b2.create('bribe'));
+  assert.strictEqual(b2.s.meters.retaliation - rb, 1, 'with a Band in the city it feeds the Vendetta');
+  assert.ok(b2.s.journal.some(function (j) { return /The people who left it remember/.test(j.text); }), 'and the story says so');
+  // The warning before a case goes cold speaks in the city's days, and the cold case goes into the Rolls.
+  var w1 = game(32);
+  var wk = byDef(w1, 'case')[0], wrec = w1.caseRec(wk.caseId);
+  w1.warnCold(wk);
+  var warn = w1.s.journal.filter(function (j) { return /^Going Unanswered/.test(j.title); })[0];
+  assert.ok(warn && /Seven days left on a case you never opened/.test(warn.text), 'never opened: ' + (warn && warn.text));
+  assert.ok(!/minute/.test(warn.text), 'no real minutes in the city');
+  w1.goCold(wrec.id);
+  var cold = w1.s.journal.filter(function (j) { return j.title === 'The Trail Goes Cold'; })[0];
+  assert.ok(cold && /goes into the Rolls unanswered/.test(cold.text) && !/You knew the door/.test(cold.text), cold && cold.text);
+  var w2 = game(33);
+  var wk2 = byDef(w2, 'case')[0], wrec2 = w2.caseRec(wk2.caseId);
+  wrec2.searches = 2;
+  w2.warnCold(wk2);
+  var warn2 = w2.s.journal.filter(function (j) { return /^Going Unanswered/.test(j.title); })[0];
+  assert.ok(warn2 && /^Seven days left, and the trail is fading/.test(warn2.text), warn2 && warn2.text);
   console.log('vendetta: ok');
 })();
 

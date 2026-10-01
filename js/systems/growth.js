@@ -12,7 +12,7 @@
   CF.INSIGHTS = {
     fencing: { label: 'The Fencing-master', trains: 'health', perk: 'Sure-footed',
       how: 'Walk the hard round: Health into Attend, three times.', need: 3, count: function (e) { return recipeCount(e, 'duty_beat'); },
-      text: 'A gentleman on the Hill, retired from a regiment nobody names, has watched you walk the hard round past his window three nights running. He offers to teach you the small sword. It is not really about the sword.',
+      text: 'A gentleman on the Hill, retired from a regiment nobody names, has watched you walk the hard round past his window three nights running. He offers to teach you the rapier. It is not really about the rapier.',
       lesson: 'Your Health is more than it was.',
       perkText: 'The hard round pays one Coin more: you know where the ground is.' },
     casebook: { label: 'The Old Examiner\'s Method', trains: 'focus', perk: 'The Long Memory',
