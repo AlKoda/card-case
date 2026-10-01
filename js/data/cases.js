@@ -33,42 +33,42 @@
 
   // Every accused has one trait. The culprit's trait leaks into tokens.
   CF.TRAITS = [
-    { id: 'menthol', desc: 'Smokes a clay pipe of cheap Dutch tobacco, one bowl after another.',
+    { id: 'menthol', icon: 'imyst-19', desc: 'Smokes a clay pipe of cheap Dutch tobacco, one bowl after another.',
       clue: { label: 'Pipe Ash on the Sill', text: 'A knocked-out bowl of ash on the windowsill, still sour. Someone waited here a long while, smoking.', aspects: { forensic: 1, opportunity: 1 } } },
-    { id: 'limp', desc: 'Walks with a heavy limp in the left leg.',
+    { id: 'limp', icon: 'iev-02', desc: 'Walks with a heavy limp in the left leg.',
       clue: { label: 'A Dragging Footprint', text: 'Prints in the mud of the yard. The left foot drags on every step, leaving a long scuff.', aspects: { forensic: 1, opportunity: 1 } } },
-    { id: 'lefty', desc: 'Left-handed. Writes with a hooked wrist.', who: 'is left-handed, and writes with a hooked wrist.',
+    { id: 'lefty', icon: 'imed-23', desc: 'Left-handed. Writes with a hooked wrist.', who: 'is left-handed, and writes with a hooked wrist.',
       clue: { label: 'A Left-Handed Stroke', text: 'Whoever did this stood on the right and worked with their left hand. The angle is plain to anyone who has seen a butcher.', aspects: { forensic: 2 } } },
-    { id: 'van', desc: 'Drives a dray with a lame grey mule.',
+    { id: 'van', icon: 'itrade-12', desc: 'Drives a dray with a lame grey mule.',
       clue: { label: 'Grey Hair on the Gatepost', text: 'A rub of grey hair on the gatepost at a mule\'s height, and one hoofprint that lands wrong. Somebody backed a dray in here.', aspects: { forensic: 1, opportunity: 1 } } },
-    { id: 'bandage', desc: 'Has a fresh linen binding wrapped around one hand.',
+    { id: 'bandage', icon: 'imed-02', desc: 'Has a fresh linen binding wrapped around one hand.',
       clue: { label: 'Blood on the Latch', text: 'A smear of blood on the shutter latch. Someone cut themselves getting in, or getting out.', aspects: { forensic: 2 } } },
-    { id: 'sandalwood', desc: 'Wears civet and rosewater, like a courtier.',
+    { id: 'sandalwood', icon: 'imyst-08', desc: 'Wears civet and rosewater, like a courtier.',
       clue: { label: 'A Scent in the Room', text: 'Hours later the room still smells, faintly, of civet and rosewater. Not the victim\'s.', aspects: { opportunity: 1, testimony: 1 } } },
-    { id: 'debt', desc: 'Owes a great deal to a moneylender in the Stews.',
+    { id: 'debt', icon: 'icrime-10', desc: 'Owes a great deal to a moneylender in the Stews.',
       clue: { label: 'A Torn Bond', text: 'Half a bond, the sum circled twice in red ink. A lender in the Stews signs like that.', aspects: { financial: 1, motive: 1 } } },
-    { id: 'boots', desc: 'Wears great hobnailed boots, a soldier\'s.',
+    { id: 'boots', icon: 'iev-27', desc: 'Wears great hobnailed boots, a soldier\'s.',
       clue: { label: 'A Hobnail Scar', text: 'A deep gouge at the foot of the door, the kind a hobnailed boot makes. A big boot, and a kick.', aspects: { forensic: 1, opportunity: 1 } } },
-    { id: 'licorice', desc: 'Chews cloves against the toothache, constantly.',
+    { id: 'licorice', icon: 'imed-06', desc: 'Chews cloves against the toothache, constantly.',
       clue: { label: 'A Chewed Clove', text: 'A clove, chewed flat and spat behind the stove. Somebody with a bad tooth stood here a while.', aspects: { forensic: 1, opportunity: 1 } } },
-    { id: 'key', desc: 'Has had a key to the house for years.',
+    { id: 'key', icon: 'iev-25', desc: 'Has had a key to the house for years.',
       clue: { label: 'No Forced Entry', text: 'Not a mark on the locks. Whoever came in had a key, or was let in by someone who trusted them.', aspects: { opportunity: 2 } } },
-    { id: 'ring', desc: 'Never takes off a heavy gold signet.',
+    { id: 'ring', icon: 'iev-18', desc: 'Never takes off a heavy gold signet.',
       clue: { label: 'A Curved Scratch', text: 'A fresh curved scratch in the wax of the table, the kind a heavy signet leaves on a clenched fist.', aspects: { forensic: 1, opportunity: 1 } } },
-    { id: 'ticket', desc: 'Has lately paid a carrier for a seat on the wagon to the coast.',
+    { id: 'ticket', icon: 'iinv-02', desc: 'Has lately paid a carrier for a seat on the wagon to the coast.',
       clue: { label: 'The Carrier\'s Chit', text: 'A carrier\'s chit for a place on Friday\'s wagon to the coast. One way. Someone is planning to leave.', aspects: { opportunity: 1, motive: 1 } } },
-    { id: 'ink', desc: 'Has ink-black fingers; works a printer\'s press.',
+    { id: 'ink', icon: 'iev-30', desc: 'Has ink-black fingers; works a printer\'s press.',
       clue: { label: 'An Inked Thumb', text: 'A thumbprint, perfect, in printer\'s ink on the white of the doorframe.', aspects: { forensic: 2 } } },
-    { id: 'gambler', desc: 'Plays at dice every night in a cellar in the Stews.',
+    { id: 'gambler', icon: 'iev-16', desc: 'Plays at dice every night in a cellar in the Stews.',
       clue: { label: 'A Loaded Die', text: 'A bone die, rolled under the sideboard. Weighted. The dice-cellars in the Stews call them gourds.', aspects: { financial: 1, opportunity: 1 } } },
     // Marks that are heard, sealed or owed.
-    { id: 'stammer', desc: 'Stammers on hard consonants; the whole quarter mimics it.',
+    { id: 'stammer', icon: 'ilaw-08', desc: 'Stammers on hard consonants; the whole quarter mimics it.',
       clue: { label: 'What the Child Heard', text: 'A child on the stair heard somebody say the name and stick on it, twice.', aspects: { testimony: 2 } } },
-    { id: 'seal', desc: 'Seals letters with a cracked signet: a bird with half a wing.',
+    { id: 'seal', icon: 'cwax-04', desc: 'Seals letters with a cracked signet: a bird with half a wing.',
       clue: { label: 'A Cracked Seal', text: 'Wax on the boards by the desk, and in it a bird with half a wing. Not the household\'s.', aspects: { digital: 2 } } },
-    { id: 'shell', desc: 'Wears a pilgrim\'s cockle-shell on a greasy hat.',
+    { id: 'shell', icon: 'itrade-22', desc: 'Wears a pilgrim\'s cockle-shell on a greasy hat.',
       clue: { label: 'A Shell on the Sill', text: 'A cockle-shell, the Compostela kind, on the sill where a hat was set down.', aspects: { forensic: 1, testimony: 1 } } },
-    { id: 'lombard', desc: 'Has pledged the same coat at the Lombard\'s three times this year.',
+    { id: 'lombard', icon: 'iev-24', desc: 'Has pledged the same coat at the Lombard\'s three times this year.',
       clue: { label: 'A Lombard\'s Chit', text: 'A chit from across the river for a coat, redeemed and pledged again. Somebody lives from Friday to Friday.', aspects: { financial: 2 } } },
   ];
 
@@ -115,7 +115,7 @@
     ],
     suspectAlibi: [
       '{suspect} has an answer, and it is a good one: {alibi}. They are cleared.',
-      'You try {suspect}\'s story. It holds: {alibi}. Scratch one name off the board.',
+      'You try {suspect}\'s story. It holds: {alibi}. Strike one name from the casebook.',
     ],
     alibis: ['a night at the Harbour crane with a dozen porters', 'a bed in the Abbey hospital', 'a game of tables with a sergeant of the Watch',
       'a carrier\'s chit stamped two days\' ride away', 'a wedding, and forty guests who remember the dancing', 'a night in the Hole for drunkenness'],
@@ -179,7 +179,7 @@
       // from the structure, the generic pool and the trait token afterwards.
       items: [],
       witnesses: ['a baker lighting the ovens', 'the night-watchman crying the hours', 'the woman at the casement opposite'],
-      hints: ['I saw someone at the back gate. They had a bad leg, or maybe a heavy sack.', 'There was a dray. I didn\'t see the beast, it was dark.', 'The dog next door never barked. Never. It knew whoever it was.'],
+      hints: [{ text: 'I saw someone at the back gate with a sack. I did not see the face. I saw the hurry.' }, { text: 'There was a dray. I didn\'t see the beast, it was dark.' }, { text: 'The dog next door never barked. Never. It knew whoever it was.' }],
       // The written case (docs/DESIGN.md, "The first playable case"). Three
       // threads leave the scene: the shutter (body), the neighbour (word)
       // and the money (coin). Any two make a charge.
@@ -224,12 +224,12 @@
           gives: [{ type: 'clue', label: 'The Blade Read', text: 'The blade was a chisel, chipped at one corner. Find the chisel, find the burglar.', aspects: { forensic: 2, opportunity: 1 } }],
           story: { title: 'The Cast', text: 'The wax shows a chisel, and a chip at one corner that will match exactly one chisel in the city. It is the kind of detail the sworn men like.' } },
         { id: 'print_match', verb: 'analyze', label: 'Match the Hand', duration: 25, needs: { item: 'print', tool: 'prints', suspects: 1 }, consume: true,
-          preview: 'Hold the half-hand against every name on the board.',
+          preview: 'Hold the half-hand against every name in the casebook.',
           gives: [{ type: 'clue', label: 'The Hand Matched: {culprit}', text: 'The scar across the thumb on the strongbox lid is {culprit}\'s. Not the owner, not the household. {culprit}.', aspects: { forensic: 3 }, points: 'culprit', noMisread: true }],
           story: { title: 'A Match', kind: 'major', text: 'A scar across the ball of the thumb, and the same scar on a hand you have shaken. The thumb on the strongbox lid belongs to {culprit}.' } },
         { id: 'print_nomatch', verb: 'analyze', label: 'Compare the Hand', duration: 10, needs: { item: 'print', tool: 'prints' }, once: false,
           preview: 'Half a hand is only half a token. You need somebody to hold it against.',
-          story: { title: 'Nothing to Compare', text: 'A clean half-hand, and nobody on the board to hold it against. Find an accused first, then bring it back.' } },
+          story: { title: 'Nothing to Compare', text: 'A clean half-hand, and no accused to hold it against. Find an accused first, then bring it back.' } },
         { id: 'pawn', verb: 'analyze', label: 'Trace the Chit', duration: 20, needs: { item: 'ticket' }, consume: true,
           preview: 'Cross the river. Get the Lombard talking.',
           gives: [{ type: 'clue', label: 'Pledged Goods', text: 'A ring from the strongbox was pledged across the river within hours. The Lombard remembers who brought it in: "{seen}"', aspects: { financial: 2, testimony: 1 }, trait: true }],
@@ -258,7 +258,7 @@
           result: { label: 'The Cipher Broken', text: 'Read out, the last leaves speak of being followed, and name the person they feared in everything but name.', aspects: { testimony: 2, motive: 1 } } },
       ],
       witnesses: ['the neighbour with the cat', 'the tapster at the corner alehouse', 'a ballad-seller'],
-      hints: ['They quarrelled with someone on the stair. A man or a woman, I couldn\'t say. They sounded like they knew each other.', 'They were frightened. They kept looking at the door.', 'They told me they were coming into money. Then they said they were leaving the city.'],
+      hints: [{ text: 'They quarrelled with someone on the stair. A man or a woman, I couldn\'t say. They sounded like they knew each other.' }, { text: 'They were frightened. They kept looking at the door.' }, { text: 'They told me they were coming into money. Then they said they were leaving the city.' }],
     },
     harbor: {
       label: 'A Death', title: 'The Body at the Crane', lesser: 'manslaughter, not murder', lifetime: 240, difficulty: 7, highProfile: true,
@@ -282,7 +282,7 @@
           result: { label: 'The Leaves Parted', text: 'The apothecary parts the leaves over steam. The victim had been writing down names and cargo marks.', aspects: { motive: 1, financial: 2 } } },
       ],
       witnesses: ['a night fisherman', 'a porter on the late gang', 'a sailor waiting for the tide'],
-      hints: ['Two of them were arguing by the bollards, past compline. Then just one.', 'I heard a splash. I thought it was a bale. Nobody drops bales at midnight.', 'Somebody walked off the quay in a hurry. Big coat. They didn\'t look back.'],
+      hints: [{ text: 'Two of them were arguing by the bollards, past compline. Then just one.' }, { text: 'I heard a splash. I thought it was a bale. Nobody drops bales at midnight.' }, { text: 'Somebody walked off the quay in a hurry. Big coat. They didn\'t look back.' }],
     },
     arson: {
       label: 'Fire', title: 'Fire at {scene}', lesser: 'a careless fire, not arson', lifetime: 230, difficulty: 6,
@@ -300,13 +300,13 @@
       items: [
         { type: 'evidence', label: 'The Smell Under the Smoke', text: 'The floor stinks of lamp-oil under the char.', needs: 'bio',
           result: { label: 'The Oil Named', text: 'Rape-oil cut with spirit, a blend sold by one chandler in the Abbey Close.', aspects: { forensic: 2, opportunity: 1 } } },
-        { type: 'clue', label: 'A Bond of Assurance', text: 'Drawn six weeks ago before a notary. The premium paid in coin.', aspects: { financial: 2, motive: 1 } },
+        { type: 'clue', label: 'A Bond on the Building', text: 'The building stands pledged to a lender on the Hill for three times its worth, and the lender takes the loss if it burns. Sealed six weeks ago.', aspects: { financial: 2, motive: 1 } },
         { type: 'clue', label: 'Moved Stock', text: 'The good stock was carted out of the building the week before. Someone knew.', aspects: { financial: 1, opportunity: 1 } },
         { type: 'evidence', label: 'A Scorched Ledger', text: 'Half-burned, the leaves brittle.', needs: 'lab',
           result: { label: 'The Accounts Recovered', text: 'The leaves that survived show coin leaving the business for months.', aspects: { financial: 3 } } },
       ],
       witnesses: ['a man on the bucket-chain', 'a drunk asleep in the doorway opposite', 'a child who could not sleep'],
-      hints: ['Someone came out the side door just before the smoke. They weren\'t running. They were walking.', 'There was a smell, like a lamp, but strong. An hour before.', 'I saw a light in the upper room at matins. There\'s never anyone there at matins.'],
+      hints: [{ text: 'Someone came out the side door just before the smoke. They weren\'t running. They were walking.' }, { text: 'There was a smell, like a lamp, but strong. An hour before.' }, { text: 'I saw a light in the upper room at matins. There\'s never anyone there at matins.' }],
     },
     fraud: {
       label: 'False Dealing', title: 'The {last} Affair', lesser: 'sharp dealing, not fraud', lifetime: 300, difficulty: 7, victimSex: 'f',
@@ -329,7 +329,7 @@
         { type: 'clue', label: 'Spending Beyond Station', text: 'Someone near the venture bought a horse and a house this spring, in coin. The Carolina counts that as indicia.', aspects: { motive: 2 } },
       ],
       witnesses: ['another investor', 'a scrivener at the counting-house', 'a doorkeeper on the Hill'],
-      hints: ['There were always suppers. The same people, telling the same stories about the venture.', 'I wrote the letters fair. I was told what to write. I didn\'t ask.', 'They came in every Friday with a strongbox. Left without it.'],
+      hints: [{ text: 'There were always suppers. The same people, telling the same stories about the venture.' }, { text: 'I wrote the letters fair. I was told what to write. I didn\'t ask.' }, { text: 'They came in every Friday with a strongbox. Left without it.' }],
     },
     extortion: {
       label: 'Protection', title: 'Protection in {scene}', lesser: 'menaces, not extortion', lifetime: 260, difficulty: 6,
@@ -344,14 +344,14 @@
         { role: 'a stallholder who pays', motive: 'The stallholder who pays gets a discount for pointing out who does not.' },
       ],
       items: [
-        { type: 'clue', label: 'The Collector\'s Round', text: 'Pencilled on the back of a broadsheet: market days, stall numbers, sums.', aspects: { financial: 2, opportunity: 1 } },
-        { type: 'evidence', label: 'A Threatening Letter', text: '"Pay or burn." Letters cut from a broadsheet and pasted.', needs: 'prints',
-          result: { names: true, label: 'The Hand on the Paste', text: 'Whoever pasted this down was careful everywhere except the glue.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'The Collector\'s Round', text: 'Chalked on the back of a broadsheet: market days, stall numbers, sums.', aspects: { financial: 2, opportunity: 1 } },
+        { type: 'evidence', label: 'A Threatening Letter', text: '"Pay or burn." Written left-handed, in a hand that is trying not to be a hand.', needs: 'prints',
+          result: { names: true, label: 'The Hand on the Paper', text: 'Whoever wrote this was careful with the letters and careless with the thumb that held the paper.', aspects: { forensic: 3 } } },
         { type: 'clue', label: 'The Slashed Awning', text: 'Cut from the street, an hour before the gate bell, when the lane is still busy. They wanted to be seen.', aspects: { opportunity: 1, testimony: 1 } },
         { type: 'clue', label: 'The Victim\'s Account', text: '{victim} tells you everything, hands shaking, and begs you not to write their name down.', aspects: { testimony: 2 } },
       ],
       witnesses: ['a frightened stallholder', 'a carrier\'s boy', 'the woman who keeps the cookshop'],
-      hints: ['He comes on market day. Always market day. He talks like a sergeant.', 'They count the money on the corner, bold as brass.', 'There are two of them. One talks, one watches.'],
+      hints: [{ text: 'He comes on market day. Always market day. He talks like a sergeant.', role: 'a sergeant of the Watch' }, { text: 'They count the money on the corner, bold as brass.' }, { text: 'There are two of them. One talks, one watches.' }],
     },
     poison: {
       label: 'Poisoning', title: 'The Death of {victim}', lesser: 'unlawful physic, not murder', lifetime: 260, difficulty: 7,
@@ -370,7 +370,7 @@
       // from the structure, the generic pool and the trait token afterwards.
       items: [],
       witnesses: ['the kitchen maid', 'the apothecary\'s boy', 'a guest at the supper'],
-      hints: ['They sent the eels back and asked for the other dish. The one nobody else had.', 'Someone came for a paper of powder for the rats. We have no rats.', 'They laughed all through supper. At the end they said they felt cold.'],
+      hints: [{ text: 'They sent the eels back and asked for the other dish. The one nobody else had.' }, { text: 'Someone came for a paper of powder for the rats. We have no rats.' }, { text: 'They laughed all through supper. At the end they said they felt cold.' }],
       // The written case. Three threads leave the supper table: the Needle
       // (body), the Book (writ, and a name) and the Jointure (coin). Any two
       // convict before a Bailiff's Court. Order matters: the first lead whose
@@ -403,7 +403,7 @@
           ],
           story: { title: 'The Sign of the Pestle', text: 'Every apothecary keeps a poison book. This one has lost a leaf, and the boy who sweeps the shop saw who bought what.' } },
         { id: 'leaf_match', verb: 'analyze', label: 'Read the Leaf', duration: 25, needs: { item: 'book', tool: 'lab', suspects: 1 }, consume: true,
-          preview: 'The impress under the glass, and the names on the board beside it.',
+          preview: 'The impress under the glass, and the names in the casebook beside it.',
           gives: [{ type: 'clue', label: 'The Name on the Leaf: {culprit}', text: 'The impress reads whole under the glass. Three drams of white arsenic, sold on the Tuesday, to {culprit}.', aspects: { digital: 2, forensic: 1 }, points: 'culprit', noMisread: true }],
           story: { title: 'The Leaf', kind: 'major', text: 'The impress reads whole under the glass. Three drams of white arsenic, sold on the Tuesday, to {culprit}. The boy remembers the hand that signed.' } },
         { id: 'leaf_nomatch', verb: 'analyze', label: 'Read the Leaf', duration: 10, needs: { item: 'book', tool: 'lab' }, once: false,
@@ -440,7 +440,7 @@
           result: { names: true, label: 'The Mould Read', text: 'Vinegar brings up the hand that pressed the plaster: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
       ],
       witnesses: ['the Mintmaster\'s assayer', 'a market-woman who was paid in it', 'a boy who sells kindling'],
-      hints: ['They paid in new coin. Too new. Nobody in the Market has new coin.', 'I sold them charcoal three nights running. Sacks of it. Nobody bakes that much.', 'Their fingers were burned. Little burns, all over, like a cook\'s.'],
+      hints: [{ text: 'They paid in new coin. Too new. Nobody in the Market has new coin.' }, { text: 'I sold them charcoal three nights running. Sacks of it. Nobody bakes that much.' }, { text: 'Their fingers were burned. Little burns, all over, like a cook\'s.' }],
     },
 
     // --- Special cases -------------------------------------------------
@@ -465,7 +465,7 @@
         { type: 'clue', label: 'The Window Bar', text: 'The scriptorium was locked, but one bar of the window is loose, and the garden below is soft.', aspects: { forensic: 1, opportunity: 1 } },
       ],
       witnesses: ['the infirmarian', 'a novice who sleeps badly', 'the Abbey\'s porter'],
-      hints: ['Somebody was in the library after compline with a shaded lamp. Nobody is in the library after compline.', 'They asked me what a certain word in Greek meant, and then said forget it.', 'The garden was trodden under the window, before the frost.'],
+      hints: [{ text: 'Somebody was in the library after compline with a shaded lamp. Nobody is in the library after compline.' }, { text: 'They asked me what a certain word in Greek meant, and then said forget it.' }, { text: 'The garden was trodden under the window, before the frost.' }],
     },
     witch: {
       label: 'The Witch Mark', title: 'The Drowned Child of {scene}', lesser: 'neglect, not murder', lifetime: 240, difficulty: 7, highProfile: true, council: true,
@@ -486,7 +486,7 @@
         { type: 'clue', label: 'Who Gains', text: 'The mother\'s jointure was the child\'s. Now it is somebody else\'s.', aspects: { motive: 2, financial: 1 } },
       ],
       witnesses: ['the miller\'s wife', 'a washerwoman at the race', 'the child\'s older sister'],
-      hints: ['The child was afraid of the house, not of the water.', 'I saw a man at the sluice, and it was no woman, whatever they shout in the square.', 'The midwife was at a birth across the city that night, and there are twelve women who will say so, if anyone asks.'],
+      hints: [{ text: 'The child was afraid of the house, not of the water.' }, { text: 'I saw a man at the sluice, and it was no woman, whatever they shout in the square.' }, { text: 'The midwife was at a birth across the city that night, and there are twelve women who will say so, if anyone asks.' }],
     },
     highway: {
       label: 'The Highway', title: 'The Robbery on the {scene}', lesser: 'theft, not robbery', lifetime: 240, difficulty: 7,
@@ -508,7 +508,8 @@
         { type: 'clue', label: 'The Polite Robber', text: 'He called the carrier by name and asked after his wife. He has drunk at the carrier\'s inn.', aspects: { testimony: 2 } },
       ],
       witnesses: ['the carrier', 'the passenger', 'a shepherd on the road'],
-      hints: ['He sat a horse like a man who was taught, not like a man who stole one.', 'They knew the box was there before the carrier did.', 'The one who gave the orders had a voice from the Warrens under the mask.'],
+      hints: [{ text: 'He sat a horse like a man who was taught, not like a man who stole one.', role: 'a gentleman of the Hill in debt' }, { text: 'They knew the box was there before the carrier did.' }, { text: 'The one who gave the orders had a voice from the Warrens under the mask.', role: 'a former upright man' },
+        { text: 'They were polite. Nobody who has ever been hungry is that polite with a pistol.' }],
     },
     contract: {
       label: 'The Contract', title: 'The Killing of {victim}', lesser: 'manslaughter, not murder', lifetime: 260, difficulty: 8,
@@ -530,7 +531,7 @@
         { type: 'clue', label: 'Nothing Taken', text: 'The purse still on the body, the rings still on the hand. Whoever did this was paid already.', aspects: { motive: 1, forensic: 1 } },
       ],
       witnesses: ['the tapster of the Red Ox', 'a link-boy', 'the victim\'s clerk'],
-      hints: ['The man did not run. He walked, like somebody who had done it before.', 'A purse with a good seal on it went across the table the night before.', 'Somebody on the Hill wanted this. The hand was hired; the reason was not.'],
+      hints: [{ text: 'The man did not run. He walked, like somebody who had done it before.' }, { text: 'A purse with a good seal on it went across the table the night before.' }, { text: 'Somebody on the Hill wanted this. The hand was hired; the reason was not.' }],
     },
     eumenides: {
       label: 'The Eumenides', title: 'The Brotherhood of St Julian', lifetime: 360, difficulty: 10, special: true, highProfile: true,
@@ -552,7 +553,7 @@
         { type: 'clue', label: 'The Porter\'s Word', text: 'The hospital porter has seen the carts leave at night and has been paid, until now, not to count them.', aspects: { testimony: 2, opportunity: 1 } },
       ],
       witnesses: ['the hospital porter', 'a beggar fed at the door', 'a laundress who washes the chapter house linen'],
-      hints: ['The carts go out by the Harbour road, after compline, covered.', 'They give the poor a ring and a supper. Nobody who took the ring came back for a second supper.', 'The physician drinks now. He did not, before.'],
+      hints: [{ text: 'The carts go out by the Harbour road, after compline, covered.' }, { text: 'They give the poor a ring and a supper. Nobody who took the ring came back for a second supper.' }, { text: 'The physician drinks now. He did not, before.' }],
     },
     pattern: {
       label: 'The Pattern', title: 'The Girls of {scene}', lesser: 'one death, not all', lifetime: 360, difficulty: 9, highProfile: true, serial: true, victimSex: 'f',
@@ -574,7 +575,7 @@
         { type: 'clue', label: 'A Smell of Attar', text: 'Rosewater and something under it, on the doorpost where he leaned.', aspects: { forensic: 1, testimony: 1 } },
       ],
       witnesses: ['a girl who walks the same lane', 'the night soil man', 'a tapster closing up'],
-      hints: ['He does not hurry. He walks like a man going home.', 'The girls say a gentle voice asked their names the week before.', 'Always the night after a fair. Always a girl with fair hair.'],
+      hints: [{ text: 'He does not hurry. He walks like a man going home.' }, { text: 'The girls say a gentle voice asked their names the week before.' }, { text: 'Always the night after a fair. Always a girl with fair hair.' }],
     },
     threedays: {
       label: 'The Three Days', title: 'The Apple in the Chest', lesser: 'a death by misadventure', lifetime: 100, difficulty: 8, highProfile: true, council: true, nSuspects: 4, guiltyRole: 'the husband', victimSex: 'f',
@@ -597,7 +598,7 @@
         { type: 'clue', label: 'The Bill of Sale', text: 'The chest was sold at auction by the man who owned it. He signed his own name.', aspects: { digital: 2, opportunity: 1 } },
       ],
       witnesses: ['the auctioneer', 'the sick woman\'s neighbour', 'a fishwife who saw the chest carried'],
-      hints: ['Two men came to the Watch-house on the same morning, each saying he did it, and neither would look at the other.', 'The apples were bought on the Hill, three of them, for a woman who was dying.', 'The husband was not angry when he came home. He was very quiet.'],
+      hints: [{ text: 'Two men came to the Watch-house on the same morning, each saying he did it, and neither would look at the other.' }, { text: 'The apples were bought on the Hill, three of them, for a woman who was dying.' }, { text: 'The husband was not angry when he came home. He was very quiet.' }],
     },
     manhunt: {
       label: 'Hue and Cry', title: 'Hue and Cry: {culprit}', lifetime: 200, difficulty: 5, special: true,
@@ -613,7 +614,7 @@
         { type: 'clue', label: 'The Old Case', text: 'Your notes from the first time round. You were closer than you knew.', aspects: { motive: 2 } },
       ],
       witnesses: ['a landlady', 'a tobacconist'],
-      hints: ['Paid a month in advance, in coin. Nervous sort.', 'Comes and goes at night. Never the same street twice.'],
+      hints: [{ text: 'Paid a month in advance, in coin. Nervous sort.' }, { text: 'Comes and goes at night. Never the same street twice.' }],
     },
     gang: {
       label: 'A Band', title: 'The Breaking of {gang}', lifetime: 320, difficulty: 9, special: true, highProfile: true, guiltyRole: 'the band\'s upright man',
@@ -634,7 +635,7 @@
         { type: 'clue', label: 'Your Own Account', text: 'What you saw with your own eyes, written down while it was fresh.', aspects: { testimony: 2 } },
       ],
       witnesses: ['a runner who wants out', 'a tapster who pays protection'],
-      hints: ['The upright man never touches the coin. Makes someone else do it.', 'They\'re more frightened of him than of you.'],
+      hints: [{ text: 'The upright man never touches the coin. Makes someone else do it.' }, { text: 'They\'re more frightened of him than of you.' }],
     },
     syndicate: {
       label: 'The Coquille', title: 'The Court of Miracles', lifetime: 400, difficulty: 12, special: true, highProfile: true, guiltyRole: 'the King of Thunes',
@@ -656,7 +657,7 @@
           result: { label: 'The Old Killing', text: 'The blood is a man\'s, and the cloak was bought by one of the men who sit on barrels in the Court.', aspects: { forensic: 3 } } },
       ],
       witnesses: ['a frightened reckoner', 'a ferryman'],
-      hints: ['The King never raises his voice. He doesn\'t have to.', 'I rowed them. All of them. I know where they went.'],
+      hints: [{ text: 'The King never raises his voice. He doesn\'t have to.' }, { text: 'I rowed them. All of them. I know where they went.' }],
     },
     architect: {
       label: 'The Architect', title: 'The Architect', lifetime: 400, difficulty: 11, special: true, highProfile: true,
@@ -670,14 +671,14 @@
         { role: 'the great benefactor', motive: 'Endows the orphanage, the hospital, and everything else.' },
       ],
       items: [
-        { type: 'clue', label: 'The Signature', text: 'The same small mark at every scene you ever worked: a folded paper crane.', aspects: { forensic: 2, opportunity: 1 } },
+        { type: 'clue', label: 'The Signature', text: 'The same small mark cut at every scene you ever worked: three strokes, a mason\'s mark, where the crime began.', aspects: { forensic: 2, opportunity: 1 } },
         { type: 'evidence', label: 'The Correspondence', text: 'Letters to a dozen thieves, unsigned.', needs: 'lab',
           result: { label: 'The Letters Read', text: 'Plans. Detailed plans. For crimes you have examined.', aspects: { digital: 2, motive: 2 } } },
         { type: 'clue', label: 'The Payments', text: 'Every one of them was paid, in the same way, from the same purse.', aspects: { financial: 3 } },
         { type: 'clue', label: 'A Convict\'s Deposition', text: 'One of the people you sent down has decided to talk.', aspects: { testimony: 3 } },
       ],
       witnesses: ['a housekeeper', 'a former pupil'],
-      hints: ['Such a kind person. They always asked about your cases, Examiner.', 'They kept paper cranes on every windowsill.'],
+      hints: [{ text: 'Such a kind person. They always asked about your cases, Examiner.' }, { text: 'They kept a mason\'s square on the desk and never built anything.' }],
     },
   };
 

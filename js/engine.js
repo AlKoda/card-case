@@ -1911,18 +1911,26 @@
     var tid = templateId || U.pick(rng, this.casePool());
     var T = CF.CASE_TEMPLATES[tid];
     var id = 'c' + s.nextUid++;
-    var victim = opts.victim || this.newName(T.victimSex || null);
+    // An unanswered case opened again is the same book: the victim, the
+    // scene, the names, and what was never found (goCold writes `from`).
+    var from = opts.from && opts.from.suspects && opts.from.suspects.length ? opts.from : null;
+    var victim = opts.victim || (from && from.victim) || this.newName(T.victimSex || null);
     var last = U.pick(rng, CF.NAMES.last);
-    var district = opts.district || U.pick(rng, T.districts);
+    var district = opts.district || (from && from.district) || U.pick(rng, T.districts);
     var vars = {
       victim: victim, last: last, n: U.randInt(rng, 3, 19), district: CF.DISTRICTS[district].label,
       gang: opts.gangName || 'the gang', culprit: opts.culpritName || '',
     };
-    var scene = U.fill(U.pick(rng, T.scenes), vars);
+    if (from && from.vars) for (var fv in from.vars) vars[fv] = from.vars[fv];
+    var scene = from && from.scene ? from.scene : U.fill(U.pick(rng, T.scenes), vars);
     vars.scene = scene;
     // Structure first, prose second: the shape of this particular crime.
-    var structure = (CF.STRUCTURES[tid] && CF.STRUCTURES[tid].length) ? U.pick(rng, CF.STRUCTURES[tid]) : null;
-    if (structure) for (var sv in structure.vars) vars[sv] = U.pick(rng, structure.vars[sv]);
+    var structure = null;
+    if (from) structure = (CF.STRUCTURES[tid] || []).filter(function (x) { return x.id === from.structure; })[0] || null;
+    else if (CF.STRUCTURES[tid] && CF.STRUCTURES[tid].length) {
+      structure = U.pick(rng, CF.STRUCTURES[tid]);
+      for (var sv in structure.vars) vars[sv] = U.pick(rng, structure.vars[sv]);
+    }
 
     // The accused: the template's roles, or the ones the story hands in.
     var rolePool = opts.roles && opts.roles.length ? opts.roles : T.roles;
@@ -1944,6 +1952,14 @@
       var name = i === guiltyIdx && opts.culpritName ? opts.culpritName : self.newName(r.sex || null);
       return { key: 's' + i, name: name, role: r.role, motive: r.motive, trait: traits[i].id, guilty: i === guiltyIdx, revealed: false };
     });
+    if (from) {
+      // The same names: nobody is in the casebook yet, but the cleared stay cleared.
+      suspects = from.suspects.map(function (x) {
+        return { key: x.key, name: x.name, role: x.role, motive: x.motive, trait: x.trait, guilty: !!x.guilty, revealed: false, cleared: !!x.cleared };
+      });
+      guiltyIdx = Math.max(0, suspects.map(function (x) { return x.guilty; }).indexOf(true));
+      traits = suspects.map(function (x) { return CF.TRAITS.filter(function (t) { return t.id === x.trait; })[0] || CF.TRAITS[0]; });
+    }
     var culprit = suspects[guiltyIdx];
     vars.culprit = culprit.name;
 
@@ -1995,6 +2011,13 @@
     }
     items = U.shuffle(rng, items);
     if (items.length > 4) items.length = 4; // a scene gives four things at most: what matters, not everything
+    if (from) {
+      // What was never found, topped up to two from a fresh look at the scene.
+      var had = (from.items || []).map(function (it) { return U.clone(it); });
+      var seen = had.map(function (it) { return it.label; });
+      items.forEach(function (it) { if (had.length < 2 && seen.indexOf(it.label) < 0) { had.push(it); seen.push(it.label); } });
+      items = had;
+    }
     // A Careful criminal leaves less behind: the trait and the structure's
     // own tokens stay; up to two of the rest go, down to two things.
     if (known && known.traits.indexOf('careful') >= 0) {
@@ -2003,7 +2026,7 @@
     }
 
     var rec = {
-      id: id, template: tid, title: U.fill(opts.title || T.title, vars), short: T.label, district: district, scene: scene,
+      id: id, template: tid, title: from && from.title ? from.title : U.fill(opts.title || T.title, vars), short: T.label, district: district, scene: scene,
       victim: victim, vars: vars, suspects: suspects, culprit: culprit.key, keyAspects: T.keyAspects.slice(),
       difficulty: difficulty, highProfile: highProfile, charge: charge, items: items, found: 0,
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
@@ -2016,9 +2039,11 @@
     if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: null, deadline: s.t + (T.lifetime || 250) * 0.66, days: CF.daysLeft((T.lifetime || 250) * 0.66) };
     s.cases[id] = rec;
     s.stats.cases++;
+    // A leaf read from the old book in Rest belongs to the case again.
+    if (from && from.id) for (var ok in s.cards) { if (s.cards[ok].caseId === from.id) { s.cards[ok].caseId = id; s.cards[ok].fresh = true; } }
 
     var life = Math.round((opts.lifetime || T.lifetime) * this.caseClock()) + (opts.extraTime || 0);
-    var brief = U.fill(opts.brief || (structure && !opts.culpritName ? structure.brief : T.brief), vars);
+    var brief = from ? 'The book opens where you closed it. ' + U.fill(T.brief, vars) : U.fill(opts.brief || (structure && !opts.culpritName ? structure.brief : T.brief), vars);
     // An informant's warning: you were ready for this one.
     var warning = !T.special && this.warningFor(tid);
     if (warning) {
@@ -2135,11 +2160,12 @@
     if (!who) who = rec.witnesses.length ? rec.witnesses.shift() : 'a passer-by';
     var name = this.newName(this.sexOf(who));
     var stake = U.pick(this.rng, Object.keys(CF.STAKES));
+    var knows = this.rng() < 0.8;
     return {
       label: 'Witness: ' + name,
-      desc: name + ', ' + who + '. Saw something near ' + rec.scene + ', and ' + CF.STAKES[stake].desc + '. (Witness in: ' + rec.title + ')',
+      desc: name + ', ' + who + '. ' + (knows ? 'Was at their casement and saw somebody near ' : 'Heard something near ') + rec.scene + ', and ' + CF.STAKES[stake].desc + '. (Witness in: ' + rec.title + ')',
       caseId: rec.id,
-      data: { knows: this.rng() < 0.8, stake: stake, who: who },
+      data: { knows: knows, stake: stake, who: who },
     };
   };
 
@@ -2219,7 +2245,7 @@
       desc: 'The trail went cold. ' + culprit.name + ' walked. With the Rolls, this can be opened again in Study.',
       data: { template: rec.template, culpritName: culprit.name, culpritTrait: culprit.trait, atLargeUid: al.uid, title: rec.title,
         // What the case was, for the day it is opened again: the same victim, scene and names, the proof not yet found.
-        from: { victim: rec.victim, district: rec.district, scene: rec.scene, structure: rec.structure, vars: rec.vars,
+        from: { id: rec.id, victim: rec.victim, district: rec.district, scene: rec.scene, structure: rec.structure, vars: rec.vars,
           items: rec.items.slice(rec.found), suspects: rec.suspects, title: rec.title, template: rec.template } },
     });
     this.story('The Trail Goes Cold', rec.title + ' goes into the Rolls unanswered. Somewhere in ' + CF.DISTRICTS[rec.district].label +

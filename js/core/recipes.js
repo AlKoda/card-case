@@ -265,7 +265,7 @@
             if (lead.reveal) {
               var key = lead.reveal === 'culprit' ? rec.culprit : lead.reveal === 'any' ? undefined : lead.reveal;
               var sc = e.revealSuspect(rec, ctx, key ? { key: key } : {});
-              if (sc) extra.push('A name for the board: ' + e.labelOf(sc) + '.');
+              if (sc) extra.push('A name for the casebook: ' + e.labelOf(sc) + '.');
             }
             if (lead.district && !e.hasDistrict(rec.district) && e.s.flags.marketOpen) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
             if (lead.fatigue && ctx.rng() < lead.fatigue) ctx.give('fatigue');

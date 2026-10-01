@@ -25,7 +25,7 @@ function run(e, verb, cards) {
   e.tick(e.verb(verb).duration + 0.01);
   var v = e.verb(verb), out = v.out.map(function (u) { return e.card(u); }), story = v.story;
   if (v.status === 'done') e.collect(verb);
-  return { out: out, story: story, recipe: v.recipe };
+  return { out: out, story: story, recipe: v.recipe, preview: pv };
 }
 
 // ---- Every new crime is a whole crime -----------------------------------------
@@ -201,3 +201,147 @@ function run(e, verb, cards) {
 })();
 
 console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, names, crier witness, marks all OK');
+
+// ---- Every mark has an icon, and the icon is cut -----------------------------------------
+(function icons() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/art/cm-icons.css'), 'utf8');
+  CF.TRAITS.forEach(function (t) {
+    assert.ok(t.icon && /^[a-z0-9]+-\d\d$/.test(t.icon), t.id + ' has an icon');
+    assert.ok(css.indexOf('--art-' + t.icon + ':') >= 0, t.id + ': --art-' + t.icon + ' is in cm-icons.css');
+  });
+  console.log('icons: ok');
+})();
+
+// ---- What a witness heard has a target ----------------------------------------------------
+(function hintTargets() {
+  for (var tid in CF.CASE_TEMPLATES) {
+    var T = CF.CASE_TEMPLATES[tid];
+    T.hints.forEach(function (h) {
+      assert.ok(h && typeof h.text === 'string' && h.text.length, tid + ': a hint is { text }');
+      if (h.role) assert.ok(T.roles.some(function (r) { return r.role === h.role; }), tid + ': hint role is one of the accused: ' + h.role);
+    });
+  }
+  // The card says whether they saw or heard.
+  var e0 = game(990), rec0 = e0.caseRec(e0.spawnCase('burglary', { quiet: true }).caseId), saw = 0, heard = 0;
+  for (var k = 0; k < 40; k++) {
+    var ws = e0.witnessSpec(rec0, 'a baker lighting the ovens');
+    if (ws.data.knows) { saw++; assert.ok(/Was at their casement and saw somebody near /.test(ws.desc), ws.desc); }
+    else { heard++; assert.ok(/Heard something near /.test(ws.desc), ws.desc); }
+  }
+  assert.ok(saw && heard, 'both kinds of witness');
+
+  // One hearing from a saved state: the clock does not move between them,
+  // so neither the rival nor the case's own clock can take the case away.
+  function hearing(saved, state, rec, who, stake) {
+    var g = CF.Engine.load(saved);
+    g.rng.setState(state);
+    var w = g.create('witness', g.witnessSpec(g.caseRec(rec.id), who));
+    w.data.knows = false; w.data.stake = stake;
+    var r = run(g, 'interrogate', [w, g.create('focus')]);
+    var dep = r.out.filter(function (c) { return /^Deposition/.test(g.labelOf(c)); })[0];
+    assert.ok(dep, 'a deposition: ' + JSON.stringify(r.story));
+    return dep;
+  }
+  // The highway: the Warrens voice is about the upright man, the taught rider about a gentleman who is not accused.
+  var T = CF.CASE_TEMPLATES.highway;
+  var rider = T.hints.filter(function (h) { return h.role === 'a gentleman of the Hill in debt'; })[0];
+  var voice = T.hints.filter(function (h) { return h.role === 'a former upright man'; })[0];
+  assert.ok(rider && voice && T.hints.some(function (h) { return !h.role && /polite/.test(h.text); }), 'the highway hints have targets');
+  var e = game(991);
+  e.s.rank = 3;
+  var rec = e.caseRec(e.spawnCase('highway', { quiet: true, roles: T.roles.slice(0, 3), guiltyRole: 'a former upright man' }).caseId);
+  var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  assert.strictEqual(cul.role, 'a former upright man');
+  var saved = e.save(), voices = 0;
+  for (var i = 0; i < 40; i++) {
+    var dep = hearing(saved, (i + 1) * 7919, rec, 'a shepherd on the road', 'none');
+    assert.ok(dep.desc.indexOf(rider.text) < 0, 'a hint about nobody in the case is never heard');
+    if (dep.desc.indexOf(voice.text) >= 0) { voices++; assert.strictEqual(dep.data.points, cul.key, 'the voice from the Warrens points at the upright man'); }
+    else assert.ok(!dep.data.points, 'a hint about nobody points at nobody');
+  }
+  assert.ok(voices > 0, 'the voice is heard sometimes');
+
+  // Protection: the sergeant's hint is about an innocent, heard only from a witness with a reason.
+  var X = CF.CASE_TEMPLATES.extortion;
+  var sgt = X.hints.filter(function (h) { return h.role === 'a sergeant of the Watch'; })[0];
+  var e2 = game(992);
+  e2.s.rank = 3;
+  var rec2 = e2.caseRec(e2.spawnCase('extortion', { quiet: true, roles: [X.roles[2], X.roles[0], X.roles[1]], guiltyRole: 'a bravo of the Stews' }).caseId);
+  var sergeant = rec2.suspects.filter(function (x) { return x.role === 'a sergeant of the Watch'; })[0];
+  assert.ok(sergeant && !sergeant.guilty);
+  var saved2 = e2.save(), j;
+  for (j = 0; j < 30; j++) assert.ok(hearing(saved2, (j + 1) * 7919, rec2, 'a carrier\'s boy', 'hates').desc.indexOf(sgt.text) < 0, 'nobody names a sergeant who is not in the casebook');
+  e2.revealSuspect(rec2, null, { key: sergeant.key });
+  saved2 = e2.save();
+  for (j = 0; j < 30; j++) assert.ok(hearing(saved2, (j + 1) * 7919, rec2, 'a carrier\'s boy', 'none').desc.indexOf(sgt.text) < 0, 'nobody without a reason names the sergeant');
+  for (j = 0; j < 30; j++) assert.ok(hearing(saved2, (j + 1) * 7919, rec2, 'a carrier\'s boy', 'kin').desc.indexOf(sgt.text) < 0, 'kin do not name the sergeant');
+  var grudge = 0;
+  for (j = 0; j < 40; j++) {
+    var d2 = hearing(saved2, (j + 1) * 7919, rec2, 'a carrier\'s boy', j % 2 ? 'hates' : 'reward');
+    if (d2.desc.indexOf(sgt.text) >= 0) { grudge++; assert.strictEqual(d2.data.points, sergeant.key, 'a grudge points at the sergeant'); }
+  }
+  assert.ok(grudge > 0, 'a grudge or the reward names the sergeant sometimes');
+  console.log('hint targets: ok');
+})();
+
+// ---- Opening an Unanswered case again opens the same book --------------------------------
+(function sameBook() {
+  var e = game(993);
+  e.s.rooms.archive = true;
+  var rec = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+  var kase = e.caseCard(rec.id);
+  rec.found = 2;
+  var unfound = rec.items.slice(2).map(function (it) { return it.label; });
+  var names = rec.suspects.map(function (x) { return x.name; });
+  rec.suspects[0].revealed = true;
+  var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  innocent.cleared = true;
+  e.goCold(rec.id);
+  assert.ok(!e.card(kase.uid), 'the case card is gone');
+  var cold = byDef(e, 'coldcase')[0];
+  assert.ok(cold && cold.data.from && cold.data.from.id === rec.id, 'the Unanswered card remembers the case');
+  assert.deepStrictEqual(cold.data.from.items.map(function (it) { return it.label; }), unfound, 'and what was never found');
+  // Read the Old Book: one unfound item becomes a token that keeps.
+  var r = run(e, 'reflect', [cold]);
+  assert.strictEqual(r.recipe, 'ref_cold');
+  assert.strictEqual(r.preview.label, 'Read the Old Book');
+  var leaf = r.out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.ok(leaf, 'a token from the old book');
+  assert.ok(!leaf.life, 'it keeps');
+  assert.ok(unfound.indexOf(e.labelOf(leaf)) >= 0 || rec.items.slice(2).some(function (it) { return it.result && it.result.label === e.labelOf(leaf); }), 'it is one of the unfound: ' + e.labelOf(leaf));
+  assert.strictEqual(leaf.caseId, rec.id);
+  assert.strictEqual(cold.data.from.items.length, unfound.length - 1, 'the leaf is read');
+  var r2 = run(e, 'reflect', [cold]);
+  assert.strictEqual(r2.preview.label, 'Regret', 'once per book');
+  assert.ok(!r2.out.some(function (c) { return c.def === 'clue'; }));
+  // Open it again: the same victim, scene, title and names; nobody in the casebook, the cleared stay cleared.
+  var r3 = run(e, 'analyze', [cold]);
+  assert.strictEqual(r3.recipe, 'an_reopen');
+  var card2 = r3.out.filter(function (c) { return c.def === 'case'; })[0];
+  assert.ok(card2, 'the case is open again');
+  var rec2 = e.caseRec(card2.caseId);
+  assert.notStrictEqual(rec2.id, rec.id);
+  assert.strictEqual(rec2.victim, rec.victim);
+  assert.strictEqual(rec2.scene, rec.scene);
+  assert.strictEqual(rec2.title, rec.title);
+  assert.strictEqual(rec2.district, rec.district);
+  assert.strictEqual(rec2.structure, rec.structure);
+  assert.deepStrictEqual(rec2.suspects.map(function (x) { return x.name; }), names);
+  assert.ok(rec2.suspects.every(function (x) { return !x.revealed; }), 'nobody is in the casebook yet');
+  assert.ok(rec2.suspects.filter(function (x) { return x.key === innocent.key; })[0].cleared, 'the cleared stay cleared');
+  assert.strictEqual(rec2.culprit, rec.culprit);
+  assert.ok(rec2.items.length >= 2, 'at least two things to find');
+  var labels2 = rec2.items.map(function (it) { return it.label; });
+  cold.data.from.items.forEach(function (it) { assert.ok(labels2.indexOf(it.label) >= 0, 'the unfound are still there: ' + it.label); });
+  assert.ok(/^The book opens where you closed it\. /.test(card2.desc), card2.desc);
+  assert.strictEqual(leaf.caseId, rec2.id, 'the leaf belongs to the case again');
+  // A fresh cold case with nothing left unread has only Regret.
+  var rec3 = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+  rec3.found = rec3.items.length;
+  e.goCold(rec3.id);
+  var cold3 = byDef(e, 'coldcase').filter(function (c) { return c.data.from && c.data.from.id === rec3.id; })[0];
+  assert.ok(cold3 && !cold3.data.from.items.length);
+  var r4 = run(e, 'reflect', [cold3]);
+  assert.strictEqual(r4.preview.label, 'Regret');
+  console.log('same book: ok');
+})();

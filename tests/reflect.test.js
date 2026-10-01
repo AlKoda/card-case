@@ -102,3 +102,60 @@ assert.strictEqual(rec.status, 'cold');
 assert.ok(e.tableCards().some(function (c) { return c.def === 'atlarge'; }), 'the culprit is at large');
 void before;
 console.log('reflect: identification (possible/confirmed), conflict, theories, three clues, unrelated, foreign; clock warnings OK');
+
+// ---- Two false confessions laid side by side ------------------------------------------------
+(function twoConfessions() {
+  var g = CF.Engine.newGame({ seed: 9, calling: 'master' });
+  var k2 = g.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  var r2 = g.caseRec(k2.caseId);
+  var cul2 = r2.suspects.filter(function (x) { return x.guilty; })[0];
+  var inn = r2.suspects.filter(function (x) { return !x.guilty; });
+  function conf(sus) {
+    return g.create('clue', { label: 'Confession: ' + sus.name, caseId: r2.id, aspects: { testimony: 3, motive: 1 },
+      data: { trait: sus.trait, confession: 'free', falseConfession: true, coerced: false, planted: false } });
+  }
+  function rest(cards) {
+    cards.forEach(function (c) { assert.ok(g.autoSlot('reflect', c.uid), 'reflect refused ' + g.labelOf(c)); });
+    var pv = g.preview('reflect');
+    assert.ok(pv && !pv.blocked, 'blocked: ' + (pv && pv.blocked));
+    var id = g.currentRecipe('reflect').recipe.id;
+    assert.ok(g.start('reflect'));
+    g.tick(g.verb('reflect').duration + 0.01);
+    var v = g.verb('reflect'), out = v.out.map(function (u) { return g.card(u); }), story = v.story;
+    if (v.status === 'done') g.collect('reflect');
+    return { id: id, label: pv.label, out: out, story: story };
+  }
+  var d = CF.DEDUCTIONS.filter(function (x) { return x.id === 'two_confessions'; })[0];
+  assert.ok(d && d.consume === false && d.needs.confessions === 2, 'the pattern is written');
+  assert.ok(CF.DEDUCTIONS.map(function (x) { return x.id; }).indexOf('two_confessions') < CF.DEDUCTIONS.map(function (x) { return x.id; }).indexOf('identify'), 'before Put a Face to It');
+  // One confession is not a pattern.
+  var a = conf(inn[0]);
+  assert.ok(!CF.Deduce.fits(d, [a, g.create('clue', { label: 'Debts', caseId: r2.id, aspects: { financial: 2 } })], false), 'one confession is not two');
+  g.tableCards().filter(function (c) { return c.def === 'clue'; }).forEach(function (c) { g.remove(c); });
+  // Two, before the culprit is in the casebook: the token names nobody yet.
+  a = conf(inn[0]); var b = conf(inn[1]);
+  var res = rest([a, b]);
+  assert.strictEqual(res.id, 'ref_deduce');
+  assert.strictEqual(res.label, 'Two Men, One Knife');
+  assert.strictEqual(res.story.title, 'Two Men, One Knife');
+  assert.strictEqual(res.story.kind, 'major');
+  var made = res.out.filter(function (c) { return g.labelOf(c) === 'The Confessions Do Not Agree'; })[0];
+  assert.ok(made, 'the pattern makes a token: ' + res.out.map(function (c) { return g.labelOf(c); }));
+  assert.deepStrictEqual(CF.clueAspects(made), { testimony: 1, motive: 2 });
+  assert.ok(!made.data.points, 'nobody to point at yet');
+  assert.ok(res.out.indexOf(a) >= 0 && res.out.indexOf(b) >= 0, 'both confessions come back');
+  [a, b].forEach(function (c) {
+    assert.ok(/^False Confession: /.test(g.labelOf(c)), g.labelOf(c));
+    assert.ok(!c.data.confession, 'no longer a confession');
+    assert.strictEqual(c.data.falseConfession, true);
+  });
+  assert.ok(!CF.Deduce.fits(d, [a, b], false), 'false confessions do not lay side by side again');
+  g.tableCards().filter(function (c) { return c.def === 'clue'; }).forEach(function (c) { g.remove(c); });
+  // With the culprit in the casebook, the token points at them.
+  g.revealSuspect(r2, null, { key: cul2.key });
+  res = rest([conf(inn[0]), conf(inn[1])]);
+  made = res.out.filter(function (c) { return g.labelOf(c) === 'The Confessions Do Not Agree'; })[0];
+  assert.ok(made);
+  assert.strictEqual(made.data.points, cul2.key, 'it points at the one not in the Hole');
+  console.log('two confessions: ok');
+})();

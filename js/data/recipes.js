@@ -459,7 +459,7 @@
       var extra = [];
       if (first) {
         var sc = e.revealSuspect(rec, ctx);
-        if (sc) extra.push('The first name on the board: ' + sc.label + '.');
+        if (sc) extra.push('The first name in the casebook: ' + sc.label + '.');
         if (!e.hasDistrict(rec.district) && e.s.flags.marketOpen) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
       }
       if (ctx.has('instinct') && ctx.rng() < 0.5) {
@@ -630,7 +630,7 @@
       ctx.consume(cc);
       var tid = CF.CASE_TEMPLATES[d.template] ? d.template : U.pick(ctx.rng, CF.ORDINARY_CASES);
       var alCard = d.atLargeUid && e.card(d.atLargeUid);
-      e.spawnCase(tid, { ctx: ctx, culpritName: d.culpritName, culpritTrait: d.culpritTrait, atLargeUid: d.atLargeUid, reopened: true,
+      e.spawnCase(tid, { ctx: ctx, culpritName: d.culpritName, culpritTrait: d.culpritTrait, atLargeUid: d.atLargeUid, reopened: true, from: d.from || null,
         criminalId: (alCard && alCard.data.criminalId) || (e.criminalByName(d.culpritName) || {}).id || null,
         lifetime: 320, headline: 'Opened Again', lead: 'The old book on ' + (d.title || 'an old case') + ' is open on your desk again.' });
       return { title: 'Opened Again', text: 'Dust, faded ink, a witness list with half the names crossed out. But the answer was always in here somewhere.' };
@@ -681,7 +681,22 @@
       e.caseWork(rec, ctx);
       var cul = culpritOf(rec);
       var T = CF.CASE_TEMPLATES[rec.template];
-      var hint = w.data.knows ? CF.TRAIT_SEEN[cul.trait] : U.pick(ctx.rng, T.hints);
+      // What was heard has a target: a hint about nobody, or about the
+      // culprit's trade; one about an innocent in the casebook only from a
+      // witness with a reason (a grudge, or the reward).
+      var points = null, hint;
+      if (w.data.knows) hint = CF.TRAIT_SEEN[cul.trait];
+      else {
+        var eager = w.data.stake === 'hates' || w.data.stake === 'reward';
+        var pool = T.hints.filter(function (h) {
+          if (!h.role || h.role === cul.role) return true;
+          return eager && rec.suspects.some(function (x) { return x.revealed && !x.cleared && !x.guilty && x.role === h.role; });
+        });
+        var h = U.pick(ctx.rng, pool.length ? pool : T.hints);
+        hint = h.text;
+        var target = h.role && rec.suspects.filter(function (x) { return x.role === h.role && (x.guilty || (x.revealed && !x.cleared)); })[0];
+        if (target) points = target.key;
+      }
       var name = w.label.replace('Witness: ', '');
       var helpers = ctx.with('teammate');
       var vars = { witness: name, hint: hint };
@@ -689,7 +704,7 @@
       var aspects = { testimony: 2 };
       if (w.data.knows) aspects.opportunity = 1;
       var spec = { label: 'Deposition: ' + name, text: '"' + hint + '"' + (w.data.stake ? ' (' + CF.STAKES[w.data.stake].label + '.)' : ''), aspects: aspects, trait: w.data.knows ? cul.trait : null };
-      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against) };
+      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against), points: points };
       if (ctx.has('instinct')) {
         if (!e.teamHas(ctx, 'empathetic') && ctx.rng() < 0.4) {
           w.life = Math.max(20, (w.life || 60) - 60);
@@ -703,7 +718,7 @@
       if (ctx.has('health')) {
         ctx.consume(w);
         spec.aspects.testimony = 3;
-        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, { stake: stakeFlags.stake, witness: stakeFlags.witness, againstInterest: stakeFlags.againstInterest, coerced: true })));
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, { stake: stakeFlags.stake, witness: stakeFlags.witness, againstInterest: stakeFlags.againstInterest, points: stakeFlags.points, coerced: true })));
         e.meter('scrutiny', 1);
         e.meter('dread', 1);
         e.revealSuspect(rec, ctx);
@@ -1151,12 +1166,27 @@
     blocked: 'Keep this on the table. It pays off when the case comes in.',
     requires: { primary: 'intel', when: function (ctx) { return ctx.primary.data.kind !== 'sighting'; } },
   });
+  // The old book has leaves nobody read: once per unanswered case, one of
+  // the things never found becomes a token that keeps until the case is opened again.
+  function oldBookItem(cc) {
+    var from = cc.data.from;
+    if (cc.data.read || !from || !from.items || !from.items.length) return null;
+    return from.items.filter(function (it) { return it.type === 'clue'; })[0] || from.items[0];
+  }
   R.push({
-    id: 'ref_cold', verb: 'reflect', label: 'Regret', duration: 10,
-    preview: 'Turn the unanswered case over in your mind. It will not change anything on its own.',
+    id: 'ref_cold', verb: 'reflect', label: function (ctx) { return oldBookItem(ctx.primary) ? 'Read the Old Book' : 'Regret'; }, duration: 10,
+    preview: function (ctx) { return oldBookItem(ctx.primary) ? 'Turn the leaves of the old book. Something in it was never read.' : 'Turn the unanswered case over in your mind. It will not change anything on its own.'; },
     requires: ['coldcase'],
     run: function (ctx) {
-      return { title: 'Regret', text: 'You remember every mistake. If you knew where the one who walked was now, you could do something about it.' };
+      var e = ctx.e, cc = ctx.primary, item = oldBookItem(cc);
+      if (!item) return { title: 'Regret', text: 'You remember every mistake. If you knew where the one who walked was now, you could do something about it.' };
+      var from = cc.data.from;
+      from.items.splice(from.items.indexOf(item), 1);
+      cc.data.read = true;
+      var read = item.type === 'clue' ? item : (item.result || item);
+      ctx.give('clue', { label: read.label, desc: 'Between two leaves of the old book, something the beadle bagged and nobody read.', aspects: U.clone(read.aspects || {}),
+        caseId: from.id || null, lifetime: 0, data: { trait: item.trait || null, coerced: false, planted: false, illegal: false, points: null, link: item.link || null, oldBook: true } });
+      return { title: 'The Old Book', text: 'Between two leaves of the old book, something the beadle bagged and nobody read. It keeps until the case is opened again.' };
     },
   });
   // Deduction: clues laid side by side become theories, identifications, or

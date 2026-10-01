@@ -1,5 +1,5 @@
-// Deductions: what Contemplate makes of tokens laid side by side (roadmap
-// Phase 6). Contemplate is reasoning, not bench work: a pattern across two
+// Deductions: what Rest makes of tokens laid side by side (roadmap
+// Phase 6). Rest is reasoning, not bench work: a pattern across two
 // or more tokens of one case becomes a new token, a theory or an
 // identification. The first pattern (in order) that fits is the one that runs.
 //
@@ -26,8 +26,15 @@
     { id: 'alibi', label: 'Check the Night', duration: 20,
       needs: { min: 2, alibi: true, aspects: { opportunity: 1 } },
       consume: true },
+    // Two free confessions to one crime: neither survives the other. Both
+    // stay on the table as false, and the lie points at whoever they shield.
+    { id: 'two_confessions', label: 'Two Men, One Knife', duration: 20,
+      needs: { min: 2, confessions: 2 },
+      gives: { label: 'The Confessions Do Not Agree', text: 'The wrong day in one, the wrong knife in the other, and each of them looking at the door when the other is named.', aspects: { testimony: 1, motive: 2 } },
+      consume: false,
+      story: { title: 'Two Men, One Knife', text: 'Two men cannot both have done one thing alone. Lay the confessions side by side and neither survives the other: one is lying for love, one for shame, and somebody they both know is not in the Hole.', kind: 'major' } },
     // Two tokens that describe the same person: an identification. Confirmed
-    // when an accused on the board fits; only "possible" until then.
+    // when an accused in the casebook fits; only "possible" until then.
     { id: 'identify', label: 'Put a Face to It', duration: 30,
       needs: { min: 2, sameTrait: true },
       gives: { label: 'Identification', text: 'Everything points to the same person: {trait}', aspects: { opportunity: 2, testimony: 1 } },

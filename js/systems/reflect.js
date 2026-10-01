@@ -41,6 +41,7 @@
     if (n.points && !clues.some(function (c) { return c.data.points; })) return false;
     if (n.alibi && !clues.some(function (c) { return c.data.alibi; })) return false;
     if (n.pattern && clues.filter(function (c) { return c.data.pattern; }).length < n.pattern) return false;
+    if (n.confessions && clues.filter(function (c) { return c.data.confession === 'free'; }).length < n.confessions) return false;
     return true;
   };
 
@@ -65,6 +66,8 @@
     // Who does this describe? A revealed suspect with the trait, or one the clues name.
     var named = clues.map(function (c) { return c.data.points; }).filter(Boolean)[0] || null;
     if (d.id === 'pattern') { named = rec.culprit; rec.identified = rec.culprit; rec.patternRead = true; }
+    // Two confessions shield one person: the token points at the culprit once they are in the casebook.
+    if (d.id === 'two_confessions') { trait = null; traitDef = null; var cul = rec.suspects.filter(function (x) { return x.guilty && x.revealed && !x.cleared; })[0]; named = cul ? cul.key : null; }
     var fits = rec.suspects.filter(function (x) { return x.revealed && !x.cleared && (x.key === named || (trait && x.trait === trait)); })[0] || null;
     // Tunnel Vision: conflicting descriptions "identify" whoever is on the
     // board, and the result is a misreading that will not hold up.
@@ -89,7 +92,7 @@
       var label = d.gives.label, text = U.fill(d.gives.text, vars);
       if (d.id === 'identify') {
         label = fits ? 'Confirmed Identification: ' + fits.name : 'Possible Identification';
-        text = fits ? fits.name + ', ' + fits.role + '. ' + text : text + ' Nobody on the board fits yet. Find them, and this becomes a name.';
+        text = fits ? fits.name + ', ' + fits.role + '. ' + text : text + ' Nobody you have met fits yet. Find them, and this becomes a name.';
       }
       // An identification keeps what the tokens carried: one name, and everything they brought.
       var aspects = U.clone(d.gives.aspects);
@@ -99,6 +102,7 @@
       }
       if (d.id === 'pattern') data.nextDoor = true;
       made = ctx.give('clue', { label: label, desc: text, aspects: aspects, tags: d.gives.tags, caseId: rec.id, data: data });
+      if (d.id === 'two_confessions') Deduce.falseConfessions(e, clues);
       if (d.id === 'identify' && fits && !data.misread) {
         rec.identified = fits.key;
         e.pathGain('master', 1, 'an identification');
@@ -113,6 +117,17 @@
     var text2 = U.fill(st.text || '', vars);
     if (d.id === 'identify') text2 += fits ? ' It is ' + fits.name + '.' : ' Whoever it is, you have not met them yet.';
     return { title: U.fill(st.title || d.label, vars), text: text2, kind: st.kind || (fits ? 'major' : undefined), made: made };
+  };
+  // Two confessions laid side by side: both stay, and both are false now.
+  Deduce.falseConfessions = function (e, clues) {
+    clues.forEach(function (c) {
+      if (c.data.confession !== 'free') return;
+      delete c.data.confession;
+      c.data.falseConfession = true;
+      c.label = 'False Confession: ' + e.labelOf(c).replace(/^(False )?Confession: /, '');
+      c.fresh = true;
+    });
+    e.dirty = true;
   };
   // The night checked against an alibi. An innocent's story holds: they are
   // cleared and their card goes. The culprit's does not: a token against them.
