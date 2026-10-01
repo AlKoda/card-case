@@ -502,7 +502,11 @@ Every phase of §13 is in the game (pull requests 22 to 31 on main):
 - **I.** The Merciful Judge, the Hangman's Examiner, the Stake, the
   Dagger on the Pillow; the Order of the Mountain; the Eumenides.
 - **J.** A temperamental bot across origins and callings; thresholds
-  tuned so every ending appears and none dominates.
+  tuned so every ending appears and none dominates. The ladder is
+  reachable: Standing 3, 7 and 12 for the offices, 18 for the Seat, with
+  Standing paid for the Abroad put away and for sentences passed in your
+  own voice on a cried case; the Crowd's count of the thieves abroad
+  holds during a hue and cry and, below Bailiff, every other week.
 
 Still open from §14: the city's name (it is "the Free City" throughout),
 and the Muhtasib, who appears only as the Market Warden in passing.

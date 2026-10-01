@@ -46,6 +46,7 @@ console.error = function (err) { throw err; };
   Object.keys(CF.KINDS).forEach(function (k) { carried[k] = true; });
   Object.keys(CF.CARDS).forEach(function (id) { Object.keys(CF.CARDS[id].aspects).forEach(function (a) { carried[a] = true; }); });
   CF.CLUE_ASPECTS.forEach(function (a) { carried[a] = true; });
+  CF.TOKEN_ASPECTS.forEach(function (a) { carried[a] = true; }); // set on a single token (the Next Door token)
   Object.keys(slotAspects).forEach(function (a) { assert.ok(carried[a], 'slot accepts aspect nobody carries: ' + a); });
   console.log('schema: ' + Object.keys(CF.CARDS).length + ' card definitions valid');
 })();
@@ -398,6 +399,21 @@ console.error = function (err) { throw err; };
   e4.growthTick(); assert.ok(!e4.s.insights.fencing, 'not yet earned');
   e4.s.stats.recipes.duty_beat = 3; e4.growthTick();
   assert.ok(e4.s.insights.fencing && CF.growthWays(e4, 'health').filter(function (w) { return w.id === 'fencing'; })[0].state === 'waiting', 'the third round earns the Insight, which waits on the table');
+  // In play: three hard rounds walked through Attend earn the Insight by themselves.
+  var e6 = CF.Engine.newGame({ seed: 61, calling: 'master' });
+  for (var round = 0; round < 3; round++) {
+    e6.tableCards().filter(function (c) { return c.def === 'fatigue'; }).forEach(function (c) { e6.remove(c); });
+    var hp6 = e6.tableCards().filter(function (c) { return c.def === 'health'; })[0] || e6.create('health');
+    assert.strictEqual(e6.autoSlot('duty', hp6.uid), 'main');
+    assert.strictEqual(e6.currentRecipe('duty').recipe.id, 'duty_beat');
+    assert.ok(e6.start('duty'));
+    for (var tk = 0; tk < 200 && e6.verb('duty').status === 'running'; tk++) e6.tick(1);
+    assert.strictEqual(e6.verb('duty').status, 'done', 'round ' + round + ' finished');
+    e6.collect('duty');
+  }
+  var insight = e6.tableCards().filter(function (c) { return c.def === 'insight'; })[0];
+  assert.ok(insight && insight.data.insight === 'fencing', 'the Fencing-master arrives on the third round');
+  assert.ok(e6.s.journal.some(function (j) { return /^An Insight: /.test(j.title); }), 'and the journal says so');
   // An old save: the cards below the verb row move down with the taller verbs.
   var old = JSON.parse(e4.save()); old.version = 1;
   var y0 = e4.tableCards()[0].loc.y, uid0 = e4.tableCards()[0].uid;

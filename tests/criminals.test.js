@@ -188,10 +188,63 @@ function run(e, verb, cards) {
   var member = g.criminalByName('Crook 0');
   assert.strictEqual(member.organization, 'gang');
   assert.strictEqual(CF.Criminals.rankOf(member).label, 'Sworn of a Band');
+  // The sworn keep their Abroad cards, marked with the band, and do not count as loose.
+  var band = byDef(g, 'gang')[0];
+  var sworn = byDef(g, 'atlarge');
+  assert.strictEqual(sworn.length, 3, 'the three stay on the table');
+  assert.ok(sworn.every(function (c) { return c.data.band === band.data.name && /^Sworn of a Band: /.test(g.labelOf(c)); }), 'marked as sworn');
+  g.organise();
+  assert.strictEqual(g.countOf('gang'), 1, 'the sworn do not form a second band');
+  // The court asks one more point a rung, but an Examiner's court at most one.
   member.crimes = 4;
   assert.strictEqual(CF.Criminals.rankOf(member).label, 'Upright Man');
+  assert.strictEqual(g.caseRankBonus(member.id), 1, 'capped at rank 0');
+  g.s.rank = 1;
+  assert.strictEqual(g.caseRankBonus(member.id), CF.Criminals.rankIndex(member));
+  assert.strictEqual(g.caseRankBonus(null), 0, 'nothing without a record');
+  g.s.rank = 0;
+  // Post the Watch: a watchman on the stair cools the Vendetta, and may follow one of them home.
+  g.s.rank = 0;
+  var officer = g.create('teammate', g.teammateSpec('rookie'));
+  g.meter('retaliation', 3);
+  var ret0 = g.s.meters.retaliation;
+  var titles = {};
+  for (var pw = 0; pw < 12 && !titles['Followed Home']; pw++) {
+    g.rng.setState(pw * 13 + 5);
+    var pr = run(g, 'duty', [band, officer]);
+    assert.strictEqual(pr.id, 'duty_post_watch');
+    titles[pr.story.title] = true;
+    if (pw === 0) assert.strictEqual(g.s.meters.retaliation, ret0 - 1, 'the Vendetta cools');
+    g.openCases().filter(function (r) { return r.template === 'manhunt'; }).forEach(function (r) { r.status = 'cold'; });
+  }
+  assert.ok(titles['Followed Home'], 'a sighting from the stair: ' + JSON.stringify(titles));
+  assert.ok(sworn.some(function (c) { return c.data.hunted; }), 'one of the sworn is hunted');
+  // The band broken: the rest scatter, smaller men, and are plain Abroad again.
+  var gangRec = g.spawnCase('gang', { quiet: true, gangName: band.data.name, gangUid: band.uid });
+  var grec = g.caseRec(gangRec.caseId);
+  g.onConviction(grec, { guilty: true, solid: true, name: 'Crook 0' }, []);
+  assert.strictEqual(g.countOf('gang'), 0);
+  assert.strictEqual(g.criminalByName('Crook 1').organization, 'none');
+  assert.strictEqual(g.criminalByName('Crook 1').crimes, 0, 'crimes halved');
+  assert.ok(g.criminalByName('Crook 1').history.some(function (h) { return h.how === 'scattered'; }));
+  assert.ok(byDef(g, 'atlarge').every(function (c) { return !c.data.band && !/^Sworn/.test(g.labelOf(c)); }), 'plain Abroad again');
+  byDef(g, 'atlarge').forEach(function (c) { c.data.band = 'the Old Band'; });
+  g.criminalJoins('Crook 0', 'gang'); g.criminalJoins('Crook 1', 'gang'); g.criminalJoins('Crook 2', 'gang');
+  member.crimes = 4;
   g.spawnSyndicate('x');
   assert.strictEqual(CF.Criminals.rankOf(member).label, 'Of the Coquille');
+  assert.ok(g.caseRankBonus(member.id) >= 1);
+  // The Coquille broken: every record of it is nobody's again, and the rank bonus goes.
+  var kase = g.spawnCase('syndicate', { quiet: true });
+  var krec = g.caseRec(kase.caseId);
+  g.onConviction(krec, { guilty: false, solid: true, name: 'Nobody' }, []);
+  assert.ok(g.s.flags.syndicateFallen);
+  assert.strictEqual(g.criminalByName('Crook 2').organization, 'none');
+  assert.ok(byDef(g, 'atlarge').every(function (c) { return !c.data.band; }));
+  member.organization = 'syndicate';
+  assert.strictEqual(g.caseRankBonus(member.id), 0, 'no bonus for the fallen Coquille');
+  member.organization = 'none';
+  g.criminalJoins('Crook 1', 'syndicate');
 
   // Records survive save/load and ride the legacy.
   var s2 = CF.Engine.load(g.save());

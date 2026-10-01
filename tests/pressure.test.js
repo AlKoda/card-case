@@ -180,3 +180,31 @@ function run(e, verb, cards) {
   about(payFor('weak', false), 0, 'weak');
   console.log('economy: ok');
 })();
+
+// ---- A blow: Winded Health takes it; no death without a Wound already carried ------
+(function wounds() {
+  var e = game(7);
+  byDef(e, 'health').forEach(function (c) { e.transform(c, 'spent_health', { decay: 40 }); });
+  assert.ok(byDef(e, 'spent_health').length && !byDef(e, 'health').length, 'only Winded on the table');
+  e.hurtYou('a cudgel');
+  assert.ok(!e.s.over, 'no game over');
+  assert.strictEqual(e.countOf('wound'), 1, 'the Winded card became a Wound');
+  assert.strictEqual(byDef(e, 'spent_health').length, 0);
+  // No Health at all and no Wound: a beating, two Weariness, still alive.
+  var b = game(8);
+  byDef(b, 'health').forEach(function (c) { b.remove(c); });
+  var fat0 = b.countOf('fatigue');
+  b.hurtYou('a cudgel');
+  assert.ok(!b.s.over, 'beaten, not killed');
+  assert.strictEqual(b.countOf('fatigue') - fat0, 2, 'two Weariness');
+  assert.ok(b.s.journal[0].title === 'Beaten on the Stair' || b.s.journal[1].title === 'Beaten on the Stair', b.s.journal[0].title);
+  assert.ok(!b.blowWouldKill());
+  // No Health and a Wound: death.
+  var d = game(9);
+  byDef(d, 'health').forEach(function (c) { d.remove(c); });
+  d.create('wound');
+  assert.ok(d.blowWouldKill(), 'the dagger and the disguise warn of it');
+  d.hurtYou('a blade');
+  assert.ok(d.s.over && d.s.over.id === 'death', 'a second blow with no Health is death');
+  console.log('wounds: ok');
+})();

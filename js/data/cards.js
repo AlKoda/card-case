@@ -19,6 +19,9 @@
     financial: { label: 'Coin', short: 'CN', color: '#62bd5c', meaning: 'Money moving: debts, dowries, pledges, a man spending beyond his station.' },
   };
   CF.CLUE_ASPECTS = Object.keys(CF.ASPECTS);
+  // Aspects a single token can carry beyond its definition (set on the
+  // instance): the Next Door token from the Pattern.
+  CF.TOKEN_ASPECTS = ['nextdoor'];
 
   // Kinds control colour and which slots a card fits (kind is also an aspect).
   CF.KINDS = {
@@ -156,7 +159,7 @@
     atlarge: { label: 'Abroad', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
       desc: 'Someone who walked. Every week they are out there, the Vendetta grows. Three of them will find each other.' },
     gang: { label: 'Band', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
-      desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Go in Disguise to build a case against them.' },
+      desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Post the Watch on them in Attend with a watchman; at Bailiff, go in Disguise to build a case against them.' },
     syndicate: { label: 'The Coquille', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-pyramid', aspects: { syndicate: 1, criminal: 1 },
       desc: 'The bands have sworn to one shell now, and the shell has a king. The Vendetta surges every week. Only a long Disguise reaches the Court of Miracles.' },
 
@@ -204,7 +207,7 @@
     calling_master: { label: 'Calling: The Scholar', kind: 'calling', tags: ['calling'], image: 'icon-mind', aspects: { calling: 1 },
       desc: 'Knowledge. Sound convictions and unanswered cases leave Loose Ends. Bring three to Rest, find the Architect behind them, and convict them.' },
     calling_crusader: { label: 'Calling: The Reformer', kind: 'calling', tags: ['calling'], image: 'icon-scales', aspects: { calling: 1 },
-      desc: 'Justice. Go in Disguise among the bands (you will need to be Bailiff), take leaves from their ledger, drag the Coquille into the square and convict its king. Whatever it costs.' },
+      desc: 'Justice. Post the Watch on the bands, and at Bailiff go in Disguise among them; take leaves from their ledger, drag the Coquille into the square and convict its king. Whatever it costs.' },
   };
 
   // Things the Council's treasury will buy. rank = minimum office to see the petition.
@@ -268,17 +271,17 @@
   CF.RANK_DEFS = [
     { id: 'detective', label: 'Examiner', rep: 0, salary: 1, maxCases: 2, badge: 1, dispatch: 0,
       text: 'A desk in the Watch-house, a caseload, and the street.' },
-    { id: 'senior', label: 'Sworn Examiner', rep: 4, salary: 2, maxCases: 3, badge: 1, dispatch: 0,
+    { id: 'senior', label: 'Sworn Examiner', rep: 3, salary: 2, maxCases: 3, badge: 1, dispatch: 0,
       text: 'A magistrate will seal a Writ for you (an Accused with cause, in Explore), and the Council sends you more.' },
-    { id: 'inspector', label: 'Bailiff', rep: 9, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
+    { id: 'inspector', label: 'Bailiff', rep: 7, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
       text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).' },
-    { id: 'chief', label: 'Magistrate', rep: 15, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
+    { id: 'chief', label: 'Magistrate', rep: 12, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
       text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.' },
   ];
   CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
   CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // standing needed for the Council to write
   CF.TOP_RANK = CF.RANK_DEFS.length - 1;
-  CF.COMMISSIONER_REP = 24;
+  CF.COMMISSIONER_REP = 18;
 
   CF.CALLINGS = {
     commissioner: { card: 'calling_commissioner', label: 'The Burgomaster', theme: 'Power',

@@ -37,6 +37,25 @@ function run(e, verb, cards) {
   for (var i = 1; i < CF.RANK_DEFS.length; i++) {
     assert.ok(CF.RANK_DEFS[i].rep > CF.RANK_DEFS[i - 1].rep && CF.RANK_DEFS[i].salary > CF.RANK_DEFS[i - 1].salary, 'ranks climb');
   }
+  // The ladder is within reach: Standing 3, 7 and 12, the Seat at 18.
+  assert.deepStrictEqual(CF.RANK_REP, [0, 3, 7, 12]);
+  assert.strictEqual(CF.COMMISSIONER_REP, 18);
+  // Standing comes from the Court: a conviction, someone Abroad put away, a sentence passed yourself on a case the city watched.
+  var st = game(70);
+  var sk = byDef(st, 'case')[0], srec = st.caseRec(sk.caseId);
+  var alc = st.create('atlarge', { label: 'Abroad: X', data: { name: 'X', trait: 'limp' } });
+  srec.atLargeUid = alc.uid;
+  var rep0 = st.s.meters.reputation;
+  st.onConviction(srec, { guilty: true, solid: false, name: 'X' }, []);
+  assert.strictEqual(st.s.meters.reputation, rep0 + 1, 'someone Abroad put away is Standing');
+  var cond = st.create('condemned', { data: { caseId: srec.id, template: srec.template, name: 'Y', trait: 'limp', guilty: true, custom: 'banish', highProfile: true, crimes: 1 } });
+  rep0 = st.s.meters.reputation;
+  st.passSentence(cond, 'banish', null, { quiet: true });
+  assert.strictEqual(st.s.meters.reputation, rep0 + 1, 'a sentence passed yourself on a cried case is Standing');
+  cond = st.create('condemned', { data: { caseId: srec.id, template: srec.template, name: 'Z', trait: 'limp', guilty: true, custom: 'banish', highProfile: true, crimes: 1 } });
+  rep0 = st.s.meters.reputation;
+  st.passSentence(cond, 'banish', null, { quiet: true, byCouncil: true });
+  assert.strictEqual(st.s.meters.reputation, rep0, 'not when the Council said it for you');
   // Which verbs each rank brings.
   var byRank = {};
   Object.keys(CF.POWERS).forEach(function (v) { (byRank[CF.POWERS[v].rank] = byRank[CF.POWERS[v].rank] || []).push(v); });

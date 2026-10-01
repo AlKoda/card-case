@@ -257,6 +257,8 @@
     c.history.push({ week: s.week, how: 'sentence:' + rung });
     if (this.commissionSentence && !byCouncil) this.commissionSentence(this.caseRec(d.caseId), rung, notes);
     if (byCouncil) notes.unshift('You said nothing, so the Council said it for you.');
+    // A sentence passed in your own voice on a case the whole city watched is Standing.
+    if (!byCouncil && d.highProfile) { this.meter('reputation', 1); notes.push('The city saw you pass the sentence yourself, on a case the crier sang.'); }
 
     // The ladder, the pleas and the poor sinner leave the table together.
     var self = this;

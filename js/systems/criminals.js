@@ -113,23 +113,33 @@
       if (c.traits.indexOf('violent') >= 0) self.meter('retaliation', 1);
       if (c.status === 'hunted') return;
       var p = Crim.WEEKLY_CRIME + (c.crimes >= 2 ? 0.1 : 0);
-      if (self.rng() < p && self.openCases().length < 4) {
-        c.crimes++;
-        c.heat++;
-        var card = self.spawnCase(U.pick(self.rng, self.casePool()), {
-          culpritName: c.name, culpritTrait: c.trait, criminalId: c.id,
-          headline: c.name + ' Again', lead: 'The hand is familiar.',
-        });
-        self.refreshAtLarge(c);
+      if (self.rng() >= p) return;
+      var room = self.roomForCase();
+      if (!room && self.s.nextCase) return; // the desk is full and something already waits
+      c.crimes++;
+      c.heat++;
+      var spec = { template: U.pick(self.rng, self.casePool()), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again', lead: 'The hand is familiar.' };
+      self.refreshAtLarge(c);
+      if (room) {
+        var card = self.spawnCase(spec.template, spec);
         lines.push(c.name + ' has done it again: ' + self.caseRec(card.caseId).title + '.');
+      } else {
+        // A full desk: the crime waits its turn, and the week says so.
+        self.s.nextCase = spec;
+        lines.push(c.name + ' has done it again. The Watch-house will hear of it when a desk is clear.');
       }
     });
     return lines;
   };
 
-  // The rank of the culprit behind a case, for the court's demands.
+  // The rank of the culprit behind a case, for the court's demands: one
+  // point a rung, at most one for an Examiner's court, none once the
+  // Coquille has fallen.
   P.caseRankBonus = function (criminalId) {
     var c = criminalId && this.criminal(criminalId);
-    return c ? Crim.rankIndex(c) : 0;
+    if (!c) return 0;
+    if (c.organization === 'syndicate' && this.s.flags.syndicateFallen) return 0;
+    var bonus = Crim.rankIndex(c);
+    return this.s.rank === 0 ? Math.min(1, bonus) : bonus;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

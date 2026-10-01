@@ -45,7 +45,10 @@ function run(e, verb, cards) {
   assert.strictEqual(rec.victims || 1, v0, 'no second girl in the week she arrived');
   e.weekTick();
   assert.strictEqual(rec.victims, v0 + 1, 'another girl every week');
-  assert.ok(e.s.meters.pressure > p0, 'and the Crowd grows');
+  var p1 = e.s.meters.pressure;
+  e.weekTick();
+  assert.strictEqual(rec.victims, v0 + 2, 'and another');
+  assert.ok(e.s.meters.pressure > p1 && e.s.meters.pressure > p0, 'and the Crowd counts every other door');
   assert.ok(doors().length >= 2);
   var r = run(e, 'reflect', doors().slice(0, 2));
   assert.strictEqual(r.recipe, 'ref_deduce');

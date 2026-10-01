@@ -46,6 +46,9 @@ function checkInvariants(e) {
     v.held.forEach(function (u) { assert.ok(s.cards[u], 'dangling held'); });
     v.out.forEach(function (u) { assert.ok(s.cards[u], 'dangling out'); });
   });
+  // Every spawn site honours the rank's desk: at most one case over it (a warned case, an old case opened again).
+  var ordinary = e.openCases().filter(function (r) { return !r.special; }).length;
+  assert.ok(ordinary <= e.maxOpenCases() + 1, ordinary + ' ordinary cases open with a desk for ' + e.maxOpenCases());
 }
 
 // ---- Scripted checks ------------------------------------------------------

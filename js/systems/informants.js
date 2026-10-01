@@ -80,24 +80,31 @@
     }
     // A warning: something is about to happen. One at a time.
     if (this.s.nextCase) return null;
-    var tid = U.pick(this.rng, this.casePool());
-    var T = CF.CASE_TEMPLATES[tid];
-    var district = U.pick(this.rng, T.districts);
-    this.s.nextCase = { template: tid, district: district };
-    this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
-    this.create('intel', {
-      label: 'Warning: ' + T.label,
-      desc: nick + ' says something is going to happen in ' + CF.DISTRICTS[district].label + ': ' + T.label.toLowerCase() + '. Keep this on the table. When the case comes in you will be ahead of it.',
-      data: { kind: 'warning', template: tid, district: district, informant: inf.uid },
-    });
-    this.story('A Warning', '"' + T.label + '," says ' + nick + ', "in ' + CF.DISTRICTS[district].label + '. Soon. Don\'t ask me how I know."', 'minor');
+    var spec = this.warnOfCase(inf, 0);
+    this.create('intel', spec);
+    this.story('A Warning', '"' + CF.CASE_TEMPLATES[spec.data.template].label + '," says ' + nick + ', "in ' + CF.DISTRICTS[spec.data.district].label + '. Soon. Don\'t ask me how I know."', 'minor');
     return 'warning';
   };
 
-  // A warning on the table for this case, if any: the case arrives with
-  // more time and a name already on the board.
+  // Queue the next case on an informer's word (it comes sooner, and with
+  // `extraTime` it comes even to a full desk) and build the Warning card.
+  P.warnOfCase = function (inf, extraTime) {
+    var tid = U.pick(this.rng, this.casePool());
+    var T = CF.CASE_TEMPLATES[tid];
+    var district = U.pick(this.rng, T.districts);
+    this.s.nextCase = { template: tid, district: district, extraTime: extraTime || 0 };
+    this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
+    return {
+      label: 'Warning: ' + T.label,
+      desc: inf.data.name + ' says something is going to happen in ' + CF.DISTRICTS[district].label + ': ' + T.label.toLowerCase() + '. Keep this on the table. When the case comes in you will be ahead of it.',
+      data: { kind: 'warning', template: tid, district: district, informant: inf.uid },
+    };
+  };
+
+  // A warning on the table (or waiting in a verb's output) for this case,
+  // if any: the case arrives with more time and a name already on the board.
   P.warningFor = function (templateId) {
-    return this.cardsOf('intel').filter(function (c) { return c.loc.t === 'table' && c.data.kind === 'warning' && c.data.template === templateId; })[0] || null;
+    return this.cardsOf('intel').filter(function (c) { return (c.loc.t === 'table' || c.loc.t === 'out') && c.data.kind === 'warning' && c.data.template === templateId; })[0] || null;
   };
 
   // An informant is burned: gone, and if they were already compromised the
@@ -107,7 +114,7 @@
     var name = card.data.name;
     this.remove(card);
     this.story('An Informer Is Burned', text, 'danger');
-    if (was === 'compromised' && this.openCases().length < 4) {
+    if (was === 'compromised' && this.roomForCase(1)) {
       this.spawnCase('missing', { victim: name, headline: 'Vanished: ' + name, lead: 'Nobody has seen ' + name + ' since the night they were questioned.', extraTime: 30 });
     }
   };

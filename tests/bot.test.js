@@ -49,6 +49,9 @@ function step(e, temper) {
   var spent = of(e, 'spent_focus')[0] || of(e, 'spent_health')[0] || of(e, 'spent_instinct')[0];
   if (spent && !of(e, spent.def === 'spent_focus' ? 'focus' : spent.def === 'spent_health' ? 'health' : 'instinct').length) tryRun(e, 'reflect', [spent]);
   if (of(e, 'looseend').length >= 3) tryRun(e, 'reflect', of(e, 'looseend').slice(0, 3));
+  // The Provost's Examiner: find their weakness with Wit, twice, and the Council sends them home.
+  var rival = of(e, 'rival')[0];
+  if (rival && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0]]);
 
   // Sentence, by temperament: merciful takes the lightest rung, brutal the
   // heaviest, custom what the Council would do, corrupt whatever a purse asks.
@@ -134,6 +137,16 @@ function step(e, temper) {
   else if (of(e, 'instinct')[0]) tryRun(e, 'investigate', [of(e, 'instinct')[0]]);
   var ucTarget = of(e, 'syndicate')[0] || of(e, 'gang')[0] || al;
   if (ucTarget && s.rank >= 2 && of(e, 'health').length) tryRun(e, 'investigate', [ucTarget, of(e, 'instinct')[0], team[1] || team[0]]);
+  // Below Bailiff a band is fought from the Watch-house: a watchman on its stair, hired if need be.
+  var band = of(e, 'gang')[0];
+  if (band && s.rank < 2) {
+    if (team.length) tryRun(e, 'duty', [band, team[0]]);
+    else { var letter = of(e, 'personnel')[0]; if (letter && funds.length >= CF.costOf(letter)) tryRun(e, 'duty', [letter].concat(funds.slice(0, CF.costOf(letter)))); }
+  }
+  // A sighting of someone Abroad: raise the hue and cry.
+  var sighting = of(e, 'intel').filter(function (c) { return c.data.kind === 'sighting'; })[0];
+  var seenAl = sighting && of(e, 'atlarge').filter(function (c) { return c.data.name === sighting.data.criminal; })[0];
+  if (sighting && seenAl) tryRun(e, 'reflect', [sighting, seenAl]);
   if (of(e, 'bribe')[0] && s.meters.scrutiny < 3) tryRun(e, 'duty', [of(e, 'bribe')[0]]);
   // Idle team earns money.
   of(e, 'teammate').forEach(function (t) { if (funds.length < 8) tryRun(e, 'duty', [t]); });
@@ -145,16 +158,23 @@ if (require.main !== module) return;
 var GAMES = +process.argv[2] || 45;
 var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
+var insights = 0, bands = [], rank2By20 = 0;
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
   var temper = TEMPERS[Math.floor(g / 3) % 4];
   var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who });
+  var band = null, reached2 = false;
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
     step(e, temper);
     CF.VERB_ORDER.forEach(function (vid) { var v = e.s.verbs[vid]; if (v.status === 'running') seen[v.recipe] = true; });
     e.tick(1);
+    if (!band && e.countOf('gang')) band = { week: e.s.week, rank: e.s.rank };
+    if (e.s.rank >= 2 && e.s.week <= 20) reached2 = true;
   }
+  insights += Object.keys(e.s.insights || {}).length;
+  if (reached2) rank2By20++;
+  if (band) bands.push({ week: band.week, rank: band.rank, ending: e.s.over ? e.s.over.id : 'survived', endWeek: e.s.week });
   var end = e.s.over ? calling.slice(0, 4) + ':' + e.s.over.id : calling.slice(0, 4) + ':survived';
   endings[end] = (endings[end] || 0) + 1;
   var eid = e.s.over ? e.s.over.id : 'survived';
@@ -173,4 +193,18 @@ console.log('by temper', JSON.stringify(byTemper));
 console.log('by origin', JSON.stringify(byWho));
 console.log('counts per game', JSON.stringify(Object.keys(counts).reduce(function (o, k) { o[k] = +(counts[k] / GAMES).toFixed(2); return o; }, {})));
 console.log('recipes never run:', CF.RECIPES.map(function (r) { return r.id; }).filter(function (id) { return !seen[id]; }).join(', ') || 'none');
+console.log('insights earned', insights, '| bands formed', bands.length, '| Bailiff by week 20 in', rank2By20, 'games');
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
+// The city teaches: Insights are earned in play.
+assert.ok(insights >= 1, 'somebody earned an Insight');
+// A band formed under an Examiner or a Sworn Examiner can be fought from the Watch-house (the Watch posted on its
+// stair, its sworn hunted one by one): the bot does so, and such a band is not a quick death. The Vendetta itself is
+// still uncapped (a later item), so a stray death stays possible; it must not be the rule.
+var lowBands = bands.filter(function (b) { return b.rank <= 1; });
+var earlyBandDeaths = lowBands.filter(function (b) { return b.ending === 'death' && b.endWeek - b.week <= 4; });
+if (lowBands.length) assert.ok(seen.duty_post_watch, 'the Watch is posted on a band below Bailiff');
+assert.ok(earlyBandDeaths.length <= lowBands.length / 4, 'a band at low rank is a quick death: ' + earlyBandDeaths.length + ' of ' + lowBands.length + ' ' + JSON.stringify(earlyBandDeaths));
+// The ladder is reachable: a fair share of games make Bailiff, and the Crowd does not end most of them.
+var dismissed = Object.keys(endings).reduce(function (n, k) { return n + (/:dismissed$/.test(k) ? endings[k] : 0); }, 0);
+assert.ok(ranks[2] + ranks[3] >= GAMES / 4, 'Bailiff or better in ' + (ranks[2] + ranks[3]) + ' of ' + GAMES);
+assert.ok(dismissed < GAMES / 2, 'dismissed in ' + dismissed + ' of ' + GAMES);
