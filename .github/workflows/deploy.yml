@@ -30,6 +30,11 @@ jobs:
         run: |
           mkdir _site
           cp -r index.html css js manifest.webmanifest sw.js icons _site/
+          rm -f _site/css/art/cm-spare.css
+      - name: Stamp the edition (the service worker's cache is named after the commit)
+        run: |
+          sed -i "s/^var VERSION = '[^']*';/var VERSION = 'casefile-${GITHUB_SHA::7}';/" _site/sw.js
+          grep -q "^var VERSION = 'casefile-${GITHUB_SHA::7}';" _site/sw.js
       - name: Rasterise the app icon (PNGs are built here, never committed)
         run: |
           pip install --quiet pillow cairosvg

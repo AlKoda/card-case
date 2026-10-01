@@ -450,3 +450,28 @@ console.error = function (err) { throw err; };
   assert.ok(e.s.flags.rivalGone > e.s.week);
   console.log('rivalry: ok');
 })();
+
+// A save from another edition: ids the code no longer knows (a verb, a recipe,
+// a choice) load without a throw, and the game goes on from there.
+(function loadTolerance() {
+  var e = CF.Engine.newGame({ seed: 11, calling: 'master' });
+  var s = JSON.parse(e.save());
+  var orphan = e.create('focus');
+  s = JSON.parse(e.save());
+  s.cards[orphan.uid].loc = { t: 'verb', verb: 'nowhere' };
+  s.verbs.nowhere = { id: 'nowhere', status: 'idle', slots: { main: orphan.uid }, held: [], ctxSlots: {}, out: [], recipe: null, elapsed: 0, duration: 0, story: null, unlocked: true };
+  var vid = CF.VERB_ORDER[0];
+  s.verbs[vid].status = 'running'; s.verbs[vid].recipe = 'no_such_recipe'; s.verbs[vid].recipeLabel = 'Lost'; s.verbs[vid].duration = 3; s.verbs[vid].elapsed = 0;
+  s.choice = { id: 'no_such_choice', title: 'Gone', text: 'A question from an older edition.', options: [{ label: 'Yes', text: '' }] };
+  var e2 = CF.Engine.load(JSON.stringify(s));
+  assert.ok(!e2.s.verbs.nowhere && e2.card(orphan.uid).loc.t === 'table', 'an unknown verb is dropped and its cards come back to the table');
+  assert.strictEqual(e2.choose(0), false, 'an unknown choice cannot be answered');
+  e2.s.choice = null; // the clock waits on a choice: cleared here, the running verb runs out
+  var errors = [], ce = console.error;
+  console.error = function (err) { errors.push(err); };
+  try { for (var i = 0; i < 10; i++) e2.tick(1); } finally { console.error = ce; }
+  assert.strictEqual(e2.s.verbs[vid].status, 'idle', 'a verb whose recipe is gone ends instead of hanging');
+  assert.ok(!e2.s.over, 'and the game goes on');
+  CF.Engine.load(e2.save());
+  console.log('load tolerance: unknown verb, recipe and choice ids ok' + (errors.length ? ' (the lost recipe was reported: ' + errors.length + ')' : ''));
+})();

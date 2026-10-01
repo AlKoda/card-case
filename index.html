@@ -81,6 +81,7 @@
         <button class="plate-btn teal" id="t-archive"><i class="mi" style="--i:var(--art-bround-09)"></i>The Rolls</button>
         <button class="plate-btn blue" id="t-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
         <button class="plate-btn red" id="t-help"><i class="mi" style="--i:var(--art-bround-22)"></i>How to Play</button>
+        <button class="plate-btn teal hidden" id="t-install"><i class="mi" style="--i:var(--art-bround-16)"></i>Install to home screen</button>
         <button class="plate-btn blue lang" id="t-lang" data-no-i18n title="Language / اللغة">English</button>
       </div>
       </div>
@@ -337,7 +338,19 @@
   <script>
     // Installable and offline when served over http(s); nothing to do from file:// or inside the app.
     if ('serviceWorker' in navigator && /^https?:/.test(location.protocol) && !window.CaseFileAndroid) {
-      navigator.serviceWorker.register('sw.js').catch(function () { /* offline install unavailable */ });
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        // A fresh edition installed behind a running page waits for a tap: js/main.js shows the toast.
+        function ready() { if (navigator.serviceWorker.controller && window.CF && CF.onUpdate) CF.onUpdate(reg); }
+        if (reg.waiting) ready();
+        reg.addEventListener('updatefound', function () {
+          var w = reg.installing;
+          if (w) w.addEventListener('statechange', function () { if (w.state === 'installed') ready(); });
+        });
+      }).catch(function () { /* offline install unavailable */ });
+      // The new worker took over after the tap: the page reloads onto it (never on a first install).
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (window.CF && CF.updateAsked) { CF.updateAsked = false; location.reload(); }
+      });
     }
   </script>
 </body>

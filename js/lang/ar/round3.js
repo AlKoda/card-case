@@ -417,5 +417,10 @@
     "<b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due. The Bell's box shows the <b>dues</b> it is about to draw: lodging, and a Coin for every two watchmen you keep.": "<b>المسافة</b> توقف اللعبة مؤقتاً؛ و<b>1</b> و<b>2</b> و<b>3</b> تضبط السرعة. ما زال بوسعك تحريك البطاقات وبدء الأفعال أثناء الإيقاف. يمكن للإعدادات أن توقف اللعبة عنك حين تصل قضية، أو ينتهي فعل، أو أثناء السحب. الحلقة حول البطاقة هي ساعتها، وتتوقف ما دامت البطاقة داخل فعل. الأمارات والشهود ينذرونك قبل نصف دقيقة من زوالهم؛ انقر الإنذار لتجدهم. والجرس يخبرك متى يحلّ موعد الأجر والسكن التاليين. وصندوق الجرس يبيّن <b>الرسوم</b> التي يوشك أن يسحبها: السكن، ونقد واحد عن كل حارسَين تبقيهما.",
     "Tilt the table": "إمالة الطاولة",
     "Off, the table lies flat: easier on an old phone.": "عند إطفائها تستوي الطاولة مسطّحة: أخفّ على هاتف قديم.",
+    "The saved letter could not be read. The desk is kept as it was; a new letter starts afresh.": "تعذّرت قراءة الكتاب المحفوظ. بقي المكتب كما كان؛ وكتابُ تعيينٍ جديد يبدأ من أوله.",
+    "A Word": "كلمة",
+    "A new edition is ready": "طبعة جديدة جاهزة",
+    "Tap to reload.": "انقر لإعادة التحميل.",
+    "Install to home screen": "ثبّت على الشاشة الرئيسية",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

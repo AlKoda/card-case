@@ -49,6 +49,8 @@ import java.util.Locale;
  */
 public class MainActivity extends AppCompatActivity {
     private static final String START = "https://appassets.androidplatform.net/assets/www/index.html";
+    /** Opens the page on the saved table, paused, instead of the title (js/main.js reads it). */
+    private static final String RESUME = "#resume";
     private static final long BACK_AGAIN_MS = 2000;
 
     private FrameLayout root;
@@ -116,13 +118,17 @@ public class MainActivity extends AppCompatActivity {
                     .show();
             return;
         }
-        if (savedInstanceState == null) web.loadUrl(START);
-        else web.restoreState(savedInstanceState);
+        // A bundle means the process was killed under the player. The WebView's own
+        // state is restored when it can be (restoreState returns null when it cannot,
+        // and a bare restore that failed left a blank view); the page is loaded
+        // either way, and reopens on the table.
+        if (savedInstanceState != null) web.restoreState(savedInstanceState);
+        web.loadUrl(savedInstanceState == null ? START : START + RESUME);
 
-        // The cutout (and the gesture bar, when the bars are shown) become CSS
-        // variables on the page, in CSS pixels.
+        // The cutout becomes CSS variables on the page, in CSS pixels. The bars are
+        // transient (a swipe shows them for a moment), so their insets are not padded.
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
-            lastInsets = insets.getInsets(WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.systemBars());
+            lastInsets = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
             pushInsets();
             return WindowInsetsCompat.CONSUMED;
         });
@@ -195,12 +201,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                 // The renderer was killed (memory) or crashed: a dead WebView cannot be
-                // reused. Rebuild it; the game reopens from its autosave.
+                // reused. Rebuild it; the game reopens on the table from its autosave.
                 if (view != web) return true;
                 root.removeView(web);
                 web.destroy();
                 web = null;
-                if (createWebView()) web.loadUrl(START);
+                if (createWebView()) web.loadUrl(START + RESUME);
                 return true;
             }
         });

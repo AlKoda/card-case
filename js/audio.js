@@ -27,8 +27,20 @@
   };
 
   // Away from the game (another app, a locked screen): silence, and back again.
-  A.suspend = function () { if (A.ready && A.ctx.state === 'running') A.ctx.suspend(); };
-  A.resume = function () { if (A.ready && A.ctx.state === 'suspended') A.ctx.resume(); };
+  // The pad stops being scheduled while silent, or every chord queued in the
+  // dark would sound at once on return; the rain loop is kept, not doubled.
+  A.suspend = function () {
+    if (!A.ready) return;
+    if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+    if (A.ctx.state === 'running') A.ctx.suspend();
+  };
+  A.resume = function () {
+    if (!A.ready) return;
+    if (A.ctx.state === 'suspended') {
+      var p = A.ctx.resume();
+      if (p && p.then) p.then(startMusic, function () { /* still locked */ }); else startMusic();
+    } else startMusic();
+  };
   document.addEventListener('visibilitychange', function () { if (document.hidden) A.suspend(); else A.resume(); });
   window.addEventListener('pagehide', A.suspend);
   window.addEventListener('pageshow', A.resume);
@@ -96,6 +108,7 @@
   // --- Music: a slow Am9 - Fmaj7 - Dm9 - E7 pad, with soft rain under it.
   var CHORDS = [[110, 164.8, 196, 261.6, 246.9], [87.3, 130.8, 164.8, 220, 261.6], [73.4, 146.8, 174.6, 220, 329.6], [82.4, 123.5, 146.8, 207.7, 293.7]];
   function padChord() {
+    if (!A.ready || A.ctx.state !== 'running') return;
     var c = A.ctx, t = c.currentTime;
     var f = c.createBiquadFilter();
     f.type = 'lowpass';
@@ -127,9 +140,11 @@
     s.connect(f); f.connect(g); g.connect(musicBus);
     s.start();
   }
+  var raining = false;
   function startMusic() {
+    if (!A.ready || A.ctx.state !== 'running') return;
+    if (!raining) { rain(); raining = true; }
     if (musicTimer) return;
-    rain();
     padChord();
     musicTimer = setInterval(padChord, 8000);
   }
