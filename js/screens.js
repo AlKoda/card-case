@@ -9,7 +9,7 @@
   // ------------------------------------------------------------ Settings
   var SettingsUI = (CF.SettingsUI = {});
   var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap', 'uiScale'];
-  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap', 'strings', 'haptics'];
+  var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap', 'strings', 'haptics', 'tilt'];
 
   function showValue(input) { input.nextElementSibling.textContent = input.value + (input.id === 's-gap' ? 'px' : '%'); }
 
@@ -59,6 +59,17 @@
       }
     });
   });
+  // The pile's cell outlines follow the card pitch: the stylesheet reads --cell-px.
+  function cellPitch() {
+    var gap = +CF.Settings.get('gap') || CF.TABLE.GAP;
+    try { document.documentElement.style.setProperty('--cell-px', (CF.TABLE.CW + gap) + 'px'); } catch (err) { /* no style */ }
+  }
+  CF.Settings.onChange(cellPitch);
+  cellPitch();
+  // The dossier's close hot spot stands beside the panel, over its baked X (a scroller clips its own children).
+  var peekX = $('peek-x');
+  if (peekX) peekX.addEventListener('click', function () { var b = document.querySelector('#peek .peek-close'); if (b) b.click(); });
+
   document.querySelectorAll('.settings-tabs button').forEach(function (b) {
     b.addEventListener('click', function () {
       document.querySelectorAll('.settings-tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });

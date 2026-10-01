@@ -9,18 +9,89 @@ var root = path.join(__dirname, '..');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 var cached = JSON.parse(sw.match(/var FILES = (\[[\s\S]*?\]);/)[1]);
+// The home-screen icons are PNGs rasterised by tools/build_icons.py at deploy
+// time (the repository holds no binaries): they count as existing when the
+// script produces them at that size.
+var buildIcons = fs.readFileSync(path.join(root, 'tools/build_icons.py'), 'utf8');
+var iconSizes = buildIcons.match(/SIZES = \(([\d, ]+)\)/)[1].split(',').map(function (x) { return +x.trim(); });
+assert.ok(/icon-%d\.png/.test(buildIcons) && iconSizes.indexOf(192) >= 0 && iconSizes.indexOf(512) >= 0, 'build_icons.py writes icon-192.png and icon-512.png');
+function built(f) { var m = /^icons\/icon-(\d+)\.png$/.exec(f); return !!m && iconSizes.indexOf(+m[1]) >= 0; }
+function exists(f) { return fs.existsSync(path.join(root, f)) || built(f); }
 var needed = ['index.html', 'manifest.webmanifest', 'icons/icon.svg']
   .concat(html.match(/href="(css\/[^"]+)"/g).map(function (m) { return m.slice(6, -1); }))
   .concat(html.match(/<script src="([^"]+)"/g).map(function (m) { return m.slice(13, -1); }));
 needed.forEach(function (f) {
   assert.ok(cached.indexOf(f) >= 0, 'service worker caches ' + f);
-  assert.ok(fs.existsSync(path.join(root, f)), f + ' exists');
+  assert.ok(exists(f), f + ' exists');
 });
-cached.forEach(function (f) { assert.ok(fs.existsSync(path.join(root, f)), 'cached file exists: ' + f); });
+cached.forEach(function (f) { assert.ok(exists(f), 'cached file exists or is built at deploy: ' + f); });
 var manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
 assert.strictEqual(manifest.display, 'fullscreen');
 assert.ok(manifest.icons.length >= 2 && manifest.start_url);
+manifest.icons.forEach(function (ic) { assert.ok(exists(ic.src), 'manifest icon exists on disk or is built: ' + ic.src); assert.ok(cached.indexOf(ic.src) >= 0, 'and is cached: ' + ic.src); });
 assert.ok(/rel="manifest"/.test(html) && /serviceWorker/.test(html));
+var deploy = fs.readFileSync(path.join(root, '.github/workflows/deploy.yml'), 'utf8');
+assert.ok(/python tools\/build_icons\.py _site\/icons/.test(deploy), 'the deploy builds the icons into the site');
+
+// ---- Releases are atomic: one cache per edition, named after the commit.
+var versionLine = sw.match(/^var VERSION = '([^']*)';$/m);
+assert.ok(versionLine && /^casefile-[\w.-]+$/.test(versionLine[1]), 'sw.js names its edition on one line');
+var stamp = deploy.match(/sed -i "s\/(\^var VERSION = '\[\^'\]\*';)\/var VERSION = 'casefile-\$\{GITHUB_SHA::7\}';\/"/);
+assert.ok(stamp, 'the deploy stamps VERSION with the commit');
+assert.ok(new RegExp(stamp[1], 'm').test(sw), 'and its pattern matches the line in sw.js');
+assert.ok(/rm -f _site\/css\/art\/cm-spare\.css/.test(deploy), 'the spare art is not shipped');
+assert.ok(!/c\.put\(ev\.request/.test(sw) && !/caches\.match\(ev\.request\)/.test(sw), 'the fetch handler never writes to the cache and serves the edition only');
+assert.ok(/caches\.open\(VERSION\)\.then\(function \(c\) \{ return c\.match\(p\); \}\)/.test(sw), 'files come from the VERSION cache alone');
+assert.ok(/addEventListener\('message'/.test(sw) && /ev\.data === 'skip'/.test(sw) && /skipWaiting\(\)/.test(sw), 'a message of skip lets the new edition take over');
+assert.ok(!/addAll\(FILES\)\.then\(function \(\) \{ return self\.skipWaiting/.test(sw) && !/install[\s\S]*?skipWaiting[\s\S]*?\}\);\n\/\/ A new edition/.test(sw), 'the install itself does not skip waiting');
+var reg = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+['updatefound', 'statechange', "w.state === 'installed'", 'navigator.serviceWorker.controller', 'CF.onUpdate(reg)', 'controllerchange', 'CF.updateAsked', 'location.reload()', 'reg.waiting'].forEach(function (k) {
+  assert.ok(reg.indexOf(k) >= 0, 'the registration script handles the update: ' + k);
+});
+var main = fs.readFileSync(path.join(root, 'js/main.js'), 'utf8');
+assert.ok(/CF\.onUpdate = function \(reg\)/.test(main) && /A new edition is ready/.test(main) && /Tap to reload\./.test(main) && /postMessage\('skip'\)/.test(main), 'main.js shows the update toast and posts skip');
+
+// ---- The art payload: every key the code refers to is in a linked sheet, and
+// the list the build reads is the one the code gives.
+var artUsed = require('../tools/art_used.js');
+var scan = artUsed.scan();
+var linked = html.match(/href="(css\/[^"]+\.css)"/g).map(function (m) { return m.slice(6, -1); });
+var definedLinked = {};
+linked.forEach(function (f) {
+  var src = fs.readFileSync(path.join(root, f), 'utf8'), re = /--art-([a-z0-9-]+):/g, m;
+  while ((m = re.exec(src))) definedLinked[m[1]] = f;
+});
+assert.ok(linked.indexOf('css/art/cm-spare.css') < 0 && cached.indexOf('css/art/cm-spare.css') < 0, 'the spare art is neither linked nor cached');
+assert.ok(scan.used.length > 0 && scan.used.length < Object.keys(scan.defined).length, 'some tiles are spare');
+scan.used.forEach(function (k) { assert.ok(definedLinked[k], 'referenced art key is defined in a linked stylesheet: ' + k); });
+var sources = fs.readdirSync(path.join(root, 'js')).filter(function (f) { return /\.js$/.test(f); }).map(function (f) { return 'js/' + f; })
+  .concat(['css/style.css', 'index.html']);
+sources.forEach(function (f) {
+  var src = fs.readFileSync(path.join(root, f), 'utf8'), re = /--art-([a-z0-9-]+)\)/g, m;
+  while ((m = re.exec(src))) assert.ok(definedLinked[m[1]], f + ' refers to --art-' + m[1] + ', which no linked stylesheet defines');
+});
+var listed = fs.readFileSync(artUsed.file, 'utf8').split('\n').filter(Boolean);
+assert.deepStrictEqual(listed, scan.used, 'tools/art_used.txt is current (run node tools/art_used.js, then the art build with --used)');
+var spare = fs.readFileSync(path.join(root, 'css/art/cm-spare.css'), 'utf8');
+scan.used.forEach(function (k) { assert.ok(spare.indexOf('--art-' + k + ':') < 0, 'a used key is not in the spare sheet: ' + k); });
+
+// ---- Fonts: no dead weight; the Arabic face loads with the language.
+var fonts = fs.readFileSync(path.join(root, 'css/fonts.css'), 'utf8');
+assert.strictEqual((fonts.match(/font-family: 'Cinzel'/g) || []).length, 1, 'one Cinzel face');
+assert.ok(/font-weight: 600 700;/.test(fonts), 'serving 600 and 700');
+assert.ok(fonts.indexOf('IM Fell English SC') < 0 && fonts.indexOf('Amiri') < 0, 'no small-caps face, no Arabic in the Latin sheet');
+var fontsAr = fs.readFileSync(path.join(root, 'css/fonts-ar.css'), 'utf8');
+assert.ok(/font-family: 'Amiri'/.test(fontsAr) && cached.indexOf('css/fonts-ar.css') >= 0 && linked.indexOf('css/fonts-ar.css') < 0, 'the Arabic face is its own cached sheet, not linked by the page');
+var i18n = fs.readFileSync(path.join(root, 'js/i18n.js'), 'utf8');
+assert.ok(/fonts: 'css\/fonts-ar\.css'/.test(i18n) && /CF\.loadFonts\(CF\.LANGS\[lang\]\.fonts/.test(i18n), 'CF.setLang adds the language\'s fonts');
+
+// ---- Back, install, resume, and a save that is never destroyed (js/main.js).
+assert.ok(/popstate/.test(main) && /history\.pushState\(\{ cf: 1 \}/.test(main) && /history\.back\(\)/.test(main), 'the browser Back closes windows through UI.back');
+assert.ok(/beforeinstallprompt/.test(main) && /appinstalled/.test(main) && /t-install/.test(main) && /id="t-install"/.test(html) && /Install to home screen/.test(html), 'install in one tap');
+assert.ok(/location\.hash/.test(main) && /resume/.test(main) && /UI\.setPaused\(true\)/.test(main), '#resume reopens the table, paused');
+assert.ok(/casefile\.save\.v1\.broken/.test(main) && /casefile\.save\.v1\.prev/.test(main) && !/store\(SAVE_KEY, null\);\s*openTitle/.test(main), 'a save that cannot be read is copied, never removed');
+assert.ok(/The saved letter could not be read/.test(main) && /JSON\.parse\(raw\)/.test(main), 'the title says so, and Continue hides only when the save is not JSON');
+
 ['android/settings.gradle', 'android/build.gradle', 'android/app/build.gradle', 'android/app/src/main/AndroidManifest.xml',
   'android/app/src/main/java/com/alkoda/casefile/MainActivity.java', 'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
   '.github/workflows/android.yml'].forEach(function (f) { assert.ok(fs.existsSync(path.join(root, f)), f); });
@@ -40,4 +111,35 @@ assert.ok(/targetSdk 35/.test(gradle) && /CF_VERSION_CODE/.test(gradle) && /sign
 var wf = fs.readFileSync(path.join(root, '.github/workflows/android.yml'), 'utf8');
 assert.ok(/assembleRelease/.test(wf) && /CF_VERSION_CODE/.test(wf) && /apk-latest/.test(wf), 'CI builds a signed release with a rising version');
 assert.ok(/--inset-l/.test(fs.readFileSync(path.join(root, 'css/style.css'), 'utf8')) && /s-haptics/.test(html), 'the page pads for the cutout and offers haptics');
-console.log('pwa: service worker list, manifest, android inputs OK');
+// ---- The Android wrapper: a bundle or a dead renderer reopens on the table; cutout insets alone.
+assert.ok(/web\.loadUrl\(savedInstanceState == null \? START : START \+ RESUME\)/.test(activity) && !/else web\.restoreState/.test(activity), 'the page loads after a restore, whether or not it worked');
+assert.strictEqual((activity.match(/web\.loadUrl\(START \+ RESUME\)/g) || []).length, 1, 'a killed renderer reloads with #resume');
+assert.ok(/getInsets\(WindowInsetsCompat\.Type\.displayCutout\(\)\)/.test(activity) && !/displayCutout\(\) \| WindowInsetsCompat\.Type\.systemBars/.test(activity), 'the page pads for the cutout only');
+assert.ok(/reopens on the table, paused/.test(fs.readFileSync(path.join(root, 'docs/ANDROID.md'), 'utf8')), 'ANDROID.md says so');
+
+// ---- Audio: no pad is scheduled while suspended, the rain is not doubled (js/audio.js under Node).
+(function audio() {
+  var timers = 0, cleared = 0, rains = 0, listeners = {};
+  var node = function () { return { connect: function () {}, start: function () { if (this.loop) rains++; }, stop: function () {}, gain: { setValueAtTime: function () {}, setTargetAtTime: function () {}, exponentialRampToValueAtTime: function () {}, linearRampToValueAtTime: function () {} },
+    frequency: { setValueAtTime: function () {}, exponentialRampToValueAtTime: function () {}, linearRampToValueAtTime: function () {}, value: 0 }, detune: { value: 0 }, Q: { value: 0 } }; };
+  function Ctx() { this.state = 'running'; this.currentTime = 0; this.sampleRate = 100; this.destination = {}; }
+  Ctx.prototype.createGain = Ctx.prototype.createOscillator = Ctx.prototype.createBiquadFilter = node;
+  Ctx.prototype.createBufferSource = function () { var n = node(); n.loop = false; return n; };
+  Ctx.prototype.createBuffer = function () { return { getChannelData: function () { return new Float32Array(100); } }; };
+  Ctx.prototype.suspend = function () { this.state = 'suspended'; };
+  Ctx.prototype.resume = function () { this.state = 'running'; };
+  var win = { CF: { Settings: { values: { master: 80, music: 60, sfx: 70 }, onChange: function () {} } }, AudioContext: Ctx,
+    addEventListener: function (ev, fn) { listeners[ev] = fn; }, setInterval: function () { timers++; return timers; }, clearInterval: function () { cleared++; } };
+  var ctx = { window: win, document: { addEventListener: function () {}, hidden: false }, setInterval: win.setInterval, clearInterval: win.clearInterval, Float32Array: Float32Array, Math: Math };
+  require('vm').runInNewContext(fs.readFileSync(path.join(root, 'js/audio.js'), 'utf8'), ctx, { filename: 'js/audio.js' });
+  var A = win.CF.Audio;
+  listeners.pointerdown();
+  assert.ok(A.ready && timers === 1 && rains === 1, 'the first gesture starts the pad and the rain');
+  A.suspend();
+  assert.ok(cleared === 1 && A.ctx.state === 'suspended', 'suspend clears the pad timer and the context');
+  A.resume();
+  assert.ok(A.ctx.state === 'running' && timers === 2 && rains === 1, 'resume restarts the pad without a second rain');
+  A.resume();
+  assert.ok(timers === 2 && rains === 1, 'a second resume changes nothing');
+})();
+console.log('pwa: service worker list, editions, art, fonts, shell, android inputs, audio OK');
