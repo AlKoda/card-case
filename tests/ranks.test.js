@@ -221,5 +221,42 @@ function run(e, verb, cards) {
   assert.strictEqual(tr.id, 'duty_train');
   assert.strictEqual(officer.data.level, 3);
   assert.strictEqual(officer.data.traits.length, 2, 'a new trait at level 3');
+
+  // The Belfry: every week, one case through each known front gets a token and a name.
+  var b = game(79);
+  b.s.rooms.survroom = true;
+  var bf = b.newFront('the Tide Rats', 'docks'); bf.known = true;
+  var bk = byDef(b, 'case')[0], br = b.caseRec(bk.caseId);
+  br.front = bf.id;
+  var seen = b.tableCards().filter(function (c) { return c.def === 'suspect'; }).length;
+  var bl = b.belfryWeek();
+  assert.deepStrictEqual(bl, ['From the Belfry: ' + br.title + '.']);
+  var glass = b.tableCards().filter(function (c) { return c.def === 'clue' && c.label === 'Seen from the Belfry'; })[0];
+  assert.ok(glass && glass.caseId === br.id && CF.clueAspects(glass).opportunity === 2 && CF.hasTag(glass, 'watching'), 'the belfry\'s token');
+  assert.strictEqual(b.tableCards().filter(function (c) { return c.def === 'suspect'; }).length, seen + 1, 'and a name');
+  assert.deepStrictEqual(b.belfryWeek(), [], 'once per case');
+  assert.deepStrictEqual(game(79).belfryWeek(), [], 'nothing without a known front');
+
+  // The Apothecary: the bench without the Key, and what the body says one point stronger.
+  var a = game(80);
+  var ak = byDef(a, 'case')[0], ar = a.caseRec(ak.caseId);
+  var tok = a.create('clue', a.clueSpec(ar, { label: 'A Token', text: 'x', aspects: { financial: 1 } }, []));
+  a.autoSlot('analyze', tok.uid);
+  assert.strictEqual(a.currentRecipe('analyze').recipe.id, 'an_clue_none', 'no bench without the Key');
+  a.clearSlots('analyze');
+  a.s.rooms.lab = true;
+  var er = run(a, 'analyze', [tok]);
+  assert.strictEqual(er.id, 'an_enhance', 'the room is the Key');
+  assert.strictEqual(CF.clueAspects(tok).financial, 2);
+  var bio = { type: 'evidence', label: 'Threads', text: 'x', needs: 'bio', result: { label: 'The Threads Matched', text: 'x', aspects: { forensic: 2 } } };
+  var ev = a.create('evidence', { label: bio.label, desc: bio.text, caseId: ar.id, data: { item: bio } });
+  run(a, 'analyze', [ev]);
+  var read = a.tableCards().filter(function (c) { return c.label === 'The Threads Matched'; })[0];
+  assert.strictEqual(CF.clueAspects(read).forensic, 3, 'the body reads one point stronger');
+  var a2 = game(80); a2.s.rooms.lab = true;
+  var ar2 = a2.caseRec(byDef(a2, 'case')[0].caseId);
+  var doc = { type: 'evidence', label: 'A Day-Book', text: 'x', needs: 'lab', result: { label: 'The Leaves Parted', text: 'x', aspects: { financial: 2 } } };
+  run(a2, 'analyze', [a2.create('evidence', { label: doc.label, desc: doc.text, caseId: ar2.id, data: { item: doc } })]);
+  assert.strictEqual(CF.clueAspects(a2.tableCards().filter(function (c) { return c.label === 'The Leaves Parted'; })[0]).forensic || 0, 0, 'paper does not');
   console.log('precinct: ok');
 })();

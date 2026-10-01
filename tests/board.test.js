@@ -549,6 +549,67 @@ console.error = function (err) { throw err; };
   console.log('life: opening, needs, choices ok');
 })();
 
+// A save from another day: a way renamed, a card gone from a slot, a question the city no longer asks.
+(function reconcile() {
+  var e = CF.Engine.newGame({ seed: 11, calling: 'crusader', name: 'Load' });
+  var hp = e.tableCards().filter(function (c) { return c.def === 'health'; })[0] || e.create('health');
+  assert.strictEqual(e.autoSlot('duty', hp.uid), 'main');
+  assert.ok(e.start('duty'));
+  var saved = e.save().replace('"recipe":"duty_beat"', '"recipe":"duty_old_name"');
+  assert.ok(/duty_old_name/.test(saved));
+  // A renamed way: the alias carries the running verb to the new name and it finishes there.
+  CF.RECIPE_ALIAS.duty_old_name = 'duty_beat';
+  var e2 = CF.Engine.load(saved);
+  delete CF.RECIPE_ALIAS.duty_old_name;
+  assert.strictEqual(e2.verb('duty').recipe, 'duty_beat', 'the old name follows the alias');
+  assert.strictEqual(e2.verb('duty').status, 'running');
+  e2.tick(e2.verb('duty').duration + 0.01);
+  assert.strictEqual(e2.verb('duty').status, 'done', 'and the round finishes under it');
+  // A way gone for good: the verb gives its cards back and goes idle.
+  var e3 = CF.Engine.load(saved);
+  assert.strictEqual(e3.verb('duty').status, 'idle', 'an unknown way stops the verb');
+  assert.ok(!e3.verb('duty').held.length && e3.card(hp.uid).loc.t === 'table', 'and its cards are on the table again');
+  // The recipe gone mid-run: no crash, an interruption.
+  var e3b = CF.Engine.load(saved); e3b.verb('duty').status = 'running'; e3b.verb('duty').recipe = 'duty_old_name'; e3b.verb('duty').held = [hp.uid]; e3b.card(hp.uid).loc = { t: 'held', verb: 'duty' };
+  e3b.complete('duty');
+  assert.strictEqual(e3b.s.journal[0].title, 'Interrupted');
+  // A card deleted from under a slot, and one a verb forgot.
+  var e4 = CF.Engine.newGame({ seed: 12, calling: 'crusader', name: 'Load' });
+  var clue = e4.create('clue'), wit = e4.create('instinct');
+  assert.ok(e4.autoSlot('reflect', clue.uid));
+  var s4 = JSON.parse(e4.save());
+  delete s4.cards[clue.uid];
+  s4.cards[wit.uid].loc = { t: 'slot', verb: 'reflect', slot: 'aid' };
+  var e5 = CF.Engine.load(s4);
+  assert.ok(!Object.keys(e5.verb('reflect').slots).some(function (k) { return e5.verb('reflect').slots[k] === clue.uid; }), 'the deleted card leaves its slot');
+  assert.strictEqual(e5.card(wit.uid).loc.t, 'table', 'a card the verb never held comes back to the table');
+  assert.ok(e5.tableCards().every(function (c) { var q = e5.clampToTable(c.loc.x, c.loc.y, T.CW, T.CH); return q.x === c.loc.x && q.y === c.loc.y; }), 'every card on the table');
+  // A stale choice and an old hook are dropped; a live choice is kept.
+  var s6 = JSON.parse(e4.save());
+  s6.choice = { id: 'no_such_choice', title: 'x', text: 'x', options: [] };
+  s6.choiceHook = { verb: 'duty', t: s6.t - 30 };
+  var e6 = CF.Engine.load(s6);
+  assert.ok(!e6.s.choice && !e6.s.choiceHook, 'a question the city no longer asks is dropped');
+  var t6 = e6.s.t; e6.tick(1); assert.ok(e6.s.t > t6, 'and the clock runs');
+  var spec = CF.CHOICES.filter(function (c) { return c.id === 'beggar'; })[0];
+  e6.offerChoice(spec);
+  var e7 = CF.Engine.load(e6.save());
+  assert.ok(e7.s.choice && e7.s.choice.id === 'beggar', 'a live question survives the load');
+  // A verb pushed off the table comes back onto it; one in its place stays.
+  var s8 = JSON.parse(e4.save()), dx = s8.verbs.duty.x, dy = s8.verbs.duty.y;
+  s8.verbs.duty.x = 99999; s8.verbs.duty.y = -99999;
+  var e8 = CF.Engine.load(s8);
+  var q8 = e8.clampToTable(e8.verb('duty').x, e8.verb('duty').y, T.VW, T.VH);
+  assert.ok(q8.x === e8.verb('duty').x && q8.y === e8.verb('duty').y, 'the verb is on the table');
+  assert.ok(e8.verb('reflect').x === s8.verbs.reflect.x && e8.verb('reflect').y === s8.verbs.reflect.y, 'the others did not move');
+  void dx; void dy;
+  // The counts carry the debt even from a save without it.
+  var s9 = JSON.parse(e4.save()); delete s9.counts;
+  var e9 = CF.Engine.load(s9); e9.count('debt');
+  assert.strictEqual(e9.s.counts.debt, 1);
+  console.log('reconcile: renamed recipe, lost cards, stale choice, verb positions ok');
+})();
+
 // Ways around the needs, and the Rival.
 (function rivalry() {
   var e = CF.Engine.newGame({ calling: 'crusader', name: 'Rival' });

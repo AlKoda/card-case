@@ -5,6 +5,8 @@
 (function (G) {
   var CF = G.CF;
   var U = CF.util;
+  // Ways renamed since a save was written: old id -> new id, so a running verb finishes under the new name.
+  CF.RECIPE_ALIAS = {};
 
   function A(card) { return card ? CF.aspectsOf(card) : {}; }
   function openRec(ctx, card) {
@@ -551,6 +553,9 @@
         spec.label = 'Partial: ' + res.label;
         spec.text = 'Without ' + needsLabel(item.needs) + ', you only get part of it. ' + res.text;
       }
+      // The apothecary's bench: what the body says reads one point stronger.
+      var bench = !!e.s.rooms.lab && CF.itemTags(item).indexOf('biology') >= 0;
+      if (bench) { spec.aspects.forensic = (spec.aspects.forensic || 0) + 1; spec.text += ' At the apothecary\'s bench it reads one point stronger.'; }
       ctx.consume(ev);
       ctx.give('clue', e.clueSpec(rec, spec, e.helpers(ctx)));
       return { title: ok ? 'Results' : 'Partial Results', text: spec.text };
@@ -560,7 +565,7 @@
     id: 'an_enhance', verb: 'analyze', label: 'Back to the Bench', duration: 20,
     preview: function (ctx) { return 'Take ' + ctx.e.labelOf(ctx.primary) + ' to the apothecary\'s back room and get more out of it. Once.'; },
     blocked: function (ctx) { return ctx.primary.data.enhanced ? 'The apothecary has already had everything he can get from this.' : null; },
-    requires: { primary: 'clue', cards: ['labpass'] },
+    requires: { primary: 'clue', when: function (ctx) { return !!ctx.e.s.rooms.lab || ctx.cards.some(function (c) { return c.def === 'labpass'; }); } },
     run: function (ctx) {
       var e = ctx.e, c = ctx.primary;
       var rec = openRec(ctx, c);
@@ -579,8 +584,8 @@
   R.push({
     id: 'an_clue_none', verb: 'analyze', label: 'Back to the Bench', duration: 5,
     preview: 'A token is not raw proof. Only the apothecary can get more out of it.',
-    blocked: 'Only the apothecary gets more out of a token. Petition for the Apothecary\'s Key.',
-    requires: { primary: 'clue' }, forbids: { cards: ['labpass'] },
+    blocked: 'Only the apothecary gets more out of a token. Petition for the Apothecary\'s Key, or for his bench.',
+    requires: { primary: 'clue' }, forbids: { cards: ['labpass'], when: function (ctx) { return !!ctx.e.s.rooms.lab; } },
   });
   R.push({
     id: 'an_reopen', verb: 'analyze', label: 'Open the Case Again', duration: 60,
@@ -915,7 +920,7 @@
     preview: 'A physician wants a Coin; with the Physician\'s Case you can dose yourself.',
     requires: { primary: 'sickness' },
     blocked: function (ctx) { return ctx.has('funds') || ctx.has('kit_bio') ? null : 'A physician wants Coin, or you need the Physician\'s Case.'; },
-    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'The Fever Breaks', text: 'Bitter bark in wine, two days sweating under every blanket you own, and on the third morning the river smells like a river again.' } }],
+    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'The Cough Clears', text: 'Bitter bark in wine, two days sweating under every blanket you own, and on the third morning the river smells like a river again.' } }],
   });
   // A Wound: dressed from the Case, paid to the barber-surgeon, or slept off. First match wins.
   R.push({
@@ -950,12 +955,12 @@
       else ctx.give('informant', e.informantSpec(U.pick(ctx.rng, Object.keys(CF.DISTRICTS))));
       ctx.give('funds');
       return { title: 'Their Casebook', text: 'Between the wine-rings and the crossings-out: a name, a street, a few coins tucked in the back board. ' +
-        (e.s.calling === 'master' ? 'And a drawing of a paper crane, circled three times.' : 'A contact your predecessor trusted.') };
+        (e.s.calling === 'master' ? 'And a mason\'s mark drawn in the margin, circled three times.' : 'A contact your predecessor trusted.') };
     },
   });
   R.push({
     id: 'ref_architect', verb: 'reflect', label: 'Pull the Thread', duration: 45,
-    preview: 'Three loose ends. The same hand, the same paper crane. Lay them side by side.',
+    preview: 'Three loose ends. The same hand, the same three strokes. Lay them side by side.',
     blocked: function (ctx) {
       if (ctx.e.s.calling !== 'master') return 'Whatever pattern is here, it is not yours to chase.';
       if (ctx.count('looseend') < 3) return 'You need three Loose Ends to see the shape of it.';
@@ -986,7 +991,7 @@
       e.pathGain('master', 1, 'reopened a cold trail');
       if (e.s.calling === 'master') ctx.give('looseend');
       return { title: 'Old Ghosts', text: 'You read the old book again, and think like ' + al.data.name + '. Where would you go? Who would you trust? By first light, you have a guess.' +
-        (e.s.calling === 'master' ? ' And in the margin of the old book, a doodle you never noticed: a paper crane.' : '') };
+        (e.s.calling === 'master' ? ' And in the margin of the old book, a doodle you never noticed: three strokes, a mason\'s mark.' : '') };
     },
   });
   R.push({
@@ -1037,7 +1042,7 @@
       e.pathGain('master', 1, 'closed in on the network');
       if (e.s.calling === 'master') ctx.give('looseend');
       return { title: 'The Shape of It', kind: 'major', text: 'You draw the map on the wall of your study: the cases, the place, ' + e.labelOf(target) + '. A Disguise through ' + (front ? front.name : 'the front') + ' will be safer now that you know the doors.' +
-        (e.s.calling === 'master' ? ' And in the corner of the map, something that is not a band at all: a paper crane.' : '') };
+        (e.s.calling === 'master' ? ' And in the corner of the map, something that is not a band at all: a mason\'s mark.' : '') };
     },
   });
   R.push({

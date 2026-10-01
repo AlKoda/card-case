@@ -212,10 +212,10 @@
 
   // Things the Council's treasury will buy. rank = minimum office to see the petition.
   CF.ORDERS = {
-    camera: { label: 'Sketch-book', cost: 8, give: 'camera', rank: 0 },
+    camera: { label: 'Sketch-book', cost: 5, give: 'camera', rank: 0 },
     prints: { label: 'Vinegar and Umbrella', cost: 3, give: 'prints', rank: 0 },
-    kit: { label: 'Physician\'s Case', cost: 9, give: 'kit', rank: 0 },
-    locker: { label: 'Strongroom', cost: 9, room: 'locker', rank: 0 },
+    kit: { label: 'Physician\'s Case', cost: 5, give: 'kit', rank: 0 },
+    locker: { label: 'Strongroom', cost: 6, room: 'locker', rank: 0 },
     suite: { label: 'The Hole', cost: 8, room: 'suite', rank: 1 },
     labpass: { label: 'The Apothecary\'s Key', cost: 5, give: 'labpass', rank: 1 },
     archive: { label: 'The Rolls', cost: 8, room: 'archive', rank: 1 },
@@ -223,7 +223,7 @@
     intel: { label: 'The Informers\' Bench', cost: 6, room: 'intel', rank: 2 },
     training: { label: 'The Drill Yard', cost: 8, room: 'training', rank: 2 },
     thieftakers: { label: 'The Thief-takers\' Office', cost: 6, room: 'thieftakers', rank: 1 },
-    lab: { label: 'The Apothecary', cost: 14, room: 'lab', rank: 3 },
+    lab: { label: 'The Apothecary', cost: 10, room: 'lab', rank: 3 },
     survroom: { label: 'The Belfry', cost: 8, room: 'survroom', rank: 3 },
   };
 
@@ -235,8 +235,8 @@
     archive: { label: 'The Rolls', order: 'archive', desc: 'The court\'s old books, shelved and indexed. Unanswered cases can be opened again in Study.' },
     intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. A token that points at a front names it at once; the Coquille shows itself.' },
     training: { label: 'The Drill Yard', order: 'training', desc: 'Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.' },
-    lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, and no raw proof needs a special instrument.' },
-    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you.' },
+    lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, no raw proof needs a special instrument, a token goes back to the bench without the Key, and what the body says reads one point stronger.' },
+    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you, and every week the belfry sees who uses a known front.' },
     thieftakers: { label: 'The Thief-takers\' Office', order: 'thieftakers', desc: 'A room let to men who know every fence in the city. Put a Case in Attend with 2 Coin and they get the goods back for a cut, without a trial. Some of what they bring back is a frame.' },
   };
   CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'thieftakers', 'lab', 'survroom'];

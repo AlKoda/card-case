@@ -525,8 +525,8 @@ builds it.
 | Archive | Cold cases can be reopened in Analyze. |
 | Intelligence Office | A clue that points at a front reveals the front at once. |
 | Training Room | Training costs 1 Fund; at level 3 an officer learns a new trait. |
-| Crime Lab | Analysis faster; no evidence needs special equipment. |
-| Surveillance Room | Stakeouts take half the night and never tire you. |
+| Crime Lab | Analysis faster; no evidence needs special equipment; *Back to the Bench* without the Key; Forensic +1 on what the body says. |
+| Surveillance Room | Stakeouts take half the night and never tire you; every week, one open case through each known front gets a *Seen from the Belfry* token and a name. |
 
 ## 19. Callings as drift
 

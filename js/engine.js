@@ -212,10 +212,44 @@
       }
       delete c.lastCell;
     }
+    // A verb only keeps the cards that still exist; a card a verb has forgotten goes back to the table.
+    var live = function (uid) { return !!s.cards[uid]; };
+    var toTable = function (uid) { var c = s.cards[uid]; if (c) c.loc = { t: 'table', x: 0, y: T.TOP }; };
+    var ralias = CF.RECIPE_ALIAS || {};
+    Object.keys(s.verbs).forEach(function (id) {
+      var v = s.verbs[id];
+      v.slots = v.slots || {}; v.ctxSlots = v.ctxSlots || {}; v.held = (v.held || []).filter(live); v.out = (v.out || []).filter(live);
+      Object.keys(v.slots).forEach(function (k) { if (!live(v.slots[k])) delete v.slots[k]; });
+      Object.keys(v.ctxSlots).forEach(function (k) { if (!live(v.ctxSlots[k])) delete v.ctxSlots[k]; });
+      if (v.ask && v.ask.filled && !live(v.ask.filled)) v.ask.filled = null;
+      // A way renamed since the save was written: follow it. One gone for good gives its cards back and the verb goes idle.
+      if (v.recipe && !CF.RECIPES_BY_ID[v.recipe] && ralias[v.recipe]) v.recipe = ralias[v.recipe];
+      if (v.status === 'running' && !CF.RECIPES_BY_ID[v.recipe]) {
+        v.held.forEach(toTable);
+        v.held = []; v.ctxSlots = {}; v.ask = null; v.recipe = null; v.status = 'idle'; v.elapsed = 0; v.duration = 0;
+      }
+    });
+    Object.keys(s.cards).forEach(function (u) {
+      var c = s.cards[u], loc = c.loc, v = loc && loc.verb && s.verbs[loc.verb];
+      if (!loc || loc.t === 'table') return;
+      var kept = v && ((loc.t === 'slot' && v.slots[loc.slot] === c.uid) || (loc.t === 'held' && v.held.indexOf(c.uid) >= 0) || (loc.t === 'out' && v.out.indexOf(c.uid) >= 0));
+      if (!kept) toTable(c.uid);
+    });
+    // A question the city no longer asks, or a hook left from an older hour, is dropped.
+    if (s.choice && !(CF.CHOICES || []).some(function (c) { return c.id === s.choice.id; })) s.choice = null;
+    if (s.choiceHook && !(s.t - s.choiceHook.t <= 6)) s.choiceHook = null;
     var e = new Engine(s);
     e.initPaths();
     e.layoutVerbs();
-    // Cards from older saves may sit off the table: bring them back onto it.
+    // Verbs and cards from older saves may sit off the table, or on each other: bring them back onto it.
+    CF.VERB_ORDER.forEach(function (id) {
+      var v = s.verbs[id];
+      if (!v.unlocked || v.x === undefined) return;
+      var q = e.clampToTable(v.x, v.y, T.VW, T.VH), obs = e.obstacles(null, id);
+      if (q.x === v.x && q.y === v.y && isFree({ x: q.x, y: q.y, w: T.VW, h: T.VH }, obs)) return; // where it was, and clear
+      var p = e.nearestFree(q.x, q.y, T.VW, T.VH, obs);
+      v.x = p.x; v.y = p.y;
+    });
     e.tableCards().forEach(function (c) { var q = e.clampToTable(c.loc.x, c.loc.y, T.CW, T.CH); c.loc.x = q.x; c.loc.y = q.y; });
     return e;
   };
@@ -603,7 +637,7 @@
   };
   // The counts on the Calling card that never go down: Cruelty, Mercy, Purse.
   P.count = function (name, delta) {
-    var c = this.s.counts || (this.s.counts = { cruelty: 0, mercy: 0, purse: 0 });
+    var c = this.s.counts || (this.s.counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 });
     c[name] = (c[name] || 0) + (delta === undefined ? 1 : delta);
     this.dirty = true;
   };
@@ -975,7 +1009,7 @@
     var result;
     try {
       // The main card can vanish mid-recipe (burned informant, expired case...).
-      if (!ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: 'Whatever you were working on is gone before you finish. The city does not wait.' };
+      if (!rec || !ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: 'Whatever you were working on is gone before you finish. The city does not wait.' };
       else result = rec.run(ctx) || { title: rec.label, text: '' };
     } catch (err) {
       if (typeof console !== 'undefined') console.error(err);
@@ -1318,6 +1352,7 @@
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
     if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
     if (this.rivalWeek) lines = lines.concat(this.rivalWeek());
+    if (s.rooms.survroom) lines = lines.concat(this.belfryWeek());
     // The Pattern: once a run, for a Bailiff (or a Sworn Examiner from week twelve), and every week it is open another girl.
     if (s.week >= 6 && (s.rank >= 2 || (s.rank >= 1 && s.week >= 12)) && !s.flags.patternSeen && this.rng() < 0.2 && this.openCases().length < this.maxOpenCases()) {
       s.flags.patternSeen = true;
@@ -1385,6 +1420,26 @@
     if (this.growthTick) this.growthTick();
     this.story('Week ' + s.week, lines.join(' '), 'week');
     if (this.checkPurseEndings) this.checkPurseEndings();
+  };
+
+  // The Belfry: every week it looks down on each known front, and one open
+  // case that goes through it gets a token and a name. Once per case.
+  P.belfryWeek = function () {
+    var self = this, lines = [], fronts = this.fronts ? this.fronts() : {};
+    Object.keys(fronts).forEach(function (fid) {
+      var f = fronts[fid];
+      if (!f.known) return;
+      var rec = self.casesAtFront(fid).filter(function (r) { return !r.belfry; })[0];
+      if (!rec) return;
+      rec.belfry = true;
+      var spec = self.clueSpec(rec, { label: 'Seen from the Belfry', text: U.fill('From the belfry you watch {front} through a glass: who goes in, and who comes out lighter.', { front: f.name }),
+        aspects: { opportunity: 2 }, link: fid }, [], { noMisread: true });
+      spec.tags = ['watching'];
+      self.create('clue', spec);
+      self.revealSuspect(rec, null);
+      lines.push(U.fill('From the Belfry: {title}.', { title: rec.title }));
+    });
+    return lines;
   };
 
   // At-large criminals find each other; gangs merge into a syndicate. The
@@ -1576,7 +1631,7 @@
     riot: { win: false, title: 'The Crowd Turns', text: 'The next execution is meant to be a lesson. The crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You get out of the city by the Harbour gate with what you are wearing. The Council does not send after you.' },
     death: { win: false, title: 'Killed in the Council\'s Service', text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     commissioner: { win: true, title: 'The Burgomaster', text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
-    master: { win: true, title: 'The Scholar', text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties. You fold a paper crane, and throw it in the fire.' },
+    master: { win: true, title: 'The Scholar', text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
     crusader: { win: true, title: 'The Reformer', text: 'The Court of Miracles is a wet cellar with nobody in it. The King of Thunes hangs on the Ravenstone. It cost you more than you will ever say, and the city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law.' },
   };
 
@@ -2093,7 +2148,7 @@
     }
     if (rec.template === 'architect') {
       this.s.flags.architect = false;
-      this.story('The Architect Vanishes', 'By the time you get a writ the house on the Hill is empty, except for a paper crane on the mantel. You will have to find the thread again.', 'danger');
+      this.story('The Architect Vanishes', 'By the time you get a writ the house on the Hill is empty, except for three strokes cut into the mantel. You will have to find the thread again.', 'danger');
       return;
     }
     if (rec.template === 'manhunt') {
@@ -2112,7 +2167,10 @@
     this.create('coldcase', {
       label: 'Unanswered: ' + rec.title,
       desc: 'The trail went cold. ' + culprit.name + ' walked. With the Rolls, this can be opened again in Study.',
-      data: { template: rec.template, culpritName: culprit.name, culpritTrait: culprit.trait, atLargeUid: al.uid, title: rec.title },
+      data: { template: rec.template, culpritName: culprit.name, culpritTrait: culprit.trait, atLargeUid: al.uid, title: rec.title,
+        // What the case was, for the day it is opened again: the same victim, scene and names, the proof not yet found.
+        from: { victim: rec.victim, district: rec.district, scene: rec.scene, structure: rec.structure, vars: rec.vars,
+          items: rec.items.slice(rec.found), suspects: rec.suspects, title: rec.title, template: rec.template } },
     });
     this.story('The Trail Goes Cold', rec.title + ' goes into the Rolls unanswered. Somewhere in ' + CF.DISTRICTS[rec.district].label +
       ', ' + culprit.name + ' hears the crier and laughs.' + (rec.template === 'pattern' && rec.patternRead ? ' You knew the door, and nobody stood in it.' : ''), 'danger');
@@ -2217,7 +2275,7 @@
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend');
           this.pathGain('master', 1, 'a loose end');
-          notes.push('But one detail belongs to no one in the case: a folded paper crane, left where the crime began. You have seen one before.');
+          notes.push('But one detail belongs to no one in the case: a small mason\'s mark, three strokes, cut where the crime began. You have seen it before.');
         }
       }
       this.onConviction(rec, d, notes);
