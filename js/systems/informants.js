@@ -29,10 +29,15 @@
     card.data.trust = U.clamp((card.data.trust || 0) + delta, 0, 3);
     if (card.data.trust >= 3) this.s.flags.trusted = true;
   };
+  // Heat rises with every meeting. The day it crosses to Compromised, you are told.
   P.heatInformant = function (card, delta) {
+    var was = this.informantStatus(card);
     card.data.heat = Math.max(0, (card.data.heat || 0) + delta);
     var st = this.informantStatus(card);
-    card.label = (st === 'compromised' ? 'Compromised: ' : 'Informant: ') + card.data.name;
+    card.label = (st === 'compromised' ? 'Compromised: ' : 'Informer: ') + card.data.name;
+    if (delta > 0 && was === 'safe' && st === 'compromised') {
+      this.story('Marked: ' + card.data.name, 'Somebody in the Warrens has asked, by name, who ' + card.data.name + '\'s friend at the Watch-house is. They stop coming to the bench. Guard them in Attend with a watchman, or the next time they are asked it will not be politely.', 'danger');
+    }
     this.dirty = true;
   };
 
@@ -77,7 +82,7 @@
       target.data.sighted = true;
       this.create('intel', {
         label: 'Sighting: ' + target.data.name,
-        desc: nick + ' has seen ' + target.data.name + ' in ' + CF.DISTRICTS[inf.data.district].label + '. Bring this to Contemplate with their Abroad card to raise the hue and cry. It will not stay true for long.',
+        desc: nick + ' has seen ' + target.data.name + ' in ' + CF.DISTRICTS[inf.data.district].label + '. Bring this to Rest with their Abroad card to raise the hue and cry. It will not stay true for long.',
         data: { kind: 'sighting', criminal: target.data.name, informant: inf.uid },
       });
       this.story('A Sighting', nick + ' has seen ' + target.data.name + '. "Same tavern every night. Ask me how I know."', 'minor');

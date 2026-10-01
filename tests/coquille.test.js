@@ -45,6 +45,30 @@ function run(e, verb, cards) {
   assert.ok(/King of Thunes/.test(e.criminalDesc(k)));
   var c = e.criminalEscapes({ title: 'x', template: 'burglary' }, { name: 'Test Name', trait: 'scar' }, 'cold');
   assert.ok(/crocheteur/.test(e.criminalDesc(c)), 'a burglar is a crocheteur: ' + e.criminalDesc(c));
+  // The King is never a jailed man: the record abroad is crowned over the one in the Hole, and gets a card.
+  var e2 = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  e2.s.rank = 2;
+  var jailed = e2.criminalEscapes({ title: 'The Mint Robbery', template: 'coining' }, { name: 'Jailed Man', trait: 'scar' }, 'cold');
+  jailed.crimes = 9; e2.criminalCaught('Jailed Man');
+  var loose = e2.criminalEscapes({ title: 'The Fire at the Tannery', template: 'arson' }, { name: 'Loose Man', trait: 'limp' }, 'cold');
+  loose.crimes = 2;
+  e2.spawnSyndicate('test');
+  var king2 = e2.criminal(e2.court().king.criminalId);
+  assert.strictEqual(king2.name, 'Loose Man', 'the man abroad is crowned, not the one in the Hole');
+  assert.strictEqual(jailed.status, 'jailed');
+  assert.strictEqual(king2.status, 'at_large');
+  var kc = e2.atLargeCardFor(king2);
+  assert.ok(kc && /^The King of Thunes: Loose Man$/.test(kc.label), 'the King has an Abroad card under his crown: ' + (kc && kc.label));
+  var told = e2.s.journal.filter(function (j) { return j.title === 'The Coquille'; })[0];
+  assert.ok(told && /It is Loose Man, who walked from The Fire at the Tannery in week/.test(told.text), 'the story names the king: ' + (told && told.text));
+  // With nobody on the Rolls, the King is a new name, and the story says so.
+  var e3 = CF.Engine.newGame({ seed: 4, calling: 'master' });
+  e3.s.rank = 2;
+  for (var kk in e3.s.criminals) delete e3.s.criminals[kk];
+  e3.spawnSyndicate('test');
+  var k3 = e3.criminal(e3.court().king.criminalId), told3 = e3.s.journal.filter(function (j) { return j.title === 'The Coquille'; })[0];
+  assert.ok(k3 && e3.atLargeCardFor(k3), 'a new King still gets a card');
+  assert.ok(/The name is .*\. It is not in your Rolls\. It will be\./.test(told3.text), told3.text);
   console.log('king: ok');
 })();
 

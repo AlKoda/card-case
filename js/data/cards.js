@@ -272,11 +272,14 @@
     { id: 'detective', label: 'Examiner', rep: 0, salary: 1, maxCases: 2, badge: 1, dispatch: 0,
       text: 'A desk in the Watch-house, a caseload, and the street.' },
     { id: 'senior', label: 'Sworn Examiner', rep: 3, salary: 2, maxCases: 3, badge: 1, dispatch: 0,
-      text: 'A magistrate will seal a Writ for you (an Accused with cause, in Explore), and the Council sends you more.' },
+      text: 'A magistrate will seal a Writ for you (an Accused with cause, in Explore), and the Council sends you more.',
+      scene: 'You swear the oath in the Council chamber with your hand on the Carolina, and the clerk writes your name under the last Examiner\'s, which has a line through it.' },
     { id: 'inspector', label: 'Bailiff', rep: 7, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
-      text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).' },
+      text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).',
+      scene: 'The Council gives you the white staff and the key to the Hole\'s outer door. The sergeants stand when you come in. Some of them mean it.' },
     { id: 'chief', label: 'Magistrate', rep: 12, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
-      text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.' },
+      text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.',
+      scene: 'A red gown, a seat at the end of the bench, and the Burgomaster\'s hand on your shoulder for exactly as long as the chamber is watching. Everything that goes wrong in the city is yours now.' },
   ];
   CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
   CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // standing needed for the Council to write

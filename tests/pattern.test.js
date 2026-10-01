@@ -61,8 +61,17 @@ function run(e, verb, cards) {
   assert.strictEqual(rec.victims, v1, 'once read, no more girls');
   // It comes once a run, from week six.
   var seen = 0;
-  for (var i = 0; i < 20; i++) { var g = game(600 + i); g.s.week = 6; for (var w = 0; w < 10 && !g.s.over; w++) { g.s.meters.pressure = 0; g.weekTick(); } if (g.s.flags.patternSeen) seen++; }
+  for (var i = 0; i < 20; i++) { var g = game(600 + i); g.s.week = 6; g.s.rank = 2; for (var w = 0; w < 10 && !g.s.over; w++) { g.s.meters.pressure = 0; g.weekTick(); } if (g.s.flags.patternSeen) seen++; }
   assert.ok(seen >= 8, 'the Pattern arrives in most runs: ' + seen);
+  // It waits for a Bailiff: an Examiner never sees it, a Sworn Examiner not before week twelve.
+  [[0, 11], [1, 11]].forEach(function (rw) {
+    var g = game(640 + rw[0]); g.s.week = 6; g.s.rank = rw[0];
+    for (var w = 0; w < 5 && !g.s.over; w++) { g.s.meters.pressure = 0; g.weekTick(); }
+    assert.ok(!g.s.flags.patternSeen, 'rank ' + rw[0] + ' before week twelve: no Pattern');
+  });
+  var late = 0;
+  for (var j = 0; j < 20; j++) { var g2 = game(660 + j); g2.s.week = 12; g2.s.rank = 1; for (var w2 = 0; w2 < 10 && !g2.s.over; w2++) { g2.s.meters.pressure = 0; g2.weekTick(); } if (g2.s.flags.patternSeen) late++; }
+  assert.ok(late >= 8, 'a Sworn Examiner sees it from week twelve: ' + late);
   console.log('pattern: ok');
 })();
 

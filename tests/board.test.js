@@ -243,6 +243,50 @@ console.error = function (err) { throw err; };
   console.log('magnet and dues: ok');
 })();
 
+// The magnet keeps to the case on the bench: with two cases open, the Court
+// pulls only the Accused's own token, and the token that points at them first.
+(function magnetSameCase() {
+  var e = CF.Engine.newGame({ seed: 31, calling: 'master' });
+  e.s.rank = 2;
+  var a = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+  var b = e.caseRec(e.spawnCase('fraud', { quiet: true }).caseId);
+  var sc = e.revealSuspect(a, null, { key: a.culprit });
+  var other = e.create('clue', e.clueSpec(b, { label: 'Other Token', text: 'x', aspects: { testimony: 2 } }, []));
+  var stray = e.create('clue', e.clueSpec(a, { label: 'Stray Token', text: 'x', aspects: { testimony: 1 } }, []));
+  var aimed = e.create('clue', e.clueSpec(a, { label: 'Aimed Token', text: 'x', aspects: { testimony: 1 } }, [], { points: a.culprit, noMisread: true }));
+  assert.ok(other.uid < stray.uid && stray.uid < aimed.uid);
+  assert.ok(e.autoSlot('arrest', sc.uid));
+  var list = e.magnetCandidates('arrest');
+  assert.ok(list.length >= 2 && list.every(function (it) { return e.card(it.uid).caseId === a.id; }), 'only the own case: ' + JSON.stringify(list));
+  assert.strictEqual(list[0].uid, aimed.uid, 'the token that points at the Accused first');
+  assert.strictEqual(list[1].uid, stray.uid);
+  e.magnet('arrest');
+  assert.strictEqual(other.loc.t, 'table', 'the other case\'s token stays on the table');
+  console.log('magnet keeps to the case: ok');
+})();
+
+// Losing or moving a subject frees its hidden secondaries: a case moved from
+// Rest to Explore with a token in slot a; a Need removed from Rest with Coin in pay.
+(function primaryGoes() {
+  var e = CF.Engine.newGame({ seed: 32, calling: 'master' });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  var rec = e.caseRec(kase.caseId);
+  var tok = e.create('clue', e.clueSpec(rec, { label: 'A Token', text: 'x', aspects: { testimony: 1 } }, []));
+  assert.ok(e.slotCard('reflect', 'main', kase.uid) && e.slotCard('reflect', 'a', tok.uid));
+  assert.strictEqual(tok.loc.t, 'slot');
+  assert.ok(e.autoSlot('investigate', kase.uid), 'the case moves to Explore');
+  assert.strictEqual(kase.loc.verb, 'investigate');
+  assert.deepStrictEqual(e.verb('reflect').slots, {}, 'Rest is empty');
+  assert.strictEqual(tok.loc.t, 'table', 'the token is back on the table');
+  var need = e.create('hunger');
+  var coin = e.create('funds');
+  assert.ok(e.slotCard('reflect', 'main', need.uid) && e.slotCard('reflect', 'pay', coin.uid));
+  e.remove(need);
+  assert.deepStrictEqual(e.verb('reflect').slots, {}, 'the Coin is not left in a slot nobody can see');
+  assert.strictEqual(coin.loc.t, 'table');
+  console.log('a subject gone frees its secondaries: ok');
+})();
+
 // Mid-work asks: part-way through a search the verb wants one more card;
 // answering it finishes the search, and the card comes back out.
 (function asks() {

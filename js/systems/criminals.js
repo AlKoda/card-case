@@ -96,12 +96,16 @@
   P.atLargeCardFor = function (c) {
     return this.cardsOf('atlarge', true).filter(function (card) { return card.data.criminalId === c.id || card.data.name === c.name; })[0] || null;
   };
+  // What the Abroad card is called: the rank and the name, or the crown.
+  P.atLargeLabel = function (c) {
+    return (c.king ? 'The King of Thunes' : Crim.rankOf(c).label) + ': ' + c.name;
+  };
   P.refreshAtLarge = function (c) {
     var card = this.atLargeCardFor(c);
     if (!card) return;
     card.data.criminalId = c.id;
     card.data.trait = card.data.trait || c.trait;
-    card.label = Crim.rankOf(c).label + ': ' + c.name;
+    card.label = this.atLargeLabel(c);
     card.desc = this.criminalDesc(c);
     this.dirty = true;
   };

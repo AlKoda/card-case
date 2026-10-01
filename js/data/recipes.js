@@ -76,8 +76,8 @@
       ctx.give('personnel', e.personnelSpec(['rookie', 'tech', 'interviewer', 'veteran'][s.rank] || 'veteran'));
       ctx.give('funds'); ctx.give('funds');
       return { title: 'Promoted: ' + rank.label, kind: 'major',
-        text: 'They give you a new title under the city\'s seal, a better stipend and a heavier caseload. You are now ' + rank.label + '. ' + rank.text +
-          (unlocked.length ? ' New tools are open to you: ' + unlocked.join(', ') + '.' : '') + ' The Council will send you up to ' + e.maxOpenCases() + ' cases at once, and pay ' + rank.salary + ' a week. New petitions arrive with the letter.' };
+        text: (rank.scene ? rank.scene + ' ' : '') + 'You are now ' + rank.label + '. ' + rank.text +
+          (unlocked.length ? ' New tools are open to you: ' + unlocked.join(', ') + '.' : '') + ' The Council will send you up to ' + e.maxOpenCases() + ' cases at once, and pay ' + rank.salary + ' a week.' };
     },
   });
   R.push({

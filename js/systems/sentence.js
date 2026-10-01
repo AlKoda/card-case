@@ -92,7 +92,7 @@
     var card = this.atLargeCardFor(c);
     if (card) { this.refreshAtLarge(c); return card; }
     return this.create('atlarge', {
-      label: CF.Criminals.rankOf(c).label + ': ' + c.name,
+      label: this.atLargeLabel(c),
       desc: c.name + '. ' + why + ' ' + this.criminalDesc(c),
       data: { name: c.name, trait: c.trait, criminalId: c.id },
     });

@@ -106,7 +106,21 @@ function run(e, verb, cards) {
   var pr = run(h, 'duty', []);
   assert.strictEqual(pr.id, 'duty_protect');
   assert.strictEqual(hinf.data.heat, 0);
-  assert.ok(/^Informant/.test(h.labelOf(hinf)));
+  assert.ok(/^Informer: /.test(h.labelOf(hinf)), 'the label says Informer: ' + h.labelOf(hinf));
+  // Crossing to Compromised is told once, by name; cooling and more heat on a marked informer are not.
+  var m = game(48, 'crusader');
+  var minf = byDef(m, 'informant')[0];
+  var marked = function () { return m.s.journal.filter(function (j) { return j.title === 'Marked: ' + minf.data.name; }).length; };
+  m.heatInformant(minf, 2);
+  assert.strictEqual(marked(), 0, 'warm is not marked');
+  m.heatInformant(minf, 1);
+  assert.strictEqual(marked(), 1, 'told on crossing');
+  assert.ok(/asked, by name, who .*friend at the Watch-house is/.test(m.s.journal[0].text) && m.s.journal[0].kind === 'danger');
+  m.heatInformant(minf, 1);
+  assert.strictEqual(marked(), 1, 'not told twice');
+  m.heatInformant(minf, -4);
+  m.heatInformant(minf, 3);
+  assert.strictEqual(marked(), 2, 'told again after a Protect and a new crossing');
 
   // Burned while compromised: a missing person case.
   var b = game(47, 'crusader');

@@ -548,7 +548,11 @@
     if (!loc) return;
     if (loc.t === 'table') card.lastPos = { x: loc.x, y: loc.y };
     var v = loc.verb ? this.s.verbs[loc.verb] : null;
-    if (loc.t === 'slot' && v && v.slots[loc.slot] === card.uid) delete v.slots[loc.slot];
+    if (loc.t === 'slot' && v && v.slots[loc.slot] === card.uid) {
+      delete v.slots[loc.slot];
+      // The subject gone, its secondaries go back to the table.
+      if (loc.slot === this.primaryKey(loc.verb)) this.pruneSlots(loc.verb);
+    }
     if (loc.t === 'held' && v) {
       v.held = v.held.filter(function (u) { return u !== card.uid; });
       for (var k in v.ctxSlots) if (v.ctxSlots[k] === card.uid) delete v.ctxSlots[k];
@@ -649,7 +653,7 @@
   P.lockReason = function (verbId) {
     verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var def = CF.VERBS[verbId];
-    if (def.lockedBy === 'burnout' && this.countOf('burnout') > 0) return 'The fever has you. Rest in Contemplate first.';
+    if (def.lockedBy === 'burnout' && this.countOf('burnout') > 0) return 'The fever has you. Sleep it off in Rest first.';
     return null;
   };
 
@@ -721,15 +725,30 @@
     for (var k in v.slots) if (!vis[k]) this.unslot(verbId, k);
   };
 
+  // A card of another case never joins this one's work: the magnet and the
+  // asks leave it. Cards of no case (your faculties, the Watch) are free.
+  P.sameCaseAs = function (primary, card) {
+    return !primary || !primary.caseId || !card.caseId || card.caseId === primary.caseId;
+  };
   // The magnet: fill the verb's empty slots from the table with cards that
   // fit them. The subject (the primary slot) is always the player's choice.
-  // Returns what it pulled, in the order it pulled it.
+  // Its own case's tokens come first, the ones that point at the Accused
+  // before the rest; then the oldest card. Returns what it pulled, in the
+  // order it pulled it.
   P.magnetCandidates = function (verbId) {
     verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var self = this, v = this.verb(verbId), def = CF.VERBS[verbId];
     if (!v.unlocked || def.auto || v.status !== 'idle' || !v.slots[this.primaryKey(verbId)]) return [];
     var taken = {}, out = [];
-    var cards = this.tableCards().sort(function (a, b) { return a.uid - b.uid; });
+    var primary = this.card(v.slots[this.primaryKey(verbId)]);
+    var accused = primary && primary.def === 'suspect' ? this.suspectOf(primary) : null;
+    var order = function (x) {
+      var same = primary && primary.caseId && x.caseId === primary.caseId ? 0 : 2;
+      var aims = accused && x.data && ((x.data.points && x.data.points === accused.key) || (x.data.trait && x.data.trait === accused.trait)) ? 0 : 1;
+      return same + aims;
+    };
+    var cards = this.tableCards().filter(function (x) { return self.sameCaseAs(primary, x); })
+      .sort(function (a, b) { return order(a) - order(b) || a.uid - b.uid; });
     this.visibleSlots(verbId).forEach(function (sl) {
       if (sl.primary || v.slots[sl.key]) return;
       // Your own faculties and your Coin are choices, not requirements: the magnet leaves them.
@@ -911,8 +930,9 @@
     return this.slotAccepts({ key: 'ask', label: v.ask.label, accepts: v.ask.accepts }, card);
   };
   P.askCandidates = function (vid) {
-    var self = this;
-    return this.tableCards().filter(function (c) { return self.askAccepts(vid, c) && !self.unavailableReason(c); }).sort(function (a, b) { return a.uid - b.uid; });
+    var self = this, v = this.verb(vid);
+    var primary = v && v.ctxSlots ? this.card(v.ctxSlots[this.primaryKey(vid)]) : null;
+    return this.tableCards().filter(function (c) { return self.askAccepts(vid, c) && self.sameCaseAs(primary, c) && !self.unavailableReason(c); }).sort(function (a, b) { return a.uid - b.uid; });
   };
   P.answerAsk = function (vid, uid) {
     var v = this.verb(vid), card = this.card(uid), spec = this.askSpec(v);
@@ -1278,8 +1298,8 @@
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
     if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
     if (this.rivalWeek) lines = lines.concat(this.rivalWeek());
-    // The Pattern: once a run, from week six, and every week it is open another girl.
-    if (s.week >= 6 && !s.flags.patternSeen && this.rng() < 0.2 && this.openCases().length < this.maxOpenCases()) {
+    // The Pattern: once a run, for a Bailiff (or a Sworn Examiner from week twelve), and every week it is open another girl.
+    if (s.week >= 6 && (s.rank >= 2 || (s.rank >= 1 && s.week >= 12)) && !s.flags.patternSeen && this.rng() < 0.2 && this.openCases().length < this.maxOpenCases()) {
       s.flags.patternSeen = true;
       this.spawnCase('pattern', { headline: 'The Pattern: ', lead: 'The first of them.' });
     }
@@ -1395,7 +1415,12 @@
     this.newFront('the Coquille', 'warrens');
     this.create('syndicate');
     this.meter('retaliation', 2);
-    if (this.crownKing) this.crownKing();
+    var king = this.crownKing ? this.crownKing() : null;
+    if (king) {
+      var first = (king.history || []).filter(function (h) { return h.title; })[0];
+      text += first ? ' You know the name. It is ' + king.name + ', who walked from ' + first.title + ' in week ' + first.week + ', and has not stopped since.'
+        : ' The name is ' + king.name + '. It is not in your Rolls. It will be.';
+    }
     this.story('The Coquille', text, 'major');
   };
 
@@ -1504,7 +1529,7 @@
         }
       } else {
         this.create('promotion', { label: 'The Council\'s Letter: ' + next.label, desc: next.text + ' Attend on the Council.', data: { rank: s.rank + 1 } });
-        this.story('The Council Takes Notice', 'A letter, on heavy paper, under the city\'s seal: the Council will see you. Your attendance is expected.', 'major');
+        this.story('The Council Takes Notice', 'A letter on heavy paper under the city\'s seal: the Council will see you about the office of ' + next.label + '. Attend on them, in a clean collar.', 'major');
       }
     }
     if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && s.meters.reputation >= CF.COMMISSIONER_REP && !this.countOf('chair') && !s.flags.chairCooldown) {
@@ -1567,7 +1592,7 @@
     (L.atlarge || []).slice(0, 2).forEach(function (c) { self.create('atlarge', c); });
     (L.gangs || []).slice(0, 1).forEach(function (c) { self.create('gang', c); });
     if (L.syndicate) this.create('syndicate');
-    this.create('notes', { desc: 'The casebook of ' + L.predecessor + ' (' + L.ending + '). Half of it is water-stained. Read it in Contemplate.' });
+    this.create('notes', { desc: 'The casebook of ' + L.predecessor + ' (' + L.ending + '). Half of it is water-stained. Read it in Rest.' });
     this.meter('retaliation', Math.min(4, (L.atlarge || []).length + (L.gangs || []).length * 2));
     this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a dagger, on the pillow.', 'major');
   };
@@ -2059,7 +2084,7 @@
     var al = this.atLargeCardFor(crim);
     if (al) this.refreshAtLarge(crim);
     else al = this.create('atlarge', {
-      label: CF.Criminals.rankOf(crim).label + ': ' + culprit.name,
+      label: this.atLargeLabel(crim),
       desc: culprit.name + ', ' + culprit.role + '. Walked from ' + rec.title + '. ' + this.criminalDesc(crim),
       data: { name: culprit.name, trait: culprit.trait, template: rec.template, criminalId: crim.id },
     });
