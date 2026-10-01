@@ -87,7 +87,7 @@ assert.ok(/fonts: 'css\/fonts-ar\.css'/.test(i18n) && /CF\.loadFonts\(CF\.LANGS\
 
 // ---- Back, install, resume, and a save that is never destroyed (js/main.js).
 assert.ok(/popstate/.test(main) && /history\.pushState\(\{ cf: 1 \}/.test(main) && /history\.back\(\)/.test(main), 'the browser Back closes windows through UI.back');
-assert.ok(/beforeinstallprompt/.test(main) && /appinstalled/.test(main) && /t-install/.test(main) && /id="t-install"/.test(html) && /Install to home screen/.test(html), 'install in one tap');
+assert.ok(/beforeinstallprompt/.test(main) && /appinstalled/.test(main) && /t-install/.test(main) && /id="t-install"/.test(html) && />Install<\/button>/.test(html), 'install in one tap');
 assert.ok(/location\.hash/.test(main) && /resume/.test(main) && /UI\.setPaused\(true\)/.test(main), '#resume reopens the table, paused');
 assert.ok(/casefile\.save\.v1\.broken/.test(main) && /casefile\.save\.v1\.prev/.test(main) && !/store\(SAVE_KEY, null\);\s*openTitle/.test(main), 'a save that cannot be read is copied, never removed');
 assert.ok(/The saved letter could not be read/.test(main) && /JSON\.parse\(raw\)/.test(main), 'the title says so, and Continue hides only when the save is not JSON');

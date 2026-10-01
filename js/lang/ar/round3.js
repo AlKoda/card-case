@@ -851,5 +851,6 @@
     "{name} is boasting in the Red Ox that they have a name for {title}.": "يتباهى {name} في حانة الثور الأحمر بأن عنده اسمًا في {title}.",
     "{name} is boasting of a name for {title}.": "يتباهى {name} باسم في {title}.",
     "Your informer's trust falls": "تنخفض ثقة مخبرك",
+    "Install": "تثبيت",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

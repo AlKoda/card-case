@@ -428,7 +428,7 @@ html[data-flat] #table { perspective: none; }
 .vwin::before { content: ''; position: absolute; z-index: -1; pointer-events: none; top: calc(-64px * var(--ui-scale, 1)); right: calc(-66px * var(--ui-scale, 1)); bottom: calc(-28px * var(--ui-scale, 1)); left: calc(-20px * var(--ui-scale, 1));
   border: solid transparent; border-width: inherit; border-image: var(--art-cpanel3-01) 64 66 28 20 fill / 1 stretch; }
 .vwin .divider { display: none; }
-.vw-body { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 0 -46px 0 -10px; padding: 2px 4px 2px 2px; }
+.vw-body { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 0 -46px 0 -10px; padding: 2px 4px 2px 12px; }
 .vwin.closing { opacity: 0; transform: scale(0.96); }
 @keyframes winIn { from { opacity: 0; transform: scale(0.95) translateY(6px); } }
 /* The head sits in the bar (tile y 0-57), the X's hot spot over the baked X (tile x 211-261, y 10-60). */
@@ -549,7 +549,8 @@ html[data-flat] #table { perspective: none; }
 
 /* ---------- Toasts ---------- */
 /* Top right, under the bar, clear of the notch; a verb window pushes them left. */
-#toasts { position: fixed; right: calc(12px + var(--sa-r)); top: calc(var(--sa-t) + 64px); left: auto; bottom: auto; display: flex; flex-direction: column; gap: 6px; z-index: 900; width: 380px; max-width: calc(100vw - 24px); pointer-events: none; }
+/* Top-right, below the verb row at the fit view (its labels end about 250px under the bar), so a toast never sits on the hint or the Court token. */
+#toasts { position: fixed; right: calc(12px + var(--sa-r)); top: calc(var(--sa-t) + 260px); left: auto; bottom: auto; display: flex; flex-direction: column; gap: 6px; z-index: 900; width: 380px; max-width: calc(100vw - 24px); pointer-events: none; }
 body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .toast.leaving { opacity: 0; transform: translateX(20px); transition: opacity 0.3s, transform 0.3s; }
 /* The bar grows with its words: the panel (::after) is nine-sliced and stretches; the circle
@@ -635,10 +636,11 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   /* The bar in one 44px row: icon-only meters, a short week, the play button alone (it cycles the speed);
      the journal, the Watch-house and the Help are in the pause menu. */
   #topbar { gap: 6px; padding: 4px 8px; min-height: 44px; }
-  #rank-badge { width: 32px; height: 32px; }
-  #weekbar { width: 100px; }
-  #meters { gap: 4px; }
-  .meter { min-width: 0; height: 30px; gap: 0; }
+  /* Named under #topbar so these beat the base badge and week-bar rules further down; the five 30px icons keep their width and the week bar shortens to its hourglass. */
+  #topbar #rank-badge { width: 32px; height: 32px; }
+  #topbar #weekbar { width: auto; flex: 0 1 100px; min-width: 30px; }
+  #meters { gap: 4px; flex: none; }
+  .meter { min-width: 0; width: 30px; flex: none; height: 30px; gap: 0; }
   .meter .m-icon { width: 30px; height: 30px; }
   .meter .m-main { display: none; }
   #controls { gap: 2px; }
@@ -679,7 +681,9 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .title-scene .title-logo { position: absolute; left: 30%; top: 5%; width: 40%; aspect-ratio: 736 / 214; margin: 0; }
 .title-scene .title-buttons { position: absolute; left: 36%; top: 30%; width: 28%; display: flex; flex-direction: column; gap: 2.2%; }
 .title-scene .title-buttons .plate-btn { width: 100%; min-width: 0; margin: 0; font-size: clamp(11px, 1.5vw, 18px); letter-spacing: 0.12em; }
-.plate-btn .mi { display: inline-block; width: 28px; height: 28px; margin: -6px 10px -6px -4px; vertical-align: middle; background: var(--i) center / 100% 100% no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+/* A plate with an icon is a flex row (icon, gap, words): a label that wraps or reads right-to-left never slides under the icon. The icon's negative vertical margin keeps the plate the height of its words. */
+.title-buttons .plate-btn, #menu .plate-btn { display: flex; align-items: center; justify-content: center; gap: 10px; text-align: start; line-height: 1.3; }
+.plate-btn .mi { display: block; flex: none; width: 28px; height: 28px; margin: -6px 0; background: var(--i) center / 100% 100% no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
 .title-scene .title-buttons .plate-btn.hidden { display: none !important; }
 .title-logo { width: min(620px, 92vw); aspect-ratio: 736 / 214; background: var(--art-logo) center / contain no-repeat; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.7)); }
 .title-buttons { display: flex; flex-direction: column; gap: 12px; width: min(340px, 86vw); }
@@ -873,11 +877,36 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   #zoom { top: 10px; right: 10px; bottom: auto; }
   #zoom button.tool-art { width: 34px; padding: 0; font-size: 0; border: none; border-radius: 6px; background: var(--i) center / 100% 100% no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
   #zoom .tool-gap { width: 2px; }
-  #toasts { top: calc(var(--sa-t) + 96px); }
-  body.has-window #toasts { right: calc(12px + var(--sa-r)); }
+  /* Toasts grow up from the bottom-right over the empty felt, two at most. With the sheet open, the newest alone
+     sits just above the sheet's top (the sheet is at most 78% of the table under the 44px bar), never on its head. */
+  #toasts { top: auto; bottom: calc(12px + var(--sa-b)); }
+  #toasts .toast:nth-last-child(n+3) { display: none; }
+  body.has-window #toasts { right: calc(12px + var(--sa-r)); bottom: calc(78% - 28px - 0.78 * var(--sa-t)); }
+  body.has-window #toasts .toast:not(:last-child) { display: none; }
   #hint { max-width: 44%; }
   .menu-box { max-width: 600px; }
-  #menu .row.column { display: grid; grid-template-columns: 1fr 1fr; }
+  #menu .row.column { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #menu .plate-btn { font-size: 12px; padding: 2px 12px; }
+}
+/* A short window (a phone on its side): nothing fits above the sheet, so the one toast sits top-left under the bar, away from
+   the sheet's eye and X (top-right in English, top-left in Arabic). The title's plates go two abreast so Install and the
+   language button stay on the screen. */
+@media (max-height: 520px) {
+  body.has-window #toasts { right: auto; left: calc(12px + var(--sa-l)); top: calc(var(--sa-t) + 56px); bottom: auto; }
+  [dir=rtl] body.has-window #toasts { left: auto; right: calc(12px + var(--sa-r)); }
+  .title-scene .title-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; left: 20%; width: 60%; top: 27%; }
+  .title-scene .title-buttons .plate-btn { font-size: 11px; letter-spacing: 0.08em; padding: 2px 8px; border-width: 10px 20px; gap: 6px; }
+  .title-scene .title-buttons .plate-btn .mi { width: 22px; height: 22px; margin: -4px 0; }
+  #menu .plate-btn { border-width: 10px 20px; }
+}
+/* A narrow phone: the pause menu in one column; the bar's gaps close so the five meters, the badge and the controls fit 360px. */
+@media (max-width: 480px) {
+  #menu .row.column { grid-template-columns: 1fr; }
+  .title-scene .title-buttons { left: 24%; width: 52%; }
+}
+@media (max-width: 400px) {
+  #topbar { gap: 4px; }
+  #meters { gap: 2px; }
 }
 
 /* ---- Fingers: every small control is 44px under a coarse pointer; the stack count and the big chips
@@ -913,5 +942,5 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 [dir=rtl] #name { direction: ltr; text-align: right; }
 [dir=rtl] .vwin { transform: none; border-width: calc(64px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1)) calc(66px * var(--ui-scale, 1)); }
 [dir=rtl] .vwin::before { right: calc(-20px * var(--ui-scale, 1)); left: calc(-66px * var(--ui-scale, 1)); border-width: calc(64px * var(--ui-scale, 1)) calc(66px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)); transform: scaleX(-1); }
-[dir=rtl] .vw-body { margin: 0 -10px 0 -46px; }
+[dir=rtl] .vw-body { margin: 0 -10px 0 -46px; padding: 2px 12px 2px 4px; }
 [dir=rtl] .vw-close { right: auto; left: -54px; }
