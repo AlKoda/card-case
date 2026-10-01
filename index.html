@@ -46,6 +46,7 @@
       <section id="table" aria-label="The table">
         <div id="tilt"><div id="board"></div></div>
         <div id="peek"></div>
+        <button id="peek-x" title="Close">×</button>
         <div id="windows"></div>
         <div id="pause-banner">Paused <span>Space to resume</span></div>
         <div id="zoom">
@@ -188,48 +189,55 @@
       <div class="paper help-paper">
       <div class="help-grid">
         <div>
-          <h4>Cards and verbs</h4>
-          <p>Everything is a card. The <b>verbs</b> are the square tiles with a ring round them; move them like any card. Drag a card onto a verb, or tap the verb to open it at the side of the table. A small box appears on a token only when the verb, part-way through its work, <b>asks for one more card</b>: a locked door wants Instinct or a watchman, a shut door wants Coin, failing light wants Wit. The box shows what kind; tap it to pull a fitting card from the table, or drop one on the token. Answering earns something (the work finishes sooner, no Weariness, a fuller word); ignoring it costs nothing (never your Health, Wit, Instinct or Coin: those are yours to choose). The Bell's box shows the <b>dues</b> it is about to draw: lodging, and a Coin for every two watchmen you keep. Tap a verb to open it: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <h4>Your table</h4>
+          <p>Everything is a card. The <b>verbs</b> are the square tiles with a ring round them; move them like any card. Drag a card onto a verb, or tap the verb to open it at the side of the table: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. <b>Clear</b> hands the cards back. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <p>Move any card or stack anywhere on the table; with <i>Cards settle on the grid</i> on (Settings, Table) they land on an invisible grid's cells; <i>Show the grid</i> draws it if you want to see it. The New cards tab marks the collection pile. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away. Coloured <b>strings</b> run from each case to its tokens, witnesses and accused, pinned to the cards; turn them off in Settings, Table.</p>
+          <h4>Your first case, in order</h4>
+          <p><b>Explore</b> a case to search its scene. <b>Study</b> raw proof so it counts. <b>Question</b> witnesses with Wit for their word. <b>Rest</b> two tokens to see if they agree. <b>The Court</b>: the accused and their tokens; the window says how it stands before you commit.</p>
           <h4>What a verb finds</h4>
           <p>A finished verb shows a card back on its token. Open it: what it found lies face down. Tap a card to turn it over where it lies; tap it again to read it; double-tap to take it, or <b>Take all</b>. Closing the window leaves everything where it is, story included. Taken cards join a stack of their kind if one is on the table, else they land in the <b>collection pile</b>, the yellow strip; drag the strip anywhere. New cases land there too.</p>
-          <h4>Your table</h4>
-          <p>Move any card or stack anywhere on the table; with <i>Cards settle on the grid</i> on (Settings, Table) they land on an invisible grid's cells; <i>Show the grid</i> draws it if you want to see it. The yellow rail is the collection pile. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away. Coloured <b>strings</b> run from each case to its tokens, witnesses and accused, pinned to the cards; turn them off in Settings, Table.</p>
-          <h4>Time</h4>
-          <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due.</p>
-          <h4>Keys</h4>
-          <p><b>S</b> or <b>Enter</b> starts the open verb (on a finished one: turns its finds over, then takes them). <b>C</b> collects every finished verb. <b>Esc</b> closes it. <b>Tab</b> stacks, <b>T</b> tidies, <b>Z</b> undoes that, <b>J</b> opens the journal, <b>+</b> and <b>−</b> zoom.</p>
+          <h4>Asks</h4>
+          <p>A small box appears on a token only when the verb, part-way through its work, <b>asks for one more card</b>: a locked door wants Instinct or a watchman, a shut door wants Coin, failing light wants Wit. The box shows what kind; tap it to pull a fitting card from the table, or drop one on the token. Answering earns the fuller result. Ignoring it never takes Health, Wit, Instinct or Coin, but the work may come back with a Weariness or one find fewer; the box says which.</p>
+          <h4>Proof of six kinds</h4>
+          <p>Tokens carry proof of six kinds: Body, Word, Motive, Presence, Writ, Coin.</p>
+          <div id="help-aspects"></div>
+          <h4>The Court</h4>
+          <p>The Blood Court sits under the Carolina, the Emperor's law of 1532: two witnesses, a free confession, or full proof of the right kinds convict; anything less is indicia, grounds to hold and to question, not to hang. The sworn men are its jury; the Hole its cells.</p>
+          <p>An accused with tokens from their case in <b>The Court</b> is a charge. The right kinds in enough weight make full proof. Indicia alone will not convict; on half proof the accused may walk, and they will not forget you. A conviction makes a Condemned card and lays the ladder beside it; the Condemned with a rung in The Court is a sentence.</p>
+          <h4>The ladder</h4>
+          <p>Pardon, a Fine, the Pillory, Banishment, Branding, the Sword, the Rope, the Wheel. A plea or a free confession is a reason for mercy. Every rung has its price in Mercy, Cruelty and Dread. Say nothing and the Council sentences by custom.</p>
+        </div>
+        <div>
+          <h4>Six verbs</h4>
+          <p><b>Attend</b> is the Watch-house: Wit keeps the day-book for a Coin, Health walks the hard round for two, Petitions are bought there, and it deals with what lands on the desk. <b>Explore</b> is the city: a case to search its scene, a case with its Quarter to go door to door, Instinct alone to walk the ward. Take raw proof to <b>Study</b> to make it speak. <b>Question</b> witnesses and the accused with Wit, Instinct or Health. <b>Rest</b> a case with its tokens and see what they add up to, or rest.</p>
           <h4>Yourself</h4>
-          <p>Work spends you: Health comes back <b>Winded</b>, Wit at <b>Wits' End</b>, Instinct <b>Restless</b>. Each recovers on its own in a little while, or at once in Rest. The city also teaches; see <b>Growing</b>. Some of the city's questions take a card to answer.</p>
+          <p>Work spends you: Health comes back <b>Winded</b>, Wit at <b>Wits' End</b>, Instinct <b>Restless</b>. Each recovers on its own in a little while, or at once in Rest. The city also teaches; see <b>Growing</b>. Some of the city's questions take a card to answer. A question that takes a card spends it, like a verb; one marked for good keeps it.</p>
           <h4>Growing</h4>
           <p>Health, Wit and Instinct grow by <b>Insights</b>, and the city hands you one when you have done a thing often or well. Walk the hard round (Health into Attend) three times and a fencing-master teaches Health; see off three needs before their clocks run out and hardship teaches Health. Convict someone on full proof, or let a case add up in Rest three times, and the method teaches Wit. Walk the ward (Instinct alone into Explore) three times and the street teaches Instinct; earn an informer's trust and the right ear teaches Instinct. An Insight into <b>Rest</b> on its own is a lesson: one more of that ability, for good. With the ability beside it, it is kept as a <b>trick</b> instead. Open Health, Wit or Instinct to see each way and how far along it is.</p>
           <h4>Needs</h4>
           <p>Between cases the desk comes for you: <b>Hunger</b>, <b>Sickness</b>, <b>Stress</b>, each with a clock. Hunger with Coin in Rest is a dinner; Sickness wants Coin for a physician, or the Physician's Case; Stress wants an evening in Rest, quicker with Coin. Coin is never the only way: a watchman feeds you from the pot or takes the round, a Quarter feeds you on credit, an informer feeds you and remembers it, Health sweats a fever out, Instinct walks stress off. Let a clock run out and it takes what it came for: a Health, an Instinct, a Wit, for good if you had a spare, and if you did not it takes your strength and stays. The Bell's window lists what is on your back.</p>
-          <h4>The Rival</h4>
-          <p>From the middle of the game the Provost sends an examiner of his own. Every week they act against you: take one of your cases and close it first, spoil a token, pay a witness to forget. Question them with Wit to find their weakness (twice, and the Council sends them home), with Coin to buy a quiet fortnight, with Health to frighten them; shadow them in Explore with Instinct.</p>
           <h4>Choices</h4>
           <p>Now and then the city puts a question to you, often because of something you just did: a search, a reading, a questioning, a conviction, the round. The camera goes to it and the clock waits. Every answer says what it gives (a Coin, a witness, a token, a favour, a need lifted) and what it costs, and bends what comes after: the Crowd, the Council's eye, the underworld's grudge, the city's Dread of you, your purse. There is no right answer, only the one you can live with.</p>
           <h4>Cases</h4>
           <p>Cases arrive on the city's clock and count down. When one runs out it goes <b>Unanswered</b>, the culprit is <b>Abroad</b>, and the Crowd grows louder. You cannot answer everything.</p>
-          <h4>Six verbs</h4>
-          <p><b>Attend</b> is the Watch-house: Wit keeps the day-book for a Coin, Health walks the hard round for two, Petitions are bought there, and it deals with what lands on the desk. <b>Explore</b> is the city: a case to search its scene, a case with its Quarter to go door to door, Instinct alone to walk the ward. Take raw proof to <b>Study</b> to make it speak. <b>Question</b> witnesses and the accused with Wit, Instinct or Health. <b>Rest</b> a case with its tokens and see what they add up to, or rest.</p>
-          <h4>The Court</h4>
-          <p>Tokens carry proof of six kinds: Body, Word, Motive, Presence, Writ, Coin. An accused with tokens from their case in <b>The Court</b> is a charge. The right kinds in enough weight make full proof. Indicia alone will not convict; on half proof the accused may walk, and they will not forget you. A conviction makes a Condemned card and lays the ladder beside it; the Condemned with a rung in The Court is a sentence.</p>
-        </div>
-        <div>
-          <h4>The ladder</h4>
-          <p>Pardon, a Fine, the Pillory, Banishment, Branding, the Sword, the Rope, the Wheel. A plea or a free confession is a reason for mercy. Every rung has its price in Mercy, Cruelty and Dread. Say nothing and the Council sentences by custom.</p>
           <h4>The question</h4>
           <p>Question the accused with Health and everybody confesses; only the guilty tell the truth. The Carolina allows it only on sufficient indicia, and the Court takes the confession only when Body or Writ agrees. Two witnesses who agree for different reasons are full proof; a beaten witness is not credible.</p>
           <h4>Patrons and the Court</h4>
           <p>Some cases are <b>commissions</b>: the Council, the Bishop or the Guilds want a particular answer, and Favour follows. The Coquille has a court under the Warrens: break it, parley with its King (the Coquille with Wit in Explore), or stand its trial (with Instinct and Coin) and stay inside. The purse is always open, and every coin that changes the truth is counted.</p>
           <h4>Read everything</h4>
           <p>The accused have their marks. Tokens sometimes betray the culprit's. A careful reader can name the culprit before the casebook does.</p>
+          <h4>The Rival</h4>
+          <p>From the middle of the game the Provost sends an examiner of his own. Every week they act against you: take one of your cases and close it first, spoil a token, pay a witness to forget. Question them with Wit to find their weakness (twice, and the Council sends them home), with Coin to buy a quiet fortnight, with Health to frighten them; shadow them in Explore with Instinct.</p>
           <h4>Threats</h4>
-          <p><b>Weariness</b> ×3 becomes Fever. <b>Obsession</b> ×3 becomes Fixation, and you misread proof. The <b>Crowd</b>, the Council's <b>Suspicion</b>, the underworld's <b>Vendetta</b> and the city's <b>Dread</b> of you are read at the top in words, not numbers: from Quiet to Boiling, Unwatched to Marked, Forgotten to Condemned, Easy to Terrified. Rest in Rest. Answer cases. Keep your hands clean, or don't.</p>
+          <p><b>Weariness</b> ×3 becomes Fever. <b>Obsession</b> ×3 becomes Fixation, and you misread proof. The <b>Crowd</b>, the Council's <b>Suspicion</b>, the underworld's <b>Vendetta</b> and the city's <b>Dread</b> of you are read at the top in words, not numbers: from Quiet to Boiling, Unwatched to Marked, Forgotten to Condemned, Easy to Terrified. Sleep it off in Rest. Answer cases. Keep your hands clean, or don't.</p>
           <h4>Rising</h4>
           <p>The Market opens after your first conviction and the Petitions after your second. Spend Coin in <b>Attend</b> on instruments, Watch-house rooms and watchmen. Standing brings the Council's letters, and each office opens something inside the verbs: Sworn Examiner, a Writ (an accused with cause in Explore); Bailiff, the Watch and Disguise (Explore) and Deputise (Attend); Magistrate, Muster and Proclamation (Attend). The ⌂ button shows your Watch-house: rooms that change how the verbs work.</p>
           <h4>Winning</h4>
           <p>Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Lodging and dues come out at every bell. Do not run dry.</p>
+          <h4>Keys</h4>
+          <p><b>S</b> or <b>Enter</b> starts the open verb (on a finished one: turns its finds over, then takes them). <b>C</b> collects every finished verb. <b>Esc</b> closes it. <b>Tab</b> stacks, <b>T</b> tidies, <b>Z</b> undoes that, <b>J</b> opens the journal, <b>+</b> and <b>−</b> zoom.</p>
+          <h4>Time</h4>
+          <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due. The Bell's box shows the <b>dues</b> it is about to draw: lodging, and a Coin for every two watchmen you keep.</p>
         </div>
       </div>
       </div>
@@ -260,20 +268,22 @@
   </div>
 
   <!-- Ending -->
-  <div class="modal hidden" id="end">
-    <div class="modal-box end-box">
-      <div class="pcard big" id="end-card"><span class="pc-top" id="end-card-top"></span><span class="pc-bottom" id="end-card-bottom"></span></div>
-      <div class="end-main">
-        <h1 id="end-title"></h1>
-        <h2 id="end-sub"></h2>
-        <p class="lead" id="end-text"></p>
-        <div class="stats" id="end-stats"></div>
-        <div class="row">
-          <button class="plate-btn redfill" id="end-successor">Take Up Their Desk</button>
-          <button class="plate-btn gold" id="end-new">A New Letter</button>
-          <button class="plate-btn teal" id="end-archive">The Rolls</button>
-          <button class="plate-btn grey" id="end-look">Look at the Table</button>
+  <div class="modal screen hidden" id="end">
+    <div class="screen-box end-box">
+      <div class="banner" id="end-banner"><span id="end-title"></span></div>
+      <div class="paper end-paper">
+        <div class="end-card" id="end-card"><div class="ec-pic" id="end-card-pic"></div><div class="ec-seal" id="end-card-seal"></div><span class="ec-name" id="end-card-bottom"></span></div>
+        <div class="end-main">
+          <h2 id="end-sub"></h2>
+          <p class="lead" id="end-text"></p>
+          <div class="stats" id="end-stats"></div>
         </div>
+      </div>
+      <div class="row center">
+        <button class="plate-btn redfill" id="end-successor">Take Up Their Desk</button>
+        <button class="plate-btn gold" id="end-new">A New Letter</button>
+        <button class="plate-btn teal" id="end-archive">The Rolls</button>
+        <button class="plate-btn grey" id="end-look">Look at the Table</button>
       </div>
     </div>
   </div>

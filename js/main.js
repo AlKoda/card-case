@@ -77,18 +77,22 @@
     var e = UI.e;
     store(SAVE_KEY, null);
     store(LEGACY_KEY, JSON.stringify(e.s.legacy));
-    var st = e.s.stats;
-    $('end').querySelector('.modal-box').className = 'modal-box end-box ' + (over.win ? 'end-win' : 'end-lose');
-    $('end-card').style.backgroundImage = 'var(--art-' + (ENDING_ART[over.id] || 'cback-04') + ')';
-    $('end-card-top').textContent = tr(over.title);
+    var st = e.s.stats || {};
+    // The screen wears the banner (red on a loss, gold on a win) and the paper; the end card is a wide
+    // frame of the same tone with the ending's picture in its arch and the rank's wax in its circle.
+    $('end').querySelector('.screen-box').className = 'screen-box end-box ' + (over.win ? 'end-win' : 'end-lose');
+    $('end-banner').className = 'banner ' + (over.win ? 'win' : 'lose');
+    $('end-card-pic').style.backgroundImage = 'var(--art-' + (ENDING_ART[over.id] || 'cback-04') + ')';
+    $('end-card-seal').style.backgroundImage = 'var(--art-' + (['cwax-01', 'cwax-03', 'cwax-02'][((CF.RANK_DEFS[e.s.rank] || {}).badge || 1) - 1] || 'cwax-01') + ')';
     $('end-card-bottom').textContent = tr(e.s.detective);
     $('end-title').textContent = tr(over.title);
     $('end-sub').textContent = tr('{rank} {name}', { rank: CF.RANKS[e.s.rank], name: e.s.detective }) + (e.s.who && CF.ORIGINS[e.s.who] ? tr(', once {origin}', { origin: CF.ORIGINS[e.s.who].label.toLowerCase() }) : '') + tr(', week {n}', { n: over.week }) +
       (over.origin && over.calling && over.origin !== over.calling ? tr(' · set out as {a}, ended as {b}', { a: CF.CALLINGS[over.origin].label, b: CF.CALLINGS[over.calling].label }) : '');
     $('end-text').textContent = tr(over.text);
+    // The tally as painted counters: the crown, the eye, the moon, the fire.
     $('end-stats').innerHTML = [
-      ['Convictions', st.convictions], ['Acquittals', st.acquittals], ['Unanswered', st.cold], ['Wrongful', st.wrongful],
-    ].map(function (x) { return '<div><b>' + x[1] + '</b><span>' + tr(x[0]) + '</span></div>'; }).join('');
+      ['Convictions', st.convictions, 'cres-09'], ['Acquittals', st.acquittals, 'cres-03'], ['Unanswered', st.cold, 'cres-12'], ['Wrongful', st.wrongful, 'cres-04'],
+    ].map(function (x) { return '<div style="--c:var(--art-' + x[2] + ')"><b>' + (x[1] || 0) + '</b><span>' + tr(x[0]) + '</span></div>'; }).join('');
     CF.Audio.play(over.win ? 'victory' : 'defeat');
     only('end');
   };

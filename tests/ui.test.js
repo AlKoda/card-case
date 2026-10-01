@@ -640,5 +640,80 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the markup and the stylesheet hold the polish');
 })();
 
+// ---- Lot V, items 8-14: the meter icons read at level 0, fingers get 44px, the Help is in play order
+// and tells the truth about asks, empty slots are framed cards, the ending wears the paper and the
+// banner, the pile is painted, the verb window and the dossier are painted panels.
+(function markup2() {
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var screens = fs.readFileSync(path.join(__dirname, '..', 'js/screens.js'), 'utf8');
+  // Every declaration block the stylesheet gives a selector (some are split across rules), joined.
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  // Meter icons.
+  assert.ok(/opacity: 0\.85/.test(rule('.meter .m-icon')) && /opacity: 0\.9;/.test(rule('.meter.lvl-1 .m-icon')) && /opacity: 0\.95/.test(rule('.meter.lvl-2 .m-icon')), 'the meter icons read at every level');
+  assert.ok(/animation: urgentIcon/.test(rule('.meter.crit .m-icon')) && /drop-shadow/.test(rule('.meter.lvl-3 .m-icon')), 'the glow and the pulse stay');
+  // Touch targets.
+  var coarse = /@media \(pointer: coarse\) \{([\s\S]*?)\n\}/.exec(css);
+  assert.ok(coarse, 'a block for coarse pointers');
+  assert.ok(/#zoom button[^{]*\{ width: 44px; height: 44px/.test(coarse[1]), 'the zoom buttons are 44px');
+  assert.ok(/\.vw-close, \.vw-info, #peek \.peek-close, #peek-x, \.picker \.pk-close, \.side-head button, \.archive-pager \.pg \{ min-width: 44px; min-height: 44px/.test(coarse[1]), 'every small control is 44px');
+  assert.ok(/\.card \.c-count::after, \.chip\.big::after \{ content: ''; position: absolute; inset: -10px/.test(coarse[1]), 'the count and the chips get a hit-slop');
+  // The Help.
+  var help = /<div class="help-grid">([\s\S]*?)<\/div>\s*<\/div>\s*<div class="row center"><button class="plate-btn redfill" id="help-close">/.exec(html)[1];
+  var heads = help.match(/<h4>[^<]+<\/h4>/g).map(function (x) { return x.slice(4, -5); });
+  assert.deepStrictEqual(heads.slice(0, 7), ['Your table', 'Your first case, in order', 'What a verb finds', 'Asks', 'Proof of six kinds', 'The Court', 'The ladder'], 'the left column is in the order a game is played');
+  assert.deepStrictEqual(heads.slice(-2), ['Keys', 'Time'], 'Keys and Time come last');
+  assert.ok(!/Cards and verbs/.test(help), 'the old heading is gone');
+  assert.ok(/<h4>Proof of six kinds<\/h4>\s*<p>[^<]*<\/p>\s*<div id="help-aspects"><\/div>/.test(help), 'the six kinds have their list');
+  assert.ok(/<h4>The Court<\/h4>\s*<p>The Blood Court sits under the Carolina, the Emperor's law of 1532:/.test(help), 'the Court is glossed');
+  var asks = /<h4>Asks<\/h4>\s*<p>([^]*?)<\/p>/.exec(help)[1];
+  assert.ok(/the box says which\.$/.test(asks) && !/costs nothing/.test(asks) && !/finishes sooner/.test(asks), 'the Help tells the truth about asks');
+  assert.ok(/<b>Clear<\/b> hands the cards back\./.test(help) && /The New cards tab marks the collection pile\./.test(help) && !/yellow rail/.test(help), 'the table paragraph names Clear and the tab');
+  assert.ok(/Sleep it off in Rest\./.test(help) && !/Rest in Rest\./.test(help), 'and sleeps it off');
+  assert.ok(/A question that takes a card spends it, like a verb; one marked for good keeps it\./.test(help), 'Yourself says what a question costs');
+  // Slots are framed cards; bad tokens are marked.
+  assert.ok(/border: none/.test(rule('.slot .s-box.empty')) && /cframe-06/.test(rule('.slot .s-box.empty')), 'an empty slot draws a frame, not a border');
+  assert.ok(/cframe-03/.test(rule('.slot.primary .s-box.empty')), 'gold for the first slot');
+  assert.ok(/\.slot\[data-slot="mind"\] \.s-box\.empty, \.slot\[data-slot="grow"\] \.s-box\.empty, \.slot\[data-slot="aid2"\] \.s-box\.empty, \.slot\[data-slot="aid3"\] \.s-box\.empty \{ --frame: var\(--art-cframe-02\)/.test(css), 'blue for an ability');
+  assert.ok(/\.slot\[data-verb="arrest"\] \.s-box\.empty, \.slot\[data-slot="c1"\] \.s-box\.empty, [^{]*\{ --frame: var\(--art-cframe-01\)/.test(css), 'red before the Court');
+  var sicon = rule('.slot .s-box.empty ~ .s-icon');
+  assert.ok(/\* 0\.44\)/.test(sicon) && /width: 46%/.test(sicon) && /clip-path: circle\(41%\)/.test(sicon), 'the icon sits in the arch');
+  assert.ok(/\* 0\.805\)/.test(rule('.slot .s-box.empty ~ .s-label')), 'the name in the lower band');
+  assert.ok(/drop-shadow\(0 0 3px rgba\(208, 86, 74, 1\)\)/.test(rule('.card.bad .c-face')), 'a bad token wears a red shadow');
+  // The ending.
+  var end = /<div class="modal screen hidden" id="end">([\s\S]*?)\n  <\/div>\n/.exec(html)[1];
+  assert.ok(/<div class="screen-box end-box">/.test(end) && /<div class="banner" id="end-banner"><span id="end-title"><\/span><\/div>/.test(end) && /<div class="paper end-paper">/.test(end), 'the ending is a screen with a banner and paper');
+  assert.ok(/id="end-card-pic"/.test(end) && /id="end-card-seal"/.test(end) && /class="ec-name" id="end-card-bottom"/.test(end), 'the end card has its arch, its circle and its band');
+  ['end-successor', 'end-new', 'end-archive', 'end-look'].forEach(function (id) { assert.ok(new RegExp('class="plate-btn [a-z]+" id="' + id + '"').test(end), id + ' is a plate button'); });
+  assert.ok(/cbar-01/.test(rule('.banner.lose span')) && /cbar-03/.test(rule('.banner.win span')), 'red on a loss, gold on a win');
+  assert.ok(/cwide-03/.test(rule('.end-win .end-card')) && /cwide-04/.test(rule('.end-lose .end-card')), 'the end card is a wide frame of the same tone');
+  var statb = rule('.stats b');
+  assert.ok(/width: 72px; height: 72px/.test(statb) && /var\(--c, /.test(statb) && /font-family: var\(--display\)/.test(statb), 'the counters are 72px tiles with the number in the display font');
+  assert.ok(/'cres-09'\]/.test(main) && /'cres-03'\]/.test(main) && /'cres-12'\]/.test(main) && /'cres-04'\]/.test(main) && /--c:var\(--art-' \+ x\[2\]/.test(main), 'onGameOver sets a counter per tile');
+  assert.ok(/'screen-box end-box ' \+ \(over\.win \? 'end-win' : 'end-lose'\)/.test(main) && /'banner ' \+ \(over\.win \? 'win' : 'lose'\)/.test(main) && !/end-card-top/.test(main) && !/modal-box/.test(main), 'and the classes');
+  // The pile.
+  var pz = rule('#board .pile-zone');
+  assert.ok(/z-index: auto/.test(pz) && (pz.match(/repeating-linear-gradient/g) || []).length === 3 && /var\(--cell-px, 130px\)/.test(pz) && !/border-bottom/.test(pz), 'the strip is six faint cells, above the grid and below the cards');
+  assert.ok(/width: 34px/.test(rule('#board .pile-zone .pz-tab')) && /ctab-04/.test(rule('#board .pile-zone .pz-tab')) && /z-index: 2/.test(rule('#board .pile-zone .pz-tab')), 'the tab hangs off the corner');
+  var lab = rule('#board .pile-zone .pz-label');
+  assert.ok(/border-image: var\(--art-clabel-02\)/.test(lab) && /z-index: 2/.test(lab) && /color: #1c1914/.test(lab), 'the label is a painted bar in paper ink');
+  assert.ok(/--cell-px/.test(screens) && /CF\.Settings\.onChange\(cellPitch\)/.test(screens), 'the cell pitch follows the spacing setting');
+  // The verb window and the dossier.
+  var vw = /\n\.vwin \{([\s\S]*?)\n\}/.exec(css)[1];
+  assert.ok(/border: solid transparent; border-width: calc\(64px \* var\(--ui-scale, 1\)\) calc\(66px/.test(vw) && /background: none/.test(vw) && /color: var\(--paper-ink\)/.test(vw) && /overflow: visible/.test(vw), 'the window is bordered for the panel, in paper ink');
+  assert.ok(/border-image: var\(--art-cpanel3-01\) 64 66 28 20 fill \/ 1 stretch/.test(rule('.vwin::before')), 'the panel is painted on ::before');
+  assert.ok(/overflow: auto/.test(rule('.vw-body')) && /flex: 1 1 auto/.test(rule('.vw-body')), 'the body scrolls under the bar');
+  assert.ok(/position: absolute/.test(rule('.vw-head')) && /top: -56px/.test(rule('.vw-head')) && /color: var\(--paper\)/.test(rule('.vw-head h3')), 'the head sits in the bar, the title in paper white');
+  var vc = rule('.vw-close');
+  assert.ok(/position: absolute/.test(vc) && /width: 44px; height: 44px/.test(vc) && /background: none/.test(vc) && /right: -54px/.test(vc), 'the X is a 44px hot spot over the baked X');
+  assert.ok(/background: #f6efdc/.test(rule('.recipe')) && /border: 1px solid #a88a4c/.test(rule('.recipe')), 'the recipe is a bordered paper inset');
+  assert.ok(!/background: var\(--paper\)/.test(rule('.story')), 'the story has no paper of its own');
+  assert.ok(/transform: none/.test(rule('[dir=rtl] .vwin')) && /scaleX\(-1\)/.test(rule('[dir=rtl] .vwin::before')) && /left: -54px/.test(rule('[dir=rtl] .vw-close')), 'Arabic mirrors the panel and moves the X left');
+  assert.ok(/border-image: var\(--art-cpanel3-01\) 64 66 28 20 fill \/ 1 stretch/.test(rule('#peek')) && /border-width: 45px 46px 20px 14px/.test(rule('#peek')), 'the dossier is the same panel, smaller');
+  assert.ok(/<div id="peek"><\/div>\s*<button id="peek-x" title="Close">/.test(html) && /display: block/.test(rule('#peek.open + #peek-x')) && /peek-x/.test(screens) && /#peek \.peek-close/.test(screens), 'the dossier\'s X is a hot spot beside the panel, wired to its close');
+  console.log('ui: the stylesheet and the markup paint the panels, the pile, the slots and the ending');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');
