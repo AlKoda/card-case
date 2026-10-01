@@ -91,7 +91,14 @@
         label = fits ? 'Confirmed Identification: ' + fits.name : 'Possible Identification';
         text = fits ? fits.name + ', ' + fits.role + '. ' + text : text + ' Nobody on the board fits yet. Find them, and this becomes a name.';
       }
-      made = ctx.give('clue', { label: label, desc: text, aspects: U.clone(d.gives.aspects), tags: d.gives.tags, caseId: rec.id, data: data });
+      // An identification keeps what the tokens carried: one name, and everything they brought.
+      var aspects = U.clone(d.gives.aspects);
+      if (d.keep) {
+        clues.forEach(function (c) { U.addAspects(aspects, CF.clueAspects(c)); });
+        for (var ak in aspects) aspects[ak] = Math.min(3, aspects[ak]);
+      }
+      if (d.id === 'pattern') data.nextDoor = true;
+      made = ctx.give('clue', { label: label, desc: text, aspects: aspects, tags: d.gives.tags, caseId: rec.id, data: data });
       if (d.id === 'identify' && fits && !data.misread) {
         rec.identified = fits.key;
         e.pathGain('master', 1, 'an identification');

@@ -84,7 +84,8 @@ function run(e, verb, cards) {
   var r2 = run(f, 'reflect', [byDef(f, 'dagger')[0]]);
   assert.ok(/Endured|Came Anyway/.test(r2.story.title));
   var struck = 0, dead = 0;
-  for (var m = 0; m < 20; m++) { var g = game(100 + m, 'commissioner'); g.s.rank = 2; var dg = g.create('dagger'); g.expire(dg); if (g.s.over) dead++; else if (g.countOf('wound')) struck++; }
+  // The coin is tossed from spread RNG states: twenty neighbouring seeds at one draw land correlated.
+  for (var m = 0; m < 20; m++) { var g = game(100 + m, 'commissioner'); g.s.rank = 2; g.rng.setState((m + 1) * 7919); var dg = g.create('dagger'); g.expire(dg); if (g.s.over) dead++; else if (g.countOf('wound')) struck++; }
   assert.ok(dead >= 3 && struck >= 3, 'ignored: death or a wound: ' + dead + '/' + struck);
   var q = game(8, 'master'); q.s.rank = 3; q.s.week = 20;
   for (var i3 = 0; i3 < 40; i3++) q.mountainWeek();

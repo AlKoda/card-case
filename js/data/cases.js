@@ -61,6 +61,15 @@
       clue: { label: 'An Inked Thumb', text: 'A thumbprint, perfect, in printer\'s ink on the white of the doorframe.', aspects: { forensic: 2 } } },
     { id: 'gambler', desc: 'Plays at dice every night in a cellar in the Stews.',
       clue: { label: 'A Loaded Die', text: 'A bone die, rolled under the sideboard. Weighted. The dice-cellars in the Stews call them gourds.', aspects: { financial: 1, opportunity: 1 } } },
+    // Marks that are heard, sealed or owed.
+    { id: 'stammer', desc: 'Stammers on hard consonants; the whole quarter mimics it.',
+      clue: { label: 'What the Child Heard', text: 'A child on the stair heard somebody say the name and stick on it, twice.', aspects: { testimony: 2 } } },
+    { id: 'seal', desc: 'Seals letters with a cracked signet: a bird with half a wing.',
+      clue: { label: 'A Cracked Seal', text: 'Wax on the boards by the desk, and in it a bird with half a wing. Not the household\'s.', aspects: { digital: 2 } } },
+    { id: 'shell', desc: 'Wears a pilgrim\'s cockle-shell on a greasy hat.',
+      clue: { label: 'A Shell on the Sill', text: 'A cockle-shell, the Compostela kind, on the sill where a hat was set down.', aspects: { forensic: 1, testimony: 1 } } },
+    { id: 'lombard', desc: 'Has pledged the same coat at the Lombard\'s three times this year.',
+      clue: { label: 'A Lombard\'s Chit', text: 'A chit from across the river for a coat, redeemed and pledged again. Somebody lives from Friday to Friday.', aspects: { financial: 2 } } },
   ];
 
   // What a witness might remember about the culprit's trait.
@@ -79,6 +88,10 @@
     ticket: 'They kept asking when the carrier\'s wagon left.',
     ink: 'Their fingers were black, like a printer\'s.',
     gambler: 'They were rolling a die over their knuckles.',
+    stammer: 'They stuck on their words. K-k-, like that.',
+    seal: 'They gave the boy a letter. The seal was a bird, broken.',
+    shell: 'A shell on the hat, like the pilgrims.',
+    lombard: 'They kept feeling for a purse that was not there.',
   };
 
   // Questioning and street prose that works across cases.
@@ -353,16 +366,58 @@
         { role: 'the heir', motive: 'The heir had been living on expectations, and the expectations had run out.' },
         { role: 'the cook', motive: 'The cook was beaten in this house, and everyone in the kitchen knew it.' },
       ],
-      items: [
-        { type: 'evidence', label: 'The Supper Cup', text: 'Rinsed, but not well.', needs: 'bio',
-          result: { label: 'The Needle Blackens', text: 'The silver needle goes into the dregs and comes out black. Ratsbane, and a great deal of it.', aspects: { forensic: 3 } } },
-        { type: 'clue', label: 'The Physician\'s Note', text: '"A surfeit of eels." Written before he had seen the body, and paid for before he had written it.', aspects: { motive: 1, testimony: 1 } },
-        { type: 'clue', label: 'The Jointure', text: 'A settlement, sealed a month ago, that leaves someone very comfortable.', aspects: { financial: 2, motive: 1 } },
-        { type: 'evidence', label: 'The Poison Book', text: 'Every apothecary in the city must keep one. This one has a leaf cut out.', needs: 'lab',
-          result: { names: true, label: 'The Cut Leaf Read', text: 'The leaf beneath took the impress of the pen. A name, a date, three drams of white arsenic.', aspects: { digital: 2, forensic: 1 } } },
-      ],
+      // The written leads give the supper table; the generic search draws
+      // from the structure, the generic pool and the trait token afterwards.
+      items: [],
       witnesses: ['the kitchen maid', 'the apothecary\'s boy', 'a guest at the supper'],
       hints: ['They sent the eels back and asked for the other dish. The one nobody else had.', 'Someone came for a paper of powder for the rats. We have no rats.', 'They laughed all through supper. At the end they said they felt cold.'],
+      // The written case. Three threads leave the supper table: the Needle
+      // (body), the Book (writ, and a name) and the Jointure (coin). Any two
+      // convict before a Bailiff's Court. Order matters: the first lead whose
+      // needs are met is the one that runs.
+      leads: [
+        { id: 'scene', verb: 'investigate', label: 'Search the Scene', duration: 30,
+          preview: 'Go up past the weeping maid. Start at the cup.',
+          gives: [
+            { type: 'evidence', key: 'cup', label: 'The Supper Cup', text: 'Rinsed, but not well.', needs: 'bio',
+              result: { label: 'The Needle Blackens', text: 'Silver into the dregs, out black. Ratsbane, and a great deal of it.', aspects: { forensic: 3 } } },
+            { type: 'evidence', key: 'settlement', label: 'The Settlement', text: 'Sealed a month ago before a notary on the Hill. Nobody in the house will say what it leaves to whom.', needs: null,
+              result: { label: 'The Jointure Read', text: 'Sealed a month ago before a notary on the Hill. It leaves one person very comfortable, and it was drawn the week the physician first called.', aspects: { financial: 2, motive: 1 } } },
+            { type: 'clue', label: 'The Physician\'s Note', text: '"A surfeit of eels." Written before he had seen the body, and paid for before he had written it.', aspects: { motive: 1, testimony: 1 } },
+          ],
+          reveal: 'any', district: true, fatigue: 0.25,
+          story: { title: 'At the Supper', text: 'You go up past the weeping maid at {scene}. The bed has been stripped and the cup has been rinsed, but not well. You come away with {found}.' } },
+        { id: 'dish', verb: 'investigate', label: 'Ask the Kitchen', duration: 30, needs: { after: ['scene'], without: ['district', 'tool', 'focus'] },
+          preview: 'Down to the kitchen. The cook remembers every dish, and who ate it.',
+          gives: [
+            { type: 'clue', label: 'The Dish Nobody Else Had', text: 'Eels for the table, and one dish of stewed pears for {victim} alone. Whoever seasoned the pears knew the habits of the house.', aspects: { opportunity: 2 } },
+          ],
+          fatigue: 0.25,
+          story: { title: 'The Kitchen', text: 'The cook remembers every dish and who ate it. One dish went to one plate.' } },
+        { id: 'canvass', verb: 'investigate', label: 'Go Door to Door', duration: 30, needs: { aspects: ['district'], sameDistrict: true },
+          preview: 'Every apothecary keeps a poison book. Start at the Sign of the Pestle.',
+          gives: [
+            { type: 'witness', who: 'the apothecary\'s boy, who sweeps the Sign of the Pestle', knows: true },
+            { type: 'evidence', key: 'book', label: 'The Poison Book', text: 'Every apothecary in the city must keep one. This one has a leaf cut out.', needs: 'lab',
+              result: { label: 'The Cut Leaf', text: 'A leaf cut out, and the leaf beneath took the impress of the pen: a date, three drams, and half a name.', aspects: { digital: 2 } } },
+          ],
+          story: { title: 'The Sign of the Pestle', text: 'Every apothecary keeps a poison book. This one has lost a leaf, and the boy who sweeps the shop saw who bought what.' } },
+        { id: 'leaf_match', verb: 'analyze', label: 'Read the Leaf', duration: 25, needs: { item: 'book', tool: 'lab', suspects: 1 }, consume: true,
+          preview: 'The impress under the glass, and the names on the board beside it.',
+          gives: [{ type: 'clue', label: 'The Name on the Leaf: {culprit}', text: 'The impress reads whole under the glass. Three drams of white arsenic, sold on the Tuesday, to {culprit}.', aspects: { digital: 2, forensic: 1 }, points: 'culprit', noMisread: true }],
+          story: { title: 'The Leaf', kind: 'major', text: 'The impress reads whole under the glass. Three drams of white arsenic, sold on the Tuesday, to {culprit}. The boy remembers the hand that signed.' } },
+        { id: 'leaf_nomatch', verb: 'analyze', label: 'Read the Leaf', duration: 10, needs: { item: 'book', tool: 'lab' }, once: false,
+          preview: 'Half a name is only half a token. You need somebody to hold it against.',
+          story: { title: 'Half a Name', text: 'Half a name and nobody to hold it against. Find an accused first.' } },
+        { id: 'table', verb: 'investigate', label: 'Ask the Kitchen Maid', duration: 25, needs: { aspects: ['focus'], after: ['scene'] },
+          preview: 'The kitchen maid talks once the cook is out of the room. Wit keeps her talking.',
+          gives: [{ type: 'clue', label: 'Who Ate, Who Did Not', text: 'The kitchen maid remembers who sent the eels back and who watched the pears being eaten: "{seen}"', aspects: { testimony: 1, motive: 1 }, trait: true }],
+          story: { title: 'The Maid', text: 'The kitchen maid talks once the cook is out of the room. She watched the table. "{seen}"' } },
+        { id: 'jointure', verb: 'analyze', label: 'Read the Jointure', duration: 20, needs: { item: 'settlement' }, consume: true,
+          preview: 'Clause by clause. Somebody is very comfortable now.',
+          gives: [{ type: 'clue', label: 'The Jointure Read', text: 'Sealed a month ago before a notary on the Hill. It leaves one person very comfortable, and it was drawn the week the physician first called.', aspects: { financial: 2, motive: 1 } }],
+          story: { title: 'The Notary\'s Hand', text: 'A jointure, sealed a month ago, drawn the week the physician first called.' } },
+      ],
     },
     coining: {
       label: 'Coining', title: 'False Coin in {scene}', lesser: 'uttering, not coining', lifetime: 240, difficulty: 6,

@@ -59,6 +59,23 @@ function run(e, verb, cards) {
   var v1 = rec.victims;
   e.weekTick();
   assert.strictEqual(rec.victims, v1, 'once read, no more girls');
+  // 'Be at the next door' has a verb: the Next Door token in Explore, with Instinct or a watchman.
+  assert.ok(next.data.nextDoor && CF.aspectsOf(next).nextdoor, 'the Next Door token opens Explore');
+  assert.ok(e.autoSlot('investigate', next.uid), 'Explore takes the Next Door');
+  var pv = e.preview('investigate');
+  assert.ok(pv && /Instinct, or a watchman/.test(pv.blocked), 'somebody has to stand in it: ' + (pv && pv.blocked));
+  assert.strictEqual(pv.label, 'Stand in the Doorway');
+  e.clearSlots('investigate');
+  var before = byDef(e, 'suspect').filter(function (c) { return c.caseId === rec.id && c.data.key === rec.culprit; }).length;
+  var door = run(e, 'investigate', [next, byDef(e, 'instinct')[0]]);
+  assert.strictEqual(door.recipe, 'inv_next_door');
+  assert.strictEqual(door.story.title, 'The Doorway');
+  assert.strictEqual(door.story.kind, 'major');
+  var taken = door.out.filter(function (c) { return /Taken at the Door/.test(e.labelOf(c)); })[0];
+  assert.ok(taken && taken.data.points === rec.culprit && !taken.data.misread, 'taken at the door, and it names him');
+  assert.strictEqual(CF.clueAspects(taken).opportunity, 3);
+  assert.ok(!e.card(next.uid), 'the Next Door is spent');
+  assert.ok(byDef(e, 'suspect').filter(function (c) { return c.caseId === rec.id && c.data.key === rec.culprit; }).length >= Math.max(1, before), 'he is on the board');
   // It comes once a run, from week six.
   var seen = 0;
   for (var i = 0; i < 20; i++) { var g = game(600 + i); g.s.week = 6; g.s.rank = 2; for (var w = 0; w < 10 && !g.s.over; w++) { g.s.meters.pressure = 0; g.weekTick(); } if (g.s.flags.patternSeen) seen++; }

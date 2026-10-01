@@ -1167,7 +1167,9 @@
     label: function (ctx) { return deduction(ctx).label; },
     duration: function (ctx) { return deduction(ctx).duration || 30; },
     preview: function (ctx) {
-      return deduction(ctx).gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
+      var d = deduction(ctx);
+      if (d.id === 'identify') return 'These fit together: one name, and everything they carried.';
+      return d.gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
     },
     blocked: function (ctx) {
       if (CF.Deduce.crossCase(deduction(ctx))) return null;
@@ -1303,7 +1305,7 @@
 
   // =================================================================== ARREST
   R.push({
-    id: 'arrest_charge', verb: 'arrest', label: function (ctx) { return 'Indict ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', ''); },
+    id: 'arrest_charge', verb: 'arrest', label: function (ctx) { return 'Charge ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', ''); },
     duration: 30,
     preview: function (ctx) {
       var e = ctx.e;
@@ -1473,6 +1475,25 @@
       }
       ctx.give('clue', e.clueSpec(rec, { label: 'Caught in the Act', text: 'At matins, ' + sus.name + ' goes out, meets someone, and does exactly what you hoped they would.' + (ctx.has('tool') ? ' You have a drawing of the face, and every word written down.' : ''), aspects: { opportunity: 3 }, tags: ['watching'] }, e.helpers(ctx)));
       return { title: 'Worth the Cold', text: 'Just before first light, the door opens. ' + sus.name + ' looks both ways, and does not see you.' };
+    },
+  });
+
+  // The Pattern read: the next door is known, and somebody stands in it.
+  R.push({
+    id: 'inv_next_door', verb: 'investigate', label: 'Stand in the Doorway', duration: 45,
+    preview: 'The lane he walks next, the night after the fair. Stand in the doorway with the lantern shuttered.',
+    blocked: function (ctx) { return ctx.has('instinct') || ctx.has('teammate') ? null : 'Somebody has to stand in the doorway: Instinct, or a watchman.'; },
+    requires: { primary: 'nextdoor' },
+    run: function (ctx) {
+      var e = ctx.e;
+      var rec = openRec(ctx, ctx.primary);
+      if (!rec) return closed();
+      e.caseWork(rec, ctx);
+      e.revealSuspect(rec, ctx, { key: rec.culprit });
+      ctx.give('clue', e.clueSpec(rec, { label: 'Taken at the Door', text: 'He came up the lane at the hour the lamps go out, and you were in the doorway.',
+        aspects: { opportunity: 3, forensic: 2 }, tags: ['watching'] }, e.helpers(ctx), { points: rec.culprit, noMisread: true }));
+      ctx.consume(ctx.primary);
+      return { title: 'The Doorway', kind: 'major', text: 'He comes up the lane at the hour the lamps go out, gentle-voiced, a cloth over his arm. He asks her name. You say yours.' };
     },
   });
 

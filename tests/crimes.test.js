@@ -154,4 +154,50 @@ function run(e, verb, cards) {
   console.log('names: ok');
 })();
 
-console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, names all OK');
+// ---- A crier-sung case brings a witness to the door ---------------------------------
+(function crierWitness() {
+  var e = game(970);
+  e.s.rank = 3; // the city watches a Magistrate's cases most
+  var sung = null, plain = 0;
+  for (var i = 0; i < 80 && !sung; i++) {
+    var before = byDef(e, 'witness').length;
+    var card = e.spawnCase('burglary', {});
+    var rec = e.caseRec(card.caseId);
+    var w = byDef(e, 'witness').filter(function (c) { return c.caseId === rec.id; });
+    if (rec.highProfile) {
+      assert.strictEqual(w.length, 1, 'the crier brings one witness');
+      assert.strictEqual(w[0].data.stake, 'reward');
+      assert.ok(/Came to the Watch-house door with the broadsheet in their hand/.test(w[0].desc), w[0].desc);
+      assert.ok(/\(Witness in: /.test(w[0].desc));
+      var j = e.s.journal[0];
+      assert.ok(/The crier's song brings the first of them to your door before the ink is dry\./.test(j.text), j.text);
+      assert.strictEqual(rec.witnesses.length, CF.CASE_TEMPLATES.burglary.witnesses.length - 1, 'one fewer left to find');
+      sung = rec;
+    } else { assert.strictEqual(w.length, 0, 'no witness for an ordinary case'); plain++; }
+    e.goCold(rec.id); e.s.meters.pressure = 0; e.s.over = null;
+    byDef(e, 'atlarge').forEach(function (c) { e.remove(c); });
+  }
+  assert.ok(sung, 'a case the crier sang');
+  // A quiet case (the Court's, the story's) and a case the crier was paid to sing bring none this way.
+  var q = game(971); q.s.rank = 3;
+  for (var k = 0; k < 40; k++) { var qc = q.spawnCase('burglary', { quiet: true }); assert.strictEqual(byDef(q, 'witness').length, 0, 'quiet: no witness'); q.goCold(qc.caseId); q.s.meters.pressure = 0; q.s.over = null; }
+  console.log('crier witness: ok');
+})();
+
+// ---- Four marks that are heard, sealed or owed -----------------------------------------
+(function marks() {
+  ['stammer', 'seal', 'shell', 'lombard'].forEach(function (id) {
+    var t = CF.TRAITS.filter(function (x) { return x.id === id; })[0];
+    assert.ok(t && t.desc && t.clue.label && t.clue.text && Object.keys(t.clue.aspects).length, id + ' is a whole mark');
+    assert.ok(CF.TRAIT_SEEN[id], id + ' can be seen');
+  });
+  assert.strictEqual(CF.clueAspects({ def: 'clue', aspects: CF.TRAITS.filter(function (x) { return x.id === 'seal'; })[0].clue.aspects }).digital, 2);
+  var e = game(972);
+  var rec = e.caseRec(e.spawnCase('burglary', { quiet: true, culpritTrait: 'stammer' }).caseId);
+  var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  assert.strictEqual(cul.trait, 'stammer');
+  assert.ok(rec.items.some(function (it) { return it.trait === 'stammer' && it.label === 'What the Child Heard'; }), 'the stammer leaves its token at the scene');
+  console.log('marks: ok');
+})();
+
+console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, names, crier witness, marks all OK');

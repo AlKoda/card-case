@@ -7,6 +7,7 @@
 //     needs: { min: 2, aspects: {aspect: total needed}, sameTrait: true, distinctTraits: 2, points: true },
 //     gives: { label, text, aspects, tags },   // omitted = nothing is made, the tokens come back
 //     consume: true,                           // the tokens fold into the result
+//     keep: true,                              // the result also keeps the tokens' aspects (each capped at 3)
 //     story: { title, text, kind } }
 //
 // Text is filled with {name} (the accused the pattern identifies, if any),
@@ -30,7 +31,7 @@
     { id: 'identify', label: 'Put a Face to It', duration: 30,
       needs: { min: 2, sameTrait: true },
       gives: { label: 'Identification', text: 'Everything points to the same person: {trait}', aspects: { opportunity: 2, testimony: 1 } },
-      consume: true,
+      consume: true, keep: true, // the result keeps what the tokens carried (each aspect capped at 3)
       story: { title: 'The Same Person', text: '{clues}: different tokens, one description. {trait} You know who you are looking for.' } },
 
     // Two descriptions that cannot both be the culprit. Nothing is made.
@@ -41,7 +42,7 @@
     // Two pieces of the pattern: where he goes next.
     { id: 'pattern', label: 'Read the Pattern', duration: 60,
       needs: { min: 2, pattern: 2 },
-      gives: { label: 'The Next Door', text: 'The doors, the nights, the hair. You know which lane he walks next, and which night.', aspects: { opportunity: 3, forensic: 1 } },
+      gives: { label: 'The Next Door', text: 'The doors, the nights, the hair. You know which lane he walks next, and which night. Stand in the doorway (Explore, with Instinct or a watchman).', aspects: { opportunity: 3, forensic: 1, nextdoor: 1 } },
       consume: true,
       story: { title: 'The Pattern Read', text: 'You draw the doors on a map of the quarter and the lines meet. He is not choosing girls. He is walking a shape, and the shape has one door left in it. Be there.', kind: 'major' } },
 

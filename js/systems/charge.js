@@ -12,9 +12,9 @@
 
   var Charge = (CF.Charge = {});
   Charge.TIERS = {
-    weak: { label: 'Indicia', text: 'Enough to hold them in the Hole. Before the sworn men, an advocate will eat it alive.' },
+    weak: { label: 'Indicia', text: 'Indicia: suspicion, not proof. Enough to hold them in the Hole, the cells under the Watch-house; before the sworn men who judge, an advocate will eat it alive.' },
     reasonable: { label: 'Half Proof', text: 'It could go either way. The sworn men might take it, or convict of the lesser crime.' },
-    strong: { label: 'Full Proof', text: 'Several independent kinds of proof, all pointing one way. The Carolina is satisfied. It should hold.' },
+    strong: { label: 'Full Proof', text: 'Several independent kinds of proof, all pointing one way. The Carolina, the Emperor\'s law the Court sits under, is satisfied. It should hold.' },
   };
 
   // The charge profile of a case: {aspect: points needed}. Generated cases

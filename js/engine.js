@@ -2034,10 +2034,19 @@
       caseId: id, lifetime: life, data: { onExpire: 'cold' },
     };
     var card = opts.ctx ? opts.ctx.give('case', spec) : this.create('case', spec);
+    // A case the crier sings brings the first witness to the door, after the reward.
+    var lead = opts.lead || '';
+    if (highProfile && !T.highProfile && !opts.first && !opts.quiet && rec.witnesses.length) {
+      var wspec = this.witnessSpec(rec);
+      wspec.data.stake = 'reward';
+      wspec.desc = U.fill('{name}, {who}. Came to the Watch-house door with the broadsheet in their hand, and has heard there is a reward. (Witness in: {title})', { name: wspec.label.replace('Witness: ', ''), who: wspec.data.who, title: rec.title });
+      if (opts.ctx) opts.ctx.give('witness', wspec); else this.create('witness', wspec);
+      lead += (lead ? ' ' : '') + 'The crier\'s song brings the first of them to your door before the ink is dry.';
+    }
     if (warning) this.revealSuspect(rec, null);
     if (known && known.traits.indexOf('pilloried') >= 0 && !warning) { this.revealSuspect(rec, null, { key: rec.culprit }); }
     if (!opts.quiet) {
-      this.story(opts.headline || (rec.commission ? 'A Commission from ' + CF.PATRONS[rec.commission.from].label + ': ' : 'New Case: ') + rec.title, (opts.lead ? opts.lead + ' ' : '') + brief + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''), 'case');
+      this.story(opts.headline || (rec.commission ? 'A Commission from ' + CF.PATRONS[rec.commission.from].label + ': ' : 'New Case: ') + rec.title, (lead ? lead + ' ' : '') + brief + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''), 'case');
     }
     return card;
   };
@@ -2111,13 +2120,15 @@
     if (item.names) data.names = true;
     if (flags.confession) { data.confession = flags.confession; data.falseConfession = !!flags.falseConfession; }
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
-    return {
+    var spec = {
       label: item.label,
       desc: item.text,
       aspects: aspects,
       caseId: rec.id,
       data: data,
     };
+    if (item.link) spec.lifetime = 0; // a chit in a drawer keeps: the thread needs two of them
+    return spec;
   };
 
   P.witnessSpec = function (rec, who) {
@@ -2128,7 +2139,7 @@
       label: 'Witness: ' + name,
       desc: name + ', ' + who + '. Saw something near ' + rec.scene + ', and ' + CF.STAKES[stake].desc + '. (Witness in: ' + rec.title + ')',
       caseId: rec.id,
-      data: { knows: this.rng() < 0.8, stake: stake },
+      data: { knows: this.rng() < 0.8, stake: stake, who: who },
     };
   };
 

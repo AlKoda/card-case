@@ -47,6 +47,11 @@ var sc = e.revealSuspect(rec, null, { key: culprit.key });
 r = reflect([clue('Sighting', { testimony: 2 }, { trait: culprit.trait }), clue('Paint', { forensic: 1, opportunity: 1 }, { trait: culprit.trait })]);
 assert.ok(/^Confirmed Identification: /.test(e.labelOf(r.out[0])), e.labelOf(r.out[0]));
 assert.strictEqual(r.out[0].data.points, culprit.key);
+// It keeps what the tokens carried: the Body is not lost, and nothing passes 3.
+var kept = CF.clueAspects(r.out[0]);
+assert.strictEqual(kept.forensic, 1, 'the forensic point survives: ' + JSON.stringify(kept));
+assert.strictEqual(kept.testimony, 3, 'the word adds up, capped at 3');
+assert.strictEqual(kept.opportunity, 3, 'presence adds up, capped at 3');
 assert.strictEqual(rec.identified, culprit.key);
 assert.ok(/^Prime Suspect/.test(e.labelOf(sc)));
 assert.strictEqual(r.story.kind, 'major');
