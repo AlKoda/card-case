@@ -22,6 +22,7 @@
   // Where each start begins, and who goes missing. The default serves a start with no origin.
   CF.OPENING_SCENES = {
     clerk: { where: 'a rented room over the scriveners\' shop on the Market', work: 'copying deeds for whoever pays', missing: 'Endres', missingWho: 'the copyist who shares your bench',
+      first: 'Six years you copied the last Examiner\'s day-book, and when he died the desk went to nobody and the copying went to you, at a rented bench over the scriveners\' shop. You know every form, fee and seal in the city, and have never once been in a fight.',
       notice: 'Endres has not come to the bench in four days. The master scrivener says nothing, which is how he says things. Endres lodged in the Warrens; you know the door.',
       found: 'The Watch pulled Endres out of the mill-race this morning. A sergeant is at the shop before noon, and he wants to know why you were asking at that door before anyone knew there was a body.',
       hired: 'The sergeant listens longer than sergeants do. When you are finished he says the Watch-house on the Market has a desk under the stair and nobody at it, and that a man who reads a room like a deed is wasted on deeds. Junior examiner. No stipend until you have earned it.',
@@ -31,6 +32,7 @@
         { role: 'a lodger on Endres\'s stair', motive: 'Owed Endres a month\'s rent and a great deal of silence.' },
       ] },
     watchman: { where: 'the Watch-house bench, where you have slept since the round ended', work: 'hired out as a night-guard to whoever has a warehouse', missing: 'Old Bartel', missingWho: 'who walked the round beside you for twenty years',
+      first: 'Twenty years you cried the hours with a cudgel and a lantern, and the round ended in the spring with the Council\'s thanks and nothing else. You sleep on the Watch-house bench and guard warehouses for whoever has one.',
       notice: 'Old Bartel has missed three rounds. His halberd is still on its hook. His landlady says he went out on Thursday to meet somebody about money.',
       found: 'They find Bartel in a lock-up at the Harbour with his skull broken. The sergeant, who was Bartel\'s friend before he was yours, wants to know what you know.',
       hired: 'The sergeant has heard you read a scene before, on the round, in the dark. He says the Examiner\'s desk under the stair is empty and the Council has stopped asking why. Junior examiner. No stipend until you have earned it.',
@@ -40,6 +42,7 @@
         { role: 'a tapster at the Harbour', motive: 'Bartel drank there on credit, and the slate was long.' },
       ] },
     monk: { where: 'the Abbey guest-house, since the Abbot found you a nuisance in the garden', work: 'dressing wounds at the Abbey hospital for whoever can pay the hospital', missing: 'Brother Sebald', missingWho: 'the novice who ground your simples',
+      first: 'The Abbot found you a nuisance in his garden and moved you to the guest-house, where you dress the hospital\'s wounds for whoever can pay the hospital. You may not carry a sword. You carry a case of instruments, and a great deal of patience with abbots.',
       notice: 'Brother Sebald did not come to matins, or to prime. His bed is made. His herbal is gone from the shelf, and so is a jar that should not leave the dispensary.',
       found: 'The Watch finds Sebald under the sluice with the jar in his cloak, and a sergeant who does not like monks wants to know why a physician was asking the porter about him.',
       hired: 'You tell the sergeant what the body says, and the sergeant, who has heard a hundred physicians, hears something new. The Watch-house has a desk with nobody at it. Junior examiner. No stipend until you have earned it.',
@@ -49,6 +52,7 @@
         { role: 'a novice who envied him', motive: 'Sebald was to be sent to the scriptorium. The other was not.' },
       ] },
     hangman: { where: 'the hangman\'s house outside the wall, where nobody visits', work: 'flaying for the tanners, which is what the city lets you do', missing: 'Nan', missingWho: 'who sells the ballads at the Ravenstone',
+      first: 'Nobody visits the hangman\'s house outside the wall. You flay for the tanners, which is what the city lets you do, and you have read more bodies than any physician inside the walls, for nobody. The Ravenstone is quiet this week.',
       notice: 'Nan has not been at the Ravenstone in four days, and there was a hanging on Tuesday. Her ballads are still in the basket by the gate. Somebody took the basket in.',
       found: 'The Watch finds Nan in the reeds below the Water-gate. The sergeant comes to the house outside the wall, which no sergeant does, and wants to know what a hangman was doing asking after her.',
       hired: 'You tell him what the marks on her say, and he goes quiet. The Council will not like it, he says, but the desk under the stair is empty and you read a body better than the barber-surgeon. Junior examiner. No stipend until you have earned it.',
@@ -58,6 +62,7 @@
         { role: 'the gatekeeper who took the basket in', motive: 'Knew she was not coming back before anyone else did.' },
       ] },
     advocate: { where: 'chambers on the Hill you can no longer afford', work: 'drawing up wills and bonds for whoever still knocks', missing: 'Pieter', missingWho: 'your clerk, who kept the chambers when the clients stopped',
+      first: 'Ten years you argued the Carolina before the Blood Court, and then the clients stopped coming, and then the money. Chambers on the Hill you cannot afford, and wills and bonds for whoever still knocks.',
       notice: 'Pieter did not come in on Monday. His pen is on the desk, uncleaned, which he never leaves. The last thing he copied was a bond you did not draw.',
       found: 'The Watch finds Pieter in the Stews, in a room he could not have paid for. A sergeant comes up the Hill to ask why you were at that door before they were.',
       hired: 'You argue your own case to the sergeant as you argued a hundred before the Blood Court, and he is not a judge, so it works. The desk under the stair is empty. Junior examiner. No stipend until you have earned it.',
@@ -93,7 +98,8 @@
     s.flags.bellSilent = true;
     s.verbs.time.unlocked = false;
     this.create('health');
-    this.story('Before the Office', U.fill(CF.OPENING_TEXT.start, { where: sc.where, work: sc.work }), 'major');
+    // The first morning in the origin's own words, then where you stand.
+    this.story('Before the Office', (sc.first ? sc.first + ' ' : '') + U.fill(CF.OPENING_TEXT.start, { where: sc.where, work: sc.work }), 'major');
     this.dirty = true;
   };
   function hint(e, text) { if (e.s.intro && !e.s.intro.finished && !e.s.intro.silent) e.s.intro.hint = text; }
@@ -215,7 +221,7 @@
       loss: 'Hunger took what it wanted. You are less than you were.' },
     sickness: { takes: 'instinct', weight: 2, life: 130,
       arrive: 'A cough from the river, a heat behind the eyes. The Warrens give it to everyone in the end.',
-      loss: 'The fever burned through you for a week. Something of your nose for the street went with it.' },
+      loss: 'The cough wore you down for a week. Something of your nose for the street went with it.' },
     stress: { takes: 'focus', weight: 3, life: 110,
       arrive: 'You wake at the same hour every night with the same case behind your eyes. You have started to snap at the sergeant.',
       loss: 'It has worn a groove in you. Some things you will never think as quickly again.' },
@@ -239,8 +245,11 @@
     this.story(CF.CARDS[pick].label, spec.arrive + ' Deal with it in Rest before the clock runs out.', 'danger');
   };
   // The clock ran out: it takes what it came for, for good if you had a spare.
+  // With nothing to spare it takes your strength and comes once more; left
+  // to run out a second time it stops asking, and the Market keeps the debt.
   P.needExpired = function (card) {
     var spec = CF.NEEDS[card.def];
+    var repeat = (card.data && card.data.repeat) || 0;
     this.remove(card);
     if (!spec) return;
     var have = this.cardsOf(spec.takes, true);
@@ -249,17 +258,24 @@
       var victim = have.filter(function (c) { return c.loc && c.loc.t === 'table'; })[0] || have[0];
       this.remove(victim);
       this.story('Lost: ' + label, spec.loss + ' One ' + label + ' is gone, and it will not come back.', 'danger');
+    } else if (repeat >= 1) {
+      this.count('debt');
+      this.meter('pressure', 1);
+      this.story(CF.CARDS[card.def].label + ' Deepens', 'You could not pay it, and it stopped asking. The cookshop and the barber are owed, and the Market knows it.', 'danger');
     } else {
       this.create('fatigue');
-      this.create(card.def, { lifetime: spec.life });
-      this.story(CF.CARDS[card.def].label + ' Deepens', spec.loss.split('.')[0] + '. With only one ' + label + ' to your name it cannot take that, so it takes your strength instead, and stays.', 'danger');
+      this.create(card.def, { lifetime: spec.life, data: { repeat: repeat + 1 } });
+      this.story(CF.CARDS[card.def].label + ' Deepens', spec.loss.split('.')[0] + '. With only one ' + label + ' to your name it cannot take that, so it takes your strength instead, and stays. It will come again.', 'danger');
     }
   };
 
   // ---- The Rival ----------------------------------------------------------------
-  // From the middle of the game the Provost appoints an examiner of his own
-  // to show the Council it has a choice. Every week they act against you:
-  // take a case and close it first, spoil a scene, pay a witness to forget.
+  // From the middle of the game the Harbourmaster sends an examiner of his
+  // own to show the Council it has a choice. Every week they act against
+  // you: take up a case you have opened and race you on it (a week on they
+  // boast of a name, a week after that they close it), spoil a scene, pay a
+  // witness to forget. A spoiled token and a bought witness carry the mark
+  // (data.tampered, data.bribed) for the dossier.
   CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
   P.rivalWeek = function () {
     var s = this.s, lines = [];
@@ -272,33 +288,45 @@
       var name = U.pick(this.rng, CF.RIVAL_NAMES);
       s.flags.rivalSeen = true;
       this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
-      this.story('The Provost\'s Examiner', name + ' has the Provost\'s letter and a desk on the other side of the Market. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice and the Council sends them home.', 'danger');
-      lines.push('The Provost has sent an examiner of his own.');
+      this.story('The Harbourmaster\'s Examiner', name + ' has the Harbourmaster\'s letter and a desk in the Customs House. The Harbourmaster wants the Council to see it has a choice. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice and the Council sends them home.', 'danger');
+      lines.push('The Harbourmaster has sent an examiner of his own.');
       return lines;
     }
     if (r.data.stalled && r.data.stalled >= s.week) return lines;
     var open = this.openCases();
-    var mine = open.filter(function (x) { return !x.rival; }), theirs = open.filter(function (x) { return x.rival; });
+    // Only a case you have opened and held a week is worth racing you on.
+    var mine = open.filter(function (x) { return !x.rival && x.searches > 0 && s.week - (x.week || 0) >= 1; });
+    var theirs = open.filter(function (x) { return x.rival; });
+    var ripe = theirs.filter(function (x) { return s.week - (x.rivalSince || 0) >= 2; });
+    var boast = theirs.filter(function (x) { return s.week - (x.rivalSince || 0) === 1 && !x.rivalBoasted; });
     var clues = this.tableCards().filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && CF.CLUE_ASPECTS.some(function (k) { return CF.aspectsOf(c)[k] > 0; }); });
     var witnesses = this.tableCards().filter(function (c) { return c.def === 'witness' && c.life > 40; });
+    var name2 = r.data.name;
+    // The week before they close a case they boast of it: the warning is yours to use.
+    boast.forEach(function (x) {
+      x.rivalBoasted = true;
+      this.story('The Rival Boasts', name2 + ' is boasting in the Red Ox that they have a name for ' + x.title + '.', 'danger');
+      lines.push(name2 + ' is boasting of a name for ' + x.title + '.');
+    }, this);
     var acts = [];
-    if (theirs.length) acts.push('close');
+    if (ripe.length) acts.push('close');
     if (mine.length) acts.push('poach');
     if (clues.length) acts.push('tamper');
     if (witnesses.length) acts.push('bribe');
-    if (!acts.length) return lines;
-    var act = U.pick(this.rng, acts), name2 = r.data.name;
+    if (!acts.length) { this.dirty = true; return lines; }
+    var act = U.pick(this.rng, acts);
     if (act === 'poach') {
       var rec = U.pick(this.rng, mine), card = this.caseCard(rec.id);
       rec.rival = true;
+      rec.rivalSince = s.week;
       if (card) card.life = Math.min(card.life, card.maxLife * 0.5);
-      this.story('The Rival Takes a Case', name2 + ' is working ' + rec.title + ' from the other side, with the Provost\'s watchmen. Answer it first, or they will.', 'danger');
+      this.story('The Rival Takes a Case', name2 + ' is working ' + rec.title + ' from the other side, with the Harbourmaster\'s men. Answer it first, or they will.', 'danger');
       lines.push(name2 + ' has taken up one of your cases.');
     } else if (act === 'close') {
-      var rec2 = U.pick(this.rng, theirs);
+      var rec2 = U.pick(this.rng, ripe);
       this.goCold(rec2.id);
       this.meter('reputation', -1);
-      this.story('Answered by the Rival', name2 + ' has closed ' + rec2.title + ' with a confession the Provost is pleased with. The Council notes who was quicker.', 'danger');
+      this.story('Answered by the Rival', name2 + ' has closed ' + rec2.title + ' with a confession the Harbourmaster is pleased with. The Council notes who was quicker.', 'danger');
       lines.push(name2 + ' closed a case of yours first.');
     } else if (act === 'tamper') {
       var c = U.pick(this.rng, clues), asp = CF.aspectsOf(c);
@@ -306,11 +334,15 @@
       c.aspects = c.aspects || {};
       c.aspects[k2] = (c.aspects[k2] || asp[k2]) - 1;
       if (c.aspects[k2] <= 0) delete c.aspects[k2];
+      c.data = c.data || {};
+      c.data.tampered = true;
       this.story('A Scene Spoiled', 'Somebody has been at ' + this.labelOf(c) + ' before you could use it: moved, wiped, muddled. ' + name2 + '\'s people were seen in the lane.', 'danger');
       lines.push(name2 + ' spoiled a token of yours.');
     } else if (act === 'bribe') {
       var w = U.pick(this.rng, witnesses);
       w.life = Math.min(w.life, 30);
+      w.data = w.data || {};
+      w.data.bribed = true;
       this.story('A Witness Paid to Forget', this.labelOf(w) + ' has had a visit and a purse from ' + name2 + ', and is suddenly leaving the city. Half a minute, if you want their word.', 'danger');
       lines.push(name2 + ' paid a witness of yours to forget.');
     }
@@ -359,6 +391,7 @@
     // --- On the city's clock ---------------------------------------------------
     { id: 'beggar', when: function (e) { return e.cardsOf('funds').length >= 1; },
       title: 'The Beggar at the Door', text: 'A woman with a child on her hip has been at the Watch-house door since prime. She does not ask for anything. She just stands there, where the Council\'s clerks can see her, and she has seen everyone who passed.',
+      again: 'She is back at the Watch-house door, the child grown a little, and she has seen everyone who passed.',
       options: [
         { label: 'Give her a Coin', cost: 'funds', gain: 'The Crowd and Dread ease; her word on the case', text: 'The child gets bread. She tells you who came and went, and the clerks get a story about you.',
           effect: function (e, ctx) { e.meter('dread', -1); e.meter('pressure', -1); giveClue(e, anyOpenCase(e, ctx), { label: 'The Beggar\'s Word', text: 'She stood where everyone passes, and nobody looks at a beggar. She looked at them.', aspects: { testimony: 1, opportunity: 1 } }); } },
@@ -379,6 +412,7 @@
       ] },
     { id: 'purse', when: function (e) { return e.s.week >= 2; },
       title: 'A Purse on the Desk', text: 'Nobody saw who left it. Three Coin, good silver, and a note with the name of a case on it and nothing else.',
+      again: 'Another purse, heavier than the last, and the same hand on the note.',
       options: [
         { label: 'Pocket it', gain: '+3 Coin; the Council\'s eye', text: 'Silver is silver. Somebody now believes you can be bought, because you can.', effect: function (e) { coins(e, 3); e.count('purse'); e.meter('scrutiny', 1); } },
         { label: 'Find who left it', cost: 'instinct', gain: 'An Informer on the Hill', text: 'A boy, a lane, a door on the Hill that does not open to you. But the boy will, for a coin now and then.',
@@ -399,6 +433,7 @@
       ] },
     { id: 'swan', when: function (e) { return e.countOf('fatigue') >= 1 && e.cardsOf('funds').length >= 1; },
       title: 'A Room at the Swan', text: 'The landlord of the Swan, who owes the Watch a kindness, offers a room with a fire and a door that locks. One night. Tonight.',
+      again: 'The landlord of the Swan offers the room again. He remembers.',
       options: [
         { label: 'Take the room', cost: 'funds', gain: 'Weariness lifts', text: 'You sleep like the dead and wake like the living.', effect: function (e) { lift(e, 'fatigue'); } },
         { label: 'Work through', cost: 'focus', gain: '+1 Coin; +1 Weariness', text: 'A Coin for the night\'s writing, and the ache goes a little deeper.', effect: function (e) { e.create('funds'); e.create('fatigue'); } },
@@ -412,12 +447,12 @@
       ] },
     // --- Because of something you just did ------------------------------------
     { id: 'lamplighter', after: 'investigate', when: function (e, ctx) { return !!unsolvedCase(e, ctx); },
-      title: 'The Lamplighter\'s Word', text: 'The lamplighter was on his ladder across the lane when it happened. He says so to anyone with a coin, and now he is saying it to you.',
+      title: 'The Tiler\'s Word', text: 'A tiler was on his ladder across the lane when it happened, mending a roof that did not need mending. He says so to anyone with a coin, and now he is saying it to you.',
       options: [
         { label: 'A Coin for his trouble', cost: 'funds', gain: 'A Witness who saw it', text: 'He saw a face, and he will say so again where it counts.',
-          effect: function (e, ctx) { giveWitness(e, unsolvedCase(e, ctx), 'the Lamplighter', 'On his ladder across the lane when it happened, and not too proud to say what he saw.'); } },
+          effect: function (e, ctx) { giveWitness(e, unsolvedCase(e, ctx), 'the Tiler', 'On his ladder across the lane when it happened, and not too proud to say what he saw.'); } },
         { label: 'Lean on him', cost: 'health', gain: 'A Witness who saw it; Dread rises', text: 'He remembers a great deal, suddenly. So does the lane.',
-          effect: function (e, ctx) { giveWitness(e, unsolvedCase(e, ctx), 'the Lamplighter', 'On his ladder across the lane when it happened. He told you what he saw, once you had made the question plain.'); e.meter('dread', 1); } },
+          effect: function (e, ctx) { giveWitness(e, unsolvedCase(e, ctx), 'the Tiler', 'On his ladder across the lane when it happened. He told you what he saw, once you had made the question plain.'); e.meter('dread', 1); } },
         { label: 'Let him talk to the lane instead', gain: 'The Crowd eases', text: 'By evening the lane knows an examiner is asking. The lane, for once, approves.', effect: function (e) { e.meter('pressure', -1); } },
       ] },
     { id: 'pawnbroker', after: 'analyze', when: function (e, ctx) { return !!unsolvedCase(e, ctx); },
@@ -465,7 +500,48 @@
         { label: 'Pay the physician', cost: 'funds', gain: 'Sickness goes; Standing rises', text: 'Latin, a draught, and a bill. The Hill hears you keep a physician.', effect: function (e) { lift(e, 'sickness'); e.meter('reputation', 1); } },
         { label: 'Sweat it out', gain: 'Nothing yet', text: 'Rest will do what silver would. Slower.', effect: function () {} },
       ] },
+    // --- Late in the game: the city has decided what you are ------------------
+    { id: 'cudgel', when: function (e) { return e.s.meters.retaliation >= 5; },
+      title: 'The Cudgel on the Stair', text: 'A man was waiting on your stair tonight with a cudgel, and lost his nerve when the landlord\'s dog barked. He will not lose it twice.',
+      options: [
+        { label: 'A watchman walks you home', cost: 'funds', gain: 'Vendetta eases', text: 'A halberd on the stair every night for a week. The lane notices.', effect: function (e) { e.meter('retaliation', -2); } },
+        { label: 'Change lodgings', cost: 'instinct', gain: 'Vendetta eases; Dread rises', text: 'A room over a chandler\'s, and nobody told. For a while.', effect: function (e) { e.meter('retaliation', -2); e.meter('dread', 1); } },
+        { label: 'Bar the door and sleep', gain: 'Nothing; he may come back', text: 'You sleep with the halberd by the bed.', effect: function (e) { if (e.rng() < 0.3) e.hurtYou('He did not lose his nerve the second time.'); } },
+      ] },
+    { id: 'market', when: function (e) { return e.s.meters.dread >= 6; },
+      title: 'The Empty Market', text: 'Stalls shut when you pass. The Market Warden asks, politely, whether the Examiner might be seen somewhere else on market day.',
+      options: [
+        { label: 'Walk the Market unarmed', cost: 'health', gain: 'Dread eases; Mercy', text: 'No halberd, no watchman, a basket on your arm. By noon the stalls are open and the Warden has nothing to say.', effect: function (e) { e.meter('dread', -2); e.count('mercy'); } },
+        { label: 'Pay for a round at the Red Ox', cost: 'funds', gain: 'Dread eases; the Crowd eases', text: 'The Examiner stands a round and drinks it with them. The song about you gets a kinder verse.', effect: function (e) { e.meter('dread', -1); e.meter('pressure', -1); } },
+        { label: 'Let them fear you', gain: 'Dread rises; Vendetta eases', text: 'You walk the Market on market day with the halberd. The stalls stay shut. Nobody waits on your stair.', effect: function (e) { e.meter('dread', 1); e.meter('retaliation', -1); } },
+      ] },
+    { id: 'upright', when: function (e) { return e.cardsOf('gang', true).length >= 1; },
+      title: 'The Upright Man\'s Offer', text: 'A boy brings a purse and a message from the band\'s upright man: a Coin a week, and the band keeps clear of your stair.',
+      options: [
+        { label: 'Take it', gain: '+1 Coin; Purse; Vendetta eases', text: 'The boy comes every week. The band keeps clear of your stair, and the Market knows why.', effect: function (e) { coins(e, 1); e.count('purse'); e.meter('retaliation', -3); } },
+        { label: 'Send the boy back with the purse', gain: 'Standing rises; Vendetta', text: 'The boy goes back with the purse and the message. The band hears it, and so does the lane.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); } },
+      ] },
+    { id: 'dinner', when: function (e) { return e.s.meters.reputation >= 6; },
+      title: 'The Council\'s Dinner', text: 'An invitation under the city\'s seal: dinner on the Hill, where the Council can look at the examiner it pays.',
+      options: [
+        { label: 'Go up the Hill', cost: 'health', gain: 'Council favour +1', text: 'Six courses and nine councillors, and every one of them wants to know what you know. You are home after the bell.', effect: function (e) { e.favour().council += 1; } },
+        { label: 'Send regrets', gain: 'Standing rises; Council favour -1', text: 'The Examiner has a case. The Hill tuts; the lanes approve.', effect: function (e) { e.meter('reputation', 1); e.favour().council -= 1; } },
+      ] },
+    { id: 'knock', when: function (e) { return !!compromisedInformer(e); },
+      title: 'A Knock at Night', text: 'Your informer is on your stair at midnight with a bag. Somebody has been asking after them by name.',
+      options: [
+        { label: 'Put them up at the Watch-house', cost: 'funds', gain: 'Your informer is safe again', text: 'A bench in the Watch-house and a sergeant who asks no questions. By the week\'s end nobody is asking after them.',
+          effect: function (e) { var c = compromisedInformer(e); if (c && e.heatInformant) e.heatInformant(c, -3); } },
+        { label: 'Send them out of the city', gain: 'Your informer goes; Dread eases', text: 'A cart at the Water-gate before dawn. The Warrens hear that the Examiner looks after his own.',
+          effect: function (e) { var c = compromisedInformer(e); if (c) e.remove(c); e.meter('dread', -1); } },
+        { label: 'Turn them away', gain: 'Your informer\'s trust falls', text: 'You do not open the door. The bag goes down the stair slowly.',
+          effect: function (e) { var c = compromisedInformer(e); if (c && e.trustInformant) e.trustInformant(c, -1); } },
+      ] },
   ];
+  // The informer somebody has been asking after: the first one Compromised.
+  function compromisedInformer(e) {
+    return e.cardsOf('informant', true).filter(function (c) { return e.informantStatus && e.informantStatus(c) === 'compromised'; })[0] || null;
+  }
   // Where the choice is put to you on the table: beside the tidy layout, to the right.
   P.choiceSpot = function () {
     var T = CF.TABLE;
@@ -476,12 +552,23 @@
     for (var i = 0; i < n && funds[i]; i++) this.remove(funds[i]);
   };
   function nextChoiceIn(e) { return U.randInt(e.rng, 130, 220); }
-  function choiceOpen(e, c, ctx) { return !(e.s.choicesSeen || {})[c.id] && (!c.when || c.when(e, ctx)); }
+  // Ten weeks on, a question with a second wording (`again`) is put once more.
+  CF.CHOICE_AGAIN_WEEKS = 10;
+  // Has the city asked this before? Seen is the week it was asked (older saves: true).
+  function choiceAsked(e, c) { var seen = (e.s.choicesSeen || {})[c.id]; return seen !== undefined && seen !== false; }
+  function choiceAgain(e, c) {
+    var seen = (e.s.choicesSeen || {})[c.id];
+    return !!c.again && typeof seen === 'number' && e.s.week - seen >= CF.CHOICE_AGAIN_WEEKS;
+  }
+  function choiceUnseen(e, c) { return !choiceAsked(e, c) || choiceAgain(e, c); }
+  function choiceOpen(e, c, ctx) { return choiceUnseen(e, c) && (!c.when || c.when(e, ctx)); }
+  // Would the city put this question now? (The UI and the tests ask.)
+  P.choiceOpenFor = function (spec, ctx) { return choiceOpen(this, spec, ctx || null); };
   // A verb has finished: remember which, and about what, so a choice can follow from it.
   P.choiceHook = function (verbId, v) {
-    var s = this.s;
+    var s = this.s, self = this;
     if (s.choice || !s.flags.firstCase || (s.intro && !s.intro.finished)) return;
-    if (!CF.CHOICES.some(function (c) { return c.after === verbId && !(s.choicesSeen || {})[c.id]; })) return;
+    if (!CF.CHOICES.some(function (c) { return c.after === verbId && choiceUnseen(self, c); })) return;
     var self = this, caseId = null;
     // The verb's cards at this point sit in its outputs (the case comes back that way), else in its slots or held.
     (v.out || []).concat(v.held || [], Object.keys(v.slots || {}).map(function (k) { return v.slots[k]; })).map(function (u) { return self.card(u); })
@@ -512,11 +599,13 @@
   };
   P.offerChoice = function (spec, ctx) {
     var s = this.s;
-    (s.choicesSeen || (s.choicesSeen = {}))[spec.id] = true;
+    // Asked before: the second wording, if it has one.
+    var text = choiceAsked(this, spec) && spec.again ? spec.again : spec.text;
+    (s.choicesSeen || (s.choicesSeen = {}))[spec.id] = s.week;
     s.choiceLast = s.t;
-    s.choice = { id: spec.id, title: spec.title, text: spec.text, ctx: ctx || null,
+    s.choice = { id: spec.id, title: spec.title, text: text, ctx: ctx || null,
       options: spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; }) };
-    this.story(spec.title, spec.text + ' (The clock waits for your answer.)', 'major');
+    this.story(spec.title, text + ' (The clock waits for your answer.)', 'major');
     this.emit('choice', s.choice);
     this.dirty = true;
   };

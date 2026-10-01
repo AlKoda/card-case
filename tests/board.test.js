@@ -495,7 +495,7 @@ console.error = function (err) { throw err; };
   assert.strictEqual(e.s.meters.dread, 4, 'turning her away is remembered');
   assert.ok(!e.s.choice); e.tick(1); assert.ok(e.s.t > t0, 'and the clock runs again');
   void d0;
-  var e2 = CF.Engine.load(e.save()); assert.ok(!e2.s.choice && e2.s.choicesSeen.beggar, 'the choice is remembered');
+  var e2 = CF.Engine.load(e.save()); assert.ok(!e2.s.choice && e2.s.choicesSeen.beggar === e.s.week, 'the choice is remembered, with the week it was asked');
   // A question that follows a verb, about its case, with a return you can point to.
   var e4 = CF.Engine.newGame({ seed: 3, calling: 'master', name: 'Hodge Ebner' });
   e4.s.flags.firstCase = true; if (e4.s.intro) e4.s.intro.finished = true;
@@ -505,7 +505,7 @@ console.error = function (err) { throw err; };
   e4.tick(e4.verb('investigate').duration + 0.01);
   assert.ok(e4.s.choiceHook && e4.s.choiceHook.verb === 'investigate' && e4.s.choiceHook.caseId === rec4.id, 'a finished search invites a question about its case');
   var lamp = CF.CHOICES.filter(function (c) { return c.id === 'lamplighter'; })[0];
-  assert.ok(lamp.after === 'investigate' && lamp.when(e4, { caseId: rec4.id }), 'the lamplighter has a word about an unsolved case');
+  assert.ok(lamp.after === 'investigate' && lamp.when(e4, { caseId: rec4.id }), 'the tiler has a word about an unsolved case');
   e4.create('funds');
   e4.offerChoice(lamp, { caseId: rec4.id });
   assert.ok(e4.s.choice && e4.s.choice.options[0].gain && e4.s.choice.options[0].cost === 'funds', 'the answer says what it gives and what it takes');
@@ -513,8 +513,8 @@ console.error = function (err) { throw err; };
   assert.ok(e4.choose(0));
   assert.strictEqual(e4.cardsOf('witness').length, w0 + 1, 'a Coin buys a witness for the case');
   assert.strictEqual(e4.cardsOf('funds').length, f0 - 1, 'and the Coin is gone');
-  var wit = e4.cardsOf('witness').filter(function (c) { return /Lamplighter/.test(c.label); })[0];
-  assert.ok(wit && wit.caseId === rec4.id && wit.data.knows, 'it is the lamplighter, who knows');
+  var wit = e4.cardsOf('witness').filter(function (c) { return /Tiler/.test(c.label); })[0];
+  assert.ok(wit && wit.caseId === rec4.id && wit.data.knows, 'it is the tiler, who knows');
   assert.ok(e4.s.journal.some(function (j) { return /A Witness who saw it/.test(j.text || ''); }), 'the journal says what the answer gave');
   assert.ok(!e4.s.choiceHook || e4.s.choiceHook.verb !== 'x', 'the hook is state, not a choice');
   // Growth: each ability lists its ways and how far along they are.
@@ -570,7 +570,10 @@ console.error = function (err) { throw err; };
   var seen = 0;
   for (var w = 0; w < 6 && !e.cardsOf('rival', true).length; w++) { e.rivalWeek(); }
   var r = e.cardsOf('rival', true)[0];
-  assert.ok(r, 'the Provost sends an examiner');
+  assert.ok(r, 'the Harbourmaster sends an examiner');
+  // They race you only on a case you have opened and held a week: an untouched desk gives them nothing.
+  assert.deepStrictEqual(e.rivalWeek(), [], 'nothing to race you on yet');
+  e.openCases().forEach(function (x) { x.searches = 1; });
   var before = e.openCases().length, lines = e.rivalWeek();
   assert.ok(lines.length === 1, 'they act: ' + lines);
   void before; void seen;

@@ -98,4 +98,107 @@ try {
 } finally { CF.CHOICES.pop(); }
 console.log('spent, not lost: ok');
 
+// ---- The city keeps asking ------------------------------------------------------------
+// A question with a second wording comes back ten weeks on, in that wording; the rest are asked once.
+var k = game(8);
+k.offerChoice(spec('beggar'));
+assert.strictEqual(k.s.choicesSeen.beggar, k.s.week, 'the week it was asked is kept');
+assert.strictEqual(k.s.choice.text, spec('beggar').text, 'the first time, the first wording');
+assert.ok(k.choose(1));
+k.s.week += CF.CHOICE_AGAIN_WEEKS - 1;
+assert.ok(!k.choiceOpenFor(spec('beggar')), 'nine weeks on it is not asked again');
+k.s.week += 1;
+assert.ok(k.choiceOpenFor(spec('beggar')), 'ten weeks on it is');
+assert.ok(!k.choiceOpenFor(spec('bishop')) || !k.s.choicesSeen.bishop, 'a question with one wording is asked once');
+k.offerChoice(spec('bishop')); k.choose(1);
+k.s.week += CF.CHOICE_AGAIN_WEEKS;
+assert.ok(!k.choiceOpenFor(spec('bishop')), 'and never again');
+k.offerChoice(spec('beggar'));
+assert.strictEqual(k.s.choice.text, spec('beggar').again, 'the second time, the second wording');
+assert.ok(k.s.journal[0].text.indexOf(spec('beggar').again) === 0, 'and the journal has it');
+k.choose(1);
+// Older saves kept true: asked, and not again.
+k.create('fatigue'); k.s.choicesSeen.swan = true; k.s.week += 20;
+assert.ok(spec('swan').when(k), 'the Swan would offer');
+assert.ok(!k.choiceOpenFor(spec('swan')), 'a save that only remembers it was asked keeps it closed');
+['cudgel', 'market', 'upright', 'dinner', 'knock'].forEach(function (id) { assert.ok(spec(id) && spec(id).when && !spec(id).after, id + ' comes on the city\'s clock'); });
+// The late questions wait for the city's temper.
+var late = game(9);
+assert.ok(!spec('cudgel').when(late) && !spec('market').when(late) && !spec('dinner').when(late) && !spec('upright').when(late) && !spec('knock').when(late), 'none of them on the first day');
+late.s.meters.retaliation = 5; assert.ok(spec('cudgel').when(late), 'a cudgel at Vendetta 5');
+late.s.meters.dread = 6; assert.ok(spec('market').when(late), 'an empty Market at Dread 6');
+late.s.meters.reputation = 6; assert.ok(spec('dinner').when(late), 'the Council\'s dinner at Standing 6');
+late.create('gang', { label: 'The Lanternless', data: { name: 'The Lanternless' } }); assert.ok(spec('upright').when(late), 'the upright man once a Band is on the table');
+var inf = late.create('informant', late.informantSpec('market'));
+assert.ok(!spec('knock').when(late), 'a safe informer knocks on nobody\'s door');
+late.heatInformant(inf, CF.INFORMANT.compromisedAt);
+assert.ok(spec('knock').when(late), 'a compromised one does');
+late.offerChoice(spec('knock')); late.create('funds');
+assert.ok(late.choose(0), 'put up at the Watch-house');
+assert.strictEqual(late.informantStatus(inf), 'safe', 'and safe again');
+late.offerChoice(spec('upright')); var ret = late.s.meters.retaliation, fundsN = late.cardsOf('funds', true).length;
+assert.ok(late.choose(0)); assert.strictEqual(late.s.meters.retaliation, ret - 3); assert.strictEqual(late.cardsOf('funds', true).length, fundsN + 1); assert.strictEqual(late.s.counts.purse, 1);
+late.offerChoice(spec('cudgel')); var hp0 = late.cardsOf('health', true).length + late.countOf('spent_health');
+assert.ok(late.choose(2), 'bar the door: free');
+assert.ok(late.cardsOf('health', true).length + late.countOf('spent_health') + late.countOf('wound') >= hp0, 'he came back, or he did not');
+console.log('the city keeps asking: ok');
+
+// ---- A need that cannot be paid stops re-arming ------------------------------------------
+var n = game(10);
+while (n.cardsOf('health', true).length > 1) n.remove(n.cardsOf('health', true)[0]);
+var debt0 = (n.s.counts && n.s.counts.debt) || 0, press0 = n.s.meters.pressure;
+n.create('hunger', { lifetime: 2 }); n.tick(2.01);
+var again = n.cardsOf('hunger')[0];
+assert.ok(again && again.data.repeat === 1, 'it comes once more, and knows it');
+assert.ok(n.s.journal.some(function (j) { return j.title === 'Hunger Deepens' && /It will come again\.$/.test(j.text); }), 'and says so');
+again.life = 1; n.tick(1.01);
+assert.strictEqual(n.countOf('hunger'), 0, 'the second time it stops asking');
+assert.strictEqual(n.s.counts.debt, debt0 + 1, 'the cookshop is owed');
+assert.strictEqual(n.s.meters.pressure, press0 + 1, 'and the Market knows');
+assert.ok(n.s.journal.some(function (j) { return j.title === 'Hunger Deepens' && /stopped asking/.test(j.text); }));
+console.log('a need stops re-arming: ok');
+
+// ---- The Rival races you ------------------------------------------------------------------
+var rv = game(11);
+rv.s.week = 8;
+while (!rv.cardsOf('rival', true).length) rv.rivalWeek();
+var rival = rv.cardsOf('rival', true)[0], rec = rv.openCases()[0];
+assert.ok(/Harbourmaster/.test(rv.s.journal[0].text), 'sent by the Harbourmaster');
+rv.tableCards().filter(function (c) { return c.def === 'clue' || c.def === 'evidence' || c.def === 'witness'; }).forEach(function (c) { rv.remove(c); });
+assert.deepStrictEqual(rv.rivalWeek(), [], 'an unopened case is not raced');
+rec.searches = 1;
+assert.deepStrictEqual(rv.rivalWeek().length, 1, 'opened and a week old: taken up');
+assert.ok(rec.rival && rec.rivalSince === rv.s.week, 'the week it was taken is kept');
+rv.s.week += 1;
+var lines = rv.rivalWeek();
+assert.ok(lines.some(function (l) { return /boasting/.test(l); }), 'a week on they boast: ' + lines);
+assert.ok(rv.s.journal.some(function (j) { return j.title === 'The Rival Boasts' && j.text.indexOf(rec.title) >= 0; }), 'in the Red Ox, by name');
+assert.strictEqual(rec.status, 'open', 'and the case is still yours');
+rv.s.week += 1;
+rv.rivalWeek();
+assert.strictEqual(rec.status, 'cold', 'two weeks on they close it');
+// Spoiled tokens and bought witnesses carry the mark.
+var rv2 = game(12); rv2.s.week = 8;
+while (!rv2.cardsOf('rival', true).length) rv2.rivalWeek();
+rv2.openCases().forEach(function (x) { x.rival = true; x.rivalSince = rv2.s.week; });
+var clue = rv2.create('clue', { label: 'A Boot-print', aspects: { forensic: 2 } });
+for (var tries = 0; tries < 40 && !clue.data.tampered; tries++) rv2.rivalWeek();
+assert.ok(clue.data.tampered, 'a spoiled token is marked');
+rv2.remove(clue);
+var wtn = rv2.create('witness', { label: 'Witness: the Tiler', lifetime: 200, data: { knows: true } });
+for (var tries2 = 0; tries2 < 40 && !wtn.data.bribed; tries2++) rv2.rivalWeek();
+assert.ok(wtn.data.bribed, 'a bought witness is marked');
+console.log('the rival races you: ok');
+
+// ---- The ending's own numbers ----------------------------------------------------------
+var m = game(13);
+m.s.stats.sentHome = 9;
+for (var ci = 0; ci < 2; ci++) m.criminalFor('Citizen ' + ci, null).status = 'reformed';
+m.gameOver('merciful');
+assert.strictEqual(m.s.over.text.indexOf('9 times you sent a poor sinner home'), 0, 'the Merciful Judge counts the ones sent home: ' + m.s.over.text);
+assert.ok(m.s.over.text.indexOf('and 2 of them are citizens now') > 0, 'and the reformed');
+assert.ok(m.s.over.text.indexOf('{') < 0, 'nothing left unfilled');
+CF.ENDING_VARIANTS.master.forEach(function (v) { assert.ok(/your own lintel, and you rub them out with your thumb\.$/.test(v.text), 'the Scholar ends at the lintel'); });
+console.log('the ending\'s numbers: ok');
+
 console.log('choices: all OK');

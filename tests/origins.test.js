@@ -31,6 +31,14 @@ function dur(e, verb, cards) {
     assert.strictEqual(e.s.who, who);
     assert.strictEqual(e.s.journal[0].title, CF.OPENINGS_WHO[who].title, who + ' opens with its own morning');
   });
+  // Before the office, the first morning is told in the origin's own words, then where you stand.
+  CF.ORIGIN_ORDER.forEach(function (who) {
+    var o = CF.Engine.newGame({ seed: 5, calling: 'master', who: who, opening: true });
+    var sc = o.openingScene(), first = o.s.journal.filter(function (j) { return j.title === 'Before the Office'; })[0];
+    assert.ok(sc.first && first, who + ' has a first morning');
+    assert.strictEqual(first.text.indexOf(sc.first), 0, who + ' begins with it');
+    assert.ok(first.text.indexOf(sc.where) > sc.first.length, 'and goes on to where you lodge');
+  });
   var a = game('advocate');
   assert.strictEqual(byDef(a, 'focus').length, 2, 'the Advocate: Wit ×2');
   assert.strictEqual(a.s.meters.reputation, 1, 'and the Council\'s ear');
