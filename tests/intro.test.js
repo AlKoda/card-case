@@ -109,3 +109,84 @@ s2.tidy();
 var funds = byDef(s2, 'funds');
 assert.ok(funds.every(function (c) { return c.loc.x === funds[0].loc.x && c.loc.y === funds[0].loc.y; }), 'tidy keeps the stack');
 console.log('intro: ok');
+
+// ---- The opening: the hint follows the table, nobody is stranded, the hire comes one beat at a time ----
+(function opening() {
+  function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  var e = CF.Engine.newGame({ seed: 21, who: 'clerk', name: 'Beats', opening: true, guided: true });
+  assert.ok(/Health onto Attend/.test(e.introHint()), 'work for bread: ' + e.introHint());
+  assert.ok(/so does Wit, more slowly/.test(e.s.journal[0].text), 'the start says Wit earns too');
+  // Health at work, Wit on the table: the hint turns to Wit.
+  var hp = tbl(e, 'health')[0];
+  assert.ok(e.autoSlot('duty', hp.uid) && e.start('duty'));
+  e.tick(0.1);
+  assert.ok(/^Winded\. Health comes back/.test(e.introHint()), 'Wit meanwhile: ' + e.introHint());
+  e.tick(e.verb('duty').duration); e.collect('duty'); e.tick(0.1);
+  assert.strictEqual(tbl(e, 'spent_health').length, 1);
+  assert.ok(/^Winded\./.test(e.introHint()));
+  // Wit at the day-book too: both spent.
+  assert.ok(e.autoSlot('duty', tbl(e, 'focus')[0].uid) && e.start('duty'), 'Wit keeps the day-book');
+  e.tick(0.1);
+  assert.ok(/^Both spent\./.test(e.introHint()), 'both spent: ' + e.introHint());
+  e.tick(e.verb('duty').duration); e.collect('duty'); e.tick(0.1);
+  // Two days' work: the notice, and Explore runs by itself.
+  assert.strictEqual(e.s.flags.stage, 'search');
+  assert.strictEqual(e.verb('investigate').status, 'running');
+  assert.ok(/Explore/.test(e.introHint()));
+  e.tick(e.verb('investigate').duration + 0.01); e.tick(0.1);
+  assert.strictEqual(e.verb('investigate').status, 'done');
+  // Explore done but never opened: the Watch does not come, and the hint says what to do.
+  e.tick(30);
+  assert.strictEqual(e.s.flags.stage, 'search', 'the stage waits for the finds to be taken');
+  assert.ok(/^Explore is done\. Open it/.test(e.introHint()) && /Take all/.test(e.introHint()), 'the hint names Explore: ' + e.introHint());
+  e.collect('investigate'); e.tick(0.1);
+  assert.strictEqual(e.s.flags.stage, 'questioned', 'taken: the Watch has a body');
+  assert.ok(/^The Death of /.test(e.openCases()[0].title));
+  // The sergeant: the hire. From here, one beat at a time.
+  assert.strictEqual(e.verb('interrogate').status, 'running');
+  e.tick(e.verb('interrogate').duration + 0.01); e.collect('interrogate'); e.tick(0.1);
+  assert.strictEqual(e.s.flags.stage, 'hired');
+  assert.ok(e.s.choice && e.s.choice.id === 'calling', 'the calling is asked once Explore is idle');
+  assert.ok(e.choose(1));
+  var hireT = e.s.t, journalAt = e.s.journal.length;
+  assert.strictEqual(e.s.intro.step, 3, 'the lessons the opening gave are skipped: ' + e.s.intro.step);
+  assert.ok(!e.s.journal.some(function (j) { return j.title === 'What the Scene Gives' || j.title === 'People' || j.title === 'The Casebook'; }), 'no lesson told twice');
+  // The table is ripe for the Charge; the beat still waits eight seconds and a verb.
+  var rec = e.openCases()[0];
+  if (!tbl(e, 'suspect').length) e.revealSuspect(rec, null);
+  if (!tbl(e, 'clue').length) e.create('clue', { label: 'x', caseId: rec.id, aspects: { testimony: 1 } });
+  var majors = [];
+  for (var t = 0; t < 60; t++) {
+    if (t === 4) { assert.ok(e.autoSlot('duty', tbl(e, 'focus')[0].uid) && e.start('duty'), 'the day-book after the hire'); }
+    if (t === 2) assert.ok(!e.verb('arrest').unlocked, 'the Charge does not come on the heels of the hire');
+    e.tick(0.5);
+    e.s.journal.slice(journalAt).forEach(function (j) { if (j.kind === 'major') majors.push(e.s.t - hireT); });
+    journalAt = e.s.journal.length;
+  }
+  assert.ok(e.verb('arrest').unlocked && e.s.journal.some(function (j) { return j.title === 'The Charge'; }), 'the Charge came in time');
+  var charge = majors[0];
+  assert.ok(charge >= 8, 'eight seconds at least after the hire: ' + charge);
+  for (var w = 0; w < 30; w += 5) assert.ok(majors.filter(function (x) { return x >= w && x < w + 5; }).length <= 1, 'at most one beat per five seconds: ' + JSON.stringify(majors));
+  // Without a verb run since, a beat waits half a minute before it comes anyway.
+  var f = CF.Engine.newGame({ seed: 22, who: 'none', name: 'Idle', opening: true, guided: true });
+  f.s.flags.stage = 'hired'; f.s.flags.firstCase = true; f.s.intro.step = 3; f.s.intro.lastBeatT = f.s.t; f.s.intro.lastBeatVerbs = 0;
+  f.introUnlock(['analyze', 'reflect']);
+  var fc = f.spawnCase('missing', { quiet: true }), fr = f.caseRec(fc.caseId);
+  fr.opening = true; f.revealSuspect(fr, null); f.create('clue', { label: 'x', caseId: fr.id, aspects: { testimony: 1 } });
+  f.tick(10); assert.ok(!f.verb('arrest').unlocked, 'no verb run: the beat waits');
+  f.tick(21); assert.ok(f.verb('arrest').unlocked, 'but not for ever');
+  // The hire's hint reads the table: a name already known and no raw proof left, it says whom to question.
+  var h = CF.Engine.newGame({ seed: 23, who: 'monk', name: 'Named', opening: true, guided: true });
+  h.s.flags.stage = 'questioned';
+  var hc = h.spawnCase('missing', { quiet: true, roles: h.openingScene().roles }), hr = h.caseRec(hc.caseId);
+  hr.opening = true;
+  h.revealSuspect(hr, null);
+  var named = hr.suspects.filter(function (x) { return x.revealed; })[0];
+  h.openingHired();
+  assert.strictEqual(h.s.flags.stage, 'hired');
+  assert.ok(h.introHint().indexOf('Question ' + named.name + ' with Wit') >= 0, 'the hint names the suspect: ' + h.introHint());
+  assert.ok(h.s.flags.callingDue && !h.s.choice, 'the calling waits for openingTick');
+  h.tick(0.1);
+  assert.ok(h.s.choice && h.s.choice.id === 'calling', 'Explore idle: asked at once');
+  console.log('opening beats: ok');
+})();

@@ -24,30 +24,60 @@
     clerk: { where: 'a rented room over the scriveners\' shop on the Market', work: 'copying deeds for whoever pays', missing: 'Endres', missingWho: 'the copyist who shares your bench',
       notice: 'Endres has not come to the bench in four days. The master scrivener says nothing, which is how he says things. Endres lodged in the Warrens; you know the door.',
       found: 'The Watch pulled Endres out of the mill-race this morning. A sergeant is at the shop before noon, and he wants to know why you were asking at that door before anyone knew there was a body.',
-      hired: 'The sergeant listens longer than sergeants do. When you are finished he says the Watch-house on the Market has a desk under the stair and nobody at it, and that a man who reads a room like a deed is wasted on deeds. Junior examiner. No stipend until you have earned it.' },
+      hired: 'The sergeant listens longer than sergeants do. When you are finished he says the Watch-house on the Market has a desk under the stair and nobody at it, and that a man who reads a room like a deed is wasted on deeds. Junior examiner. No stipend until you have earned it.',
+      roles: [
+        { role: 'the master scrivener', motive: 'Endres copied a bond he was told not to read, and read it.' },
+        { role: 'the man whose bond it was', motive: 'A deed in the Warrens, and a name on it that should not be there.' },
+        { role: 'a lodger on Endres\'s stair', motive: 'Owed Endres a month\'s rent and a great deal of silence.' },
+      ] },
     watchman: { where: 'the Watch-house bench, where you have slept since the round ended', work: 'hired out as a night-guard to whoever has a warehouse', missing: 'Old Bartel', missingWho: 'who walked the round beside you for twenty years',
       notice: 'Old Bartel has missed three rounds. His halberd is still on its hook. His landlady says he went out on Thursday to meet somebody about money.',
       found: 'They find Bartel in a lock-up at the Harbour with his skull broken. The sergeant, who was Bartel\'s friend before he was yours, wants to know what you know.',
-      hired: 'The sergeant has heard you read a scene before, on the round, in the dark. He says the Examiner\'s desk under the stair is empty and the Council has stopped asking why. Junior examiner. No stipend until you have earned it.' },
+      hired: 'The sergeant has heard you read a scene before, on the round, in the dark. He says the Examiner\'s desk under the stair is empty and the Council has stopped asking why. Junior examiner. No stipend until you have earned it.',
+      roles: [
+        { role: 'the man Bartel went to meet about money', motive: 'Bartel lent, and Bartel asked for it back, on Thursday.' },
+        { role: 'the warehouse-keeper who hired him', motive: 'Bartel saw what came in by night and was paid to forget, until he stopped forgetting.' },
+        { role: 'a tapster at the Harbour', motive: 'Bartel drank there on credit, and the slate was long.' },
+      ] },
     monk: { where: 'the Abbey guest-house, since the Abbot found you a nuisance in the garden', work: 'dressing wounds at the Abbey hospital for whoever can pay the hospital', missing: 'Brother Sebald', missingWho: 'the novice who ground your simples',
       notice: 'Brother Sebald did not come to matins, or to prime. His bed is made. His herbal is gone from the shelf, and so is a jar that should not leave the dispensary.',
       found: 'The Watch finds Sebald under the sluice with the jar in his cloak, and a sergeant who does not like monks wants to know why a physician was asking the porter about him.',
-      hired: 'You tell the sergeant what the body says, and the sergeant, who has heard a hundred physicians, hears something new. The Watch-house has a desk with nobody at it. Junior examiner. No stipend until you have earned it.' },
+      hired: 'You tell the sergeant what the body says, and the sergeant, who has heard a hundred physicians, hears something new. The Watch-house has a desk with nobody at it. Junior examiner. No stipend until you have earned it.',
+      roles: [
+        { role: 'the cellarer', motive: 'The jar was in his keeping, and so was the key.' },
+        { role: 'the man who bought the jar', motive: 'Somebody outside the walls wanted what the dispensary keeps locked.' },
+        { role: 'a novice who envied him', motive: 'Sebald was to be sent to the scriptorium. The other was not.' },
+      ] },
     hangman: { where: 'the hangman\'s house outside the wall, where nobody visits', work: 'flaying for the tanners, which is what the city lets you do', missing: 'Nan', missingWho: 'who sells the ballads at the Ravenstone',
       notice: 'Nan has not been at the Ravenstone in four days, and there was a hanging on Tuesday. Her ballads are still in the basket by the gate. Somebody took the basket in.',
       found: 'The Watch finds Nan in the reeds below the Water-gate. The sergeant comes to the house outside the wall, which no sergeant does, and wants to know what a hangman was doing asking after her.',
-      hired: 'You tell him what the marks on her say, and he goes quiet. The Council will not like it, he says, but the desk under the stair is empty and you read a body better than the barber-surgeon. Junior examiner. No stipend until you have earned it.' },
+      hired: 'You tell him what the marks on her say, and he goes quiet. The Council will not like it, he says, but the desk under the stair is empty and you read a body better than the barber-surgeon. Junior examiner. No stipend until you have earned it.',
+      roles: [
+        { role: 'the printer of her ballads', motive: 'Nan sang a verse he had not been paid for.' },
+        { role: 'the man she sang about', motive: 'A ballad names names. His was in Tuesday\'s.' },
+        { role: 'the gatekeeper who took the basket in', motive: 'Knew she was not coming back before anyone else did.' },
+      ] },
     advocate: { where: 'chambers on the Hill you can no longer afford', work: 'drawing up wills and bonds for whoever still knocks', missing: 'Pieter', missingWho: 'your clerk, who kept the chambers when the clients stopped',
       notice: 'Pieter did not come in on Monday. His pen is on the desk, uncleaned, which he never leaves. The last thing he copied was a bond you did not draw.',
       found: 'The Watch finds Pieter in the Stews, in a room he could not have paid for. A sergeant comes up the Hill to ask why you were at that door before they were.',
-      hired: 'You argue your own case to the sergeant as you argued a hundred before the Blood Court, and he is not a judge, so it works. The desk under the stair is empty. Junior examiner. No stipend until you have earned it.' },
+      hired: 'You argue your own case to the sergeant as you argued a hundred before the Blood Court, and he is not a judge, so it works. The desk under the stair is empty. Junior examiner. No stipend until you have earned it.',
+      roles: [
+        { role: 'the man whose bond Pieter copied', motive: 'A bond you did not draw, in your chambers, in your clerk\'s hand.' },
+        { role: 'a client who stopped paying', motive: 'Owed the chambers a year, and Pieter kept the book.' },
+        { role: 'the keeper of the room in the Stews', motive: 'Somebody paid for that room. It was not Pieter.' },
+      ] },
   };
   CF.OPENING_SCENES.none = { where: 'a rented room on the Market', work: 'whatever work the Market has', missing: 'Grete', missingWho: 'the neighbour who shared your stair',
     notice: 'Grete from the floor below has not been seen in four days. Her door is locked and her cat is on your sill. Nobody has asked the Watch, because nobody asks the Watch.',
     found: 'The Watch pulls Grete out of the river. A sergeant is on your stair by noon, wanting to know why you were asking at her door.',
-    hired: 'The sergeant listens, and at the end says the Watch-house has a desk under the stair and nobody at it. Junior examiner. No stipend until you have earned it.' };
+    hired: 'The sergeant listens, and at the end says the Watch-house has a desk under the stair and nobody at it. Junior examiner. No stipend until you have earned it.',
+    roles: [
+      { role: 'the man on the floor below', motive: 'Knocked on her door every night, and she stopped answering.' },
+      { role: 'her brother from the Warrens', motive: 'Owed money in the Warrens, and she had some.' },
+      { role: 'the landlord\'s son', motive: 'Had a key to every room on the stair, and used it.' },
+    ] };
   CF.OPENING_TEXT = {
-    start: 'No office, no stipend, no name the crier would sing. You lodge at {where}, and you live by {work}. Health in Attend earns a Coin. The city has not noticed you yet.',
+    start: 'No office, no stipend, no name the crier would sing. You lodge at {where}, and you live by {work}. Health in Attend earns a Coin; so does Wit, more slowly. The city has not noticed you yet.',
     notice: 'A Notice',
     body: 'The Watch Has a Body',
     hired: 'Junior Examiner',
@@ -67,13 +97,39 @@
     this.dirty = true;
   };
   function hint(e, text) { if (e.s.intro && !e.s.intro.finished && !e.s.intro.silent) e.s.intro.hint = text; }
+  // How many verbs have finished, all told: the opening's beats wait for one.
+  function verbsRun(e) { var sv = e.s.stats.verbs || {}, n = 0; for (var k in sv) n += sv[k]; return n; }
+  // What the hint says while you work for bread: it follows what is on the table.
+  var WORK_HINTS = {
+    health: 'You have no office yet. Drag Health onto Attend and press what it offers: a day\'s labour, a Coin.',
+    focus: 'Winded. Health comes back in a moment; meanwhile Wit keeps the day-book in Attend for a Coin.',
+    none: 'Both spent. They come back on their own; the clock is running.',
+  };
+  // The body is found: the case takes its true name, on the record and on every card of it.
+  function retitle(e, rec, title) {
+    var old = rec.title;
+    rec.title = title;
+    Object.keys(e.s.cards).forEach(function (k) {
+      var c = e.s.cards[k];
+      if (!c || c.caseId !== rec.id) return;
+      if (c.label && c.label.indexOf(old) >= 0) c.label = c.label.replace(old, title);
+      if (c.desc && c.desc.indexOf(old) >= 0) c.desc = c.desc.replace(old, title);
+    });
+    e.dirty = true;
+  }
   P.openingTick = function () {
     var s = this.s, sc = this.openingScene();
     if (!s.flags.opening) return;
     var worked = (s.stats.verbs && s.stats.verbs.duty) || 0;
-    if (s.flags.stage === 'work' && worked >= 2) {
+    if (s.flags.stage === 'work') {
+      if (worked < 2) {
+        var tb = this.tableCards();
+        hint(this, tb.some(function (c) { return c.def === 'health'; }) ? WORK_HINTS.health : tb.some(function (c) { return c.def === 'focus'; }) ? WORK_HINTS.focus : WORK_HINTS.none);
+        return;
+      }
       s.flags.stage = 'search';
-      var card = this.spawnCase('missing', { victim: sc.missing, lifetime: 900, quiet: true, district: 'warrens' });
+      var card = this.spawnCase('missing', { victim: sc.missing, lifetime: 900, quiet: true, district: 'warrens',
+        title: 'The Vanishing of ' + sc.missing, brief: sc.notice, roles: sc.roles });
       var rec = this.caseRec(card.caseId);
       rec.opening = true;
       this.story(CF.OPENING_TEXT.notice + ': ' + rec.title, sc.notice + ' Nobody else is going to look.', 'case');
@@ -85,18 +141,31 @@
     }
     if (s.flags.stage === 'search') {
       var rec2 = this.openCases().filter(function (r) { return r.opening; })[0];
-      if (rec2 && (rec2.searches > 0 || rec2.found > 0)) {
-        s.flags.stage = 'questioned';
-        var q = this.create('watchq', { label: 'The Sergeant\'s Questions', desc: sc.found + ' Reason with him: put this in Question with Wit.' });
-        this.story(CF.OPENING_TEXT.body, sc.found, 'danger');
-        if (this.introUnlock) this.introUnlock(['interrogate']);
-        var wits = this.introReveal ? this.introReveal(['focus']) : [];
-        var wit = wits[0] || this.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0];
-        // The sergeant does not wait to be invited: the questioning starts by itself.
-        this.autoRun('interrogate', [q.uid].concat(wit ? [wit.uid] : []));
-        hint(this, 'The Watch wants a word, and the sergeant has already sat you down. Your Wit is doing the talking; wait for him to be satisfied.');
+      if (!rec2 || !(rec2.searches > 0)) return;
+      var ex = this.verb('investigate');
+      if (ex.status !== 'idle') {
+        // Explore is done and waits to be opened: say so, once. The Watch does not come until you have.
+        if (ex.status === 'done' && !s.flags.exploreHinted) { s.flags.exploreHinted = true; hint(this, 'Explore is done. Open it: tap a card to turn it over, double-tap to take it, or Take all.'); }
+        return;
       }
+      s.flags.stage = 'questioned';
+      retitle(this, rec2, 'The Death of ' + sc.missing);
+      var q = this.create('watchq', { label: 'The Sergeant\'s Questions', desc: sc.found + ' Reason with him: put this in Question with Wit.' });
+      this.story(CF.OPENING_TEXT.body, sc.found, 'danger');
+      if (this.introUnlock) this.introUnlock(['interrogate']);
+      var wits = this.introReveal ? this.introReveal(['focus']) : [];
+      var wit = wits[0] || this.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0];
+      // The sergeant does not wait to be invited: the questioning starts by itself.
+      this.autoRun('interrogate', [q.uid].concat(wit ? [wit.uid] : []));
+      hint(this, 'The Watch wants a word, and the sergeant has already sat you down. Your Wit is doing the talking; wait for him to be satisfied.');
       return;
+    }
+    // The desk is yours: what you want from it is asked once Explore is idle, or ten seconds on.
+    if (s.flags.stage === 'hired' && s.flags.callingDue && s.flags.callingOpen && !s.choice) {
+      if (s.t - (s.flags.hiredT || 0) >= 10 || this.verb('investigate').status === 'idle') {
+        delete s.flags.callingDue;
+        this.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'calling'; })[0]);
+      }
     }
   };
   // The sergeant is satisfied: the junior place, and the rest of the desk.
@@ -105,11 +174,18 @@
     if (s.flags.stage !== 'questioned') return;
     s.flags.stage = 'hired';
     s.flags.firstCase = true;
+    s.flags.hiredT = s.t;
+    // The lessons come one beat at a time from here: the intro counts from the hire.
+    if (s.intro) { s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); }
     if (this.introUnlock) this.introUnlock(['analyze', 'reflect']);
     if (this.introReveal) this.introReveal(['instinct', 'health', 'focus', 'personnel']);
     this.story(CF.OPENING_TEXT.hired, sc.hired + ' The case is yours now: find who did it. Raw proof speaks in Study; the Court opens when you have someone to charge.', 'major');
-    hint(this, 'You have the desk. Study what you found, question who you meet, and build a charge. The Court opens when you have an accused and a token.');
-    if (s.flags.callingOpen) this.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'calling'; })[0]);
+    var rec = this.openCases().filter(function (r) { return r.opening; })[0];
+    var named = rec && rec.suspects.filter(function (x) { return x.revealed; })[0];
+    var proof = this.tableCards().some(function (c) { return c.def === 'evidence'; });
+    if (named && !proof) hint(this, U.fill('Two tokens and a name already. Question {name} with Wit, or lay the tokens side by side in Rest.', { name: named.name }));
+    else hint(this, 'You have the desk. Study what you found, question who you meet, and build a charge. The Court opens when you have an accused and a token.');
+    if (s.flags.callingOpen) s.flags.callingDue = true; // put to you from openingTick, once Explore is idle or ten seconds on
   };
   // The first conviction: stipend, lodging, the Bell, and the city's clock.
   P.openingKeep = function () {
@@ -326,6 +402,7 @@
       options: [
         { label: 'Take the room', cost: 'funds', gain: 'Weariness lifts', text: 'You sleep like the dead and wake like the living.', effect: function (e) { lift(e, 'fatigue'); } },
         { label: 'Work through', cost: 'focus', gain: '+1 Coin; +1 Weariness', text: 'A Coin for the night\'s writing, and the ache goes a little deeper.', effect: function (e) { e.create('funds'); e.create('fatigue'); } },
+        { label: 'Sleep at the desk', gain: 'Nothing changes', text: 'The fire goes out in the Watch-house and you sleep sitting up. The Swan keeps its room.', effect: function () {} },
       ] },
     { id: 'watchman', when: function (e) { return e.cardsOf('teammate', true).length >= 1; },
       title: 'The Watchman\'s Mother', text: 'One of your watchmen asks for the week: his mother is dying in the Warrens and there is nobody else. The round will be short a man.',
@@ -438,15 +515,22 @@
     (s.choicesSeen || (s.choicesSeen = {}))[spec.id] = true;
     s.choiceLast = s.t;
     s.choice = { id: spec.id, title: spec.title, text: spec.text, ctx: ctx || null,
-      options: spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null }; }) };
+      options: spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; }) };
     this.story(spec.title, spec.text + ' (The clock waits for your answer.)', 'major');
     this.emit('choice', s.choice);
     this.dirty = true;
   };
-  // The card an option takes from the table (Health, Wit, Instinct or Coin), if you have it.
+  // The card an option takes (Health, Wit, Instinct or Coin), if you have it:
+  // on the table first, else waiting in an idle verb's slot or among its outputs.
   P.choicePayment = function (opt) {
     if (!opt || !opt.cost) return null;
-    return this.tableCards().filter(function (c) { return c.def === opt.cost; })[0] || null;
+    var s = this.s;
+    var have = this.cardsOf(opt.cost, true).filter(function (c) {
+      var vb = c.loc.verb && s.verbs[c.loc.verb];
+      return c.loc.t === 'table' || (c.loc.t === 'slot' && vb && vb.status !== 'running') || c.loc.t === 'out';
+    });
+    have.sort(function (a, b) { return (a.loc.t === 'table' ? 0 : 1) - (b.loc.t === 'table' ? 0 : 1); });
+    return have[0] || null;
   };
   P.canChoose = function (i) {
     var c = this.s.choice, spec = c && CF.CHOICES.filter(function (x) { return x.id === c.id; })[0];
@@ -461,7 +545,15 @@
     if (!opt) return false;
     var pay = this.choicePayment(opt);
     if (opt.cost && !pay) return false;
-    if (pay) this.remove(pay);
+    if (pay) {
+      // A card waiting in a verb comes to the table first, then is spent.
+      if (pay.loc.t === 'out') this.takeOutput(pay.loc.verb, pay.uid);
+      else if (pay.loc.t !== 'table') { this.detach(pay); this.placeOnTable(pay); }
+      // An ability is spent, not lost (it comes back as it does after work), unless the option takes it for good. Coin is gone.
+      var spends = CF.CARDS[pay.def].spends;
+      if (spends && !opt.forGood) this.transform(pay, spends, { decay: CF.CARDS[spends].decay / (this.perkHas('secondwind') ? 2 : 1) });
+      else this.remove(pay);
+    }
     s.choice = null;
     opt.effect(this, c.ctx || null);
     this.story(c.title + ': ' + opt.label, opt.text + (opt.gain ? ' (' + opt.gain + ')' : ''), 'major');

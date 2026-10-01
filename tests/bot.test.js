@@ -183,18 +183,19 @@ for (var g = 0; g < GAMES; g++) {
   // The whole city: the needs and the choices run from the first day.
   var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who, life: true });
   e.on(function (type, p) { if (type === 'story' && /^Lost: /.test(p.title)) lost++; if (type === 'chosen') choices++; });
-  var band = null, reached2 = false;
+  var band = null, reached2 = false, below = 0;
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
     step(e, temper);
     CF.VERB_ORDER.forEach(function (vid) { var v = e.s.verbs[vid]; if (v.status === 'running') seen[v.recipe] = true; });
     e.tick(1);
     if (!band && e.countOf('gang')) band = { week: e.s.week, rank: e.s.rank };
+    if (band && e.s.rank < 2 && e.countOf('gang')) below++; // ticks the band sat on the table below Bailiff
     if (e.s.rank >= 2 && e.s.week <= 20) reached2 = true;
   }
   insights += Object.keys(e.s.insights || {}).length;
   needsMet += e.s.stats.needsMet || 0;
   if (reached2) rank2By20++;
-  if (band) bands.push({ week: band.week, rank: band.rank, ending: e.s.over ? e.s.over.id : 'survived', endWeek: e.s.week });
+  if (band) bands.push({ week: band.week, rank: band.rank, below: below, ending: e.s.over ? e.s.over.id : 'survived', endWeek: e.s.week });
   var end = e.s.over ? calling.slice(0, 4) + ':' + e.s.over.id : calling.slice(0, 4) + ':survived';
   endings[end] = (endings[end] || 0) + 1;
   var eid = e.s.over ? e.s.over.id : 'survived';
@@ -225,7 +226,8 @@ assert.ok(lost / GAMES < 1.5, 'abilities lost per game: ' + (lost / GAMES).toFix
 // A band formed under an Examiner or a Sworn Examiner can be fought from the Watch-house (the Watch posted on its
 // stair, its sworn hunted one by one): the bot does so, and such a band is not a quick death. The Vendetta itself is
 // still uncapped (a later item), so a stray death stays possible; it must not be the rule.
-var lowBands = bands.filter(function (b) { return b.rank <= 1; });
+// A band promoted away within the length of one Attend (the Council's own summons runs 45s) never gave the bot a turn.
+var lowBands = bands.filter(function (b) { return b.rank <= 1 && b.below >= 60; });
 var earlyBandDeaths = lowBands.filter(function (b) { return b.ending === 'death' && b.endWeek - b.week <= 4; });
 if (lowBands.length) assert.ok(seen.duty_post_watch, 'the Watch is posted on a band below Bailiff');
 assert.ok(earlyBandDeaths.length <= lowBands.length / 4, 'a band at low rank is a quick death: ' + earlyBandDeaths.length + ' of ' + lowBands.length + ' ' + JSON.stringify(earlyBandDeaths));

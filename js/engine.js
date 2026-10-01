@@ -1856,7 +1856,8 @@
     if (structure) for (var sv in structure.vars) vars[sv] = U.pick(rng, structure.vars[sv]);
 
     var nSus = Math.min(T.nSuspects || 3, T.roles.length);
-    var roles = T.nSuspects ? T.roles.slice(0, nSus) : U.sample(rng, T.roles, nSus);
+    // The opening tells its own suspects (opts.roles); a template may fix its own.
+    var roles = opts.roles ? opts.roles.slice(0, nSus) : T.nSuspects ? T.roles.slice(0, nSus) : U.sample(rng, T.roles, nSus);
     var traits = U.sample(rng, CF.TRAITS, nSus);
     var guiltyIdx = U.randInt(rng, 0, nSus - 1);
     if (T.guiltyRole) { var gi = roles.map(function (r) { return r.role; }).indexOf(T.guiltyRole); if (gi >= 0) guiltyIdx = gi; }
@@ -1911,7 +1912,7 @@
     if (items.length > 4) items.length = 4; // a scene gives four things at most: what matters, not everything
 
     var rec = {
-      id: id, template: tid, title: U.fill(T.title, vars), short: T.label, district: district, scene: scene,
+      id: id, template: tid, title: opts.title || U.fill(T.title, vars), short: T.label, district: district, scene: scene,
       victim: victim, vars: vars, suspects: suspects, culprit: culprit.key, keyAspects: T.keyAspects.slice(),
       difficulty: difficulty, highProfile: highProfile, charge: charge, items: items, found: 0,
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
@@ -1926,7 +1927,7 @@
     s.stats.cases++;
 
     var life = Math.round((opts.lifetime || T.lifetime) * this.caseClock()) + (opts.extraTime || 0);
-    var brief = U.fill(structure && !opts.culpritName ? structure.brief : T.brief, vars);
+    var brief = opts.brief || U.fill(structure && !opts.culpritName ? structure.brief : T.brief, vars);
     // An informant's warning: you were ready for this one.
     var warning = !T.special && this.warningFor(tid);
     if (warning) {
