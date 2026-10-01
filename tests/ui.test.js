@@ -288,10 +288,19 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var peek = $('#peek').innerHTML;
   assert.ok(/last office the Council will give a hangman/.test(peek), 'the dossier says where the ladder ends: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 200));
   assert.ok(!/Blocked/.test(peek), 'nothing is blocked yet');
+  // The dossier asks the engine, not a flag: a stale flag alone says nothing.
   e.s.who = 'monk'; e.s.flags.promoHeld2 = true;
   UI.showMeterInfo('reputation');
   peek = $('#peek').innerHTML;
+  assert.ok(!/Blocked/.test(peek), 'a flag left over from an earlier rank does not block');
+  e.favour().council = -2; e.s.meters.reputation = CF.RANK_REP[3];
+  assert.ok(e.promotionHeld(), 'the Council is displeased');
+  UI.showMeterInfo('reputation');
+  peek = $('#peek').innerHTML;
   assert.ok(/Blocked: the Council/.test(peek) && !/hangman/.test(peek), 'a held letter is told, and only to the one it concerns');
+  e.favour().council = 0;
+  UI.showMeterInfo('reputation');
+  assert.ok(!/Blocked/.test($('#peek').innerHTML), 'favour recovered: the line goes');
   console.log('ui: the Standing meter honours the cap and the held letter');
 })();
 

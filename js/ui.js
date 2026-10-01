@@ -799,7 +799,9 @@
       // Where the ladder ends for you, and what holds the next letter back.
       var e = UI.e, s = e.s;
       if (s.who === 'hangman' && s.rank >= rankCap(e)) box.insertAdjacentHTML('beforeend', '<p class="i-cap">' + esc('Bailiff is the last office the Council will give a hangman.') + '</p>');
-      if (s.flags && s.flags['promoHeld' + s.rank]) box.insertAdjacentHTML('beforeend', '<p class="i-blocked">' + esc('Blocked: the Council\'s displeasure. Answer a commission, or let the Bishop speak for you.') + '</p>');
+      // Blocked only while it is: the Standing is there, the office is open, and the Council will not write.
+      var held = e.promotionHeld && e.promotionHeld() && s.rank < rankCap(e) && s.meters.reputation >= CF.RANK_REP[s.rank + 1];
+      if (held) box.insertAdjacentHTML('beforeend', '<p class="i-blocked">' + esc('Blocked: the Council\'s displeasure. Answer a commission, or let the Bishop speak for you.') + '</p>');
     }
     box.classList.add('open', 'pinned');
     box.querySelector('.peek-close').addEventListener('click', function () { box.classList.remove('open', 'pinned'); box.dataset.uid = ''; });

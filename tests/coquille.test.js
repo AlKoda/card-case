@@ -69,6 +69,27 @@ function run(e, verb, cards) {
   var k3 = e3.criminal(e3.court().king.criminalId), told3 = e3.s.journal.filter(function (j) { return j.title === 'The Coquille'; })[0];
   assert.ok(k3 && e3.atLargeCardFor(k3), 'a new King still gets a card');
   assert.ok(/The name is .*\. It is not in your Rolls\. It will be\./.test(told3.text), told3.text);
+  // The King is not sworn into a band: three more abroad, and he keeps his crown and his shell.
+  var e4 = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  e4.s.rank = 2;
+  function abroad(n) {
+    var c = e4.criminalEscapes({ title: 'Case ' + n, template: 'burglary' }, { name: 'Thief ' + n, trait: 'limp' }, 'cold');
+    e4.create('atlarge', { label: 'Abroad: ' + c.name, data: { name: c.name, trait: c.trait, criminalId: c.id } });
+    return c;
+  }
+  var boss = abroad(0); boss.crimes = 9;
+  e4.spawnSyndicate('test');
+  var king4 = e4.criminal(e4.court().king.criminalId);
+  assert.strictEqual(king4.name, 'Thief 0');
+  abroad(1); abroad(2);
+  e4.organise();
+  assert.strictEqual(king4.organization, 'syndicate', 'the King keeps the Coquille');
+  assert.ok(!e4.atLargeCardFor(king4).data.band, 'his card wears no band');
+  assert.ok(!byDef(e4, 'gang').length, 'two men do not make a band without him');
+  abroad(3);
+  e4.organise();
+  var band = byDef(e4, 'gang')[0];
+  assert.ok(band && band.data.members.indexOf('Thief 0') < 0, 'three others do, and he is not of it: ' + (band && band.data.members));
   console.log('king: ok');
 })();
 

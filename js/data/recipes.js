@@ -796,14 +796,15 @@
         if (ctx.has('instinct') && ctx.rng() >= 0.4) return { title: 'Nothing Shaken Loose', text: U.fill(U.pick(ctx.rng, P.suspectBluffFail), vars) };
         if (!sus.alibi) sus.alibi = vars.alibi;
         vars.alibi = sus.alibi;
-        if (!sus.alibiGiven) ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
-          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
-        sus.alibiGiven = true;
         if (e.s.rank === 0) {
+          // Taken at its word: no token, so nothing for the magnet to carry into a charge.
           sus.cleared = true;
           ctx.consume(sc);
           return { title: 'Cleared: ' + sus.name, text: U.fill(U.pick(ctx.rng, P.suspectAlibi), vars) };
         }
+        if (!sus.alibiGiven) ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
+          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
+        sus.alibiGiven = true;
         return { title: 'An Alibi', text: 'You try ' + sus.name + '\'s story: ' + sus.alibi + '. It will want checking.' };
       }
 

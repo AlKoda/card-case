@@ -1253,8 +1253,11 @@
     }
     if (how === 'restore') {
       // Restored in place, then re-placed: it leaves the spent stack it sat on and joins its own.
+      // One that recovered in an idle verb's slot comes back to the table: the slot took a spent card, not a whole one.
+      var at = card.loc;
+      if (at && at.t !== 'table') this.detach(card);
       this.transform(card, def.restores);
-      if (card.loc && card.loc.t === 'table') this.placeOnTable(card, { x: card.loc.x, y: card.loc.y });
+      if (at) this.placeOnTable(card, at.t === 'table' ? { x: at.x, y: at.y } : undefined);
       return;
     }
     if (how === 'recover') {
@@ -1451,7 +1454,8 @@
     var al = this.cardsOf('atlarge').filter(function (c) {
       if (c.loc.t !== 'table' || c.data.band) return false;
       var rec = c.data.criminalId ? self.criminal(c.data.criminalId) : self.criminalByName(c.data.name);
-      return !(rec && rec.traits.indexOf('spared') >= 0); // a spared man owes the Examiner, and no band trusts him
+      if (rec && rec.traits.indexOf('spared') >= 0) return false; // a spared man owes the Examiner, and no band trusts him
+      return !(rec && (rec.king || rec.organization === 'syndicate')); // the King and his sworn men already have a shell
     });
     if (al.length >= 3) {
       var members = al.slice(0, 3);

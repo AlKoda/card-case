@@ -97,6 +97,12 @@ function setup(seed) {
 
 // ---- An alibi is a token to check, not a verdict -----------------------------------
 (function alibi() {
+  // An Examiner takes the story at its word: the name is struck, and no token is left for a charge to trip on.
+  var g0 = setup(31), e0 = g0.e;
+  assert.strictEqual(e0.s.rank, 0);
+  var r0 = run(e0, 'interrogate', [g0.scI, e0.create('focus')]);
+  assert.ok(/^Cleared: /.test(r0.story.title) && g0.innocent.cleared, 'cleared at rank 0: ' + r0.story.title);
+  assert.ok(!r0.out.some(function (c) { return c.data.alibi; }) && !byDef(e0, 'clue').some(function (c) { return c.data.alibi; }), 'no Alibi token at rank 0');
   var g = setup(31), e = g.e;
   e.s.rank = 1;
   // The hours in the Hole tire you; a long night of questions needs sleep between.
@@ -141,7 +147,7 @@ function setup(seed) {
   f.s.rank = 0;
   var r5 = run(f, 'interrogate', [h.scI, f.create('focus')]);
   assert.ok(/^Cleared: /.test(r5.story.title) && h.innocent.cleared && !f.card(h.scI.uid), 'cleared on the spot at rank 0');
-  assert.ok(r5.out.some(function (c) { return c.data.alibi === h.innocent.key; }), 'and the story is still written down');
+  assert.ok(!r5.out.some(function (c) { return c.data.alibi; }), 'and no token is left for the magnet to carry into a charge');
   // A bluff on an innocent: the alibi sometimes, the shut door otherwise.
   var got = { alibi: 0, fail: 0 };
   for (var i = 0; i < 20; i++) {

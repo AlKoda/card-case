@@ -265,6 +265,21 @@ console.error = function (err) { throw err; };
   console.log('catch your breath: every spent card');
 })();
 
+// A spent card left in Rest's slot recovers with time, and the whole card
+// comes back to the table: the slot took Winded, not Health.
+(function restoreInSlot() {
+  var e = CF.Engine.newGame({ seed: 5, calling: 'crusader', name: 'SlotRest' });
+  var sp = e.create('spent_health');
+  assert.ok(e.slotCard('reflect', 'main', sp.uid), 'Winded goes into Rest');
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_spent');
+  e.tick(41);
+  assert.strictEqual(sp.def, 'health', 'recovered');
+  assert.strictEqual(sp.loc.t, 'table', 'and back on the table: ' + JSON.stringify(sp.loc));
+  assert.deepStrictEqual(e.verb('reflect').slots, {}, 'the slot is empty');
+  assert.strictEqual(e.currentRecipe('reflect'), null, 'nothing is waiting in Rest');
+  console.log('restore in a slot: the faculty returns to the table');
+})();
+
 // The round hears things: a watchman on the round brings the fee, now and then a word about an open case, now and then Weariness.
 (function roundHears() {
   var words = 0, tired = 0;
