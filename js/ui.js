@@ -213,6 +213,7 @@
     UI.hoverSlot = null;
     UI.drag = null;
     UI.typing = null;
+    boundsCache = null;
     UI.spawn = {};
     UI.winPos = {};
     UI.seenVerbs = {};
@@ -291,6 +292,7 @@
   UI.scale = function () { return U.clamp((CF.Settings.get('uiScale') || 100) / 100, 0.8, 1.6); };
   UI.applyScale = function () {
     document.documentElement.style.setProperty('--ui-scale', UI.scale());
+    tiltChanged();
     // Open windows grow or shrink in place; keep them inside the table.
     Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
   };
@@ -304,11 +306,36 @@
       else if (navigator.vibrate) navigator.vibrate(ms || 10);
     } catch (err) { /* no haptics */ }
   };
-  // The screen stays on only while a game is running, unpaused, with no menu open.
-  UI.wake = function () {
+  // The screen stays on only while a game is running, unpaused, with no menu
+  // open. The bridge (or the browser's wake lock) is crossed only when that
+  // changes; the browser drops its lock when the page is hidden, so it is
+  // asked for again when the page is seen.
+  var wakeLock = null, wakeAsking = false;
+  function applyWake(want) {
     try {
-      if (window.CaseFileAndroid && CaseFileAndroid.keepAwake) CaseFileAndroid.keepAwake(!!(UI.e && !UI.e.s.over && !UI.paused && !UI.modal));
-    } catch (err) { /* not the app */ }
+      if (window.CaseFileAndroid && CaseFileAndroid.keepAwake) { CaseFileAndroid.keepAwake(want); return; }
+      if (!navigator.wakeLock || !navigator.wakeLock.request) return;
+      if (want) {
+        if (wakeLock || wakeAsking) return;
+        wakeAsking = true;
+        navigator.wakeLock.request('screen').then(function (lock) {
+          wakeAsking = false;
+          wakeLock = lock;
+          if (lock.addEventListener) lock.addEventListener('release', function () { if (wakeLock === lock) wakeLock = null; });
+          if (!UI.wakeWant) { wakeLock = null; lock.release(); }
+        }, function () { wakeAsking = false; });
+      } else if (wakeLock) {
+        var held = wakeLock;
+        wakeLock = null;
+        held.release();
+      }
+    } catch (err) { wakeAsking = false; /* no wake lock here */ }
+  }
+  UI.wake = function () {
+    var want = !!(UI.e && !UI.e.s.over && !UI.paused && !UI.modal);
+    if (want === UI.wakeWant) return;
+    UI.wakeWant = want;
+    applyWake(want);
   };
   // The app tells the page where the notch and the gesture bar are (CSS px).
   UI.setInsets = function (l, t, r, b) {
@@ -383,6 +410,7 @@
     $('#meters').addEventListener('click', function (ev) { var m = ev.target.closest('.meter[data-meter]'); if (m) UI.showMeterInfo(m.dataset.meter); });
     $('#journal-close').addEventListener('click', function () { UI.toggleJournal(false); });
     window.addEventListener('resize', function () {
+      tiltChanged();
       // Keep open windows inside the (possibly smaller) table.
       Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
       checkHint();
@@ -394,6 +422,7 @@
     window.addEventListener('blur', cancelDrag);
     document.addEventListener('visibilitychange', function () {
       if (document.hidden && CF.Settings.get('pauseOnBlur') && UI.e && !UI.e.s.over) UI.setPaused(true);
+      if (!document.hidden && UI.wakeWant) applyWake(true);
     });
 
     var last = performance.now();
@@ -555,6 +584,7 @@
   // ---------------------------------------------------------------- Render
   function render() {
     UI.adviceAt = undefined; // the table changed: the advisor reads it afresh
+    boundsCache = null;
     renderTop();
     syncBoard();
     syncLinks();
@@ -568,6 +598,8 @@
 
   // One render, now: for the tests, which have no frame loop.
   UI.renderNow = function () { if (UI.e) { UI.e.dirty = false; render(); } };
+  // The pointer, by hand: for the tests, which have no pointer.
+  UI.pointer = { down: function (ev) { onPointerDown(ev); }, move: function (ev) { onPointerMove(ev); }, up: function (ev) { onPointerUp(ev); } };
   // One live frame's writes, now: for the tests, which have no frame loop.
   UI.updateLive = function () { if (UI.e) updateLive(); };
 
@@ -927,7 +959,9 @@
     var pct = Math.max(0, Math.min(1, card.life / card.maxLife));
     if (n._ring) setDash(n._ring, pct * CARD_RING_LEN, CARD_RING_LEN);
     var k = CF.CARDS[card.def].kind;
-    var urgent = (k === 'case' && card.life < 60) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30);
+    // A case the crier sang is watched: it pulses from two minutes out, an ordinary one from one.
+    var sung = k === 'case' && card.caseId && UI.e && UI.e.s.cases[card.caseId] && UI.e.s.cases[card.caseId].highProfile;
+    var urgent = (k === 'case' && card.life < (sung ? 120 : 60)) || ((k === 'clue' || k === 'evidence' || k === 'witness') && card.life < 30);
     if (n._urgent !== urgent) { n._urgent = urgent; n.classList.toggle('urgent', urgent); }
   }
 
@@ -938,7 +972,10 @@
     $('#table').style.setProperty('--z', v.z);
   }
 
+  // Measured once per render; a pinch asks for it on every move.
+  var boundsCache = null;
   function boardBounds() {
+    if (boundsCache) return boundsCache;
     var e = UI.e, cards = e.tableCards();
     var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     cards.forEach(function (c) { x0 = Math.min(x0, c.loc.x); y0 = Math.min(y0, c.loc.y); x1 = Math.max(x1, c.loc.x + T.CW); y1 = Math.max(y1, c.loc.y + T.CH); });
@@ -946,7 +983,7 @@
     var pile = e.pile();
     x0 = Math.min(x0, pile.x); y0 = Math.min(y0, pile.y); x1 = Math.max(x1, pile.x + T.PILE_COLS * T.PX); y1 = Math.max(y1, pile.y + T.CH);
     if (!cards.length) { x0 = 0; y0 = T.TOP; x1 = 4 * (T.CW + T.GAP); y1 = T.TOP + T.CH; }
-    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    return (boundsCache = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
   }
 
   // Fit the whole board into the table area.
@@ -1063,7 +1100,10 @@
   // The table plane is tilted (css: #tilt rotateX under #table's perspective),
   // so a screen point maps to the plane through the inverse of that
   // projection: the same 4x4 matrix the browser builds from the stylesheet.
-  var tiltM = null, tiltKey = '';
+  var tiltM = null, tiltDirty = true;
+  // The stylesheet is read again only when something could have moved the
+  // plane: a resize, a change of scale, the start of a gesture.
+  function tiltChanged() { tiltDirty = true; }
   function mat4mul(a, b) {
     var o = [];
     for (var i = 0; i < 4; i++) for (var j = 0; j < 4; j++) { var v = 0; for (var k = 0; k < 4; k++) v += a[i * 4 + k] * b[k * 4 + j]; o[i * 4 + j] = v; }
@@ -1071,11 +1111,10 @@
   }
   function translate(x, y, z) { return [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1]; }
   function tiltMatrix() {
-    var t = $('#table'), r = t.getBoundingClientRect();
+    if (tiltM && !tiltDirty) return tiltM;
+    tiltDirty = false;
+    var t = $('#table');
     var cs = getComputedStyle(t);
-    var key = r.width + 'x' + r.height + cs.perspective + cs.perspectiveOrigin + getComputedStyle($('#tilt')).transform;
-    if (tiltM && key === tiltKey) return tiltM;
-    tiltKey = key;
     var d = parseFloat(cs.perspective);
     var po = cs.perspectiveOrigin.split(' ').map(parseFloat);
     var ts = getComputedStyle($('#tilt')), to = ts.transformOrigin.split(' ').map(parseFloat);
@@ -1105,8 +1144,9 @@
     return { x: (m[0] * px + m[1] * py + m[3]) / w, y: (m[4] * px + m[5] * py + m[7]) / w };
   }
   UI.toPlane = toPlane; UI.fromPlane = fromPlane;
-  function toBoard(cx, cy) {
-    var r = $('#table').getBoundingClientRect();
+  // A drag passes the table's rect, measured once when it began.
+  function toBoard(cx, cy, rect) {
+    var r = rect || $('#table').getBoundingClientRect();
     var p = toPlane(cx - r.left, cy - r.top);
     return { x: (p.x - UI.view.x) / UI.view.z, y: (p.y - UI.view.y) / UI.view.z };
   }
@@ -1212,8 +1252,10 @@
     var opts = h('div', 'ch-options');
     c.options.forEach(function (o, i) {
       var b = h('button', 'ch-opt' + (e.canChoose(i) ? '' : ' cant'));
-      var cost = o.cost ? '<i class="ch-cost" style="background-image:' + art(ASK_ART[o.cost] || 'itrade-20') + '" title="' + esc(tr('Takes {card}', { card: CF.CARDS[o.cost].label })) + '"></i>' : '';
-      b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em>' + esc(tr('Takes {card}.', { card: CF.CARDS[o.cost].label })) + '</em>' : '') + '</span>' + (o.gain ? '<span class="ch-gain">' + esc(tr(o.gain)) + '</span>' : '');
+      // What the option takes: an ability comes back spent, unless it is taken for good.
+      var took = o.cost ? tr(o.forGood ? 'Takes {card}, for good.' : 'Takes {card}.', { card: CF.CARDS[o.cost].label }) : '';
+      var cost = o.cost ? '<i class="ch-cost' + (o.forGood ? ' ch-cost-forgood' : '') + '" style="background-image:' + art(ASK_ART[o.cost] || 'itrade-20') + '" title="' + esc(took) + '"></i>' : '';
+      b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em class="ch-cost-read' + (o.forGood ? ' ch-cost-forgood' : '') + '">' + esc(took) + '</em>' : '') + '</span>' + (o.gain ? '<span class="ch-gain">' + esc(tr(o.gain)) + '</span>' : '');
       b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); UI.haptic(15); e.dirty = true; } else if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' }); });
       opts.appendChild(b);
     });
@@ -1228,10 +1270,14 @@
   // are tied to the verb's token; a card being dragged pulls its string along.
   var LINK_COLORS = ['#d0342c', '#3aa76d', '#3b7fd1', '#e0b64a', '#b45cd6', '#e0783a'];
   var linkEl = null, pinEl = null;
+  // What the last full build drew, in document order: ropes[i] is the i-th
+  // path, pinList[i] the i-th pair of circles; linkKeys maps a card's uid (or
+  // 'v:' + a verb) to the ropes that touch it, pinsOf a uid to its pin.
+  var ropes = [], pinList = [], linkKeys = {}, pinsOf = {}, heldPins = [];
   function linkPoint(c, drag) {
     var e = UI.e;
     if (drag && drag.uids && drag.uids.indexOf(c.uid) >= 0 && drag.lastEv) {
-      var p = toBoard(drag.lastEv.clientX, drag.lastEv.clientY);
+      var p = toBoard(drag.lastEv.clientX, drag.lastEv.clientY, drag.rect);
       return { x: p.x - drag.gx + T.CW / 2, y: p.y - drag.gy + 12, held: true };
     }
     if (!c.loc) return null;
@@ -1269,9 +1315,13 @@
     });
     Object.keys(e.s.cases).forEach(function (id) { order.push(id); });
     var html = '', pins = '';
-    function pin(pt, col, r) {
+    ropes = []; pinList = []; linkKeys = {}; pinsOf = {};
+    function keysOf(c) { return c.loc && c.loc.verb ? [String(c.uid), 'v:' + c.loc.verb] : [String(c.uid)]; }
+    function pin(c, pt, col, r) {
       // A card in hand carries its pin with it (it is drawn in the drag layer's place).
       if (pt.held) return '';
+      pinsOf[c.uid] = pinList.length;
+      pinList.push({ card: c, r: r });
       return '<circle class="pin" cx="' + pt.x.toFixed(0) + '" cy="' + pt.y.toFixed(0) + '" r="' + r + '" fill="' + col + '"/><circle class="pin-hi" cx="' + (pt.x - r / 3).toFixed(0) + '" cy="' + (pt.y - r / 3).toFixed(0) + '" r="' + (r / 3) + '"/>';
     }
     Object.keys(cases).forEach(function (id) {
@@ -1285,17 +1335,63 @@
         var b = linkPoint(c, drag);
         if (!b || (b.x === a.x && b.y === a.y)) return;
         any = true;
-        // A rope sags between its pins.
-        var mx = (a.x + b.x) / 2, my = Math.max(a.y, b.y) + Math.min(40, Math.abs(b.x - a.x) * 0.1 + 14);
-        html += '<path d="M' + a.x.toFixed(0) + ' ' + a.y.toFixed(0) + ' Q' + mx.toFixed(0) + ' ' + my.toFixed(0) + ' ' + b.x.toFixed(0) + ' ' + b.y.toFixed(0) + '" stroke="' + col + '"/>';
-        pins += pin(b, col, 6);
+        var ri = ropes.length;
+        ropes.push({ a: g.card, b: c });
+        keysOf(g.card).concat(keysOf(c)).forEach(function (k) { (linkKeys[k] = linkKeys[k] || []).push(ri); });
+        html += '<path d="' + ropePath(a, b) + '" stroke="' + col + '"/>';
+        pins += pin(c, b, col, 6);
       });
-      if (any) pins += pin(a, col, 7);
+      if (any) pins += pin(g.card, a, col, 7);
     });
     if (linkEl.__html !== html) { linkEl.innerHTML = html; linkEl.__html = html; }
     if (pinEl.__html !== pins) { pinEl.innerHTML = pins; pinEl.__html = pins; }
   }
+  // A rope sags between its pins.
+  function ropePath(a, b) {
+    var mx = (a.x + b.x) / 2, my = Math.max(a.y, b.y) + Math.min(40, Math.abs(b.x - a.x) * 0.1 + 14);
+    return 'M' + a.x.toFixed(0) + ' ' + a.y.toFixed(0) + ' Q' + mx.toFixed(0) + ' ' + my.toFixed(0) + ' ' + b.x.toFixed(0) + ' ' + b.y.toFixed(0);
+  }
+  function movePin(c, pt) {
+    var pi = pinsOf[c.uid];
+    if (pi === undefined) return;
+    var dot = pinEl.children[2 * pi], hi = pinEl.children[2 * pi + 1], r = pinList[pi].r;
+    if (!dot || !hi) return;
+    if (pt.held) {
+      // In hand: the pin goes with the card, and comes back when it is put down.
+      if (dot._held) return;
+      dot._held = hi._held = true;
+      dot.setAttribute('visibility', 'hidden'); hi.setAttribute('visibility', 'hidden');
+      heldPins.push(dot, hi);
+      return;
+    }
+    dot.setAttribute('cx', pt.x.toFixed(0)); dot.setAttribute('cy', pt.y.toFixed(0));
+    hi.setAttribute('cx', (pt.x - r / 3).toFixed(0)); hi.setAttribute('cy', (pt.y - r / 3).toFixed(0));
+  }
+  // While something is held, only the ropes and pins tied to it move: the
+  // keys are the held cards' uids, or 'v:' + a token's verb.
+  function syncLinksHeld(keys) {
+    if (!linkEl || !pinEl || CF.Settings.get('strings') === false) return;
+    var drag = UI.drag && UI.drag.kind === 'card' && UI.drag.started ? UI.drag : null;
+    var seen = {};
+    keys.forEach(function (k) {
+      (linkKeys[k] || []).forEach(function (ri) {
+        if (seen[ri]) return;
+        seen[ri] = true;
+        var rope = ropes[ri], el = linkEl.children[ri];
+        if (!el) return;
+        var a = linkPoint(rope.a, drag), b = linkPoint(rope.b, drag);
+        if (!a || !b) return;
+        el.setAttribute('d', ropePath(a, b));
+        movePin(rope.a, a); movePin(rope.b, b);
+      });
+    });
+  }
+  function releasePins() {
+    heldPins.forEach(function (el) { el._held = false; el.setAttribute('visibility', 'visible'); });
+    heldPins = [];
+  }
   UI.syncLinks = syncLinks;
+  UI.syncLinksHeld = syncLinksHeld;
 
   function syncBoard() {
     var e = UI.e, board = $('#board');
@@ -1405,12 +1501,19 @@
       el.classList.toggle('open', UI.openVerbs.indexOf(vid) >= 0);
       el.classList.toggle('locked', !!e.lockReason(vid) && v.status === 'idle');
       el.classList.toggle('loaded', v.status === 'idle' && n > 0);
-      el.querySelector('.v-count').textContent = tr(n || '');
+      seal(el._count || (el._count = el.querySelector('.v-count')), n, '');
       // The token's small box: hidden until the verb, part-way through its
       // work, asks for one more card. It shows what kind, and a tap pulls a
       // fitting card in from the table. The Bell's shows the dues when due.
       var mag = el._magnet || el.querySelector('.v-magnet');
-      if (vid === 'time') { var dues = e.dues(); mag.textContent = String(dues); mag.classList.toggle('due', dues > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10); }
+      if (vid === 'time') {
+        var dues = e.dues();
+        // The dues on a numbered ring (cnum-01 is 0), in figures past nine.
+        var ring = dues >= 0 && dues <= 9 ? 'cnum-' + pad2(dues + 1) : '';
+        mag.style.backgroundImage = ring ? art(ring) : '';
+        mag.textContent = ring ? '' : String(dues);
+        mag.classList.toggle('due', dues > CF.ECONOMY.rent || CF.WEEK - e.s.weekT <= 10);
+      }
       else {
         var ask = v.status === 'running' && v.ask && !v.ask.filled ? v.ask : null;
         mag.classList.toggle('asks', !!ask);
@@ -1419,8 +1522,20 @@
         mag.title = tr(ask ? ask.label + ': ' + ask.text : '');
         el.classList.toggle('asking', !!ask);
       }
-      el.querySelector('.v-badge').textContent = tr(v.status === 'done' && v.out.length ? String(v.out.length) : '!');
+      seal(el._badge || (el._badge = el.querySelector('.v-badge')), v.status === 'done' ? v.out.length : 0, '!');
     });
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  // A small count on a numbered wax seal (cwaxn-01..05); figures past five;
+  // the fallback mark, with its own word, when there is nothing to count.
+  function seal(el, n, fallback) {
+    var key = n > 0 && n <= 5 ? 'cwaxn-' + pad2(n) : n > 5 || !fallback ? '' : 'cmark-04';
+    var text = n > 5 ? String(n) : n > 0 ? '' : fallback;
+    if (el._seal === key + '|' + text) return;
+    el._seal = key + '|' + text;
+    el.style.backgroundImage = key ? art(key) : '';
+    el.textContent = text;
+    el.classList.toggle('figures', n > 5);
   }
 
   // A card flies from where it is to a target element and vanishes into it.
@@ -1663,7 +1778,7 @@
       var orders = e.tableCards().filter(function (c) { return c.def === 'order' && CF.costOf; }).sort(function (a, b) { return CF.costOf(a) - CF.costOf(b); });
       if (orders[0] && CF.costOf(orders[0]) > money) pane.appendChild(h('p', 'vw-desc', tr('Cheapest petition: {label}, {n} Coin more', { label: e.labelOf(orders[0]), n: CF.costOf(orders[0]) - money })));
       var rv = e.cardsOf('rival', true)[0];
-      if (rv) pane.appendChild(h('p', 'vw-desc', 'The Provost\'s Examiner is in the city' + (rv.data.stalled >= e.s.week ? ', and lying low for now.' : '. Every week they act against you unless you act first.')));
+      if (rv) pane.appendChild(h('p', 'vw-desc', 'The Harbourmaster\'s Examiner is in the city' + (rv.data.stalled >= e.s.week ? ', and lying low for now.' : '. Every week they act against you unless you act first.')));
       pane.appendChild(h('p', 'vw-desc', open.length ? 'Open cases, most urgent first.' : 'No open cases.'));
       open.forEach(function (rec) {
         var cc = e.caseCard(rec.id);
@@ -1977,11 +2092,16 @@
     var fb = h('div', 'firsts');
     var done = FIRSTS.filter(function (f) { return f.done(e); }).length;
     fb.innerHTML = '<h6>' + esc(tr('Firsts: {n} of {total}', { n: done, total: FIRSTS.length })) + '</h6>';
-    FIRSTS.forEach(function (f) { var ok = f.done(e); fb.appendChild(h('span', 'first' + (ok ? ' done' : ''), (ok ? '\u2713 ' : '\u25CB ') + tr(f.label))); });
+    // Each first wears a progress mark: the empty ring, then the check.
+    FIRSTS.forEach(function (f) {
+      var ok = f.done(e), sp = h('span', 'first' + (ok ? ' done' : ''));
+      sp.innerHTML = '<i style="background-image:' + art(ok ? 'cprog-02' : 'cprog-01') + '"></i>' + esc(f.label);
+      fb.appendChild(sp);
+    });
     pane.appendChild(fb);
     j.slice(0, 120).forEach(function (x) {
       var d = h('div', 'journal-entry k-' + x.kind);
-      d.innerHTML = '<div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
+      d.innerHTML = '<i class="j-icon" style="background-image:' + art(TOAST_ICONS[x.kind] || 'ccirc-01') + '"></i><div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
       pane.appendChild(d);
     });
   }
@@ -2339,6 +2459,7 @@
   function onPointerDown(ev) {
     UI.lastInput = performance.now();
     if (UI.modal || (ev.button !== 0 && ev.button !== 1)) return;
+    tiltChanged();
     if (ev.pointerType === 'touch') {
       pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
       var pinch = pinchState();
@@ -2366,7 +2487,17 @@
       if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
       // The number badge is the handle for the whole stack; the card is one card.
       var whole = ev.shiftKey || !!(t.closest && t.closest('.c-count'));
-      UI.drag = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole };
+      var dd = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole };
+      UI.drag = dd;
+      // A hold on a stacked card, without moving, lifts the whole stack.
+      if (!whole && card.loc.t === 'table' && UI.e.stackOf(card).length > 1) {
+        dd.holdT = setTimeout(function () {
+          if (UI.drag !== dd || dd.started) return;
+          dd.holdT = 0; dd.whole = true;
+          var pt = { clientX: dd.x0, clientY: dd.y0 };
+          liftCard(dd, pt); moveLifted(dd, pt); UI.haptic(15);
+        }, 400);
+      }
       ev.preventDefault();
       return;
     }
@@ -2433,20 +2564,24 @@
       return;
     }
     if (d.kind !== 'pan' && !d.started && Math.abs(ev.clientX - d.x0) + Math.abs(ev.clientY - d.y0) < 7) return; // a tap, not a drag
+    if (d.holdT) { clearTimeout(d.holdT); d.holdT = 0; } // it moved: no hold
     if (d.kind === 'verb' || d.kind === 'pile') {
       if (!d.started) {
         d.started = true; d.el.classList.add('dragging'); hideHint(); UI.haptic(8);
+        d.rect = $('#table').getBoundingClientRect();
         if (d.kind === 'verb') { var vv = UI.e.verb(d.verb); d.b0 = { x: vv.x, y: vv.y }; }
         if (UI.openVerbs.length) closeAllWindows();
       }
-      var q0 = toBoard(d.x0, d.y0), q1 = toBoard(ev.clientX, ev.clientY);
+      var q0 = toBoard(d.x0, d.y0, d.rect), q1 = toBoard(ev.clientX, ev.clientY, d.rect);
       d.at = { x: d.b0.x + (q1.x - q0.x), y: d.b0.y + (q1.y - q0.y) };
       place(d.el, d.kind === 'pile' ? d.at.x - 9 : d.at.x, d.kind === 'pile' ? d.at.y - 8 : d.at.y);
-      if (d.kind === 'verb') { var mv = UI.e.s.verbs[d.verb]; if (mv) { mv.x = d.at.x; mv.y = d.at.y; syncLinks(); } }
+      if (d.kind === 'verb') { var mv = UI.e.s.verbs[d.verb]; if (mv) { mv.x = d.at.x; mv.y = d.at.y; syncLinksHeld(['v:' + d.verb]); } }
       return;
     }
-    if (!d.started) liftCard(d, ev);
-    moveLifted(d, ev);
+    if (!d.started) { liftCard(d, ev); moveLifted(d, ev); return; }
+    // Later moves are kept and drawn once a frame.
+    d.pt = { clientX: ev.clientX, clientY: ev.clientY };
+    if (!d.raf) d.raf = requestAnimationFrame(function () { d.raf = 0; if (UI.drag === d && d.started) moveLifted(d, d.pt); });
   }
 
   // Pick a card up: move its element into the drag layer, lifted and tilting.
@@ -2459,6 +2594,8 @@
     d.from = card.loc.t;
     d.fromVerb = card.loc.verb;
     var r = d.src.getBoundingClientRect();
+    d.rect = $('#table').getBoundingClientRect();
+    tiltMatrix();
     var z = d.from === 'table' ? UI.view.z : Math.max(UI.view.z, 0.7);
     d.z = z;
     d.gx = (d.x0 - r.left) / (r.width / T.CW);
@@ -2495,16 +2632,19 @@
     d.el.style.left = (ev.clientX - d.gx) + 'px';
     d.el.style.top = (ev.clientY - d.gy) + 'px';
     d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(' + d.rot.toFixed(1) + 'deg)';
-    syncLinks();
-    document.querySelectorAll('.drop-hover').forEach(function (x) { x.classList.remove('drop-hover'); });
-    var t = dropTarget(ev);
-    if (t && t.node) t.node.classList.add('drop-hover');
+    syncLinksHeld(d.uids.map(String));
+    var t = dropTarget(ev), over = t && t.node ? t.node : null;
+    if (d.hoverNode !== over) {
+      if (d.hoverNode) d.hoverNode.classList.remove('drop-hover');
+      if (over) over.classList.add('drop-hover');
+      d.hoverNode = over;
+    }
     clearTimeout(d.settleT);
     d.settleT = setTimeout(function () { if (UI.drag === d) { d.rot = 0; d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(0deg)'; } }, 90);
   }
 
   function dropTarget(ev) {
-    var under = document.elementFromPoint(ev.clientX, ev.clientY);
+    var under = document.elementFromPoint ? document.elementFromPoint(ev.clientX, ev.clientY) : null;
     if (!under) return null;
     var slot = under.closest('.slot[data-slot]');
     if (slot) return { slot: slot.dataset.slot, verb: slot.dataset.verb, node: slot };
@@ -2532,12 +2672,13 @@
   function clearMarks() {
     document.querySelectorAll('.can-drop, .drop-hover, .can-stack, .dragging-src').forEach(function (x) { x.classList.remove('can-drop', 'drop-hover', 'can-stack', 'dragging-src'); });
     $('#table').classList.remove('panning');
+    releasePins();
   }
 
   // Put a lifted table element back on the board and glide it to (x, y).
   function settleOnBoard(d, x, y, ev) {
     var el = d.el, board = $('#board');
-    var p = toBoard(ev ? ev.clientX : d.origin.left, ev ? ev.clientY : d.origin.top);
+    var p = toBoard(ev ? ev.clientX : d.origin.left, ev ? ev.clientY : d.origin.top, d.rect);
     el.classList.remove('lifted');
     el.style.left = el.style.top = '';
     el.style.transformOrigin = '';
@@ -2587,9 +2728,15 @@
     clearMarks();
     resumeAfterDrag();
     if (!d) return;
+    if (d.holdT) clearTimeout(d.holdT);
     if (d.kind === 'pinch') return;
     if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
-    if ((d.kind === 'verb' || d.kind === 'pile') && d.started) { d.el.classList.remove('dragging'); UI.e.dirty = true; }
+    if ((d.kind === 'verb' || d.kind === 'pile') && d.started) {
+      d.el.classList.remove('dragging');
+      // The token goes back where it was lifted from, and its strings with it.
+      if (d.kind === 'verb' && d.b0) { var vv = UI.e.s.verbs[d.verb]; if (vv) { vv.x = d.b0.x; vv.y = d.b0.y; place(d.el, vv.x, vv.y); syncLinks(); } }
+      UI.e.dirty = true;
+    }
   }
 
   function onPointerUp(ev) {
@@ -2601,6 +2748,7 @@
     UI.drag = null;
     clearMarks();
     resumeAfterDrag();
+    if (d.holdT) clearTimeout(d.holdT);
     if (d.kind === 'window') return;
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
     if (d.kind === 'pile') {
@@ -2665,7 +2813,7 @@
         } else flyBack(d);
       }
     } else if (t.table) {
-      var p = toBoard(ev.clientX, ev.clientY);
+      var p = toBoard(ev.clientX, ev.clientY, d.rect);
       var target = { x: p.x - d.gx, y: p.y - d.gy };
       var fin;
       if (UI.tidyUndo) { UI.tidyUndo = null; renderTools(); }

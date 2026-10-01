@@ -96,6 +96,7 @@ var document = {
   createElement: function (tag) { return new El(tag); },
   createElementNS: function (ns, tag) { return new El(tag); },
   addEventListener: function () {}, removeEventListener: function () {},
+  elementFromPoint: function () { return null; },
 };
 var timers = [];
 globalThis.window = globalThis;
@@ -105,6 +106,7 @@ globalThis.requestAnimationFrame = function () { return 1; };
 globalThis.localStorage = { getItem: function () { return null; }, setItem: function () {} };
 try { Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', maxTouchPoints: 0, vibrate: function () {} }, configurable: true }); } catch (err) { /* node's own will do */ }
 globalThis.matchMedia = function () { return { matches: false, addEventListener: function () {}, addListener: function () {} }; };
+globalThis.getComputedStyle = function () { return { perspective: 'none', perspectiveOrigin: '0px 0px', transform: 'none', transformOrigin: '0px 0px' }; };
 globalThis.addEventListener = function () {};
 globalThis.innerWidth = 1280; globalThis.innerHeight = 800;
 var realSetTimeout = setTimeout;
@@ -402,6 +404,203 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   e.tick(1); UI.updateLive();
   assert.notStrictEqual(time.textContent, was, 'the clock still moves');
   console.log('ui: speed cycles on the play button; the week shade is a scale');
+})();
+
+// ---- The seals: counts and badges on numbered wax, the dues on a numbered ring.
+(function seals() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 5 });
+  UI.attach(e);
+  e.verb('time').unlocked = true;
+  if (e.verb('time').x === undefined) e.layoutVerbs();
+  render(e);
+  var badge = $('#board').querySelector('.verb.duty .v-badge');
+  assert.ok(/cmark-04/.test(badge.style.backgroundImage) && badge.textContent === '!', 'an idle verb keeps the mark behind its word');
+  var hp = e.cardsOf('health').filter(function (c) { return c.loc.t === 'table'; })[0];
+  assert.ok(e.autoSlot('duty', hp.uid), 'Health goes into Attend');
+  render(e);
+  var count = $('#board').querySelector('.verb.duty .v-count');
+  assert.ok(/cwaxn-01/.test(count.style.backgroundImage) && count.textContent === '', 'one card: the first seal, no figure');
+  assert.ok(e.start('duty'), 'Attend starts');
+  e.tick(e.verb('duty').duration + 0.01);
+  render(e);
+  var n = e.verb('duty').out.length;
+  assert.ok(n >= 1, 'Attend made something');
+  badge = $('#board').querySelector('.verb.duty .v-badge');
+  if (n <= 5) assert.ok(badge.style.backgroundImage.indexOf('cwaxn-0' + n) >= 0 && badge.textContent === '', 'the badge is the seal for ' + n + ': ' + badge.style.backgroundImage);
+  else assert.ok(badge.textContent === String(n) && !badge.style.backgroundImage, 'past five the badge is a figure');
+  var dues = e.dues();
+  var mag = $('#board').querySelector('.verb.time .v-magnet');
+  assert.ok(mag.style.backgroundImage.indexOf('cnum-' + (dues + 1 < 10 ? '0' : '') + (dues + 1)) >= 0 && mag.textContent === '', 'the dues ' + dues + ' on the numbered ring: ' + mag.style.backgroundImage);
+  e.dues = function () { return 12; };
+  render(e);
+  assert.ok(mag.textContent === '12' && !mag.style.backgroundImage, 'past nine the dues are a figure');
+  console.log('ui: counts and badges are seals, the dues a ring');
+})();
+
+// ---- The journal: firsts wear the progress marks, entries their kind's icon.
+(function journal() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 7 });
+  UI.attach(e);
+  e.s.journal.unshift({ t: 1, week: 1, title: 'A Case', text: 'Opened.', kind: 'case' });
+  UI.journalLen = -1;
+  render(e);
+  var firsts = $('#journal').querySelectorAll('.firsts .first');
+  assert.ok(firsts.length > 3, 'the firsts are listed');
+  firsts.forEach(function (f) {
+    var i = f.querySelector('i');
+    assert.ok(i && /cprog-0[12]/.test(i.style.backgroundImage), 'each first wears a progress mark');
+    assert.ok(!/[✓○]/.test(f.textContent), 'and no glyph');
+    assert.ok(f.classList.contains('done') === /cprog-02/.test(i.style.backgroundImage), 'the check only on a done first');
+  });
+  var entry = $('#journal').querySelector('.journal-entry.k-case');
+  var icon = entry && entry.querySelector('.j-icon');
+  assert.ok(icon && /imark-01/.test(icon.style.backgroundImage), 'a case entry carries the case icon');
+  console.log('ui: firsts wear the progress marks; entries their icon');
+})();
+
+// ---- The wake lock: asked for once per change of state, released when the game pauses.
+(function wake() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 9 });
+  UI.attach(e);
+  var requests = 0, releases = 0;
+  var lock = { release: function () { releases++; }, addEventListener: function () {} };
+  navigator.wakeLock = { request: function () { requests++; return { then: function (ok) { ok(lock); } }; } };
+  UI.wakeWant = undefined;
+  UI.paused = false; UI.modal = false;
+  UI.wake(); UI.wake(); UI.wake();
+  assert.strictEqual(requests, 1, 'one request while the state holds');
+  UI.paused = true;
+  UI.wake(); UI.wake();
+  assert.strictEqual(releases, 1, 'one release on pause');
+  assert.strictEqual(requests, 1, 'and no new request');
+  UI.paused = false;
+  UI.wake();
+  assert.strictEqual(requests, 2, 'asked for again when play resumes');
+  delete navigator.wakeLock;
+  UI.wakeWant = undefined;
+  console.log('ui: the wake lock crosses the bridge only on change');
+})();
+
+// ---- A cancelled token drag puts the token back, strings and all.
+(function tokenBack() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 11 });
+  UI.attach(e);
+  render(e);
+  var el = $('#board').querySelector('.verb.duty');
+  var v = e.s.verbs.duty, b0 = { x: v.x, y: v.y };
+  UI.drag = { kind: 'verb', verb: 'duty', el: el, started: true, b0: b0, x0: 0, y0: 0 };
+  v.x = b0.x + 300; v.y = b0.y + 200;
+  el.classList.add('dragging');
+  assert.ok(UI.back(), 'Back cancels the drag');
+  assert.ok(!UI.drag, 'nothing is held');
+  assert.strictEqual(v.x, b0.x, 'the token is back where it was lifted');
+  assert.strictEqual(v.y, b0.y);
+  assert.ok(!el.classList.contains('dragging'), 'and no longer dragging');
+  assert.ok(el.style.transform.indexOf('translate3d(' + Math.round(b0.x) + 'px,' + Math.round(b0.y) + 'px') === 0, 'placed back: ' + el.style.transform);
+  console.log('ui: a cancelled token drag puts the token back');
+})();
+
+// ---- Small reads: an option that takes a card for good says so; the Harbourmaster's man; the crier's pulse.
+(function smallReads() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 15 });
+  UI.attach(e);
+  e.s.choice = { id: 'fg', title: 'A question', text: 'Well?', options: [{ label: 'Go', text: 'Now.', cost: 'health', forGood: true }, { label: 'Stay', text: 'Later.', cost: 'health' }] };
+  render(e);
+  var ch = $('#board').querySelector('.choice');
+  var opts = ch.querySelectorAll('.ch-opt');
+  assert.strictEqual(opts.length, 2);
+  var fg = opts[0].querySelector('.ch-cost-forgood');
+  assert.ok(fg, 'the option that takes Health for good wears the class');
+  assert.ok(/Takes Health, for good\./.test(opts[0].textContent), 'and says so: ' + opts[0].textContent);
+  assert.ok(/Takes Health\./.test(opts[1].textContent) && !opts[1].querySelector('.ch-cost-forgood'), 'the other only takes it');
+  e.s.choice = null;
+  // The Bell's window names the rival's patron.
+  e.verb('time').unlocked = true;
+  if (e.verb('time').x === undefined) e.layoutVerbs();
+  e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 0, stalled: 0 } });
+  UI.openWindow('time');
+  render(e);
+  var text = $('#windows').textContent;
+  assert.ok(/The Harbourmaster's Examiner is in the city/.test(text), 'the Harbourmaster\'s Examiner: ' + text.slice(0, 200));
+  assert.ok(!/Provost/.test(text), 'and no Provost');
+  while (UI.openVerbs.length) UI.back();
+  // A crier-sung case pulses from two minutes out.
+  var rec = e.openCases()[0], cc = e.caseCard(rec.id);
+  assert.ok(cc, 'the case card is on the table');
+  render(e);
+  var cel = $('#board').querySelector('.card[data-uid=' + cc.uid + ']');
+  assert.ok(cel, 'and drawn');
+  cc.life = 100;
+  rec.highProfile = false;
+  UI.updateLive();
+  assert.ok(!cel.classList.contains('urgent'), 'an ordinary case at 100s is calm');
+  rec.highProfile = true;
+  UI.updateLive();
+  assert.ok(cel.classList.contains('urgent'), 'a crier-sung case at 100s pulses');
+  cc.life = 130;
+  UI.updateLive();
+  assert.ok(!cel.classList.contains('urgent'), 'and not yet at 130s');
+  console.log('ui: for good, the Harbourmaster, the crier\'s pulse');
+})();
+
+// ---- A hold on a stacked card lifts the whole stack; a lifted card moves its own strings only.
+(function holdAndStrings() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 19 });
+  UI.attach(e);
+  var a = e.create('health'), b = e.create('health');
+  var spot = { x: a.loc.x, y: a.loc.y };
+  b.loc = { t: 'table', x: spot.x, y: spot.y };
+  var stack = e.stackOf(a);
+  assert.ok(stack.length >= 2, 'the Health is one stack');
+  render(e);
+  var n = $('#board').querySelector('.card[data-uid=' + stack[0].uid + ']');
+  assert.ok(n, 'the stack is drawn');
+  n.closest = function (sel) { return sel === '.card[data-uid]' ? n : null; };
+  var ev = { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 300, clientY: 300, target: n, preventDefault: function () {} };
+  timers = []; delays = [];
+  UI.pointer.down(ev);
+  assert.ok(UI.drag && UI.drag.kind === 'card' && !UI.drag.started, 'the card is under the finger, not lifted');
+  assert.strictEqual(delays[delays.length - 1], 400, 'a hold is 400ms');
+  flushTimers();
+  assert.ok(UI.drag && UI.drag.started && UI.drag.whole, 'the hold lifts the stack');
+  assert.strictEqual(UI.drag.uids.length, stack.length, 'the whole of it');
+  assert.ok(UI.drag.rect && UI.drag.rect.width === 1280, 'the table rect is measured once for the drag');
+  UI.pointer.up({ pointerId: 1, clientX: 300, clientY: 300, target: n });
+  assert.ok(!UI.drag, 'put down again');
+  // A moved pointer cancels the hold.
+  timers = [];
+  UI.pointer.down(ev);
+  UI.pointer.move({ pointerId: 1, clientX: 320, clientY: 320, target: n });
+  assert.ok(UI.drag && UI.drag.started && !UI.drag.whole && UI.drag.uids.length === 1, 'a drag lifts one card');
+  assert.ok(!UI.drag.holdT, 'and the hold is off');
+  UI.pointer.move({ pointerId: 1, clientX: 340, clientY: 340, target: n });
+  assert.ok(UI.drag.raf, 'later moves wait for the frame');
+  UI.back();
+  flushTimers();
+  // The strings: a case's token moves its rope and pin alone, without a rebuild.
+  var rec = e.openCases()[0], cc = e.caseCard(rec.id);
+  var clue = e.create('clue', e.clueSpec(rec, { label: 'A Boot Print', text: 'Mud.', aspects: { forensic: 1 } }));
+  clue.loc = { t: 'table', x: cc.loc.x + 400, y: cc.loc.y + 100 };
+  render(e);
+  var svgs = $('#board').children.filter(function (c) { return c.tagName === 'SVG'; });
+  var links = svgs[0], pins = svgs[svgs.length - 1];
+  assert.ok(links && pins && links !== pins, 'the rope layer and the pin layer');
+  var html = links.innerHTML;
+  assert.ok(links.children.length >= 1 && /^M/.test(links.children[0].d), 'a rope is drawn');
+  var rope = null, i;
+  var head = 'M' + (cc.loc.x + CF.TABLE.CW / 2).toFixed(0) + ' ' + (cc.loc.y + 12).toFixed(0);
+  for (i = 0; i < links.children.length; i++) if (links.children[i].d.indexOf(head) === 0) rope = links.children[i];
+  assert.ok(rope, 'the rope starts at the case card');
+  var d0 = rope.d;
+  UI.drag = { kind: 'card', started: true, uid: clue.uid, uids: [clue.uid], from: 'table', el: new El('div'), origin: { left: 0, top: 0, w: 1, h: 1 }, z: 1, lastEv: { clientX: 900, clientY: 500 }, gx: 10, gy: 10, rect: { left: 0, top: 0, width: 1280, height: 800 } };
+  UI.syncLinksHeld([String(clue.uid)]);
+  assert.strictEqual(links.innerHTML, html, 'the layer is not rebuilt');
+  assert.notStrictEqual(rope.d, d0, 'the rope follows the held token');
+  var hidden = pins.children.filter(function (c) { return c.visibility === 'hidden'; });
+  assert.strictEqual(hidden.length, 2, 'the held token\'s pin goes with it');
+  UI.back();
+  assert.ok(!pins.children.some(function (c) { return c.visibility === 'hidden'; }), 'and comes back when it is put down');
+  console.log('ui: a hold lifts the stack; a drag moves only its own strings');
 })();
 
 void realSetTimeout;

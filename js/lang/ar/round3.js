@@ -397,5 +397,9 @@
     "Tap to read": "انقر لتقرأ",
     "Bailiff is the last office the Council will give a hangman.": "رئيس الحرس آخر منصب يمنحه المجلس لجلاد.",
     "Blocked: the Council's displeasure. Answer a commission, or let the Bishop speak for you.": "محجوب: سخط المجلس. أجب تكليفًا، أو دع الأسقف يتكلم باسمك.",
+    "Takes {card}, for good.": "تأخذ {card}، إلى الأبد.",
+    "The Harbourmaster's Examiner is in the city": "محقق رئيس الميناء في المدينة",
+    "The Harbourmaster's Examiner is in the city, and lying low for now.": "محقق رئيس الميناء في المدينة، ومتوارٍ في الوقت الحاضر.",
+    "The Harbourmaster's Examiner is in the city. Every week they act against you unless you act first.": "محقق رئيس الميناء في المدينة. كل أسبوع يعمل ضدك ما لم تسبقه.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);
