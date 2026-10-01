@@ -35,16 +35,30 @@
     $('promo-badge').style.backgroundImage = 'var(--art-' + (['cwax-01', 'cwax-03', 'cwax-02'][((CF.RANK_DEFS[rank] || {}).badge || 1) - 1] || 'cwax-01') + ')';
     $('promo-title').textContent = tr('Promoted: ' + CF.RANKS[rank]);
     var unlocked = Object.keys(CF.POWERS).filter(function (k) { return CF.POWERS[k].rank === rank; });
+    var note = $('promo-note');
+    note.textContent = unlocked.length ? tr(CF.POWERS[unlocked[0]].text) : '';
     [1, 2, 3].forEach(function (i) {
       var k = unlocked[i - 1];
-      var el = $('promo-s' + i);
+      var el = $('promo-s' + i), cap = el.querySelector('.lu-cap');
       el.style.backgroundImage = k ? 'var(--art-' + CF.POWERS[k].art + ')' : '';
-      el.title = tr(k ? CF.POWERS[k].label + ': ' + CF.POWERS[k].text : '');
+      el.classList.toggle('empty', !k);
+      el.dataset.power = k || '';
+      if (cap) cap.textContent = k ? tr(CF.POWERS[k].label) : '';
+      el.classList.toggle('on', i === 1 && !!k);
     });
     CF.Audio.play('victory');
     show('promo', true);
   };
-  click('promo-box', function () { show('promo', false); });
+  // A tap on a power reads it out under the slots.
+  $('promo-box').addEventListener('click', function (ev) {
+    var slot = ev.target.closest('.lu-slot');
+    var k = slot && slot.dataset.power;
+    if (!k || !CF.POWERS[k]) return;
+    $('promo-note').textContent = tr(CF.POWERS[k].text);
+    document.querySelectorAll('#promo-box .lu-slot').forEach(function (el) { el.classList.toggle('on', el === slot); });
+  });
+  click('promo-close', function () { show('promo', false); });
+  click('promo-precinct', function () { show('promo', false); if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } });
 
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
@@ -159,6 +173,9 @@
   click('btn-help', function () { returnTo = 'game'; only('help'); });
   click('btn-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   click('m-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
+  // On a phone the top bar keeps only the clock and the menu: the journal and the Help live here.
+  click('m-journal', function () { only(null); UI.toggleJournal(true); });
+  click('m-help', function () { returnTo = 'game'; only('help'); });
   click('precinct-close', function () { only(null); });
   click('help-close', function () { if (returnTo === 'title') openTitle(); else only(null); });
   click('btn-menu', function () { only('menu'); });

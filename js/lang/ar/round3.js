@@ -401,5 +401,6 @@
     "The Harbourmaster's Examiner is in the city": "محقق رئيس الميناء في المدينة",
     "The Harbourmaster's Examiner is in the city, and lying low for now.": "محقق رئيس الميناء في المدينة، ومتوارٍ في الوقت الحاضر.",
     "The Harbourmaster's Examiner is in the city. Every week they act against you unless you act first.": "محقق رئيس الميناء في المدينة. كل أسبوع يعمل ضدك ما لم تسبقه.",
+    "Carry on": "تابع عملك",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

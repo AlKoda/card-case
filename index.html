@@ -53,10 +53,10 @@
           <button data-zoom="fit" title="Fit the table (0)">⤢</button>
           <button data-zoom="in" title="Zoom in (+)">+</button>
           <span class="tool-gap"></span>
-          <button data-tool="collect" class="tool-word" title="Collect every finished verb (C)">Collect</button>
-          <button data-tool="stack" class="tool-word" title="Stack like cards together (Tab)">Stack</button>
-          <button data-tool="tidy" class="tool-word" title="Tidy the whole table (T)">Tidy</button>
-          <button data-tool="undo" class="tool-word hidden" title="Put the cards back where they were (Z)">Undo</button>
+          <button data-tool="collect" class="tool-word tool-art" style="--i:var(--art-bsq-12)" title="Collect">Collect</button>
+          <button data-tool="stack" class="tool-word tool-art" style="--i:var(--art-bsq-13)" title="Stack">Stack</button>
+          <button data-tool="tidy" class="tool-word tool-art" style="--i:var(--art-bsq-07)" title="Tidy">Tidy</button>
+          <button data-tool="undo" class="tool-word tool-art hidden" style="--i:var(--art-bsq-10)" title="Undo">Undo</button>
         </div>
         <div id="hint"></div>
         <aside id="journal-drawer">
@@ -154,7 +154,7 @@
 
   <!-- Pause menu -->
   <div class="modal hidden" id="menu">
-    <div class="modal-box" style="max-width:420px">
+    <div class="modal-box menu-box">
       <div class="banner small"><span>Paused</span></div>
       <div class="row column">
         <button class="plate-btn gold" id="m-resume"><i class="mi" style="--i:var(--art-bround-05)"></i>Resume</button>
@@ -163,6 +163,8 @@
         <button class="plate-btn grey" id="m-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
         <button class="plate-btn teal" id="m-precinct"><i class="mi" style="--i:var(--art-bround-26)"></i>The Watch-house</button>
         <button class="plate-btn teal" id="m-archive"><i class="mi" style="--i:var(--art-bround-09)"></i>The Rolls</button>
+        <button class="plate-btn grey" id="m-journal"><i class="mi" style="--i:var(--art-bround-24)"></i>Journal</button>
+        <button class="plate-btn grey" id="m-help"><i class="mi" style="--i:var(--art-bround-22)"></i>How to Play</button>
         <button class="plate-btn grey" id="m-title"><i class="mi" style="--i:var(--art-bround-10)"></i>Main Menu</button>
         <button class="plate-btn red" id="m-new"><i class="mi" style="--i:var(--art-bround-11)"></i>Abandon File</button>
       </div>
@@ -247,10 +249,13 @@
 
   <!-- Promotion -->
   <div class="modal dialog hidden" id="promo">
-    <div class="dlg dlg-levelup" id="promo-box" title="Click to continue">
+    <div class="dlg dlg-levelup" id="promo-box">
       <div class="lu-badge" id="promo-badge"></div>
       <div class="lu-title" id="promo-title"></div>
-      <div class="lu-slot s1" id="promo-s1"></div><div class="lu-slot s2" id="promo-s2"></div><div class="lu-slot s3" id="promo-s3"></div>
+      <div class="lu-slot s1" id="promo-s1"><span class="lu-cap"></span></div><div class="lu-slot s2" id="promo-s2"><span class="lu-cap"></span></div><div class="lu-slot s3" id="promo-s3"><span class="lu-cap"></span></div>
+      <div class="lu-note" id="promo-note"></div>
+      <button class="dlg-hot blue" id="promo-precinct">The Watch-house</button>
+      <button class="dlg-hot red" id="promo-close">Carry on</button>
     </div>
   </div>
 

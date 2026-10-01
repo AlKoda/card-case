@@ -603,5 +603,42 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: a hold lifts the stack; a drag moves only its own strings');
 })();
 
+// ---- The page's markup and stylesheet: the top bar is one row, the stamp and the seal are drawn,
+// the toasts grow with their words, the tools are art on phones, the promotion panel has real buttons.
+(function markup() {
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var topbar = /#topbar \{[^}]*\}/.exec(css)[0];
+  assert.ok(/flex-wrap:\s*nowrap/.test(topbar) && /overflow:\s*hidden/.test(topbar), 'the top bar never wraps');
+  assert.ok(/@media \(max-width: 1500px\)[^}]*\.meter \.m-label \{ display: none/.test(css), 'the meter names go first');
+  assert.ok(/@media \(max-width: 1300px\)[^}]*#topbar \.rank \{ display: none/.test(css) && /@media \(max-width: 1100px\)[^}]*#topbar \.brand \{ display: none/.test(css), 'then the rank, then the brand');
+  assert.ok(/#controls button\[data-speed="2"\], #controls button\[data-speed="3"\], #btn-journal, #btn-precinct, #btn-help \{ display: none/.test(css), 'a phone keeps the play button and the menu');
+  assert.ok(/id="m-journal"/.test(html) && /id="m-help"/.test(html) && /click\('m-journal'/.test(main) && /click\('m-help'/.test(main), 'the journal and the Help live in the pause menu');
+  assert.ok(/@keyframes stamp \{ from \{ transform: scale\(2\.2\) rotate\(-12deg\)/.test(css) && /\.verb \.verdict \{[^}]*width: 120px/.test(css), 'the verdict slams down as a stamp');
+  assert.ok(/\.card\.sealed \.c-face::after \{[^}]*var\(--seal\)[^}]*rotate\(-8deg\)/.test(css), 'a sealed case wears its wax');
+  assert.ok(/\.toast \{[^}]*aspect-ratio: auto/.test(css) && !/\.toast \{[^}]*overflow: hidden/.test(css), 'a toast is as tall as its words');
+  assert.ok(/\.toast::after \{[^}]*border-image: var\(--bar\)/.test(css) && /\.toast::before \{[^}]*var\(--icon\)/.test(css), 'the bar is sliced, the icon sits in its circle');
+  assert.ok(/#toasts \{[^}]*right: calc\(12px \+ var\(--sa-r\)\)[^}]*top: calc\(var\(--sa-t\) \+ 64px\)/.test(css) && /body\.has-window #toasts \{ right: calc\(390px \* var\(--ui-scale, 1\)\)/.test(css), 'toasts sit top right, clear of the window and the notch');
+  assert.ok(/#hint \{[^}]*top: 10px;[^}]*pointer-events: auto/.test(css) && /#hint::before \{[^}]*bround-17/.test(css) && /#hint::after \{[^}]*clabel-06/.test(css), 'the hint is a painted bar under the verbs');
+  var box = /\.screen-box \{ width: 100%[^}]*\}/.exec(css)[0];
+  assert.ok(/display: flex; flex-direction: column/.test(box) && /overflow: hidden/.test(box), 'a screen is a column that never outgrows the page');
+  assert.ok(/\.help-paper, \.settings-paper, \.precinct-paper, \.archive-body \{ flex: 1 1 auto; min-height: 0; overflow: auto; max-height: none/.test(css), 'the paper scrolls, the buttons stay');
+  assert.ok(!/\.help-paper \{[^}]*100vh/.test(css) && !/\.settings-paper \{[^}]*60vh/.test(css) && !/\.precinct-paper \{[^}]*100vh/.test(css), 'no viewport heights on the papers');
+  assert.ok(/@media \(max-height: 520px\), \(max-width: 980px\) \{[^@]*\.vwin \{ left: 0; right: 0; top: auto; bottom: 0; width: 100%/.test(css), 'the verb window is a sheet from the bottom on phones');
+  ['collect', 'stack', 'tidy', 'undo'].forEach(function (tool) {
+    var m = new RegExp('<button data-tool="' + tool + '" class="tool-word tool-art[^"]*" style="--i:var\\(--art-bsq-\\d\\d\\)" title="([^"]+)">([^<]+)</button>').exec(html);
+    assert.ok(m && m[1] === m[2], tool + ' is an art button titled with its word');
+  });
+  assert.ok(/#zoom button\.tool-art \{[^}]*font-size: 0/.test(css), 'the tools are art alone on a phone');
+  var promo = /<div class="dlg dlg-levelup" id="promo-box">[\s\S]*?<\/button>\s*<\/div>/.exec(html);
+  assert.ok(promo && !/title=/.test(promo[0].split('\n')[0]), 'the promotion box has no whole-box title');
+  assert.strictEqual((promo[0].match(/class="lu-cap"/g) || []).length, 3, 'a caption under each slot');
+  assert.ok(/id="promo-note"/.test(promo[0]) && /class="dlg-hot blue" id="promo-precinct">The Watch-house</.test(promo[0]) && /class="dlg-hot red" id="promo-close">Carry on</.test(promo[0]), 'two real buttons and a note');
+  assert.ok(/click\('promo-close'/.test(main) && /click\('promo-precinct'/.test(main) && !/click\('promo-box'/.test(main), 'the buttons are wired; the box itself is not');
+  assert.ok(/CF\.POWERS\[k\]\.label/.test(main) && /promo-note/.test(main), 'the captions are the powers\' names; a tap reads one out');
+  console.log('ui: the markup and the stylesheet hold the polish');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');
