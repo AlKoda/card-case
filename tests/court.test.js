@@ -82,6 +82,112 @@ function setup(seed) {
   console.log('fingerpost: ok');
 })();
 
+// ---- Full proof wants Word: the scene alone is half proof -----------------------
+(function sceneOnly() {
+  var g = setup(9), e = g.e;
+  function tok(aspects, data) { return e.make('clue', { caseId: g.rec.id, aspects: aspects, data: data || {} }); }
+  var prof = CF.Charge.profileOf(g.rec), scene = Object.keys(prof).map(function (k) { var a = {}; a[k] = prof[k] + 1; return tok(a); });
+  var a = e.assessCharge(g.scG, scene);
+  assert.ok(a.score >= a.need && a.covered >= 2, 'the scene covers the profile: ' + a.score + '/' + a.need);
+  assert.strictEqual(a.tier, 'reasonable', 'a scene-only charge is half proof');
+  assert.strictEqual(e.assessCharge(g.scG, scene.slice(0, 2).concat([tok({ testimony: 2 }, { stake: 'reward', trait: g.culprit.trait })])).tier, 'strong', 'one witness makes it full');
+  assert.strictEqual(e.assessCharge(g.scG, scene.slice(0, 2).concat([tok({ opportunity: 2 }, { points: g.culprit.key })])).tier, 'strong', 'a token that names them makes it full');
+  console.log('scene only: ok');
+})();
+
+// ---- An alibi is a token to check, not a verdict -----------------------------------
+(function alibi() {
+  var g = setup(31), e = g.e;
+  e.s.rank = 1;
+  // The hours in the Hole tire you; a long night of questions needs sleep between.
+  function rested() { byDef(e, 'fatigue').concat(byDef(e, 'burnout')).forEach(function (c) { e.remove(c); }); }
+  var r = run(e, 'interrogate', [g.scI, e.create('focus')]);
+  var al = r.out.filter(function (c) { return c.data.alibi; })[0];
+  assert.ok(al, 'an innocent questioned with Wit gives an alibi');
+  assert.strictEqual(e.labelOf(al), 'Alibi: ' + g.innocent.name);
+  assert.strictEqual(al.data.alibi, g.innocent.key);
+  assert.strictEqual(al.data.trait, g.innocent.trait);
+  assert.ok(CF.PROSE.alibis.some(function (t) { return al.desc.toLowerCase() === t.toLowerCase() + '.'; }), 'the story is one of the alibis: ' + al.desc);
+  assert.ok(/^An Alibi$/.test(r.story.title) && r.story.text.indexOf(g.innocent.name) >= 0 && /want checking/.test(r.story.text));
+  assert.ok(!g.innocent.cleared && e.card(g.scI.uid), 'not cleared yet: the name stays on the board');
+  rested();
+  var ra = run(e, 'interrogate', [g.scI, e.create('focus')]);
+  assert.ok(ra.story.title === 'An Alibi' && !ra.out.some(function (c) { return c.data.alibi; }), 'the same story twice is one token');
+  // Checked against the hours in Rest: the night is accounted for.
+  var hours = e.create('clue', { label: 'The Hours', caseId: g.rec.id, aspects: { opportunity: 2 } });
+  var r2 = run(e, 'reflect', [al, hours]);
+  assert.strictEqual(r2.recipe, 'ref_deduce');
+  assert.strictEqual(r2.story.title, 'The Night Accounted For');
+  assert.ok(r2.story.text.indexOf(g.innocent.name) === 0);
+  assert.ok(g.innocent.cleared, 'cleared');
+  assert.ok(!e.card(g.scI.uid), 'the suspect card is gone');
+  assert.ok(!e.card(al.uid) && !e.card(hours.uid), 'the tokens fold into the check');
+  // The culprit, asked again, has a story too; the bells do not agree.
+  rested();
+  run(e, 'interrogate', [g.scG, e.create('focus')]);
+  rested();
+  var r3 = run(e, 'interrogate', [g.scG, e.create('focus')]);
+  var lie = r3.out.filter(function (c) { return c.data.alibi; })[0];
+  assert.ok(lie && lie.data.alibi === g.culprit.key, 'the culprit gives an alibi the second time');
+  var r4 = run(e, 'reflect', [lie, e.create('clue', { label: 'The Tide', caseId: g.rec.id, aspects: { opportunity: 2 } })]);
+  assert.strictEqual(r4.story.title, 'A Lie About the Night');
+  var made = r4.out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.ok(made && e.labelOf(made) === 'A Lie About the Night' && made.data.points === g.culprit.key && CF.clueAspects(made).opportunity === 2, 'a token against them');
+  assert.ok(!g.culprit.cleared && e.card(g.scG.uid));
+  rested();
+  assert.ok(!run(e, 'interrogate', [g.scG, e.create('focus')]).out.some(function (c) { return c.data.alibi; }), 'the culprit\'s story is told once');
+  // An Examiner's first cases take the story at its word.
+  var h = setup(32), f = h.e;
+  f.s.rank = 0;
+  var r5 = run(f, 'interrogate', [h.scI, f.create('focus')]);
+  assert.ok(/^Cleared: /.test(r5.story.title) && h.innocent.cleared && !f.card(h.scI.uid), 'cleared on the spot at rank 0');
+  assert.ok(r5.out.some(function (c) { return c.data.alibi === h.innocent.key; }), 'and the story is still written down');
+  // A bluff on an innocent: the alibi sometimes, the shut door otherwise.
+  var got = { alibi: 0, fail: 0 };
+  for (var i = 0; i < 20; i++) {
+    var k = setup(40 + i), ke = k.e;
+    ke.s.rank = 1;
+    var rb = run(ke, 'interrogate', [k.scI, ke.create('instinct')]);
+    if (rb.out.some(function (c) { return c.data.alibi; })) got.alibi++; else if (rb.story.title === 'Nothing Shaken Loose') got.fail++;
+  }
+  assert.ok(got.alibi >= 3 && got.fail >= 6 && got.alibi + got.fail === 20, 'bluff: ' + JSON.stringify(got));
+  console.log('alibi: ok');
+})();
+
+// ---- Evidence that promises a name delivers one --------------------------------------
+(function names() {
+  var e = game(41);
+  var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+  var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  var item = CF.GENERIC_SCENE[0];
+  assert.ok(item.result.names, 'the hand on the sill promises a name');
+  function evidence() { return e.create('evidence', { label: item.label, caseId: rec.id, data: { item: item } }); }
+  // Nobody in the casebook yet: a hand to keep.
+  var r = run(e, 'analyze', [evidence(), e.create('prints')]);
+  var hand = r.out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.ok(hand && hand.data.names && !hand.data.points && hand.data.trait === culprit.trait, 'a hand with no name yet');
+  assert.ok(/Keep it\.$/.test(hand.desc));
+  // Held against a name.
+  var scI = e.revealSuspect(rec, null, { key: innocent.key }), scG = e.revealSuspect(rec, null, { key: culprit.key });
+  var no = run(e, 'analyze', [hand, scI]);
+  assert.strictEqual(no.recipe, 'an_hold_against');
+  assert.strictEqual(no.story.title, 'No Match');
+  assert.ok(hand.data.names && !hand.data.points && e.card(hand.uid) && e.card(scI.uid), 'nothing changes on no match');
+  var yes = run(e, 'analyze', [hand, scG]);
+  assert.strictEqual(yes.story.title, 'A Match');
+  assert.ok(yes.story.text.indexOf(culprit.name) >= 0);
+  assert.strictEqual(hand.data.points, culprit.key);
+  assert.ok(/^Matched: /.test(e.labelOf(hand)));
+  assert.ok(e.card(scG.uid), 'the accused stays');
+  // With the culprit in the casebook, the bench names them outright.
+  var r2 = run(e, 'analyze', [evidence(), e.create('prints')]);
+  var named = r2.out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.strictEqual(named.data.points, culprit.key);
+  assert.ok(named.desc.indexOf('It is ' + culprit.name + '\'s.') >= 0, named.desc);
+  console.log('names: ok');
+})();
+
 // ---- The question: everybody confesses; only the guilty confess the truth -----
 (function theQuestion() {
   // Without sufficient indicia it is a crime the Council can charge you with.
@@ -172,4 +278,4 @@ function setup(seed) {
   console.log('dread: ok');
 })();
 
-console.log('court: stakes, fingerpost, the question, verdicts, dread all OK');
+console.log('court: stakes, fingerpost, scene only, alibi, names, the question, verdicts, dread all OK');

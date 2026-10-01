@@ -556,9 +556,41 @@
       // The apothecary's bench: what the body says reads one point stronger.
       var bench = !!e.s.rooms.lab && CF.itemTags(item).indexOf('biology') >= 0;
       if (bench) { spec.aspects.forensic = (spec.aspects.forensic || 0) + 1; spec.text += ' At the apothecary\'s bench it reads one point stronger.'; }
+      // Proof that promises a name gives one: the culprit's, if they are in
+      // the casebook; otherwise a hand to hold against a name later.
+      var flags = {};
+      if (res.names && ok) {
+        var cul = culpritOf(rec);
+        if (cul.revealed && !cul.cleared) { flags.points = rec.culprit; flags.noMisread = true; spec.text += ' It is ' + cul.name + '\'s.'; }
+        else { spec.trait = cul.trait; spec.names = true; spec.text += ' Nobody in the casebook yet has this hand. Keep it.'; }
+      }
       ctx.consume(ev);
-      ctx.give('clue', e.clueSpec(rec, spec, e.helpers(ctx)));
+      ctx.give('clue', e.clueSpec(rec, spec, e.helpers(ctx), flags));
       return { title: ok ? 'Results' : 'Partial Results', text: spec.text };
+    },
+  });
+  // A hand, a seal, a signature with no name yet: hold it against an accused.
+  R.push({
+    id: 'an_hold_against', verb: 'analyze', label: 'Hold It Against a Name', duration: 15,
+    preview: function (ctx) { return 'Hold ' + ctx.e.labelOf(ctx.primary) + ' against ' + ctx.e.labelOf(ctx.slots.who).replace('Prime Suspect: ', '') + '.'; },
+    blocked: function (ctx) { return ctx.slots.who.caseId !== ctx.primary.caseId ? 'That name belongs to another case.' : null; },
+    requires: { primary: 'clue', when: function (ctx) { var c = ctx.primary; return !!(c.data && c.data.names && !c.data.points && ctx.slots.who); } },
+    run: function (ctx) {
+      var e = ctx.e, c = ctx.primary, sc = ctx.slots.who;
+      var rec = openRec(ctx, c);
+      if (!rec) return closed();
+      var sus = e.suspectOf(sc);
+      if (!sus) return { title: 'No Match', text: 'Not this one. Keep it.' };
+      e.caseWork(rec, ctx);
+      if (sus.guilty) {
+        c.data.points = sus.key;
+        c.data.names = false;
+        c.label = 'Matched: ' + e.labelOf(c);
+        c.fresh = true;
+        e.dirty = true;
+        return { title: 'A Match', kind: 'major', text: 'The same hand. It belongs to ' + sus.name + '.' };
+      }
+      return { title: 'No Match', text: 'Not this one. Keep it.' };
     },
   });
   R.push({
@@ -709,6 +741,7 @@
       var rec = openRec(ctx, sc);
       if (!rec) return closed();
       var sus = e.suspectOf(sc);
+      var again = !!sus.questioned;
       sus.questioned = true;
       e.caseWork(rec, ctx);
       var P = CF.PROSE;
@@ -742,9 +775,21 @@
           made.data.misread = true;
           return { title: 'Guilty Eyes', text: 'Every pause, every glance at the door: guilt. It has to be.' };
         }
-        sus.cleared = true;
-        ctx.consume(sc);
-        return { title: 'Cleared: ' + sus.name, text: U.fill(U.pick(ctx.rng, P.suspectAlibi), vars) };
+        // The innocent have a story. Written down, it is a token to check
+        // in Rest against the hours, not a verdict; an Examiner's first
+        // cases take it at its word.
+        if (ctx.has('instinct') && ctx.rng() >= 0.4) return { title: 'Nothing Shaken Loose', text: U.fill(U.pick(ctx.rng, P.suspectBluffFail), vars) };
+        if (!sus.alibi) sus.alibi = vars.alibi;
+        vars.alibi = sus.alibi;
+        if (!sus.alibiGiven) ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
+          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
+        sus.alibiGiven = true;
+        if (e.s.rank === 0) {
+          sus.cleared = true;
+          ctx.consume(sc);
+          return { title: 'Cleared: ' + sus.name, text: U.fill(U.pick(ctx.rng, P.suspectAlibi), vars) };
+        }
+        return { title: 'An Alibi', text: 'You try ' + sus.name + '\'s story: ' + sus.alibi + '. It will want checking.' };
       }
 
       if (confront) {
@@ -769,6 +814,15 @@
         return { title: 'Nothing Shaken Loose', text: U.fill(U.pick(ctx.rng, P.suspectBluffFail), vars) };
       }
 
+      // Asked again, the culprit has a story too, once. It will not hold.
+      if (again && !sus.alibiGiven) {
+        sus.alibiGiven = true;
+        if (!sus.alibi) sus.alibi = vars.alibi;
+        vars.alibi = sus.alibi;
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
+          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
+        return { title: 'An Alibi', text: 'You try ' + sus.name + '\'s story: ' + sus.alibi + '. It will want checking.' };
+      }
       ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Motive: ' + sus.name, text: sus.motive, aspects: { motive: 2 } }, helpers)));
       return { title: 'A Reason', text: U.fill(U.pick(ctx.rng, P.suspectEmpathy), vars) };
     },
@@ -1204,13 +1258,29 @@
         var known = rec.suspects.filter(function (x) { return x.key === rec.identified; })[0];
         return { title: 'You Already Know', text: 'It keeps coming back to ' + known.name + '. You know who did it. Now you have to prove it.' };
       }
-      var key = rec.culprit;
-      if (misread) {
-        var others = rec.suspects.filter(function (x) { return !x.guilty && !x.cleared; });
-        if (others.length) key = U.pick(ctx.rng, others).key;
+      // A name only when the tokens give one: a token that points at an
+      // accused, or a trait that one of the accused carries.
+      var named = clues.map(function (c) { return c.data.points; }).filter(Boolean)[0] || null;
+      var laidTrait = clues.filter(function (c) { return !c.data.alibi; }).map(function (c) { return c.data.trait; }).filter(Boolean)[0] || null;
+      var fits = rec.suspects.filter(function (x) { return !x.cleared && (x.key === named || (laidTrait && x.trait === laidTrait)); })[0] || null;
+      if (fits) {
+        var key = fits.key;
+        if (misread) {
+          var others = rec.suspects.filter(function (x) { return !x.guilty && !x.cleared; });
+          if (others.length) key = U.pick(ctx.rng, others).key;
+        }
+        var sus = identify(ctx, rec, key);
+        return { title: th.title, kind: 'major', text: th.text + ' It was ' + sus.name + ', ' + sus.role + '. It has to be.' };
       }
-      var sus = identify(ctx, rec, key);
-      return { title: th.title, kind: 'major', text: th.text + ' It was ' + sus.name + ', ' + sus.role + '. It has to be.' };
+      // The theory itself is a token, once per kind: what sort of person, not yet which.
+      var td = laidTrait && trait(laidTrait);
+      var who = td ? (td.who || td.desc.charAt(0).toLowerCase() + td.desc.slice(1)) : '';
+      rec.theories = rec.theories || {};
+      if (!rec.theories[th.title]) {
+        rec.theories[th.title] = true;
+        ctx.give('clue', e.clueSpec(rec, { label: 'Theory: ' + th.title, text: th.text + (who ? ' Someone who ' + who : ''), aspects: { motive: 1, opportunity: 1 }, trait: laidTrait }, []));
+      }
+      return { title: th.title, text: th.text + ' You know what kind of person. Not yet which.' };
     },
   });
   R.push({

@@ -1674,8 +1674,17 @@
   };
 
   // ---- Specs for generated cards ------------------------------------------
-  P.newName = function () {
-    return U.pick(this.rng, CF.NAMES.first) + ' ' + U.pick(this.rng, CF.NAMES.last);
+  // A name: a man's, a woman's, or either when the role does not say.
+  P.newName = function (sex) {
+    var N = CF.NAMES, first = sex === 'm' ? N.m : sex === 'f' ? N.f : N.first;
+    return U.pick(this.rng, first || N.first) + ' ' + U.pick(this.rng, N.last);
+  };
+  // What a witness's description says of their sex, for the name they are given.
+  P.sexOf = function (who) {
+    if (!who) return null;
+    if (/woman|wife|maid|widow|laundress|sister|fishwife|girl/i.test(who)) return 'f';
+    if (/\bman\b|boy|husband|porter|sergeant|baker|shepherd|bargeman|ferryman|tapster|drunk|doorkeeper|infirmarian|assayer|watchman/i.test(who)) return 'm';
+    return null;
   };
 
   P.giveDistrict = function (key, ctx) {
@@ -1868,6 +1877,11 @@
     return null;
   };
 
+  // Whether a scene item speaks to an aspect (a token's own, or what its raw proof gives).
+  function itemCovers(it, aspect) {
+    var a = it.aspects || (it.result && it.result.aspects) || {};
+    return a[aspect] > 0;
+  }
   // A structure's scene item with its variables filled in.
   function fillItem(it, vars) {
     var out = U.clone(it);
@@ -1897,7 +1911,7 @@
     var tid = templateId || U.pick(rng, this.casePool());
     var T = CF.CASE_TEMPLATES[tid];
     var id = 'c' + s.nextUid++;
-    var victim = opts.victim || this.newName();
+    var victim = opts.victim || this.newName(T.victimSex || null);
     var last = U.pick(rng, CF.NAMES.last);
     var district = opts.district || U.pick(rng, T.districts);
     var vars = {
@@ -1910,11 +1924,14 @@
     var structure = (CF.STRUCTURES[tid] && CF.STRUCTURES[tid].length) ? U.pick(rng, CF.STRUCTURES[tid]) : null;
     if (structure) for (var sv in structure.vars) vars[sv] = U.pick(rng, structure.vars[sv]);
 
-    var nSus = Math.min(T.nSuspects || 3, T.roles.length);
-    var roles = T.nSuspects ? T.roles.slice(0, nSus) : U.sample(rng, T.roles, nSus);
+    // The accused: the template's roles, or the ones the story hands in.
+    var rolePool = opts.roles && opts.roles.length ? opts.roles : T.roles;
+    var nSus = Math.min(T.nSuspects || 3, rolePool.length);
+    var roles = (opts.roles || T.nSuspects) ? rolePool.slice(0, nSus) : U.sample(rng, rolePool, nSus);
     var traits = U.sample(rng, CF.TRAITS, nSus);
     var guiltyIdx = U.randInt(rng, 0, nSus - 1);
-    if (T.guiltyRole) { var gi = roles.map(function (r) { return r.role; }).indexOf(T.guiltyRole); if (gi >= 0) guiltyIdx = gi; }
+    var guiltyRole = opts.guiltyRole || T.guiltyRole;
+    if (guiltyRole) { var gi = roles.map(function (r) { return r.role; }).indexOf(guiltyRole); if (gi >= 0) guiltyIdx = gi; }
     if (opts.culpritTrait) {
       var tr = CF.TRAITS.filter(function (x) { return x.id === opts.culpritTrait; })[0];
       if (tr) {
@@ -1924,7 +1941,7 @@
     }
     var self = this;
     var suspects = roles.map(function (r, i) {
-      var name = i === guiltyIdx && opts.culpritName ? opts.culpritName : self.newName();
+      var name = i === guiltyIdx && opts.culpritName ? opts.culpritName : self.newName(r.sex || null);
       return { key: 's' + i, name: name, role: r.role, motive: r.motive, trait: traits[i].id, guilty: i === guiltyIdx, revealed: false };
     });
     var culprit = suspects[guiltyIdx];
@@ -1952,21 +1969,41 @@
     // A Careful criminal leaves less behind.
     var known = !orgCase && opts.criminalId && this.criminal(opts.criminalId);
 
-    // Scene pool: template items + generic items + the culprit's trait clue.
-    var pool = T.items.concat(U.sample(rng, CF.GENERIC_SCENE, 1)).map(function (it) { return fillItem(it, vars); });
-    if (structure) pool = pool.concat(structure.items.map(function (it) { return fillItem(it, vars); }));
-    var items = U.shuffle(rng, pool);
-    if (known && known.traits.indexOf('careful') >= 0) items = items.slice(0, Math.max(2, items.length - 2));
-    // The network: a clue that points at the place this crime went through.
+    // The scene: the brief's own items are always there. The culprit's trait
+    // token, both structure items, one template item for what the case turns
+    // on (a front's door takes its place when the crime went through one),
+    // and the generic find if there is room. Without a structure, the trait
+    // and up to three template items, one of them generic. Four at most.
     var front = opts.frontId && s.network.fronts[opts.frontId] ? s.network.fronts[opts.frontId] : !T.special ? this.frontForCase(opts) : null;
-    if (front) items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, this.linkItem(front));
     var trait = traits[guiltyIdx];
-    var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id };
-    items.splice(U.randInt(rng, 0, Math.min(2, items.length)), 0, traitItem);
+    var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id, own: true };
+    var tItems = T.items.map(function (it) { return fillItem(it, vars); });
+    var generic = fillItem(U.pick(rng, CF.GENERIC_SCENE), vars);
+    var items;
+    if (structure) {
+      var covers = tItems.filter(function (it) { return itemCovers(it, T.keyAspects[0]); });
+      var key1 = covers.length ? U.pick(rng, covers) : tItems.length ? U.pick(rng, tItems) : null;
+      items = [traitItem].concat(structure.items.map(function (it) { var f = fillItem(it, vars); f.own = true; return f; }));
+      var rest = front ? [this.linkItem(front)] : [];
+      if (key1) rest.push(key1);
+      rest.push(generic);
+      while (items.length < 4 && rest.length) items.push(rest.shift());
+    } else {
+      var picked = U.sample(rng, tItems, Math.min(2, tItems.length));
+      if (front) picked = [this.linkItem(front)].concat(picked.slice(0, 1));
+      items = [traitItem].concat(picked, [generic]);
+    }
+    items = U.shuffle(rng, items);
     if (items.length > 4) items.length = 4; // a scene gives four things at most: what matters, not everything
+    // A Careful criminal leaves less behind: the trait and the structure's
+    // own tokens stay; up to two of the rest go, down to two things.
+    if (known && known.traits.indexOf('careful') >= 0) {
+      var drop = Math.min(2, items.length - 2);
+      items = items.filter(function (it) { if (drop > 0 && !it.own) { drop--; return false; } return true; });
+    }
 
     var rec = {
-      id: id, template: tid, title: U.fill(T.title, vars), short: T.label, district: district, scene: scene,
+      id: id, template: tid, title: U.fill(opts.title || T.title, vars), short: T.label, district: district, scene: scene,
       victim: victim, vars: vars, suspects: suspects, culprit: culprit.key, keyAspects: T.keyAspects.slice(),
       difficulty: difficulty, highProfile: highProfile, charge: charge, items: items, found: 0,
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
@@ -1981,7 +2018,7 @@
     s.stats.cases++;
 
     var life = Math.round((opts.lifetime || T.lifetime) * this.caseClock()) + (opts.extraTime || 0);
-    var brief = U.fill(structure && !opts.culpritName ? structure.brief : T.brief, vars);
+    var brief = U.fill(opts.brief || (structure && !opts.culpritName ? structure.brief : T.brief), vars);
     // An informant's warning: you were ready for this one.
     var warning = !T.special && this.warningFor(tid);
     if (warning) {
@@ -2070,6 +2107,8 @@
     var data = { trait: item.trait || null, coerced: !!flags.coerced, planted: !!flags.planted, illegal: !!flags.illegal, points: flags.points || null, link: item.link || null };
     if (flags.stake) { data.stake = flags.stake; data.witness = flags.witness || null; data.againstInterest = !!flags.againstInterest; }
     if (item.pattern) data.pattern = true;
+    if (item.alibi) data.alibi = item.alibi;
+    if (item.names) data.names = true;
     if (flags.confession) { data.confession = flags.confession; data.falseConfession = !!flags.falseConfession; }
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
     return {
@@ -2081,9 +2120,9 @@
     };
   };
 
-  P.witnessSpec = function (rec) {
-    var who = rec.witnesses.length ? rec.witnesses.shift() : 'a passer-by';
-    var name = this.newName();
+  P.witnessSpec = function (rec, who) {
+    if (!who) who = rec.witnesses.length ? rec.witnesses.shift() : 'a passer-by';
+    var name = this.newName(this.sexOf(who));
     var stake = U.pick(this.rng, Object.keys(CF.STAKES));
     return {
       label: 'Witness: ' + name,

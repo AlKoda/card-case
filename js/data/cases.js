@@ -8,17 +8,18 @@
   var CF = G.CF;
 
   CF.NAMES = {
-    first: ['Hans', 'Grete', 'Jörg', 'Els', 'Kunz', 'Barbel', 'Veit', 'Ursel', 'Lienhard', 'Apollonia', 'Endres', 'Kathrin',
-      'Caspar', 'Walburg', 'Sebald', 'Ottilie', 'Michel', 'Sibylla', 'Matthes', 'Magdalena', 'Bartel', 'Afra', 'Stoffel', 'Regina',
-      'Claes', 'Anneke', 'Dirck', 'Griet', 'Pieter', 'Neeltje', 'Cornelis', 'Trijn', 'Wouter', 'Lijsbet', 'Barent', 'Aeltje',
-      'Kit', 'Nan', 'Hodge', 'Bess', 'Rafe', 'Joan', 'Ned', 'Margery', 'Hal', 'Cicely', 'Tom', 'Moll', 'Gregory', 'Dorcas'],
+    m: ['Hans', 'Jörg', 'Kunz', 'Veit', 'Lienhard', 'Endres', 'Caspar', 'Sebald', 'Michel', 'Matthes', 'Bartel', 'Stoffel',
+      'Claes', 'Dirck', 'Pieter', 'Cornelis', 'Wouter', 'Barent', 'Kit', 'Hodge', 'Rafe', 'Ned', 'Hal', 'Tom', 'Gregory'],
+    f: ['Grete', 'Els', 'Barbel', 'Ursel', 'Apollonia', 'Kathrin', 'Walburg', 'Ottilie', 'Sibylla', 'Magdalena', 'Afra', 'Regina',
+      'Anneke', 'Griet', 'Neeltje', 'Trijn', 'Lijsbet', 'Aeltje', 'Nan', 'Bess', 'Joan', 'Margery', 'Cicely', 'Moll', 'Dorcas'],
     last: ['Schmidt', 'Kramer', 'Weber', 'Pfister', 'Kürschner', 'Seiler', 'Bader', 'Gerber', 'Sattler', 'Nagel', 'Kessler',
       'Vos', 'de Witt', 'Visscher', 'Bakker', 'Kuiper', 'Molenaar', 'van der Meer', 'de Groot', 'Claesz', 'Pietersz',
       'Fletcher', 'Cooper', 'Tanner', 'Chandler', 'Fuller', 'Webster', 'Mercer', 'Dyer', 'Barker', 'Sawyer', 'Kempe', 'Hobson',
       'Tucher', 'Imhoff', 'Holzschuher', 'Welser', 'Stromer', 'Ebner', 'Haller', 'Bicker', 'Pauw', 'Adornes'],
-    gang: ['the Coquillards of the Quay', 'the Lanternless', 'the Brotherhood of the Shell', 'the Brass Hands', 'the Quiet Men',
-      'the Gallows Company', 'the Velvet Knives', 'the Kings of the Warrens'],
   };
+  CF.NAMES.first = CF.NAMES.m.concat(CF.NAMES.f);
+  CF.NAMES.gang = ['the Coquillards of the Quay', 'the Lanternless', 'the Brotherhood of the Shell', 'the Brass Hands', 'the Quiet Men',
+      'the Gallows Company', 'the Velvet Knives', 'the Kings of the Warrens'];
 
   // Six quarters. Keys are the old district keys, so saves and tests hold.
   CF.DISTRICTS = {
@@ -36,7 +37,7 @@
       clue: { label: 'Pipe Ash on the Sill', text: 'A knocked-out bowl of ash on the windowsill, still sour. Someone waited here a long while, smoking.', aspects: { forensic: 1, opportunity: 1 } } },
     { id: 'limp', desc: 'Walks with a heavy limp in the left leg.',
       clue: { label: 'A Dragging Footprint', text: 'Prints in the mud of the yard. The left foot drags on every step, leaving a long scuff.', aspects: { forensic: 1, opportunity: 1 } } },
-    { id: 'lefty', desc: 'Left-handed. Writes with a hooked wrist.',
+    { id: 'lefty', desc: 'Left-handed. Writes with a hooked wrist.', who: 'is left-handed, and writes with a hooked wrist.',
       clue: { label: 'A Left-Handed Stroke', text: 'Whoever did this stood on the right and worked with their left hand. The angle is plain to anyone who has seen a butcher.', aspects: { forensic: 2 } } },
     { id: 'van', desc: 'Drives a dray with a lame grey mule.',
       clue: { label: 'Grey Hair on the Gatepost', text: 'A rub of grey hair on the gatepost at a mule\'s height, and one hoofprint that lands wrong. Somebody backed a dray in here.', aspects: { forensic: 1, opportunity: 1 } } },
@@ -143,7 +144,7 @@
   // Generic scene items used by every template (on top of template items).
   CF.GENERIC_SCENE = [
     { type: 'evidence', label: 'Marks on the Sill', text: 'The print of a hand on the whitewash. Faint, but there.', needs: 'prints',
-      result: { label: 'The Hand Read', text: 'Under vinegar and the red umbrella the hand comes up whole: a thumb with a scar across it. Good enough for the Court.', aspects: { forensic: 3 } } },
+      result: { names: true, label: 'The Hand Read', text: 'Under vinegar and the red umbrella the hand comes up whole: a thumb with a scar across it. Good enough for the Court.', aspects: { forensic: 3 } } },
     { type: 'clue', label: 'Disturbed Dust', text: 'Something heavy was moved lately. Lately enough to date it.', aspects: { opportunity: 1 } },
   ];
 
@@ -295,7 +296,7 @@
       hints: ['Someone came out the side door just before the smoke. They weren\'t running. They were walking.', 'There was a smell, like a lamp, but strong. An hour before.', 'I saw a light in the upper room at matins. There\'s never anyone there at matins.'],
     },
     fraud: {
-      label: 'False Dealing', title: 'The {last} Affair', lesser: 'sharp dealing, not fraud', lifetime: 300, difficulty: 7,
+      label: 'False Dealing', title: 'The {last} Affair', lesser: 'sharp dealing, not fraud', lifetime: 300, difficulty: 7, victimSex: 'f',
       keyAspects: ['financial', 'digital', 'motive'], districts: ['uptown', 'neon'],
       charge: { financial: 3, digital: 2, motive: 2 },
       scenes: ['the {last} Counting-house', '{last} & Company', 'the {last} Venture'],
@@ -304,14 +305,14 @@
         { role: 'the silver-tongued factor', motive: 'The factor\'s table costs far more than a factor earns.' },
         { role: 'a clerk of the counting-house', motive: 'The clerk had the keys to every book and a taste for the dice-cellars.' },
         { role: 'the victim\'s man of business', motive: 'He recommended the venture himself, and took a fee on every widow he brought to it.' },
-        { role: 'a patrician\'s wife', motive: 'She introduced every one of them to the venture at her table on the Hill.' },
+        { role: 'a patrician\'s wife', sex: 'f', motive: 'She introduced every one of them to the venture at her table on the Hill.' },
       ],
       items: [
         { type: 'evidence', label: 'The Bills of Exchange', text: 'Six months of paper.', needs: 'lab',
-          result: { label: 'The Coin Followed', text: 'The money went through four hands and came to rest in one. The last endorsement is legible.', aspects: { financial: 3, digital: 1 } } },
+          result: { names: true, label: 'The Coin Followed', text: 'The money went through four hands and came to rest in one. The last endorsement is legible.', aspects: { financial: 3, digital: 1 } } },
         { type: 'clue', label: 'A Handsome Prospectus', text: 'Beautifully printed, with a woodcut of a mine. The venture\'s address is a rented room.', aspects: { financial: 1, motive: 1 } },
         { type: 'evidence', label: 'Letters of Reassurance', text: 'To the investors. The same hand, every time, disguised.', needs: null,
-          result: { label: 'The Hand Matched', text: 'The same broken loop on every e, disguised or not. Find the hand.', aspects: { forensic: 1, digital: 2 } } },
+          result: { names: true, label: 'The Hand Matched', text: 'The same broken loop on every e, disguised or not. Find the hand.', aspects: { forensic: 1, digital: 2 } } },
         { type: 'clue', label: 'Spending Beyond Station', text: 'Someone near the venture bought a horse and a house this spring, in coin. The Carolina counts that as indicia.', aspects: { motive: 2 } },
       ],
       witnesses: ['another investor', 'a scrivener at the counting-house', 'a doorkeeper on the Hill'],
@@ -332,7 +333,7 @@
       items: [
         { type: 'clue', label: 'The Collector\'s Round', text: 'Pencilled on the back of a broadsheet: market days, stall numbers, sums.', aspects: { financial: 2, opportunity: 1 } },
         { type: 'evidence', label: 'A Threatening Letter', text: '"Pay or burn." Letters cut from a broadsheet and pasted.', needs: 'prints',
-          result: { label: 'The Hand on the Paste', text: 'Whoever pasted this down was careful everywhere except the glue.', aspects: { forensic: 3 } } },
+          result: { names: true, label: 'The Hand on the Paste', text: 'Whoever pasted this down was careful everywhere except the glue.', aspects: { forensic: 3 } } },
         { type: 'clue', label: 'The Slashed Awning', text: 'Cut from the street, an hour before the gate bell, when the lane is still busy. They wanted to be seen.', aspects: { opportunity: 1, testimony: 1 } },
         { type: 'clue', label: 'The Victim\'s Account', text: '{victim} tells you everything, hands shaking, and begs you not to write their name down.', aspects: { testimony: 2 } },
       ],
@@ -346,7 +347,7 @@
       scenes: ['the {last} House', 'the Sign of the Pestle', 'a Cell in the Abbey Hospital'],
       brief: '{victim} died in the night after a good supper, in agony, and the physician wrote "a surfeit". The silver needle in the coroner\'s book says otherwise. The Carolina says the Wheel for a man who poisons, and the Water for a woman.',
       roles: [
-        { role: 'the widow', motive: 'The marriage was a cold one and the jointure is a warm one.' },
+        { role: 'the widow', sex: 'f', motive: 'The marriage was a cold one and the jointure is a warm one.' },
         { role: 'the apothecary', motive: 'The apothecary sold the powder, and had been paid to forget who bought it.' },
         { role: 'a physician of the Abbey', motive: 'The victim was going to tell the guild which of the physician\'s cures were water.' },
         { role: 'the heir', motive: 'The heir had been living on expectations, and the expectations had run out.' },
@@ -358,7 +359,7 @@
         { type: 'clue', label: 'The Physician\'s Note', text: '"A surfeit of eels." Written before he had seen the body, and paid for before he had written it.', aspects: { motive: 1, testimony: 1 } },
         { type: 'clue', label: 'The Jointure', text: 'A settlement, sealed a month ago, that leaves someone very comfortable.', aspects: { financial: 2, motive: 1 } },
         { type: 'evidence', label: 'The Poison Book', text: 'Every apothecary in the city must keep one. This one has a leaf cut out.', needs: 'lab',
-          result: { label: 'The Cut Leaf Read', text: 'The leaf beneath took the impress of the pen. A name, a date, three drams of white arsenic.', aspects: { digital: 2, forensic: 1 } } },
+          result: { names: true, label: 'The Cut Leaf Read', text: 'The leaf beneath took the impress of the pen. A name, a date, three drams of white arsenic.', aspects: { digital: 2, forensic: 1 } } },
       ],
       witnesses: ['the kitchen maid', 'the apothecary\'s boy', 'a guest at the supper'],
       hints: ['They sent the eels back and asked for the other dish. The one nobody else had.', 'Someone came for a paper of powder for the rats. We have no rats.', 'They laughed all through supper. At the end they said they felt cold.'],
@@ -381,7 +382,7 @@
         { type: 'clue', label: 'Clippings', text: 'A twist of paper with the shaved edges of good coin in it. Somebody is weighing their harvest.', aspects: { financial: 2 } },
         { type: 'clue', label: 'Smoke After Curfew', text: 'A furnace burning past the gate bell, in a quarter where no forge is licensed.', aspects: { opportunity: 2 } },
         { type: 'evidence', label: 'A Plaster Mould', text: 'Broken in half in a midden.', needs: 'prints',
-          result: { label: 'The Mould Read', text: 'Vinegar brings up the hand that pressed the plaster: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
+          result: { names: true, label: 'The Mould Read', text: 'Vinegar brings up the hand that pressed the plaster: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
       ],
       witnesses: ['the Mintmaster\'s assayer', 'a market-woman who was paid in it', 'a boy who sells kindling'],
       hints: ['They paid in new coin. Too new. Nobody in the Market has new coin.', 'I sold them charcoal three nights running. Sacks of it. Nobody bakes that much.', 'Their fingers were burned. Little burns, all over, like a cook\'s.'],
@@ -418,8 +419,8 @@
       scenes: ['the Mill Race', 'the Tanners\' Ditch', 'the Abbey Fishpond'],
       brief: 'A child was taken drowned from {scene}, and by noon the quarter had a name: the midwife, who has a mark on her arm and no husband. The Council wants a burning by Friday. The Carolina wants proof. The child wants somebody to look at the bruises properly.',
       roles: [
-        { role: 'the midwife', motive: 'The quarter has always hated her. That is not a reason, and she knows it, and so do you.' },
-        { role: 'the child\'s stepfather', motive: 'The child was another mouth, and the mother\'s jointure went with the child.' },
+        { role: 'the midwife', sex: 'f', motive: 'The quarter has always hated her. That is not a reason, and she knows it, and so do you.' },
+        { role: 'the child\'s stepfather', sex: 'm', motive: 'The child was another mouth, and the mother\'s jointure went with the child.' },
         { role: 'a miller\'s apprentice', motive: 'The child saw what the apprentice did at the sluice, and children talk.' },
       ],
       items: [
@@ -447,7 +448,7 @@
       items: [
         { type: 'clue', label: 'The Carrier\'s Docket', text: 'The strongbox was on no docket. Only three people knew it travelled.', aspects: { opportunity: 2, financial: 1 } },
         { type: 'evidence', label: 'The Hoofprints', text: 'One horse throws its off fore. It has been shod in the city.', needs: 'prints',
-          result: { label: 'The Farrier\'s Word', text: 'The farrier by the Harbour gate shod that horse a week ago, and remembers the rider\'s coat.', aspects: { testimony: 2, opportunity: 1 } } },
+          result: { names: true, label: 'The Farrier\'s Word', text: 'The farrier by the Harbour gate shod that horse a week ago, and remembers the rider\'s coat.', aspects: { testimony: 2, opportunity: 1 } } },
         { type: 'clue', label: 'The Passenger\'s Rings', text: 'Pledged at a Lombard across the river the next morning by a man in a good coat.', aspects: { financial: 2 } },
         { type: 'clue', label: 'The Polite Robber', text: 'He called the carrier by name and asked after his wife. He has drunk at the carrier\'s inn.', aspects: { testimony: 2 } },
       ],
@@ -464,7 +465,7 @@
         { role: 'a sender of the Coquille', motive: 'Kills for hire. Has never once been asked why.' },
         { role: 'the victim\'s partner in trade', motive: 'The partnership was worth more to one of them dead.' },
         { role: 'a jilted patrician', motive: 'Wrote three letters, and the third was to somebody in the Stews.' },
-        { role: 'the victim\'s brother', motive: 'Inherits the house, the trade and the quarrel.' },
+        { role: 'the victim\'s brother', sex: 'm', motive: 'Inherits the house, the trade and the quarrel.' },
       ],
       items: [
         { type: 'evidence', label: 'The Wound', text: 'One stroke, from behind, under the ribs.', needs: 'bio',
@@ -499,16 +500,16 @@
       hints: ['The carts go out by the Harbour road, after compline, covered.', 'They give the poor a ring and a supper. Nobody who took the ring came back for a second supper.', 'The physician drinks now. He did not, before.'],
     },
     pattern: {
-      label: 'The Pattern', title: 'The Girls of {scene}', lesser: 'one death, not all', lifetime: 360, difficulty: 9, highProfile: true, serial: true,
+      label: 'The Pattern', title: 'The Girls of {scene}', lesser: 'one death, not all', lifetime: 360, difficulty: 9, highProfile: true, serial: true, victimSex: 'f',
       keyAspects: ['opportunity', 'forensic', 'testimony'], districts: ['neon', 'market', 'warrens'],
       charge: { opportunity: 3, forensic: 2, testimony: 2 },
       scenes: ['the Stews', 'the Market Lanes', 'the Warrens'],
       brief: 'A girl of {scene} found dead in a doorway with her hair cut off and nothing else touched. The second will come, and the third; the city already knows it. Each one leaves a piece of the pattern. Read enough of it to be at the next door before he is.',
       roles: [
-        { role: 'a perfumer\'s journeyman', motive: 'Wants something from them that is not what the Stews sell.' },
-        { role: 'a barber of the Market', motive: 'Cuts hair for a living and has been seen where he should not be.' },
-        { role: 'a wool-merchant\'s son', motive: 'Rides through the Stews at night with a groom and a purse.' },
-        { role: 'the spinning-house warden', motive: 'Keeps the girls locked in by day and knows which walk at night.' },
+        { role: 'a perfumer\'s journeyman', sex: 'm', motive: 'Wants something from them that is not what the Stews sell.' },
+        { role: 'a barber of the Market', sex: 'm', motive: 'Cuts hair for a living and has been seen where he should not be.' },
+        { role: 'a wool-merchant\'s son', sex: 'm', motive: 'Rides through the Stews at night with a groom and a purse.' },
+        { role: 'the spinning-house warden', sex: 'm', motive: 'Keeps the girls locked in by day and knows which walk at night.' },
       ],
       items: [
         { type: 'clue', label: 'The First Door', text: 'Found at dawn in a doorway, hair cut close, nothing else touched. No struggle. She knew him, or did not fear him.', aspects: { forensic: 1, opportunity: 1 }, pattern: true },
@@ -521,16 +522,16 @@
       hints: ['He does not hurry. He walks like a man going home.', 'The girls say a gentle voice asked their names the week before.', 'Always the night after a fair. Always a girl with fair hair.'],
     },
     threedays: {
-      label: 'The Three Days', title: 'The Apple in the Chest', lesser: 'a death by misadventure', lifetime: 100, difficulty: 8, highProfile: true, council: true, nSuspects: 4, guiltyRole: 'the husband',
+      label: 'The Three Days', title: 'The Apple in the Chest', lesser: 'a death by misadventure', lifetime: 100, difficulty: 8, highProfile: true, council: true, nSuspects: 4, guiltyRole: 'the husband', victimSex: 'f',
       keyAspects: ['digital', 'testimony', 'opportunity'], districts: ['uptown', 'market'],
       charge: { digital: 2, testimony: 2, opportunity: 2 },
       scenes: ['the Weigh-house', 'the Fish Market', 'the Council Steps'],
       brief: 'A chest bought at auction at {scene} for a hundred gulden, and inside it a young woman cut in pieces. The Council gives you three days\' grace to bring the murderer, and the Council, being the Council, will stretch three days to a fortnight before it comes for you instead. Two men have already confessed. Both are lying, and one of them is lying for the man who did it.',
       roles: [
-        { role: 'the husband', motive: 'Loved her, and believed a story he was told about her, and did not ask.' },
-        { role: 'the husband\'s brother', motive: 'Cannot bear what his brother believes, and would hang for him.' },
-        { role: 'a servant boy', motive: 'Took an apple from a sick woman\'s table and gave it to a man who did not deserve it.' },
-        { role: 'a porter of the Market', motive: 'Was given an apple by a boy and told a lie about where it came from.' },
+        { role: 'the husband', sex: 'm', motive: 'Loved her, and believed a story he was told about her, and did not ask.' },
+        { role: 'the husband\'s brother', sex: 'm', motive: 'Cannot bear what his brother believes, and would hang for him.' },
+        { role: 'a servant boy', sex: 'm', motive: 'Took an apple from a sick woman\'s table and gave it to a man who did not deserve it.' },
+        { role: 'a porter of the Market', sex: 'm', motive: 'Was given an apple by a boy and told a lie about where it came from.' },
       ],
       items: [
         { type: 'evidence', label: 'The Apple in the First Hand', text: 'Three apples were bought for a sick woman. One left her table. Whose hand took it?', needs: 'lab',
@@ -560,7 +561,7 @@
       hints: ['Paid a month in advance, in coin. Nervous sort.', 'Comes and goes at night. Never the same street twice.'],
     },
     gang: {
-      label: 'A Band', title: 'The Breaking of {gang}', lifetime: 320, difficulty: 9, special: true, highProfile: true,
+      label: 'A Band', title: 'The Breaking of {gang}', lifetime: 320, difficulty: 9, special: true, highProfile: true, guiltyRole: 'the band\'s upright man',
       keyAspects: ['financial', 'testimony', 'digital', 'opportunity'], districts: ['docks', 'neon', 'warrens'],
       charge: { financial: 3, testimony: 2, digital: 2, opportunity: 2 },
       scenes: ['the Cellar {gang} Drink In', 'a Warehouse {gang} Use'],
@@ -581,7 +582,7 @@
       hints: ['The upright man never touches the coin. Makes someone else do it.', 'They\'re more frightened of him than of you.'],
     },
     syndicate: {
-      label: 'The Coquille', title: 'The Court of Miracles', lifetime: 400, difficulty: 12, special: true, highProfile: true,
+      label: 'The Coquille', title: 'The Court of Miracles', lifetime: 400, difficulty: 12, special: true, highProfile: true, guiltyRole: 'the King of Thunes',
       keyAspects: ['financial', 'digital', 'testimony', 'motive', 'forensic'], districts: ['warrens'],
       charge: { financial: 3, digital: 3, testimony: 2, motive: 2, forensic: 2 },
       scenes: ['the Court of Miracles, under the Warrens'],

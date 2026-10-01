@@ -101,10 +101,15 @@ function fresh(seed) {
   var matched = d.run('analyze', [d.byLabel(/Half a Hand/)[0], d.byDef('prints')[0]]);
   assert.ok(/Hand Matched/.test(e.labelOf(matched[0])), 'the hand matches the culprit');
   assert.strictEqual(matched[0].data.points, d.rec().culprit);
-  // The mind palace agrees.
+  // The mind palace reasons from the tokens: the blade alone gives a theory, not a name.
   var th = d.run('reflect', [kase, d.byLabel(/Blade Read/)[0]]);
-  assert.strictEqual(d.rec().identified, d.rec().culprit, 'Hands and Hours names the culprit');
-  void th;
+  assert.ok(!d.rec().identified, 'a token that names nobody names nobody');
+  assert.ok(th.some(function (c) { return /^Theory: Hands and Hours/.test(e.labelOf(c)); }), 'a theory token: ' + th.map(function (c) { return e.labelOf(c); }));
+  var th2 = d.run('reflect', [kase, d.byLabel(/Blade Read/)[0]]);
+  assert.ok(!th2.some(function (c) { return /^Theory/.test(e.labelOf(c)); }), 'the same theory is one token');
+  e.remove(th.filter(function (c) { return /^Theory/.test(e.labelOf(c)); })[0]);
+  d.run('reflect', [kase, d.byLabel(/Blade Read/)[0], d.byLabel(/Hand Matched/)[0]]);
+  assert.strictEqual(d.rec().identified, d.rec().culprit, 'Hands and Hours names the culprit the matched hand points at');
   // Forensics alone pile up on one aspect; the timing gives the charge its second leg.
   // (An Examiner's first case asks little, so the Court is told to want the full weight here.)
   d.rec().charge = { forensic: 3, opportunity: 2, financial: 2 };
@@ -167,8 +172,15 @@ function fresh(seed) {
   d.run('interrogate', [sc, d.byDef('focus')[0]]);
   var motive = d.byLabel(/^Motive/)[0];
   assert.ok(motive, 'a gentle interview gives the motive');
+  // Full proof wants Word behind the coin: the neighbour's deposition.
+  var w = d.byDef('witness')[0];
+  assert.ok(w && w.data.knows, 'the canvass gives the neighbour');
+  d.run('interrogate', [w, d.byDef('focus')[0]]);
+  var dep = d.byLabel(/^Deposition/)[0];
+  assert.ok(dep && dep.data.stake, 'a deposition with a stake');
   d.run('investigate', [kase]);
-  d.charge([pawned, d.byLabel(/Inventory/)[0], motive, d.byLabel(/The Hours/)[0]]);
+  assert.notStrictEqual(e.assessCharge(sc, [pawned, d.byLabel(/Inventory/)[0], motive, d.byLabel(/The Hours/)[0]]).tier, 'strong', 'coin and hours without a witness are half proof');
+  d.charge([pawned, dep, motive, d.byLabel(/The Hours/)[0]]);
   console.log('money route: convicted\n  ' + d.log.join('\n  '));
 })();
 

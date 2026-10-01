@@ -81,8 +81,8 @@ function checkInvariants(e) {
   // Charge assessment: the real culprit with enough key clues is solid.
   var rec = e.caseRec(cs.caseId);
   var sus = e.make('suspect', { caseId: rec.id, data: { key: rec.culprit } });
-  var clues = rec.keyAspects.slice(0, 2).map(function (k) {
-    var a = {}; a[k] = rec.charge[k] + 2; return e.make('clue', { caseId: rec.id, aspects: a });
+  var clues = rec.keyAspects.slice(0, 2).map(function (k, i) {
+    var a = {}; a[k] = rec.charge[k] + 2; return e.make('clue', { caseId: rec.id, aspects: a, data: i === 0 ? { points: rec.culprit } : {} });
   });
   var a = e.assessCharge(sus, clues);
   assert.ok(a.solid && a.tier === 'strong', 'strong charge is solid');

@@ -17,6 +17,9 @@ function table(e, pred) { return e.tableCards().filter(pred); }
 function of(e, def) { return table(e, function (c) { return c.def === def; }); }
 function asp(c) { return CF.aspectsOf(c); }
 function clueWeight(c) { var a = CF.clueAspects(c), w = 0; for (var k in a) w += a[k]; return w; }
+// Word behind a token: a confession, a witness, a name, corroboration. Full proof wants one.
+function wordOf(c) { var d = c.data || {}; return (d.confession ? 3 : 0) + (d.stake && !d.coerced ? 2 : 0) + (d.points ? 2 : 0) + (d.corroborated ? 1 : 0); }
+function namesOne(c) { var d = c.data || {}; return !d.alibi && (d.points || d.trait) ? 1 : 0; }
 
 function tryRun(e, vid, cards) {
   var v = e.verb(vid);
@@ -109,16 +112,26 @@ function step(e, temper) {
     var rec = e.caseRec(cc.caseId);
     if (!rec || rec.status !== 'open') return;
     var clues = table(e, function (c) { return c.def === 'clue' && c.caseId === rec.id; }).sort(function (a, b) { return clueWeight(b) - clueWeight(a); });
+    // The charge: the heaviest tokens, the ones with Word behind them first.
+    var proof = clues.slice().sort(function (a, b) { return (clueWeight(b) + wordOf(b)) - (clueWeight(a) + wordOf(a)); });
     var suspects = table(e, function (c) { return c.def === 'suspect' && c.caseId === rec.id; });
     var prime = suspects.filter(function (c) { return /^Prime/.test(c.label); })[0];
     // Arrest when solid or out of time.
     var target = prime || (cc.life < 40 ? suspects[0] : null);
     if (target) {
-      var a = e.assessCharge(target, clues.slice(0, 4));
-      if (a.tier === 'strong' || cc.life < 40) { tryRun(e, 'arrest', [target].concat(clues.slice(0, 4))); return; }
+      var a = e.assessCharge(target, proof.slice(0, 4));
+      if (a.tier === 'strong' || cc.life < 40) { tryRun(e, 'arrest', [target].concat(proof.slice(0, 4))); return; }
     }
-    // Theory once there are a few clues.
-    if (!rec.identified && clues.length >= 2) tryRun(e, 'reflect', [cc].concat(clues.slice(0, 3)));
+    // A hand with no name yet: hold it against the accused, one at a time.
+    var hand = clues.filter(function (c) { return c.data.names && !c.data.points; })[0];
+    if (hand && suspects.length) tryRun(e, 'analyze', [hand, suspects[Math.floor(s.t) % suspects.length]]);
+    // An alibi laid beside the hours in Rest: check the night.
+    var alibi = clues.filter(function (c) { return c.data.alibi; })[0];
+    var hours = clues.filter(function (c) { return !c.data.alibi && CF.clueAspects(c).opportunity; })[0];
+    if (alibi && hours) tryRun(e, 'reflect', [alibi, hours]);
+    // Theory once there are a few clues (a story to check is not a reason); the tokens that name someone first.
+    var reasons = clues.filter(function (c) { return !c.data.alibi; }).sort(function (a, b) { return namesOne(b) - namesOne(a); });
+    if (!rec.identified && reasons.length >= 2) tryRun(e, 'reflect', [cc].concat(reasons.slice(0, 3)));
     // Search the scene, then canvass.
     if (rec.found < rec.items.length) tryRun(e, 'investigate', [cc, bestTool(e), team[0], of(e, 'focus')[0]]);
     else {

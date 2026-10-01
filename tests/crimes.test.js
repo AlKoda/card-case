@@ -94,4 +94,64 @@ function run(e, verb, cards) {
   console.log('highway: ok');
 })();
 
-console.log('crimes: whole, witch, scriptorium, highway all OK');
+// ---- A case the story hands in: its own title, brief, roles and guilty role ---------
+(function opts() {
+  var e = game(800);
+  var roles = [{ role: 'the miller', motive: 'The mill was failing.', sex: 'm' }, { role: 'the miller\'s wife', motive: 'The jointure.', sex: 'f' }, { role: 'a carter', motive: 'He knew the road.' }];
+  var card = e.spawnCase('burglary', { quiet: true, title: 'The {last} Matter', brief: 'A brief of its own for {victim}.', roles: roles, guiltyRole: 'the miller\'s wife' });
+  var rec = e.caseRec(card.caseId);
+  assert.strictEqual(rec.title, 'The ' + rec.vars.last + ' Matter', 'the title is honoured');
+  assert.strictEqual(card.desc.indexOf('A brief of its own for ' + rec.victim + '.'), 0, 'the brief is honoured over the structure: ' + card.desc);
+  assert.deepStrictEqual(rec.suspects.map(function (x) { return x.role; }), roles.map(function (r) { return r.role; }), 'the roles, in order');
+  var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  assert.strictEqual(cul.role, 'the miller\'s wife', 'the guilty role is honoured');
+  assert.ok(CF.NAMES.f.indexOf(cul.name.split(' ')[0]) >= 0, 'a woman\'s name for a wife: ' + cul.name);
+  assert.ok(CF.NAMES.m.indexOf(rec.suspects[0].name.split(' ')[0]) >= 0, 'a man\'s name for the miller: ' + rec.suspects[0].name);
+  // The band's upright man and the King of Thunes are the ones to break.
+  for (var i = 0; i < 5; i++) {
+    var f = game(810 + i);
+    assert.strictEqual(f.caseRec(f.spawnCase('gang', { quiet: true, gangName: 'the Quiet Men' }).caseId).suspects.filter(function (x) { return x.guilty; })[0].role, 'the band\'s upright man');
+    assert.strictEqual(f.caseRec(f.spawnCase('syndicate', { quiet: true }).caseId).suspects.filter(function (x) { return x.guilty; })[0].role, 'the King of Thunes');
+  }
+  console.log('opts: ok');
+})();
+
+// ---- The brief's own items are always at the scene ----------------------------------------
+(function sceneItems() {
+  Object.keys(CF.STRUCTURES).forEach(function (tid) {
+    for (var i = 0; i < 50; i++) {
+      var e = game(900 + i);
+      var rec = e.caseRec(e.spawnCase(tid, { quiet: true }).caseId);
+      var st = CF.STRUCTURES[tid].filter(function (x) { return x.id === rec.structure; })[0];
+      assert.ok(st, tid + ': a structure');
+      assert.ok(rec.items.length <= 4, tid + ': four things at most');
+      st.items.forEach(function (it) {
+        var lab = CF.util.fill(it.label, rec.vars);
+        lab = lab.charAt(0).toUpperCase() + lab.slice(1);
+        assert.ok(rec.items.some(function (x) { return x.label === lab; }), tid + '/' + st.id + ' seed ' + i + ': the brief\'s item is at the scene: ' + lab + ' in ' + rec.items.map(function (x) { return x.label; }).join(' | '));
+      });
+      var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+      assert.ok(rec.items.some(function (x) { return x.trait === cul.trait; }), tid + ': the trait token is at the scene');
+    }
+  });
+  console.log('scene items: ok');
+})();
+
+// ---- Names fit roles ---------------------------------------------------------------------------
+(function names() {
+  for (var i = 0; i < 30; i++) {
+    var e = game(950 + i);
+    var fraud = e.caseRec(e.spawnCase('fraud', { quiet: true }).caseId);
+    assert.ok(CF.NAMES.f.indexOf(fraud.victim.split(' ')[0]) >= 0, 'the widow of the Market has a woman\'s name: ' + fraud.victim);
+    var three = e.caseRec(e.spawnCase('threedays', { quiet: true }).caseId);
+    var husband = three.suspects.filter(function (x) { return x.role === 'the husband'; })[0];
+    assert.ok(husband && CF.NAMES.m.indexOf(husband.name.split(' ')[0]) >= 0, 'the husband has a man\'s name: ' + husband.name);
+    var w1 = e.witnessSpec(fraud, 'the woman at the casement opposite'), w2 = e.witnessSpec(fraud, 'a porter on the late gang');
+    assert.ok(CF.NAMES.f.indexOf(w1.label.replace('Witness: ', '').split(' ')[0]) >= 0, 'a woman witness: ' + w1.label);
+    assert.ok(CF.NAMES.m.indexOf(w2.label.replace('Witness: ', '').split(' ')[0]) >= 0, 'a man witness: ' + w2.label);
+  }
+  assert.strictEqual(CF.NAMES.first.length, CF.NAMES.m.length + CF.NAMES.f.length);
+  console.log('names: ok');
+})();
+
+console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, names all OK');

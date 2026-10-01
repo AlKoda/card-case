@@ -227,7 +227,7 @@
         caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res } } });
     }
     if (g.type === 'witness') {
-      var spec = e.witnessSpec(rec);
+      var spec = e.witnessSpec(rec, g.who ? fill(g.who) : undefined);
       if (g.who) spec.desc = spec.label.replace('Witness: ', '') + ', ' + fill(g.who) + '. Saw something near ' + rec.scene + '. (Witness in: ' + rec.title + ')';
       if (g.knows !== undefined) spec.data.knows = !!g.knows;
       return ctx.give('witness', spec);

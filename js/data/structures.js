@@ -65,7 +65,7 @@
         items: [
           { type: 'clue', label: 'Heard from the Barge', text: '{detail}, {time}. The bargeman went back to sleep. He is sorry now.', aspects: { testimony: 1, opportunity: 1 } },
           { type: 'evidence', label: '{item}', text: 'Sealed in oilcloth. The victim wanted it kept.', needs: 'lab',
-            result: { label: 'What They Kept', text: 'Marks and names, and one of the names is on your board.', aspects: { financial: 2, motive: 1 } } },
+            result: { names: true, label: 'What They Kept', text: 'Marks and names, and one of the names is on your board.', aspects: { financial: 2, motive: 1 } } },
         ] },
       { id: 'warehouse_floor', vars: { time: ['on the night gang', 'after the last cart left', 'on Sunday, when nobody should have been there'], detail: ['a hoist left swinging', 'fresh whitewash over something on the floor', 'the watchman\'s stool by the wrong door'], item: ['a weigh-house ticket', 'a foreman\'s tally', 'a sample bag of something white'] },
         brief: '{victim} was found on a warehouse floor at the Harbour, {time}. The scene had been tidied: {detail}. What they missed: {item}.',
@@ -136,7 +136,7 @@
         brief: '{victim} has been paying {time}, because of {detail}. What is wanted is {item}. They came to you because they cannot pay any more.',
         items: [
           { type: 'evidence', label: '{detail}', text: 'What they were shown. Handled, folded, handled again.', needs: 'prints',
-            result: { label: 'The Hand on the Paper', text: 'The blackmailer\'s own hand, on the thing they were most careful about.', aspects: { forensic: 3 } } },
+            result: { names: true, label: 'The Hand on the Paper', text: 'The blackmailer\'s own hand, on the thing they were most careful about.', aspects: { forensic: 3 } } },
           { type: 'clue', label: 'The Price', text: '{item}. It is never really about the money, until it is.', aspects: { motive: 2, financial: 1 } },
         ] },
       { id: 'the_club', vars: { time: ['since the keeper changed', 'since the new doorman', 'since the licence came before the Council'], detail: ['a fire in the kitchen that was not an accident', 'a delivery that never comes on time', 'a brawl that starts whenever the till is full'], item: ['a share', 'the back room, for their own use', 'the tavern itself, eventually'] },
@@ -165,7 +165,7 @@
         brief: 'The powder that killed {victim} came from a shop in the city, {time}. At the Sign of the Pestle, {detail}. What went out the door: {item}.',
         items: [
           { type: 'evidence', label: 'The Poison Book', text: '{detail}. Every apothecary must keep one.', needs: 'lab',
-            result: { label: 'The Cut Leaf Read', text: 'The leaf beneath took the impress of the pen. A name, a date, {item}.', aspects: { digital: 2, forensic: 1 } } },
+            result: { names: true, label: 'The Cut Leaf Read', text: 'The leaf beneath took the impress of the pen. A name, a date, {item}.', aspects: { digital: 2, forensic: 1 } } },
           { type: 'clue', label: 'The Boy\'s Errand', text: '{detail}. Somebody wanted the shop empty for a quarter of an hour.', aspects: { opportunity: 2 } },
         ] },
     ],
@@ -300,7 +300,7 @@
         items: [
           { type: 'clue', label: 'Smoke After Curfew', text: '{detail}. No forge is licensed there.', aspects: { opportunity: 2 } },
           { type: 'evidence', label: '{item}', text: 'Thrown away in a hurry.', needs: 'prints',
-            result: { label: 'The Hand on the Mould', text: 'Vinegar brings up the hand that pressed it: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
+            result: { names: true, label: 'The Hand on the Mould', text: 'Vinegar brings up the hand that pressed it: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
         ] },
       { id: 'the_passer', vars: { time: ['at the cattle market', 'in the dice-cellars', 'at every tavern on the Harbour'], detail: ['always paid in new coin', 'always by candlelight', 'always to strangers'], item: ['a tally of what was passed where', 'a purse with two compartments', 'a ferryman\'s token'] },
         brief: 'The false coin is being passed {time}, {detail}. The Mintmaster wants the die; the Council wants a name. On the passer, when the passer was nearly taken: {item}.',

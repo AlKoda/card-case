@@ -20,6 +20,11 @@
     { id: 'connect', label: 'Follow the Thread', duration: 25,
       needs: { min: 2, sharedLink: true, crossCase: true },
       story: { title: 'These Cases Are One', text: '{clues}: two cases, one door. Somebody is working through {front}, and more than one of your cases leads there.', kind: 'major' } },
+    // An alibi laid beside the hours: the night is checked. An innocent is
+    // struck from the casebook; a liar's night becomes a token against them.
+    { id: 'alibi', label: 'Check the Night', duration: 20,
+      needs: { min: 2, alibi: true, aspects: { opportunity: 1 } },
+      consume: true },
     // Two tokens that describe the same person: an identification. Confirmed
     // when an accused on the board fits; only "possible" until then.
     { id: 'identify', label: 'Put a Face to It', duration: 30,

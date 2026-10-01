@@ -39,6 +39,7 @@
       if (!Object.keys(links).some(function (l) { return links[l] >= 2; }) || Object.keys(cases).length < 2) return false;
     }
     if (n.points && !clues.some(function (c) { return c.data.points; })) return false;
+    if (n.alibi && !clues.some(function (c) { return c.data.alibi; })) return false;
     if (n.pattern && clues.filter(function (c) { return c.data.pattern; }).length < n.pattern) return false;
     return true;
   };
@@ -56,6 +57,7 @@
   Deduce.run = function (ctx, d, rec, clues) {
     var e = ctx.e;
     if (d.id === 'connect') return Deduce.connect(ctx, clues);
+    if (d.id === 'alibi') return Deduce.alibi(ctx, d, rec, clues);
     var traits = traitsOf(clues);
     var shared = Object.keys(traits).filter(function (t) { return traits[t] >= 2; })[0] || null;
     var trait = shared || (Object.keys(traits).length === 1 ? Object.keys(traits)[0] : null);
@@ -104,6 +106,24 @@
     var text2 = U.fill(st.text || '', vars);
     if (d.id === 'identify') text2 += fits ? ' It is ' + fits.name + '.' : ' Whoever it is, you have not met them yet.';
     return { title: U.fill(st.title || d.label, vars), text: text2, kind: st.kind || (fits ? 'major' : undefined), made: made };
+  };
+  // The night checked against an alibi. An innocent's story holds: they are
+  // cleared and their card goes. The culprit's does not: a token against them.
+  Deduce.alibi = function (ctx, d, rec, clues) {
+    var e = ctx.e;
+    var key = clues.map(function (c) { return c.data.alibi; }).filter(Boolean)[0];
+    var sus = rec.suspects.filter(function (x) { return x.key === key; })[0];
+    if (!sus) return { title: 'Nothing to Check', text: 'The story names nobody in the casebook.' };
+    clues.forEach(ctx.consume);
+    if (!sus.guilty) {
+      sus.cleared = true;
+      if (rec.identified === sus.key) rec.identified = null;
+      for (var k in e.s.cards) { var c = e.s.cards[k]; if (c.def === 'suspect' && c.caseId === rec.id && c.data.key === sus.key) e.remove(c); }
+      return { title: 'The Night Accounted For', text: sus.name + ' was where they said. Strike the name from the casebook.' };
+    }
+    var made = ctx.give('clue', { label: 'A Lie About the Night', desc: 'The bells do not agree with ' + sus.name + '. Nobody at the crane remembers them.',
+      aspects: { opportunity: 2 }, caseId: rec.id, data: { misread: false, coerced: false, planted: false, corroborated: false, trait: sus.trait, points: sus.key, deduction: d.id } });
+    return { title: 'A Lie About the Night', kind: 'major', text: 'The bells do not agree with ' + sus.name + '. Nobody at the crane remembers them.', made: made };
   };
   // Two cases, one front: a Thread, the Front on the table, and (for the
   // Master Detective) a name in each connected case.

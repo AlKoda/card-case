@@ -36,7 +36,7 @@ function assess(clues) { return e.assessCharge(sc, clues); }
 
 // Diversity beats a pile of one aspect.
 var pile = assess([clue({ forensic: 4 }), clue({ forensic: 4 }), clue({ forensic: 3 }), clue({ forensic: 2 })]);
-var spread = assess([clue({ forensic: 3 }), clue({ testimony: 2 }), clue({ motive: 2 }), clue({ opportunity: 2 })]);
+var spread = assess([clue({ forensic: 3 }), clue({ testimony: 2 }, { stake: 'reward' }), clue({ motive: 2 }), clue({ opportunity: 2 })]);
 assert.ok(spread.score > pile.score, 'spread ' + spread.score + ' beats pile ' + pile.score);
 assert.notStrictEqual(pile.tier, 'strong', 'thirteen points of forensic alone is not a strong charge');
 assert.strictEqual(spread.tier, 'strong');
@@ -45,10 +45,14 @@ assert.strictEqual(spread.tier, 'strong');
 var offKey = assess([clue({ digital: 4 }), clue({ motive: 4 })]);
 assert.strictEqual(offKey.tier, 'weak', 'eight off-profile points: ' + offKey.score);
 
-// Tiers.
+// Tiers. Enough of the right proof is full proof only with Word behind it:
+// a witness, a confession, or a token that names or corroborates.
 assert.strictEqual(assess([]).tier, 'weak');
 assert.strictEqual(assess([clue({ forensic: 2 }), clue({ opportunity: 2 })]).tier, 'reasonable');
-assert.strictEqual(assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 })]).tier, 'strong');
+assert.strictEqual(assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 })]).tier, 'reasonable', 'the scene alone is half proof');
+assert.strictEqual(assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 }, { stake: 'hates' })]).tier, 'strong', 'a witness makes it full');
+assert.strictEqual(assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 }, { corroborated: true })]).tier, 'strong', 'a corroborated token makes it full');
+assert.strictEqual(assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 }, { confession: 'question' })]).tier, 'strong', 'a confession checked against Body makes it full');
 
 // Corroboration and evidence that names the accused help.
 var plain = assess([clue({ forensic: 2 }), clue({ opportunity: 2 })]);
@@ -74,7 +78,7 @@ assert.strictEqual(dirty.planted, 1);
 assert.ok(dirty.score < agrees.score);
 
 // Misread clues look good and are not.
-var mis = assess([clue({ forensic: 2 }, { misread: true }), clue({ opportunity: 2 }), clue({ financial: 2 })]);
+var mis = assess([clue({ forensic: 2 }, { misread: true, corroborated: true }), clue({ opportunity: 2 }), clue({ financial: 2 })]);
 assert.strictEqual(mis.tier, 'strong');
 assert.notStrictEqual(mis.realTier, 'strong');
 assert.ok(!mis.solid);
@@ -85,11 +89,27 @@ var f = assess([clue({ forensic: 2 }), otherCase]);
 assert.strictEqual(f.foreign, 1);
 assert.ok(!f.have.forensic || f.have.forensic === 2);
 
-// The description the Arrest window shows.
+// The description the Arrest window shows: the contradicting token by name,
+// the lesser crime half proof convicts of, and what full proof still wants.
 var d = CF.Charge.describe(contra);
 assert.strictEqual(d.rows.length, 3);
-assert.ok(d.notes.some(function (n) { return n.kind === 'bad' && /somebody else/.test(n.text); }));
+var contraNote = d.notes.filter(function (n) { return n.kind === 'bad' && /somebody else/.test(n.text); })[0];
+assert.ok(contraNote && contraNote.text.indexOf(e.labelOf(contra.contradicting[0])) === 0, 'the Court names the token: ' + (contraNote && contraNote.text));
+assert.ok(/describes somebody else: −2$/.test(contraNote.text));
+assert.deepStrictEqual(d.bad, [contra.contradicting[0].uid], 'the contradicting token for the window');
 assert.strictEqual(d.tierLabel, CF.Charge.TIERS[contra.tier].label);
+var two = CF.Charge.describe(assess([clue({ forensic: 2 }, { trait: other.trait }), clue({ opportunity: 2 }, { points: other.key })]));
+assert.ok(two.notes.some(function (n) { return / and .* describe somebody else: −4$/.test(n.text); }), 'two tokens, joined with and');
+assert.strictEqual(two.bad.length, 2);
+var half = CF.Charge.describe(assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 1 })]));
+assert.strictEqual(half.tier, 'reasonable');
+assert.ok(half.notes.some(function (n) { return n.kind === 'bad' && /Half proof: the Court would convict of theft, not burglary, and the ladder stops at banishment\./.test(n.text); }), 'the lesser crime is named');
+assert.ok(half.notes.some(function (n) { return n.kind === 'dim' && /^To full proof: /.test(n.text) && /or a confession, freely given\.$/.test(n.text); }), 'what full proof wants');
+var gap = CF.Charge.describe(assess([clue({ forensic: 1 }), clue({ testimony: 2 }, { stake: 'reward' })]));
+assert.strictEqual(gap.tier, 'weak');
+var want = gap.notes.filter(function (n) { return /^To full proof/.test(n.text); })[0];
+assert.ok(want && /Body 1, Presence 2, Coin 1/.test(want.text) && /or a second witness who wants something else/.test(want.text), 'the shortfall and a second witness: ' + (want && want.text));
+assert.ok(!CF.Charge.describe(spread).notes.some(function (n) { return /^To full proof|^Half proof/.test(n.text); }), 'full proof wants nothing more');
 
 // The court reacts to the tier: a weak charge on an innocent person rarely convicts,
 // a strong one on the culprit nearly always does.
