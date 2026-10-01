@@ -36,6 +36,8 @@ El.prototype.removeEventListener = function () {};
 El.prototype.click = function () { (this.listeners.click || []).forEach(function (fn) { fn({ target: this, stopPropagation: function () {}, preventDefault: function () {} }); }, this); };
 El.prototype.setAttribute = function (k, v) { this[k] = v; };
 El.prototype.getAttribute = function (k) { return this[k]; };
+El.prototype.removeAttribute = function (k) { delete this[k]; };
+El.prototype.hasAttribute = function (k) { return this[k] !== undefined; };
 El.prototype.getBoundingClientRect = function () { return { left: 0, top: 0, right: 1280, bottom: 800, width: 1280, height: 800 }; };
 El.prototype.contains = function (c) { while (c) { if (c === this) return true; c = c.parentNode; } return false; };
 El.prototype.closest = function () { return null; };
@@ -587,15 +589,21 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(links && pins && links !== pins, 'the rope layer and the pin layer');
   var html = links.innerHTML;
   assert.ok(links.children.length >= 1 && /^M/.test(links.children[0].d), 'a rope is drawn');
-  var rope = null, i;
+  // Each rope has its shadow path: the shadows first, the ropes after them in the same order.
+  var half = links.children.length / 2;
+  assert.ok(half >= 1 && half === Math.floor(half), 'two paths per rope');
+  assert.ok(links.children.slice(0, half).every(function (c) { return c.classList.contains('shade'); }) && links.children.slice(half).every(function (c) { return !c.classList.contains('shade') && c.stroke; }), 'the shadows under the coloured ropes');
+  var rope = null, ropeAt = -1, i;
   var head = 'M' + (cc.loc.x + CF.TABLE.CW / 2).toFixed(0) + ' ' + (cc.loc.y + 12).toFixed(0);
-  for (i = 0; i < links.children.length; i++) if (links.children[i].d.indexOf(head) === 0) rope = links.children[i];
+  for (i = half; i < links.children.length; i++) if (links.children[i].d.indexOf(head) === 0) { rope = links.children[i]; ropeAt = i - half; }
   assert.ok(rope, 'the rope starts at the case card');
+  assert.strictEqual(links.children[ropeAt].d, rope.d, 'its shadow follows the same line');
   var d0 = rope.d;
   UI.drag = { kind: 'card', started: true, uid: clue.uid, uids: [clue.uid], from: 'table', el: new El('div'), origin: { left: 0, top: 0, w: 1, h: 1 }, z: 1, lastEv: { clientX: 900, clientY: 500 }, gx: 10, gy: 10, rect: { left: 0, top: 0, width: 1280, height: 800 } };
   UI.syncLinksHeld([String(clue.uid)]);
   assert.strictEqual(links.innerHTML, html, 'the layer is not rebuilt');
   assert.notStrictEqual(rope.d, d0, 'the rope follows the held token');
+  assert.strictEqual(links.children[ropeAt].d, rope.d, 'and so does its shadow');
   var hidden = pins.children.filter(function (c) { return c.visibility === 'hidden'; });
   assert.strictEqual(hidden.length, 2, 'the held token\'s pin goes with it');
   UI.back();
@@ -652,7 +660,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
   // Meter icons.
   assert.ok(/opacity: 0\.85/.test(rule('.meter .m-icon')) && /opacity: 0\.9;/.test(rule('.meter.lvl-1 .m-icon')) && /opacity: 0\.95/.test(rule('.meter.lvl-2 .m-icon')), 'the meter icons read at every level');
-  assert.ok(/animation: urgentIcon/.test(rule('.meter.crit .m-icon')) && /drop-shadow/.test(rule('.meter.lvl-3 .m-icon')), 'the glow and the pulse stay');
+  assert.ok(/animation: urgentIcon/.test(rule('.meter.crit .m-icon::after')) && /drop-shadow/.test(rule('.meter.lvl-3 .m-icon')), 'the glow and the pulse stay (the pulse on its pseudo-element)');
   // Touch targets.
   var coarse = /@media \(pointer: coarse\) \{([\s\S]*?)\n\}/.exec(css);
   assert.ok(coarse, 'a block for coarse pointers');
@@ -713,6 +721,83 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/border-image: var\(--art-cpanel3-01\) 64 66 28 20 fill \/ 1 stretch/.test(rule('#peek')) && /border-width: 45px 46px 20px 14px/.test(rule('#peek')), 'the dossier is the same panel, smaller');
   assert.ok(/<div id="peek"><\/div>\s*<button id="peek-x" title="Close">/.test(html) && /display: block/.test(rule('#peek.open + #peek-x')) && /peek-x/.test(screens) && /#peek \.peek-close/.test(screens), 'the dossier\'s X is a hot spot beside the panel, wired to its close');
   console.log('ui: the stylesheet and the markup paint the panels, the pile, the slots and the ending');
+})();
+
+// ---- Lot V, items 15-19: glows pulse by opacity on pseudo-elements and the pause is a shade, the
+// badges and counts are seals, the journal is paper, nothing is promoted at rest and the table can
+// lie flat, the dead rules are gone, the grey button is blue and the third speed has its glyph.
+(function markup3() {
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var screens = fs.readFileSync(path.join(__dirname, '..', 'js/screens.js'), 'utf8');
+  var settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/settings.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  // Glows: the keyframes move opacity alone, each on a pre-drawn pseudo-element.
+  ['pulse', 'glow', 'urgent', 'urgentIcon', 'mergedGlow'].forEach(function (k) {
+    var kf = new RegExp('@keyframes ' + k + ' \\{([^}]*\\}[^}]*)\\}').exec(css);
+    assert.ok(kf && /opacity: 1/.test(kf[1]) && !/filter/.test(kf[1]), k + ' animates opacity, not a filter');
+  });
+  assert.ok(/animation: pulse/.test(rule('.verb.done .v-token::before')) && /box-shadow/.test(rule('.verb.done .v-token::before, .verb.new .v-token::before, .verb.noticed .v-token::before')), 'a done token pulses on its ::before');
+  assert.ok(/animation: urgent /.test(rule('.card.urgent::after')) && /box-shadow/.test(rule('.card.urgent::after, .card.noticed::after, .card.merged::after')), 'an urgent card glows on its ::after');
+  assert.ok(/animation: urgentIcon/.test(rule('.meter.crit .m-icon::after')) && /animation: pulse/.test(rule('.edge-mark b::after')) && /animation: glow/.test(rule('.verb .v-magnet.asks::after')), 'the meter, the edge mark and the ask box too');
+  assert.ok(!/animation: (pulse|glow|urgent)/.test(rule('.verb.done .v-token') || '') && !/\.card\.urgent \.c-face \{/.test(css) && !/\.meter\.crit \.m-icon \{/.test(css), 'nothing animates on the element itself');
+  assert.ok(!/#table\.paused #board/.test(css) && /rgba\(6, 20, 24, 0\.35\)/.test(rule('#table.paused #tilt::after')) && /pointer-events: none/.test(rule('#table.paused #tilt::after')), 'the pause is a shade over the plane');
+  assert.ok(!/transition: filter/.test(rule('#board')), 'the board has no filter transition');
+  assert.ok(!/filter/.test(rule('#board .links path')) && /translateY\(2px\)/.test(rule('#board .links path.shade')), 'the ropes have a shadow path, not a filter');
+  var rm = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(css);
+  assert.ok(rm && /\.verb\.done \.v-token::before[^{]*\.card\.urgent::after[^{]*\{ animation: none/.test(rm[1]), 'the pulses hold still under reduced motion');
+  assert.ok(/transform-origin: right center/.test(rule('#weekbar .wb-shade')) && /transition: transform 0\.5s linear/.test(rule('#weekbar .wb-shade')) && !/transition: left/.test(rule('#weekbar .wb-shade')), 'the week shade is right-anchored for the scaleX');
+  // Seals and counters.
+  var badge = rule('.verb .v-badge'), count = rule('.verb .v-count');
+  assert.ok(/width: 40px; height: 40px/.test(badge) && /background: center \/ contain no-repeat/.test(badge) && !/var\(--good\)/.test(badge) && !/border-radius/.test(badge), 'the badge is a 40px seal with no disc');
+  assert.ok(/width: 30px; height: 30px/.test(count) && /background: center \/ contain no-repeat/.test(count) && !/var\(--accent\)/.test(count) && !/border-radius/.test(count), 'the count is a 30px seal');
+  assert.ok(/border-radius: 50%/.test(rule('.verb .v-count.figures, .verb .v-badge.figures')), 'figures past five get a disc');
+  assert.ok(/background-size: 78%/.test(rule('.verb.time .v-magnet')) && /box-shadow:[^;]*rgba\(240, 200, 90, 0\.7\)/.test(rule('.verb .v-magnet.due')), 'the Bell shows its ring at 78% and keeps the due glow');
+  // The journal on paper.
+  assert.ok(/width: 18px; height: 18px/.test(rule('.firsts .first i')) && /display: inline-block/.test(rule('.firsts .first i')), 'the firsts wear 18px marks');
+  assert.ok(/float: left/.test(rule('.journal-entry .j-icon')) && /width: 20px; height: 20px/.test(rule('.journal-entry .j-icon')), 'an entry floats its 20px icon');
+  assert.ok(/rgba\(239, 227, 198, 0\.92\)/.test(rule('#journal')) && /border: 2px solid #b8913f/.test(rule('#journal')), 'the journal is paper at 92%');
+  assert.ok(/border-left: 3px solid/.test(rule('.journal-entry')) && /background: rgba\(255, 250, 238/.test(rule('.journal-entry')) && /border-left-color: var\(--danger\)/.test(rule('.journal-entry.k-case')), 'entries are paper blocks with the kind down the left');
+  assert.ok(/cbar-02/.test(rule('.side-head')) && /color: #1c1914/.test(rule('.side-head')), 'the head is the small blue banner');
+  // No layers at rest; the flat table.
+  var card = /\n\.card \{([^}]*)\}/.exec(css)[1], verb = /\n\.verb \{([^}]*)\}/.exec(css)[1];
+  assert.ok(!/will-change/.test(card) && !/will-change/.test(verb), 'cards and verbs are not promoted at rest');
+  assert.ok(/will-change: transform/.test(rule('.card.lifted, .card.settle, .card.flying, .card.arrive, .verb.dragging, #drag-layer .card')), 'only while they move');
+  assert.ok(!/box-shadow/.test(rule('#board::before')) && (rule('#tilt').match(/radial-gradient/g) || []).length === 2, 'the table\'s shadow is a gradient on the plane');
+  assert.ok(/contain: paint/.test(rule('#table')), 'the table contains its paint');
+  assert.ok(/transform: none/.test(rule('html[data-flat] #tilt')) && /perspective: none/.test(rule('html[data-flat] #table')), 'data-flat lays the table flat');
+  assert.ok(/tilt: true/.test(settingsSrc) && !/deviceMemory/.test(settingsSrc) && /prefers-reduced-motion: reduce/.test(settingsSrc), 'tilt is on by default, off only under reduced motion');
+  assert.ok(/<label for="s-tilt">Tilt the table<\/label><input type="checkbox" class="toggle" id="s-tilt">/.test(html) && /<p class="set-note">Off, the table lies flat: easier on an old phone\.<\/p>/.test(html), 'the Settings row and its note');
+  assert.ok(/'snap', 'strings', 'haptics', 'tilt'\]/.test(screens), 'screens.js wires it like snap');
+  // settings.js under Node: the attribute follows the value.
+  var keep = CF.Settings, store = {};
+  globalThis.localStorage = { getItem: function (k) { return store[k] || null; }, setItem: function (k, v) { store[k] = v; } };
+  vm.runInThisContext(settingsSrc, { filename: 'js/settings.js' });
+  var root = document.documentElement;
+  assert.strictEqual(CF.Settings.get('tilt'), true, 'tilt defaults on');
+  assert.ok(!root.hasAttribute('data-flat'), 'no data-flat on the page');
+  CF.Settings.save({ tilt: false });
+  assert.ok(root.hasAttribute('data-flat'), 'turning it off lays the table flat');
+  CF.Settings.save({ tilt: true });
+  assert.ok(!root.hasAttribute('data-flat'), 'and on tilts it again');
+  var mm = globalThis.matchMedia;
+  globalThis.matchMedia = function (q) { return { matches: q === '(prefers-reduced-motion: reduce)', addEventListener: function () {}, addListener: function () {} }; };
+  store = {};
+  CF.Settings.load();
+  assert.strictEqual(CF.Settings.get('tilt'), false, 'a first run under reduced motion lies flat');
+  assert.ok(root.hasAttribute('data-flat'), 'from the first paint');
+  store = { 'casefile.settings.v1': JSON.stringify({ tilt: true }) };
+  CF.Settings.load();
+  assert.strictEqual(CF.Settings.get('tilt'), true, 'a saved choice wins');
+  globalThis.matchMedia = mm;
+  CF.Settings = keep;
+  // Dead rules, the blue button, the third speed.
+  assert.ok(!/#side \{/.test(css) && !/#inspector/.test(css) && !/\.c-sub/.test(css) && !/\.c-timer/.test(css), 'the dead rules are gone');
+  assert.ok(!/plate-btn\.grey/.test(css) && !/plate-btn grey/.test(html) && /cpill-02/.test(rule('.plate-btn.blue')) && (html.match(/class="plate-btn blue/g) || []).length >= 4, 'the blue button is called blue');
+  var sp3 = rule('#controls button[data-speed="3"]::after');
+  assert.ok(sp3 && /data:image\/svg\+xml/.test(sp3) && (sp3.match(/l24 20-24 20/g) || []).length === 3, 'speed 3 wears three chevrons');
+  assert.ok(/data-speed="3" title="Fastest \(3\)" style="--i:var\(--art-bround-06\)"><\/button>/.test(html) && !/<small>/.test(html), 'over bround-06, with no numeral');
+  console.log('ui: the glows, the seals, the paper journal, the flat table and the third speed hold');
 })();
 
 void realSetTimeout;

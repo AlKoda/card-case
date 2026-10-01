@@ -44,7 +44,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* The meters give way before anything else: a word too long for its room is cut, never the buttons. */
 #meters { display: flex; gap: 12px; flex-wrap: nowrap; flex: 0 1 auto; min-width: 0; }
 .meter { display: flex; align-items: center; gap: 6px; min-width: 104px; overflow: hidden; }
-.meter .m-icon { width: 28px; height: 28px; background: center / contain no-repeat; flex: none; }
+.meter .m-icon { position: relative; width: 28px; height: 28px; background: center / contain no-repeat; flex: none; }
 .meter .m-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .meter .m-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim); display: flex; justify-content: space-between; gap: 8px; }
 .meter .m-word { font-family: var(--display); font-size: 12px; letter-spacing: 0.04em; color: var(--paper); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.4s; }
@@ -59,8 +59,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .meter.rep .m-icon { opacity: 1; }
 .meter.rep .m-word { color: var(--good); }
 .meter.crit .m-label { color: var(--danger); }
-.meter.crit .m-icon { animation: urgentIcon 1s infinite; }
-@keyframes urgentIcon { 50% { filter: drop-shadow(0 0 5px rgba(208, 86, 74, 1)); } }
+/* Every pulse in the stylesheet is a glow drawn once on a pseudo-element whose opacity moves;
+   nothing is refiltered frame by frame (the keyframes pulse, glow, urgent and urgentIcon). */
+.meter.crit .m-icon::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; box-shadow: 0 0 6px 3px rgba(208, 86, 74, 1); opacity: 0; animation: urgentIcon 1s infinite; pointer-events: none; }
+@keyframes urgentIcon { 50% { opacity: 1; } }
 .meter.rep .m-fill { background: var(--good); }
 #controls { margin-left: auto; flex: none; display: flex; gap: 6px; align-items: center; }
 #controls .speed { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #1a1c20; border: 1px solid var(--line); }
@@ -68,6 +70,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ctl.dbi { position: relative; width: 44px; height: 44px; min-width: 44px; padding: 0; background: var(--i) center / 100% 100% no-repeat, transparent; border: none; border-radius: 50%; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); transition: transform 0.12s, filter 0.12s; }
 .ctl.dbi:hover { transform: translateY(-1px); filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.7)) brightness(1.15); }
 .ctl.dbi.on { background: var(--i) center / 100% 100% no-repeat; filter: drop-shadow(0 0 6px rgba(212, 162, 76, 0.9)) brightness(1.2); }
+/* The fastest speed: the same button with three chevrons drawn over the two baked into bround-06. */
+#controls button[data-speed="3"]::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 122'%3E%3Ccircle cx='63' cy='61' r='43' fill='%23f5dbb3'/%3E%3Cpath fill='%23101412' d='M29 41l24 20-24 20zM51 41l24 20-24 20zM73 41l24 20-24 20z'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
 .ctl.dbi small { position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: #1a1508; font-family: var(--display); font-weight: 700; font-size: 10px; line-height: 16px; text-align: center; }
 #controls .speed { background: transparent; border: none; padding: 0; gap: 2px; }
 .ctl { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; font-size: 13px; }
@@ -82,14 +86,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #table.panning { cursor: grabbing; }
 /* The table plane is tilted, so the cards read as lying on it; the camera
    (#board's translate/scale) moves over the plane, the plane never moves. */
-#tilt { position: absolute; inset: 0; transform: rotateX(26deg); transform-origin: 50% 50%; background: radial-gradient(ellipse at 50% 40%, #0e4a50, #06282d 70%); }
-#board { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; transition: filter 0.3s; will-change: transform; }
-#board::before { content: ''; position: absolute; left: -550px; top: -280px; width: 2960px; height: 1900px; border-radius: 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
+#table { contain: paint; }
+/* The table's shadow is a gradient painted once on the plane, not a blur redrawn under the camera. */
+#tilt { position: absolute; inset: 0; transform: rotateX(26deg); transform-origin: 50% 50%; background: radial-gradient(ellipse at 50% 45%, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.5) 100%), radial-gradient(ellipse at 50% 40%, #0e4a50, #06282d 70%); }
+/* The flat table (Settings, Table: Tilt the table off; the default where the device asks for less motion). */
+html[data-flat] #tilt { transform: none; contain: paint; }
+html[data-flat] #table { perspective: none; }
+#board { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; will-change: transform; }
+#board::before { content: ''; position: absolute; left: -550px; top: -280px; width: 2960px; height: 1900px; border-radius: 18px; background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
 #board > * { position: absolute; z-index: 1; }
 /* The token's small box: the magnet (the Bell's shows the weekly dues). */
 .verb .v-magnet { display: none; position: absolute; right: -10px; top: 60%; width: 46px; height: 46px; border-radius: 8px; background: #14161a; border: 2px solid #3a3d44; box-shadow: 0 3px 0 #0a0908, 0 5px 6px rgba(0, 0, 0, 0.6); color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 19px; line-height: 42px; text-align: center; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
 .verb .v-magnet.asks, .verb .v-magnet.due { display: block; animation: boxIn 0.25s ease-out; }
-.verb .v-magnet.asks { background-size: 78%; background-position: center; background-repeat: no-repeat; border-color: var(--accent); box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(212, 162, 76, 0.8); animation: boxIn 0.25s ease-out, glow 1.6s 0.25s infinite; cursor: pointer; }
+.verb .v-magnet.asks { background-size: 78%; background-position: center; background-repeat: no-repeat; border-color: var(--accent); box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(212, 162, 76, 0.8); animation: boxIn 0.25s ease-out; cursor: pointer; }
+.verb .v-magnet.asks::after { content: ''; position: absolute; inset: -2px; border-radius: 8px; box-shadow: 0 0 10px 3px rgba(212, 162, 76, 0.9); opacity: 0; animation: glow 1.6s 0.25s infinite; pointer-events: none; }
 .verb.asking .v-status { color: var(--accent); }
 .ask { margin: 8px 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--paper); color: var(--paper-ink); box-shadow: 0 0 0 2px var(--accent), 0 6px 16px rgba(0, 0, 0, 0.45); }
 .ask.answered { box-shadow: none; opacity: 0.85; }
@@ -100,7 +110,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .verb .v-magnet.due { border-color: #f0c85a; box-shadow: 0 3px 0 #0a0908, 0 0 10px rgba(240, 200, 90, 0.7); }
 @keyframes boxIn { from { transform: scale(0.4); opacity: 0; } }
 .verb .v-magnet:hover { transform: translateY(-2px); }
-.verb.time .v-magnet { color: #f0c85a; cursor: default; }
+/* The Bell's box: the dues on the numbered ring (cnum), figures past nine. */
+.verb.time .v-magnet { color: #f0c85a; cursor: default; background-size: 78%; background-position: center; background-repeat: no-repeat; }
 .plate-btn.pull { display: block; margin: -4px auto 12px; }
 /* A card on its way into a verb. */
 #drag-layer .card.ghost { transition: left 0.36s ease-in, top 0.36s ease-in, transform 0.36s ease-in, opacity 0.36s; pointer-events: none; }
@@ -139,7 +150,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* The grid: one cell per card, drawn as faint paper outlines. */
 #board .grid { z-index: 0; pointer-events: none; opacity: 0.3; will-change: transform;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='172'%3E%3Crect x='6.5' y='6.5' width='117' height='159' rx='7' fill='none' stroke='rgba(228,206,160,0.55)' stroke-width='1'/%3E%3C/svg%3E") 0 0 repeat; }
-#table.paused #board { filter: saturate(0.6) brightness(0.86); }
+/* Paused: a shade laid over the plane, not a filter over every card. */
+#table.paused #tilt::after { content: ''; position: absolute; inset: 0; background: rgba(6, 20, 24, 0.35); pointer-events: none; }
 #windows { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 #drag-layer { position: fixed; inset: 0; pointer-events: none; z-index: 950; }
 #pause-banner {
@@ -155,8 +167,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #zoom .tool-gap { width: 6px; }
 #zoom button.tool-word { width: auto; padding: 0 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
 #zoom button.hidden { display: none; }
-.card.merged .c-face { animation: mergedGlow 1s ease-out; }
-@keyframes mergedGlow { 30% { filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.95)); } }
+.card.merged::after { --glow: rgba(255, 255, 255, 0.95); animation: mergedGlow 1s ease-out; }
+@keyframes mergedGlow { 30% { opacity: 1; } }
 /* Tapping an empty slot lists the cards that fit it. */
 .slot .s-box.empty { cursor: pointer; }
 .slot .s-box.empty:hover { filter: brightness(1.15); }
@@ -181,15 +193,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* The journal: a drawer over the right of the table, shown on request. */
 #journal-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 90%); transform: translateX(105%); transition: transform 0.25s ease; z-index: 30; border-left: 1px solid var(--line); background: rgba(22, 24, 28, 0.97); display: flex; flex-direction: column; min-height: 0; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5); }
 #journal-drawer.open { transform: translateX(0); }
-.side-head { padding: 8px 16px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--line); background: #17191c; display: flex; justify-content: space-between; align-items: center; }
-.side-head button { background: none; border: none; color: var(--ink-dim); font-size: 18px; cursor: pointer; padding: 0 4px; }
-#journal { flex: 1; overflow: auto; padding: 12px 16px; min-height: 0; }
+/* The drawer's head is the small blue banner (cbar-02); the journal below it is paper. */
+.side-head { display: flex; justify-content: space-between; align-items: center; margin: 6px 10px 0; padding: 2px 6px 2px 14px; border: solid transparent; border-width: 20px 36px; border-image: var(--art-cbar-02) 46 60 fill / 20px 26px stretch; background: none; color: #1c1914; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; }
+.side-head button { background: none; border: none; color: #1c1914; font-size: 20px; cursor: pointer; padding: 0 4px; margin: -10px 0; }
+#journal { flex: 1; overflow: auto; padding: 12px 14px; min-height: 0; margin: 4px 10px 10px; background: rgba(239, 227, 198, 0.92); color: #1f1b15; border: 2px solid #b8913f; box-shadow: inset 0 0 0 4px rgba(239, 227, 198, 0.92), inset 0 0 0 5px #8f7440; }
 #btn-journal.on { color: var(--accent); }
 #btn-journal.unread::after { content: ''; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
 #btn-journal { position: relative; }
 
 .verb .v-plate.long { font-size: 12px; letter-spacing: 0.03em; }
-.verb .v-count { position: absolute; top: -6px; left: -6px; min-width: 26px; height: 26px; padding: 0 7px; border-radius: 13px; background: var(--accent); color: #1c1914; font-weight: 800; font-size: 14px; line-height: 26px; text-align: center; box-shadow: 0 0 0 2px #0e1112; transform: scale(0); transition: transform 0.2s; }
+/* The count of cards in a token: the numbered wax (cwaxn), figures on a plain disc past five. */
+.verb .v-count { position: absolute; top: -8px; left: -8px; width: 30px; height: 30px; background: center / contain no-repeat; color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 13px; line-height: 30px; text-align: center; text-shadow: 0 0 3px #000, 0 1px 2px #000; transform: scale(0); transition: transform 0.2s; }
+.verb .v-count.figures, .verb .v-badge.figures { background-color: #7c1d15; border-radius: 50%; box-shadow: 0 0 0 2px #0e1112; }
 .verb.loaded .v-count { transform: scale(1); }
 .verb.dragging { transform: none; }
 
@@ -210,9 +225,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Tokens sit on the board and can be dragged anywhere; clicking opens a window. */
 .verb {
   position: absolute; left: 0; top: 0; width: 240px; height: 292px; display: flex; flex-direction: column; align-items: center;
-  cursor: grab; user-select: none; touch-action: none; will-change: transform; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: grab; user-select: none; touch-action: none; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .verb.dragging { transition: none; z-index: 20; cursor: grabbing; }
+/* A layer of its own only while it moves: nothing is promoted at rest. */
+.card.lifted, .card.settle, .card.flying, .card.arrive, .verb.dragging, #drag-layer .card { will-change: transform; }
 /* A square tile twice a card's width, raised: a thick lower edge and a shadow on the felt. */
 .verb .v-token { position: relative; width: 232px; height: 232px; margin-top: 4px; flex: none; background: #0f1517 center / 100% 100% no-repeat; border-radius: 12px;
   box-shadow: 0 12px 0 #1a1410, 0 13px 0 1px #0b0908, 0 22px 26px rgba(0, 0, 0, 0.6); transition: transform 0.15s, box-shadow 0.15s; }
@@ -236,12 +253,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .verb .v-name { font-family: var(--mono); font-weight: 700; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; color: var(--paper); text-shadow: 0 1px 3px #000; }
 .verb .v-status { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); padding: 2px 10px; border-radius: 11px; background: rgba(14, 12, 10, 0.78); font-size: 13px; font-weight: 700; color: var(--paper); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 2; pointer-events: none; }
 .verb .v-status:empty { display: none; }
-.verb .v-badge { position: absolute; top: -8px; right: -8px; width: 32px; height: 32px; border-radius: 50%; background: var(--good); color: #0c1a0b; font-weight: 800; font-size: 17px; line-height: 28px; text-align: center; box-shadow: 0 0 0 2px #0e1112; transform: scale(0); transition: transform 0.2s; }
+/* What a finished verb holds: the numbered wax (cwaxn), the mark (cmark-04) with a '!' when it is only word. */
+.verb .v-badge { position: absolute; top: -10px; right: -10px; width: 40px; height: 40px; background: center / contain no-repeat; color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 16px; line-height: 40px; text-align: center; text-shadow: 0 0 3px #000, 0 1px 2px #000; transform: scale(0); transition: transform 0.2s; }
 .verb.done .v-badge { transform: scale(1); }
 .verb.running .v-status { color: var(--accent); }
 .verb.open .v-token { filter: drop-shadow(0 0 8px rgba(212, 162, 76, 0.95)); }
 .verb.loaded .v-token { filter: drop-shadow(0 0 5px rgba(212, 162, 76, 0.6)); }
-.verb.done .v-token { animation: pulse 1.4s infinite; }
+/* The token's glow: drawn once on ::before (::after is the lock), its opacity pulses. */
+.verb.done .v-token::before, .verb.new .v-token::before, .verb.noticed .v-token::before { content: ''; position: absolute; inset: 0; border-radius: 12px; box-shadow: 0 0 14px 6px var(--glow, rgba(212, 162, 76, 1)); opacity: 0; pointer-events: none; }
+.verb.noticed .v-token::before { animation: glow 0.9s 4; }
+.verb.done .v-token::before { --glow: rgba(109, 187, 106, 0.95); animation: pulse 1.4s infinite; }
 .verb .v-back { position: absolute; left: 50%; top: 20%; width: 92px; height: 128px; margin-left: -46px; border-radius: 6px; background: var(--art-cback-01) center / 100% 100% no-repeat; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.7); transform: rotate(-8deg) scale(0); transition: transform 0.2s; pointer-events: none; }
 .verb.done .v-back { transform: rotate(-8deg) scale(1); }
 .verb.done .v-ring rect { stroke: var(--good); filter: drop-shadow(0 0 3px rgba(109, 187, 106, 1)); }
@@ -251,14 +272,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .verb.locked .v-status { color: #ff8c7a; }
 .verb.can-drop .v-token { filter: drop-shadow(0 0 10px rgba(109, 187, 106, 1)); }
 .verb.drop-hover .v-token { transform: scale(1.14); filter: drop-shadow(0 0 14px rgba(140, 230, 130, 1)); }
-.verb.new .v-token { animation: glow 1.6s 3; }
-@keyframes pulse { 50% { filter: drop-shadow(0 0 10px rgba(109, 187, 106, 0.95)); } }
+.verb.new .v-token::before { animation: glow 1.6s 3; }
+@keyframes pulse { 50% { opacity: 1; } }
 /* The verdict: a wax stamp slams onto the Court token and lifts; the case card keeps the seal. */
 .verb .verdict { position: absolute; left: 50%; top: 120px; width: 120px; height: 120px; margin: -60px 0 0 -60px; z-index: 4; pointer-events: none; background: center / contain no-repeat; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); transform: rotate(-6deg); animation: stamp 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both, stampLift 0.4s ease-in 1.6s forwards; }
 @keyframes stamp { from { transform: scale(2.2) rotate(-12deg); opacity: 0; } 60% { transform: scale(0.95) rotate(-6deg); opacity: 1; } to { transform: scale(1) rotate(-6deg); } }
 @keyframes stampLift { to { opacity: 0; } }
 .card.sealed .c-face::after { content: ''; position: absolute; inset: 20%; background: var(--seal) center / contain no-repeat; opacity: 0.6; transform: rotate(-8deg); pointer-events: none; }
-@keyframes glow { 50% { filter: drop-shadow(0 0 12px rgba(212, 162, 76, 1)); } }
+@keyframes glow { 50% { opacity: 1; } }
 
 /* ---------- Cards ---------- */
 /* A card element is positioned by transform on the board; its look lives on
@@ -267,10 +288,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
    families carry a whole painted face. */
 .card {
   position: absolute; left: 0; top: 0; width: var(--card-w); height: var(--card-h); color: var(--paper-ink);
-  cursor: grab; user-select: none; touch-action: none; will-change: transform;
+  cursor: grab; user-select: none; touch-action: none;
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s;
   --tone: #b8892c;
 }
+/* A card's glow (urgent, noticed, merged) is drawn once on ::after; only its opacity moves. */
+.card.urgent::after, .card.noticed::after, .card.merged::after { content: ''; position: absolute; inset: 0; border-radius: 8px; box-shadow: 0 0 10px 4px var(--glow, rgba(212, 162, 76, 1)); opacity: 0; pointer-events: none; }
+.card.noticed::after { animation: glow 0.9s 4; }
 .card.tone-red { --tone: #9b2a2a; }
 .card.tone-blue { --tone: #2a5b8c; }
 .card.tone-gold { --tone: #b8892c; }
@@ -299,7 +323,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Case strings: a pinned rope from each case to what belongs to it. */
 #board .links { position: absolute; overflow: visible; pointer-events: none; z-index: 0; opacity: 0.6; }
 #board .links.pins { z-index: 5; opacity: 0.85; }
-#board .links path { fill: none; stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.5)); }
+/* Each rope has a shadow path drawn under it (the first half of the layer), not a filter. */
+#board .links path { fill: none; stroke-width: 3; stroke-linecap: round; }
+#board .links path.shade { stroke: rgba(0, 0, 0, 0.5); stroke-width: 4; transform: translateY(2px); }
 #board .links .pin { stroke: rgba(0, 0, 0, 0.6); stroke-width: 1; }
 #board .links .pin-hi { fill: rgba(255, 255, 255, 0.55); }
 .card .c-under { filter: brightness(0.55); box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5); }
@@ -323,8 +349,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card.leaving { opacity: 0; }
 .card.leaving .c-face { transform: scale(0.9); }
 .card.no-anim { transition: none !important; }
-.card.urgent .c-face { animation: urgent 0.9s infinite; }
-@keyframes urgent { 50% { filter: drop-shadow(0 0 9px rgba(208, 86, 74, 1)); } }
+.card.urgent::after { --glow: rgba(208, 86, 74, 1); animation: urgent 0.9s infinite; }
+@keyframes urgent { 50% { opacity: 1; } }
 /* Picked up: in the drag layer, lifted, casting a long shadow. */
 #drag-layer .card { transition: transform 0.12s ease-out; cursor: grabbing; z-index: 1; }
 #drag-layer .card .c-face { filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.6)); }
@@ -336,12 +362,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card.face-full.banded .c-body { bottom: 4%; left: 9%; right: 9%; background: none; box-shadow: none; padding: 2px 3px; }
 .card.face-icon .c-body { top: 80.5%; bottom: 6%; left: 10%; right: 10%; padding: 0 2px; justify-content: center; }
 .card.face-icon .c-title { -webkit-line-clamp: 1; margin-top: 0; }
-.card .c-timer.big { font-size: 12px; }
 .card .c-title { font-family: var(--display); font-size: 10px; line-height: 1.15; font-weight: 700; text-align: center; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; flex: none; letter-spacing: 0.01em; color: #2a2317; }
-.card .c-sub { font-size: 8.5px; opacity: 0.7; text-align: center; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; word-break: break-all; margin-top: 1px; }
 .card .c-aspects { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: auto; padding-top: 2px; }
-.card .c-timer { font-family: var(--mono); font-size: 11px; font-weight: 700; color: #7c1d15; text-align: center; font-variant-numeric: tabular-nums; margin-top: auto; }
-.card .c-aspects + .c-timer { margin-top: 1px; }
 /* The clock on a card: a ring just outside its edge, and the time in the middle of the picture. */
 .card .c-ringsvg { position: absolute; left: -6px; top: -6px; width: calc(100% + 12px); height: calc(100% + 12px); overflow: visible; pointer-events: none; z-index: 1; }
 .card .c-ringsvg rect { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 0 999; filter: drop-shadow(0 0 2px rgba(212, 162, 76, 0.8)); }
@@ -425,11 +447,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .meter { cursor: pointer; }
 /* A notice at the table's edge, pointing at something worth a look. */
 .edge-mark { position: absolute; z-index: 28; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 16px; background: rgba(14, 12, 10, 0.9); border: 1px solid var(--accent); color: var(--paper); font-family: var(--display); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; animation: markIn 0.25s ease-out; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6); }
-.edge-mark b { width: 22px; height: 22px; background: center / contain no-repeat; animation: pulse 1.4s infinite; }
+.edge-mark b { position: relative; width: 22px; height: 22px; background: center / contain no-repeat; }
+.edge-mark b::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 8px 3px rgba(109, 187, 106, 0.95); opacity: 0; animation: pulse 1.4s infinite; pointer-events: none; }
 .edge-mark::after { content: ''; position: absolute; left: 50%; top: 50%; width: 30px; height: 2px; margin-top: -1px; transform-origin: 0 50%; transform: rotate(var(--ang, 0deg)) translateX(24px); background: var(--accent); }
 .edge-mark.hidden { display: none; }
 @keyframes markIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } }
-.verb.noticed .v-token, .card.noticed .c-face { animation: glow 0.9s 4; }
+/* Less motion: the pulses hold still; a warning keeps a steady glow. */
+@media (prefers-reduced-motion: reduce) {
+  .verb.done .v-token::before, .verb.new .v-token::before, .verb.noticed .v-token::before, .card.urgent::after, .card.noticed::after, .card.merged::after, .meter.crit .m-icon::after, .edge-mark b::after, .verb .v-magnet.asks::after { animation: none; }
+  .card.urgent::after, .meter.crit .m-icon::after { opacity: 0.8; }
+}
 .vw-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; font-size: 15px; font-weight: 700; color: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
 .vw-close { position: absolute; top: 5px; right: -54px; width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%; color: transparent; font-size: 0; background: none; cursor: pointer; }
 .vw-close:hover { box-shadow: 0 0 12px rgba(255, 120, 100, 0.7); }
@@ -501,19 +528,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .held { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .outputs { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; min-height: 20px; }
 
-.journal-entry { border-left: 3px solid var(--line); padding: 4px 0 8px 10px; margin-bottom: 10px; }
-.firsts { margin: 0 0 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, 0.03); }
-.firsts h6 { margin: 0 0 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
-.firsts .first { display: inline-block; margin: 2px 8px 2px 0; font-family: var(--serif); font-size: 12.5px; color: var(--ink-dim); }
-.firsts .first.done { color: var(--ink); }
-.journal-entry .j-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; }
-.journal-entry h6 { margin: 2px 0 3px; font-size: 13px; font-family: var(--display); }
-.journal-entry p { margin: 0; font-family: var(--serif); font-size: 13px; line-height: 1.45; color: var(--ink-dim); }
-.journal-entry.k-case { border-color: var(--danger); }
-.journal-entry.k-danger { border-color: #e08a3c; }
-.journal-entry.k-major { border-color: var(--accent); }
-.journal-entry.k-victory { border-color: var(--good); }
-.journal-entry.k-week { border-color: #555; }
+/* The journal on paper: each entry a paper block with its kind's colour as a rule down its left,
+   and its kind's icon; the Firsts wear their marks (cprog-01 waiting, cprog-02 done). */
+.journal-entry { position: relative; border: 1px solid rgba(60, 40, 10, 0.25); border-left: 3px solid #8f7440; border-radius: 4px; padding: 6px 8px 8px 10px; margin-bottom: 10px; background: rgba(255, 250, 238, 0.6); }
+.journal-entry .j-icon { float: left; width: 20px; height: 20px; margin: 2px 8px 0 0; background: center / contain no-repeat; }
+.journal-entry::after { content: ''; display: block; clear: both; }
+.firsts { margin: 0 0 14px; padding: 8px 10px; border: 1px solid #a88a4c; border-radius: 8px; background: rgba(255, 250, 238, 0.5); }
+.firsts h6 { margin: 0 0 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a5a1a; }
+.firsts .first { display: inline-block; margin: 2px 8px 2px 0; font-family: var(--serif); font-size: 12.5px; color: #6a5f4a; }
+.firsts .first i { display: inline-block; width: 18px; height: 18px; margin: -4px 4px -4px 0; vertical-align: middle; background: center / contain no-repeat; }
+.firsts .first.done { color: #1f1b15; }
+.journal-entry .j-meta { font-family: var(--mono); font-size: 10px; color: #8a7a5a; text-transform: uppercase; letter-spacing: 0.08em; }
+.journal-entry h6 { margin: 2px 0 3px; font-size: 13px; font-family: var(--display); color: #2a1a10; }
+.journal-entry p { margin: 0; font-family: var(--serif); font-size: 13px; line-height: 1.45; color: #4a4033; }
+.journal-entry.k-case { border-left-color: var(--danger); }
+.journal-entry.k-danger { border-left-color: #e08a3c; }
+.journal-entry.k-major { border-left-color: #b8892c; }
+.journal-entry.k-victory { border-left-color: #3f8f3c; }
+.journal-entry.k-week { border-left-color: #6a6e74; }
 
 /* ---------- Toasts ---------- */
 /* Top right, under the bar, clear of the notch; a verb window pushes them left. */
@@ -595,9 +627,7 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 /* ---------- Narrow screens ---------- */
 @media (max-width: 980px) {
   #main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-  #side { border-left: none; border-top: 1px solid var(--line); max-height: 26vh; }
   #toasts { width: 300px; }
-  #inspector { display: none; }
   .vwin { width: min(370px, calc(100% - 8px)); }
   #hint { display: none; }
   .callings { grid-template-columns: 1fr; }
@@ -666,7 +696,7 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .plate-btn.gold { --plate: var(--art-cpill-03); }
 .plate-btn.red { --plate: var(--art-cpill-01); }
 .plate-btn.teal { --plate: var(--art-cpill-04); }
-.plate-btn.grey { --plate: var(--art-cpill-02); }
+.plate-btn.blue { --plate: var(--art-cpill-02); }
 .plate-btn.dark, .plate-btn.redfill, .plate-btn.tealfill { color: var(--paper); --plate: var(--art-cpill2-04); --slice: 22 46; --bw: 12px 26px; }
 .plate-btn.redfill { --plate: var(--art-cpill2-01); --slice: 26 46; --bw: 12px 26px; }
 .plate-btn.tealfill { --plate: var(--art-cpill2-05); --slice: 22 46; --bw: 12px 26px; }
@@ -779,7 +809,8 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 #rank-badge { width: 38px; height: 38px; flex: none; background: center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
 #weekbar { position: relative; width: 150px; height: 30px; flex: none; background: var(--art-ctimer-01) left center / 30px 30px no-repeat; }
 #weekbar::before { content: ''; position: absolute; left: 26px; right: 0; top: 8px; bottom: 8px; border-radius: 0 7px 7px 0; background: linear-gradient(#efe3c6, #d9c9a3); box-shadow: inset 0 0 0 1px rgba(60, 40, 10, 0.6), 0 2px 3px rgba(0, 0, 0, 0.5); }
-#weekbar .wb-shade { position: absolute; top: 9px; bottom: 9px; left: 30%; right: 1px; background: rgba(12, 14, 16, 0.78); border-radius: 0 6px 6px 0; transition: left 0.5s linear; }
+/* The shade is anchored at the moon and scaled back from the sun (js/ui.js writes the scaleX). */
+#weekbar .wb-shade { position: absolute; top: 9px; bottom: 9px; left: 19%; right: 1px; background: rgba(12, 14, 16, 0.78); border-radius: 0 6px 6px 0; transform-origin: right center; transition: transform 0.5s linear; }
 
 /* Painted dialogs with hot spots over their baked buttons. */
 .precinct-lead { font-family: var(--serif); font-size: 16px; color: var(--paper); margin: -6px auto 12px; }

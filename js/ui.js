@@ -1314,7 +1314,7 @@
       }
     });
     Object.keys(e.s.cases).forEach(function (id) { order.push(id); });
-    var html = '', pins = '';
+    var html = '', shade = '', pins = '';
     ropes = []; pinList = []; linkKeys = {}; pinsOf = {};
     function keysOf(c) { return c.loc && c.loc.verb ? [String(c.uid), 'v:' + c.loc.verb] : [String(c.uid)]; }
     function pin(c, pt, col, r) {
@@ -1338,11 +1338,15 @@
         var ri = ropes.length;
         ropes.push({ a: g.card, b: c });
         keysOf(g.card).concat(keysOf(c)).forEach(function (k) { (linkKeys[k] = linkKeys[k] || []).push(ri); });
-        html += '<path d="' + ropePath(a, b) + '" stroke="' + col + '"/>';
+        var d = ropePath(a, b);
+        shade += '<path class="shade" d="' + d + '"/>';
+        html += '<path d="' + d + '" stroke="' + col + '"/>';
         pins += pin(c, b, col, 6);
       });
       if (any) pins += pin(g.card, a, col, 7);
     });
+    // The shadows first, then the ropes over them: rope i is children[n + i], its shadow children[i].
+    html = shade + html;
     if (linkEl.__html !== html) { linkEl.innerHTML = html; linkEl.__html = html; }
     if (pinEl.__html !== pins) { pinEl.innerHTML = pins; pinEl.__html = pins; }
   }
@@ -1377,11 +1381,13 @@
       (linkKeys[k] || []).forEach(function (ri) {
         if (seen[ri]) return;
         seen[ri] = true;
-        var rope = ropes[ri], el = linkEl.children[ri];
+        var rope = ropes[ri], el = linkEl.children[ropes.length + ri], sh = linkEl.children[ri];
         if (!el) return;
         var a = linkPoint(rope.a, drag), b = linkPoint(rope.b, drag);
         if (!a || !b) return;
-        el.setAttribute('d', ropePath(a, b));
+        var d = ropePath(a, b);
+        el.setAttribute('d', d);
+        if (sh) sh.setAttribute('d', d);
         movePin(rope.a, a); movePin(rope.b, b);
       });
     });

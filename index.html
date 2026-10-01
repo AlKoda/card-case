@@ -33,8 +33,8 @@
         <div class="speed">
           <button class="ctl dbi" data-speed="0" title="Pause (Space)" style="--i:var(--art-bround-04)"></button>
           <button class="ctl dbi" data-speed="1" title="Normal speed (1)" style="--i:var(--art-bround-05)"></button>
-          <button class="ctl dbi" data-speed="2" title="Fast (2)" style="--i:var(--art-bround-06)"><small>2</small></button>
-          <button class="ctl dbi" data-speed="3" title="Fastest (3)" style="--i:var(--art-bround-06)"><small>3</small></button>
+          <button class="ctl dbi" data-speed="2" title="Fast (2)" style="--i:var(--art-bround-06)"></button>
+          <button class="ctl dbi" data-speed="3" title="Fastest (3)" style="--i:var(--art-bround-06)"></button>
         </div>
         <button class="ctl dbi" id="btn-journal" title="Journal" style="--i:var(--art-bround-24)"></button>
         <button class="ctl dbi" id="btn-precinct" title="The Watch-house" style="--i:var(--art-bround-26)"></button>
@@ -79,9 +79,9 @@
         <button class="plate-btn gold" id="t-new"><i class="mi" style="--i:var(--art-bround-24)"></i>New Game</button>
         <button class="plate-btn red" id="t-continue"><i class="mi" style="--i:var(--art-bround-05)"></i>Continue</button>
         <button class="plate-btn teal" id="t-archive"><i class="mi" style="--i:var(--art-bround-09)"></i>The Rolls</button>
-        <button class="plate-btn grey" id="t-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
+        <button class="plate-btn blue" id="t-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
         <button class="plate-btn red" id="t-help"><i class="mi" style="--i:var(--art-bround-22)"></i>How to Play</button>
-        <button class="plate-btn grey lang" id="t-lang" data-no-i18n title="Language / اللغة">English</button>
+        <button class="plate-btn blue lang" id="t-lang" data-no-i18n title="Language / اللغة">English</button>
       </div>
       </div>
     </div>
@@ -112,6 +112,8 @@
           <div class="set-row"><label for="s-grid">Show the grid</label><input type="checkbox" class="toggle" id="s-grid"></div>
           <div class="set-row"><label for="s-snap">Cards settle on the grid</label><input type="checkbox" class="toggle" id="s-snap"></div>
           <div class="set-row"><label for="s-strings">Case strings: a rope from each case to its cards</label><input type="checkbox" class="toggle" id="s-strings"></div>
+          <div class="set-row"><label for="s-tilt">Tilt the table</label><input type="checkbox" class="toggle" id="s-tilt"></div>
+          <p class="set-note">Off, the table lies flat: easier on an old phone.</p>
           <p class="set-note">Applying re-tidies the table. Tidy any time from the pause menu.</p>
           <h3 id="sec-gameplay">Gameplay</h3>
           <div class="set-row"><label for="s-guided">Guided start (new games)</label><input type="checkbox" class="toggle" id="s-guided"></div>
@@ -160,13 +162,13 @@
       <div class="row column">
         <button class="plate-btn gold" id="m-resume"><i class="mi" style="--i:var(--art-bround-05)"></i>Resume</button>
         <button class="plate-btn teal" id="m-save"><i class="mi" style="--i:var(--art-bround-08)"></i>Save Now</button>
-        <button class="plate-btn grey" id="m-tidy"><i class="mi" style="--i:var(--art-bround-07)"></i>Tidy the Table</button>
-        <button class="plate-btn grey" id="m-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
+        <button class="plate-btn blue" id="m-tidy"><i class="mi" style="--i:var(--art-bround-07)"></i>Tidy the Table</button>
+        <button class="plate-btn blue" id="m-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
         <button class="plate-btn teal" id="m-precinct"><i class="mi" style="--i:var(--art-bround-26)"></i>The Watch-house</button>
         <button class="plate-btn teal" id="m-archive"><i class="mi" style="--i:var(--art-bround-09)"></i>The Rolls</button>
-        <button class="plate-btn grey" id="m-journal"><i class="mi" style="--i:var(--art-bround-24)"></i>Journal</button>
-        <button class="plate-btn grey" id="m-help"><i class="mi" style="--i:var(--art-bround-22)"></i>How to Play</button>
-        <button class="plate-btn grey" id="m-title"><i class="mi" style="--i:var(--art-bround-10)"></i>Main Menu</button>
+        <button class="plate-btn blue" id="m-journal"><i class="mi" style="--i:var(--art-bround-24)"></i>Journal</button>
+        <button class="plate-btn blue" id="m-help"><i class="mi" style="--i:var(--art-bround-22)"></i>How to Play</button>
+        <button class="plate-btn blue" id="m-title"><i class="mi" style="--i:var(--art-bround-10)"></i>Main Menu</button>
         <button class="plate-btn red" id="m-new"><i class="mi" style="--i:var(--art-bround-11)"></i>Abandon File</button>
       </div>
     </div>
@@ -283,7 +285,7 @@
         <button class="plate-btn redfill" id="end-successor">Take Up Their Desk</button>
         <button class="plate-btn gold" id="end-new">A New Letter</button>
         <button class="plate-btn teal" id="end-archive">The Rolls</button>
-        <button class="plate-btn grey" id="end-look">Look at the Table</button>
+        <button class="plate-btn blue" id="end-look">Look at the Table</button>
       </div>
     </div>
   </div>
