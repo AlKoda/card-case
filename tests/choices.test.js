@@ -1009,3 +1009,24 @@ console.log('choices: all OK');
   CF.setLang('en');
   console.log('the year: ok');
 })();
+
+// A choice's favour goes through favourGain, so a patron already at the limit stays inside [-5, 5].
+(function favourBounded() {
+  var ran = 0;
+  [5, -5].forEach(function (edge) {
+    (CF.CHOICES || []).forEach(function (spec) {
+      (spec.options || []).forEach(function (o) {
+        if (!o.effect || !/favour/i.test(String(o.effect))) return;
+        var e = game(77);
+        e.s.favour = { council: edge, bishop: edge, guild: edge };
+        try { o.effect(e, { rng: e.rng }); } catch (err) { return; }
+        ran++;
+        Object.keys(e.s.favour).forEach(function (k) {
+          assert.ok(e.s.favour[k] >= -5 && e.s.favour[k] <= 5, spec.title + ' / ' + o.label + ': ' + k + ' favour ' + e.s.favour[k]);
+        });
+      });
+    });
+  });
+  assert.ok(ran > 20, 'favour options were run: ' + ran);
+  console.log('favour from choices stays within its bounds: ok (' + ran + ')');
+})();

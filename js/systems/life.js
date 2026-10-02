@@ -651,8 +651,8 @@
       title: 'The Clerk\'s Favour', text: 'The Council\'s clerk lingers after delivering the stipend. A councillor\'s son was found where he should not have been, with people he should not have known. There is a file. It would be a kindness if there were not.',
       options: [
         { label: 'Lose the file', cost: 'focus', gain: 'Council favour +2; a Coin in thanks', text: 'The Council owes you one, and knows you can be asked. A purse follows the clerk out.',
-          effect: function (e) { e.favour().council += 2; e.count('purse'); e.meter('scrutiny', -1); e.meter('dread', 1); coins(e, 1); } },
-        { label: 'Keep the file', gain: 'Standing rises', text: 'The clerk\'s smile does not reach his eyes. Your name is spoken in the chamber, not warmly, and in the lanes, warmly.', effect: function (e) { e.favour().council -= 1; e.meter('reputation', 1); } },
+          effect: function (e) { favourUp(e, 'council', 2); e.count('purse'); e.meter('scrutiny', -1); e.meter('dread', 1); coins(e, 1); } },
+        { label: 'Keep the file', gain: 'Standing rises', text: 'The clerk\'s smile does not reach his eyes. Your name is spoken in the chamber, not warmly, and in the lanes, warmly.', effect: function (e) { favourUp(e, 'council', -1); e.meter('reputation', 1); } },
       ] },
     { id: 'crowd', when: function (e) { return e.s.stats.cold >= 1 && e.s.meters.pressure >= 3; },
       title: 'The Crowd Wants a Name', text: 'The unanswered case has a song now, and the song has a verse about you. A sergeant suggests, carefully, that there is a vagrant in the cells who would confess to anything for a dry bed.',
@@ -673,7 +673,7 @@
         { label: 'Pocket it', gain: '+3 Coin; the Council\'s eye', text: 'Silver is silver. Somebody now believes you can be bought, because you can.', effect: function (e) { coins(e, 3); e.count('purse'); e.meter('scrutiny', 1); } },
         { label: 'Find who left it', cost: 'instinct', gain: 'A name in that case, or an Informer on the Hill', text: 'A boy, a lane, a door on the Hill.',
           effect: function (e, ctx) {
-            e.meter('scrutiny', -1); e.meter('retaliation', 1); e.favour().council += 1;
+            e.meter('scrutiny', -1); e.meter('retaliation', 1); favourUp(e, 'council', 1);
             // The door belongs to somebody in the case the note named: one of the Hill in it first
             // (purse.js purseSender), else anyone there still unnamed, else the boy himself.
             var rec = anyOpenCase(e, ctx);
@@ -684,7 +684,7 @@
             e.create('informant', e.informantSpec('uptown'));
             return 'A boy, a lane, a door on the Hill that does not open to you. But the boy will, for a coin now and then.';
           } },
-        { label: 'Give it to the poor-box', gain: 'The Bishop\'s favour; Standing rises', text: 'The chaplain blinks. The Council hears of it, and so does whoever left it.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); e.favour().bishop += 1; } },
+        { label: 'Give it to the poor-box', gain: 'The Bishop\'s favour; Standing rises', text: 'The chaplain blinks. The Council hears of it, and so does whoever left it.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); favourUp(e, 'bishop', 1); } },
       ] },
     { id: 'informer', when: function (e) { return e.cardsOf('informant').length >= 1; },
       title: 'The Informer\'s Brother', text: 'Your informer asks a favour, the first they have ever asked. Their brother runs untaxed wine through the Water-gate. The Watch is due there on Thursday.',
@@ -695,8 +695,8 @@
     { id: 'bishop', when: function (e) { return e.s.week >= 3; },
       title: 'The Bishop\'s Invitation', text: 'The Bishop would be glad to see the Examiner at the cathedral on Sunday, in the front pew, where the whole city can see.',
       options: [
-        { label: 'Go, and be seen', cost: 'health', gain: 'The Bishop\'s favour +2; Dread eases', text: 'The Bishop is pleased. The Council notes whose pew you sat in.', effect: function (e) { e.favour().bishop += 2; e.favour().council -= 1; e.meter('dread', -1); } },
-        { label: 'Send your regrets', gain: 'The Council\'s favour', text: 'The Council is pleased. The Bishop\'s chaplain stops greeting you in the street.', effect: function (e) { e.favour().council += 1; e.favour().bishop -= 1; } },
+        { label: 'Go, and be seen', cost: 'health', gain: 'The Bishop\'s favour +2; Dread eases', text: 'The Bishop is pleased. The Council notes whose pew you sat in.', effect: function (e) { favourUp(e, 'bishop', 2); favourUp(e, 'council', -1); e.meter('dread', -1); } },
+        { label: 'Send your regrets', gain: 'The Council\'s favour', text: 'The Council is pleased. The Bishop\'s chaplain stops greeting you in the street.', effect: function (e) { favourUp(e, 'council', 1); favourUp(e, 'bishop', -1); } },
       ] },
     { id: 'swan', when: function (e) { return e.countOf('fatigue') >= 1 && e.cardsOf('funds').length >= 1; },
       title: 'A Room at the Swan', text: 'The landlord of the Swan, who owes the Watch a kindness, offers a room with a fire and a door that locks. One night. Tonight.',
@@ -738,15 +738,15 @@
       again: 'The same priest, a different penitent, and the same look at a door.',
       options: [
         { label: 'Ask him to point', cost: 'instinct', gain: 'A token that names a name; the Bishop frowns', text: 'He does not say a word. He looks, once, at a door, and goes back inside to pray for both of you.',
-          effect: function (e, ctx) { giveClue(e, unsolvedCase(e, ctx), { label: 'The Confessor\'s Glance', text: 'A priest looked at a door and would not say why. You know why.', aspects: { testimony: 1 } }, true); e.favour().bishop -= 1; } },
-        { label: 'Leave the seal alone', gain: 'The Bishop\'s favour', text: 'He is grateful, and says so where the Bishop can hear it.', effect: function (e) { e.favour().bishop += 1; } },
+          effect: function (e, ctx) { giveClue(e, unsolvedCase(e, ctx), { label: 'The Confessor\'s Glance', text: 'A priest looked at a door and would not say why. You know why.', aspects: { testimony: 1 } }, true); favourUp(e, 'bishop', -1); } },
+        { label: 'Leave the seal alone', gain: 'The Bishop\'s favour', text: 'He is grateful, and says so where the Bishop can hear it.', effect: function (e) { favourUp(e, 'bishop', 1); } },
       ] },
     { id: 'widow', after: 'arrest', when: function (e) { return e.cardsOf('condemned', true).length >= 1; },
       title: 'The Condemned\'s Wife', text: 'She waits at the Watch-house door with a purse, three Coin in it, and asks only that a word for mercy reach the Council before it speaks.',
       options: [
         { label: 'Take the purse and say the word', gain: '+3 Coin; Mercy; the Council\'s eye', text: 'The word goes to the Council. So, in time, does the story of the purse.', effect: function (e) { coins(e, 3); e.count('purse'); e.count('mercy'); e.meter('scrutiny', 1); } },
         { label: 'Say the word for nothing', gain: 'Mercy; Dread eases', text: 'The word goes to the Council. She keeps her silver, and tells the Warrens what you did.', effect: function (e) { e.count('mercy'); e.meter('dread', -1); } },
-        { label: 'Send her home', gain: 'The Council\'s favour; Dread rises', text: 'The Council likes an examiner who does not plead. The Warrens do not.', effect: function (e) { e.favour().council += 1; e.meter('dread', 1); } },
+        { label: 'Send her home', gain: 'The Council\'s favour; Dread rises', text: 'The Council likes an examiner who does not plead. The Warrens do not.', effect: function (e) { favourUp(e, 'council', 1); e.meter('dread', 1); } },
       ] },
     { id: 'tapster', after: 'duty',
       title: 'Trouble at the Swan', text: 'The round passes the Swan as two carters go through its window. The tapster is shouting your name.',
@@ -799,8 +799,8 @@
     { id: 'dinner', when: function (e) { return e.s.meters.reputation >= 6; },
       title: 'The Council\'s Dinner', text: 'An invitation under the city\'s seal: dinner on the Hill, where the Council can look at the examiner it pays.',
       options: [
-        { label: 'Go up the Hill', cost: 'health', gain: 'Council favour +1', text: 'Six courses and nine councillors, and every one of them wants to know what you know. You are home after the bell.', effect: function (e) { e.favour().council += 1; } },
-        { label: 'Send regrets', gain: 'Standing rises; Council favour -1', text: 'The Examiner has a case. The Hill tuts; the lanes approve.', effect: function (e) { e.meter('reputation', 1); e.favour().council -= 1; } },
+        { label: 'Go up the Hill', cost: 'health', gain: 'Council favour +1', text: 'Six courses and nine councillors, and every one of them wants to know what you know. You are home after the bell.', effect: function (e) { favourUp(e, 'council', 1); } },
+        { label: 'Send regrets', gain: 'Standing rises; Council favour -1', text: 'The Examiner has a case. The Hill tuts; the lanes approve.', effect: function (e) { e.meter('reputation', 1); favourUp(e, 'council', -1); } },
       ] },
     { id: 'knock', when: function (e) { return !!compromisedInformer(e); },
       title: 'A Knock at Night', text: 'Your informer is on your stair at midnight with a bag. Somebody has been asking after them by name.',
@@ -865,14 +865,14 @@
       options: [
         { label: 'Go', gain: 'Dread rises; a Body token on your oldest case', text: 'Over the cheese he reads your case\'s wounds from your notes, and is right about all of them.',
           effect: function (e) { var rec = e.openCases().slice().sort(function (a, b) { return (a.week || 0) - (b.week || 0); })[0]; e.meter('dread', 1); giveClue(e, rec, { label: 'The Executioner\'s Reading', text: 'What the wounds say, read by a man who makes them.', aspects: { forensic: 2 } }); } },
-        { label: 'Send regrets', gain: 'The Bishop\'s favour', text: 'The Bishop hears that you would not dine with the executioner, and is pleased.', effect: function (e) { e.favour().bishop += 1; } },
+        { label: 'Send regrets', gain: 'The Bishop\'s favour', text: 'The Bishop hears that you would not dine with the executioner, and is pleased.', effect: function (e) { favourUp(e, 'bishop', 1); } },
       ] },
     { id: 'heir', when: function (e) { return (e.s.rank || 0) >= 3 && e.s.week >= 16; },
       title: 'Who Comes After', text: 'The Council asks you to name a deputy for the Watch-house, in case.',
       options: [
         { label: 'Name your sergeant', gain: 'Standing rises; Council favour -1', text: 'The sergeant takes his hat off and does not know where to put it. The Hill had hoped for one of its own.',
-          effect: function (e) { e.meter('reputation', 1); e.favour().council -= 1; } },
-        { label: 'Name the councillor\'s nephew', gain: 'Council favour +2; Standing falls', text: 'The nephew is delighted. The Watch has met him.', effect: function (e) { e.favour().council += 2; e.meter('reputation', -1); } },
+          effect: function (e) { e.meter('reputation', 1); favourUp(e, 'council', -1); } },
+        { label: 'Name the councillor\'s nephew', gain: 'Council favour +2; Standing falls', text: 'The nephew is delighted. The Watch has met him.', effect: function (e) { favourUp(e, 'council', 2); e.meter('reputation', -1); } },
         { label: 'Name nobody', gain: 'Nothing changes', text: 'You tell the Council you mean to live. The clerk writes that down.', effect: function () {} },
       ] },
     // The King of Thunes writes to a Bailiff (the rank Parley needs) while the Coquille stands and a front of it is unknown.
@@ -911,27 +911,27 @@
         { label: 'Hold the square with the Watch', gain: 'Dread rises; the Crowd eases', text: 'Halberds round the stone from first light. The crowd behaves, and remembers.', effect: function (e) { e.meter('dread', 1); e.meter('pressure', -1); } },
         { label: 'Clear the square', gain: 'Dread eases; the Crowd rises', text: 'The Watch sends the crowd home. Whatever happens will happen behind the Hole\'s wall, and the Market feels cheated.', effect: function (e) { e.meter('dread', -1); e.meter('pressure', 1); } },
         { label: 'Pardon them before the crowd', gain: 'They walk free; Mercy; Council favour -1', text: 'You read the pardon from the stone itself.',
-          effect: function (e) { var cond = e.cardsOf('condemned')[0]; e.favour().council -= 1; if (!cond || !e.passSentence) return null; var told = e.passSentence(cond, 'pardon', null, { quiet: true }); return told ? 'You read the pardon from the stone itself. ' + told.text : null; } },
+          effect: function (e) { var cond = e.cardsOf('condemned')[0]; favourUp(e, 'council', -1); if (!cond || !e.passSentence) return null; var told = e.passSentence(cond, 'pardon', null, { quiet: true }); return told ? 'You read the pardon from the stone itself. ' + told.text : null; } },
       ] },
     // --- The Seat is empty: the Hill, the pulpit and the guilds canvass while the chair is on the table ---
     { id: 'guildhall', when: function (e) { return e.cardsOf('chair').length >= 1; },
       title: 'The Guilds\' Hall', text: 'The wardens of the guilds want to know what the Market can expect of a Burgomaster who was once its Examiner.',
       options: [
-        { label: 'Promise them the Market', gain: 'Guild favour +2; the Crowd rises', text: 'You promise them the Market, and the Market hears about it.', effect: function (e) { e.favour().guild += 2; e.meter('pressure', 1); } },
-        { label: 'Pay for the wardens\' feast', cost: 'funds', gain: 'Guild favour +1', text: 'The wardens drink to the Seat, and to you.', effect: function (e) { e.favour().guild += 1; } },
+        { label: 'Promise them the Market', gain: 'Guild favour +2; the Crowd rises', text: 'You promise them the Market, and the Market hears about it.', effect: function (e) { favourUp(e, 'guild', 2); e.meter('pressure', 1); } },
+        { label: 'Pay for the wardens\' feast', cost: 'funds', gain: 'Guild favour +1', text: 'The wardens drink to the Seat, and to you.', effect: function (e) { favourUp(e, 'guild', 1); } },
         { label: 'Promise nothing', gain: 'Nothing changes', text: 'The wardens write down that you promised nothing. Some of them like it.', effect: function () {} },
       ] },
     { id: 'pulpit', when: function (e) { return e.cardsOf('chair').length >= 1; },
       title: 'The Bishop\'s Pulpit', text: 'The Bishop will preach on the empty Seat on Sunday. He would like to know what the Examiner thinks of mercy.',
       options: [
-        { label: 'Promise mercy to the penitent', gain: 'The Bishop\'s favour +2; Council favour -1', text: 'The Bishop preaches it with your name in it. The Hill hears a soft judge.', effect: function (e) { e.favour().bishop += 2; e.favour().council -= 1; } },
-        { label: 'Endow the Abbey hospital', cost: 'funds', gain: 'The Bishop\'s favour +1', text: 'A Coin for the hospital, given where the Bishop can see it.', effect: function (e) { e.favour().bishop += 1; } },
+        { label: 'Promise mercy to the penitent', gain: 'The Bishop\'s favour +2; Council favour -1', text: 'The Bishop preaches it with your name in it. The Hill hears a soft judge.', effect: function (e) { favourUp(e, 'bishop', 2); favourUp(e, 'council', -1); } },
+        { label: 'Endow the Abbey hospital', cost: 'funds', gain: 'The Bishop\'s favour +1', text: 'A Coin for the hospital, given where the Bishop can see it.', effect: function (e) { favourUp(e, 'bishop', 1); } },
         { label: 'Say nothing', gain: 'Nothing changes', text: 'The sermon is about the Seat, and not about you.', effect: function () {} },
       ] },
     { id: 'hilldinner', when: function (e) { return e.cardsOf('chair').length >= 1; },
       title: 'The Hill\'s Dinner', text: 'A Council family gives a dinner for the empty Seat. Over the pudding its head mentions a cousin, and a case of yours with the cousin\'s name in it.',
       options: [
-        { label: 'Promise to look elsewhere', gain: 'Council favour +2; Suspicion rises', text: 'The cousin is not mentioned again, and neither is the price.', effect: function (e) { e.favour().council += 2; e.meter('scrutiny', 1); } },
+        { label: 'Promise to look elsewhere', gain: 'Council favour +2; Suspicion rises', text: 'The cousin is not mentioned again, and neither is the price.', effect: function (e) { favourUp(e, 'council', 2); e.meter('scrutiny', 1); } },
         { label: 'Decline', gain: 'Standing rises', text: 'You thank him for the pudding. The family will vote as it votes, and the lanes hear what you said.', effect: function (e) { e.meter('reputation', 1); } },
       ] },
   ];
