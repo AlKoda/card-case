@@ -118,6 +118,20 @@ own ladder:
 | **Half proof** | One credible witness (a Word clue from a witness of standing), or one witness plus the suspect's partial admission | The Court convicts of the lesser crime only (theft not burglary, manslaughter not murder), or acquits and lets the crowd decide. |
 | **Full proof** | Two credible witnesses agreeing, **or** a confession repeated freely a day after it was given [Carolina Art. 67] | Conviction. Sentence follows (§6). |
 
+On the table, Full Proof by weight of tokens asks four things, shown in
+the Court as four seals: *Enough* proof of the kinds the case wants, *Two
+kinds* of it, *Word behind it* (a witness's Deposition, tokens bound in
+Rest, a hand matched to the accused, or a free confession) and *Nothing
+against them*. Under each token the Court says whether it names the
+accused, describes someone else, or is off the case.
+
+From the Bailiff's staff the scenes get harder to read. Now and then a
+careful culprit leaves a second mark, an innocent's, put there to be
+found: it lies too neatly, or exactly where the lantern falls first.
+Laid in Rest beside the culprit's own mark, it gives itself away (*A Mark
+Left to Be Found*), and the staged token becomes plain Presence. Laid
+against the innocent it names, it is the trap it was meant to be.
+
 Full proof is not a certainty, but it is close to one, and more proof
 than the Court needs brings it closer. When full proof still fails, the
 Court says why: a sworn man is the accused's cousin, the witness recants
@@ -127,6 +141,11 @@ some other way (a thin charge acquitted, the case gone unanswered,
 settled for a purse, or taken out of your hands by the Court of Miracles,
 the Inquisitor or the Rival), the Council has still seen you work: the first keep comes all the same, with
 one Coin instead of two, and the next case comes at once.
+
+The hire gives the first case its own Quarter, and only that one; the
+rest of the city waits for the keep. Door to door with the case and its
+Quarter finds the people who saw, so the Word a charge wants can be
+earned honestly on the first case.
 
 The Court window repeats what you have already worked out. If your own
 reasoning in Rest named a Prime Suspect and the charge names someone
@@ -212,6 +231,12 @@ Examiner keeps the city talkative and the underworld resentful in a
 different way (spared men become informants, or come back); a brutal one
 buys quiet quarters and a Council's gratitude with fear, and finishes
 alone.
+
+Mercy comes back too, quietly. A citizen you once sent home (reformed by a
+Pardon or a Fine) may be at their casement the night of a later crime, and
+come to the Watch-house step to say so: *An Old Debt*, a witness who risks
+everything by coming, and so counts as one speaking against their own
+interest. Rarely, and not twice in a few weeks.
 
 ## 7. The purse: honest, corrupt, or lost
 
@@ -342,6 +367,13 @@ the patron carries the Suspicion, until the patron falls. Patrons can fall
 [Shardlake]: a Council election (every twelve weeks) can replace your
 patron, and all Favour with the fallen one becomes Suspicion.
 
+Every commission speaks at its end. The Condemned card says what the
+patron asked for, and the rungs that would please them carry the patron's
+seal. Whatever the sentence, the notes say how it landed: pleased,
+refused, or, for a rung in between, a silence that is also an answer. An
+acquittal, a case gone cold and a case settled for a purse are told the
+same way, and the Bell's ledger says whose favour moved that week.
+
 **9.1 The Inquisitor** [Eco, Alatriste]. When a case is stamped
 *heresy* or *witchcraft* and stays open two weeks, or when the Bishop's
 Favour is low, the Inquisitor arrives as a verb you do not control. He
@@ -356,9 +388,15 @@ may send an examiner of his own, to show the Council it has a choice. At
 each Bell they act: take up a case you have held a week, close one they
 have raced two (boasting of it the week before), spoil a token, buy a
 witness. Exposing them is a short hunt, not a chore: one weakness a week,
-found once by questioning (Wit) and once by shadowing (Instinct). The
-first does not stop them; it shows their next move, and that is the move
-they make at the Bell if it can still be made. The second sends them home.
+found two different ways. The ways are questioning (Wit), shadowing
+(Instinct), and their own dirty work laid before them in Question (a token
+they spoiled, a witness they paid); answering a case they raced before
+they close it counts as one. The same way twice only puts them on guard.
+The first weakness does not stop them; it shows their next move, and that
+is the move they make at the Bell if it can still be made. The second
+sends them home for ten weeks, with Standing +1 and the Council's favour.
+A weakness left three weeks goes stale: they have covered their tracks,
+and the hunt starts again.
 
 A case the Rival closes is answered, not unanswered: no Crowd, no card
 for the one who walked, but Standing falls, because the Council notes who

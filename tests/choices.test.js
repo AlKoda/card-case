@@ -413,3 +413,57 @@ console.log('choices: all OK');
   assert.strictEqual(CF.Story.words(15, true), '15');
   console.log('endings name what happened: ok');
 })();
+
+// ---- An answer's return, read before it is given (choicePreview) ---------------------------
+// The answer is given on a copy: the live game does not move, hears nothing, and the copy's
+// return is the one the real answer then gives (the same dice).
+(function preview() {
+  var p = game(61); p.s.week = 9; p.s.meters.retaliation = 4;
+  p.offerChoice(spec('upright'));
+  var heard = [];
+  p.on(function (type) { heard.push(type); });
+  var ret0 = p.s.meters.retaliation, coins0 = p.cardsOf('funds', true).length, n0 = p.s.journal.length, save0 = p.save();
+  var pv = p.choicePreview(0);
+  assert.ok(pv && pv.meters.retaliation === -3 && pv.cards.funds === 1, 'the upright man\'s answer: the Vendetta eases, a Coin: ' + JSON.stringify(pv));
+  assert.deepStrictEqual(heard, [], 'the copy tells the live game nothing');
+  assert.ok(p.s.choice && p.s.meters.retaliation === ret0 && p.cardsOf('funds', true).length === coins0 && p.s.journal.length === n0, 'and nothing moved');
+  assert.strictEqual(p.save(), save0, 'not a byte of the save');
+  assert.ok(p.choose(0));
+  assert.strictEqual(p.s.meters.retaliation - ret0, pv.meters.retaliation, 'the real answer gives what the preview said');
+  assert.strictEqual(p.cardsOf('funds', true).length - coins0, pv.cards.funds);
+  assert.strictEqual(p.choicePreview(0), null, 'no question, no preview');
+  // An answer paid with Wit: one Wit less, one spent Wit more.
+  var q = game(62); q.s.week = 9;
+  q.offerChoice(spec('swan'));
+  var opt = spec('swan').options.map(function (o, i) { return o.cost === 'focus' ? i : -1; }).filter(function (i) { return i >= 0; })[0];
+  if (opt !== undefined && q.canChoose(opt)) {
+    var pw = q.choicePreview(opt);
+    assert.ok(pw.cards.focus === -1 && pw.cards.spent_focus === 1, 'Wit spent, not lost: ' + JSON.stringify(pw.cards));
+  }
+  console.log('choice preview: ok');
+})();
+
+// ---- A thread on the Rival goes cold after three weeks -------------------------------------
+(function rivalFade() {
+  var g = game(63); g.s.week = 9;
+  var r = g.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 0, stalled: 0 } });
+  g.tableCards().filter(function (c) { return c.def === 'clue' || c.def === 'evidence' || c.def === 'witness'; }).forEach(function (c) { g.remove(c); });
+  r.data.heat = 1; r.data.ways = { focus: true };
+  g.rivalWeek();
+  assert.strictEqual(r.data.heatWeek, 9, 'a thread found is dated at the next Bell, if the finding did not date it');
+  g.s.week = 11; g.rivalWeek();
+  assert.strictEqual(r.data.heat, 1, 'two weeks on, it holds');
+  g.s.week = 12;
+  var lines = g.rivalWeek();
+  assert.ok(r.data.heat === 0 && !r.data.ways && r.data.heatWeek === undefined, 'three weeks on, it is gone');
+  assert.ok(lines.indexOf('The thread on Piet Wieland has gone cold.') >= 0, 'the Bell says so: ' + lines);
+  assert.ok(g.s.journal.some(function (j) { return j.title === CF.RIVAL_FADE.title && j.text.indexOf('Piet Wieland') === 0; }));
+  // A finding dated when it was made is counted from then.
+  r.data.heat = 1; r.data.heatWeek = 10; g.s.week = 13; g.rivalWeek();
+  assert.strictEqual(r.data.heat, 0, 'found in week 10, cold by week 13');
+  // The arrival says the rule: two different ways.
+  var a = game(64); a.s.week = 8;
+  while (!a.cardsOf('rival', true).length) a.rivalWeek();
+  assert.ok(a.s.journal.some(function (j) { return j.title === 'The Harbourmaster\'s Examiner' && /two different ways/.test(j.text); }), 'the first examiner is told with the rule');
+  console.log('the rival\'s thread fades: ok');
+})();

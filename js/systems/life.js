@@ -108,6 +108,11 @@
     // The King's welcome, only when the Court of Thunes came down with the desk.
     drawerKing: 'The desk under the stair was {name}\'s, until {how}. Their unanswered cases are still in the drawer, and their enemies have already found the new name on the door: a cask of very good Rhenish waits on the desk, with the King\'s compliments.',
     bellHint: 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.',
+    // The opening case's own Quarter comes with the hire (only that one: the rest of the city waits
+    // for the keep), so door to door, and the Word it brings, is there to learn on the first case.
+    door: 'Door to Door',
+    quarter: 'You have the run of {quarter}. Go door to door: the case with its Quarter in Explore finds the people who saw.',
+    doorHint: 'Nobody named yet. Go door to door: the case with its Quarter in Explore finds the people who saw.',
   };
   // How the predecessor left the desk, by the ending they came to.
   CF.LEGACY_HOW = {
@@ -177,6 +182,12 @@
     e.introUnlock(['reflect']);
     hint(e, U.fill('Rest is open: put {card} in it to ease it before more come.', { card: e.labelOf(strain) }));
   }
+  // The opening case's Quarter, given once at the hire (a save from before it gets it on the next tick).
+  function openingQuarter(e, rec) {
+    var known = e.s.flags.districts || {};
+    if (!rec || rec.status !== 'open' || !CF.DISTRICTS[rec.district] || known[rec.district] || e.hasDistrict(rec.district)) return null;
+    return e.giveDistrict(rec.district);
+  }
   P.openingTick = function () {
     var s = this.s, sc = this.openingScene();
     strainCure(this);
@@ -187,6 +198,8 @@
     if (s.flags.stage === 'hired') {
       var first = openingRec(this);
       if (first && OPEN_STATUS.indexOf(first.status) < 0) { this.openingKeep(first.status === 'acquitted' ? 'acquitted' : 'cold'); return; }
+      var q = openingQuarter(this, first);
+      if (q) this.story(CF.OPENING_TEXT.door, U.fill(CF.OPENING_TEXT.quarter, { quarter: q.label }));
     }
     var worked = (s.stats.verbs && s.stats.verbs.duty) || 0;
     if (s.flags.stage === 'work') {
@@ -262,7 +275,10 @@
     if (s.intro) { s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); }
     if (this.introUnlock) this.introUnlock(['analyze', 'reflect']);
     if (this.introReveal) this.introReveal(['instinct', 'health', 'focus', 'personnel']);
-    this.story(CF.OPENING_TEXT.hired, sc.hired + ' The case is yours now: find who did it. Raw proof speaks in Study; the Court opens when you have someone to charge.', 'major');
+    var rec = this.openCases().filter(function (r) { return r.opening; })[0];
+    var quarter = openingQuarter(this, rec);
+    this.story(CF.OPENING_TEXT.hired, sc.hired + ' The case is yours now: find who did it. Raw proof speaks in Study; the Court opens when you have someone to charge.' +
+      (quarter ? ' ' + U.fill(CF.OPENING_TEXT.quarter, { quarter: quarter.label }) : ''), 'major');
     // A successor's desk: whose it was, now that it is yours. Told once.
     var L = s.flags.legacy;
     if (L && !L.told) {
@@ -270,13 +286,13 @@
       this.story(CF.OPENING_TEXT.drawer, U.fill(L.syndicate ? CF.OPENING_TEXT.drawerKing : CF.OPENING_TEXT.drawerText,
         { name: L.predecessor, how: CF.LEGACY_HOW[L.ending] || 'they left it' }), 'major');
     }
-    var rec = this.openCases().filter(function (r) { return r.opening; })[0];
     var named = rec && rec.suspects.filter(function (x) { return x.revealed; })[0];
     var tb = this.tableCards();
     var proof = tb.some(function (c) { return c.def === 'evidence'; });
     // The case with its tokens in Rest is what names someone; the sergeant has just had the Wit.
     var wit = tb.some(function (c) { return c.def === 'focus'; });
     if (named && !proof) hint(this, U.fill(wit ? CF.OPENING_TEXT.hiredWit : CF.OPENING_TEXT.hiredNoWit, { name: named.name }));
+    else if (!named && this.hasDistrict(rec ? rec.district : '')) hint(this, CF.OPENING_TEXT.doorHint);
     else hint(this, 'You have the desk. Study what you found, question who you meet, and build a charge. The Court opens when you have an accused and a token.');
     if (s.flags.callingOpen) s.flags.callingDue = true; // put to you from openingTick, once Explore is idle or ten seconds on
   };
@@ -502,6 +518,15 @@
       { name: c.name, district: dl, title: title, rival: by }), 'danger');
   };
 
+  // A thread on the Rival (heat, and the ways it was found: r.data.ways) is forgotten three weeks
+  // after it was found (r.data.heatWeek, set by the finding or at the next Bell): generous, so the
+  // second way is a week's work, not a race against the clock.
+  CF.RIVAL_FADE = {
+    weeks: 3,
+    title: 'Tracks Covered',
+    text: '{name} has had three weeks to tidy up behind them. What you had on them would not stand before the Council now. Find it again.',
+    line: 'The thread on {name} has gone cold.',
+  };
   CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
   P.rivalWeek = function () {
     var s = this.s, lines = [];
@@ -520,13 +545,24 @@
       s.flags.rivalName = name;
       this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
       if (again) {
-        this.story('Another Examiner', 'The Harbourmaster has found another: ' + name + ', with the same letter and the same desk in the Customs House. They will work your cases from the other side as the last one did. Question them and shadow them, a week apart, and the Council sends them home too.', 'danger');
+        this.story('Another Examiner', 'The Harbourmaster has found another: ' + name + ', with the same letter and the same desk in the Customs House. They will work your cases from the other side as the last one did. Catch them out two different ways, a week apart, and the Council sends them home too.', 'danger');
         lines.push('The Harbourmaster has sent another examiner.');
       } else {
-        this.story('The Harbourmaster\'s Examiner', name + ' has the Harbourmaster\'s letter and a desk in the Customs House. The Harbourmaster wants the Council to see it has a choice. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice, once by questioning and once by shadowing, a week apart, and the Council sends them home.', 'danger');
+        this.story('The Harbourmaster\'s Examiner', name + ' has the Harbourmaster\'s letter and a desk in the Customs House. The Harbourmaster wants the Council to see it has a choice. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them. Catch them out two different ways, a week apart, and the Council sends them home: questioned with Wit, shadowed with Instinct, or shown their own spoiled work.', 'danger');
         lines.push('The Harbourmaster has sent an examiner of his own.');
       }
       return lines;
+    }
+    // A weakness found does not keep: three weeks on, they have covered their tracks.
+    if (r.data.heat > 0) {
+      if (r.data.heatWeek === undefined) r.data.heatWeek = s.week;
+      else if (s.week - r.data.heatWeek >= CF.RIVAL_FADE.weeks) {
+        r.data.heat = 0;
+        delete r.data.heatWeek;
+        delete r.data.ways;
+        this.story(CF.RIVAL_FADE.title, U.fill(CF.RIVAL_FADE.text, { name: r.data.name }));
+        lines.push(U.fill(CF.RIVAL_FADE.line, { name: r.data.name }));
+      }
     }
     if (r.data.stalled && r.data.stalled >= s.week) return lines;
     var o = rivalOptions(this, s.week);
@@ -914,6 +950,18 @@
     this.emit('chosen', { id: c.id, option: i });
     this.dirty = true;
     return true;
+  };
+  // What an answer would do, without doing it: the answer is given on a copy of the game (the same
+  // dice, no listeners), and what moved is read back: meters, favour, and cards by kind (a spent Wit
+  // reads as one Wit less and one Wits' End more). For the window's icons; an answer whose return
+  // comes later (a flag, a relation, an event next week) shows nothing here, so its words stay.
+  P.choicePreview = function (i) {
+    if (!this.s.choice || !this.canChoose(i)) return null;
+    var t = CF.Engine.load(this.save());
+    if (!t.choose(i)) return null;
+    function kinds(e) { var n = {}; Object.keys(e.s.cards).forEach(function (u) { var c = e.s.cards[u]; if (c && c.loc) n[c.def] = (n[c.def] || 0) + 1; }); return n; }
+    function diff(a, b) { var out = {}; Object.keys(a).concat(Object.keys(b)).forEach(function (k) { var d = (b[k] || 0) - (a[k] || 0); if (d) out[k] = d; }); return out; }
+    return { meters: diff(this.s.meters, t.s.meters), favour: diff(this.s.favour || {}, t.s.favour || {}), cards: diff(kinds(this), kinds(t)) };
   };
   // Words for the city's temper, in place of numbers.
   CF.METER_WORDS = {

@@ -273,9 +273,15 @@ A charge (`js/systems/charge.js`) is scored as
 - **Illegal evidence.** Coerced statements and planted evidence: −1 each,
   and the defence may get them thrown out at trial.
 
-Three strengths, judged against the profile's total: **weak** (below 60%),
-**reasonable** (60% and up), **strong** (the total, at least two profile
-aspects touched, no contradictions). Misread clues (Tunnel Vision) count in
+Three tiers, the Carolina's own: **Indicia** (below 60% of the profile's
+total), **Half Proof** (60% and up), **Full Proof**. Full Proof by weight
+asks four things, and the Court window shows them as four seals:
+*Enough* (the profile's total), *Two kinds* (at least two profile aspects
+touched), *Word behind it* (a witness's Deposition, a confession, or a
+token bound in Rest or matched to the accused) and *Nothing against them*
+(no contradictions). A free confession, or two witnesses who agree for
+different reasons, is Full Proof on its own with nothing against it.
+Misread clues (Tunnel Vision) count in
 the apparent strength but not the real one; the court judges the real one.
 In court a strong charge on the culprit convicts 92% of the time; a
 reasonable one 35–80%; a weak one 15–55%. Each contradiction gives the

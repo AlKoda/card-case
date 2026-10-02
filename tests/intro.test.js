@@ -553,3 +553,38 @@ console.log('intro: ok');
   assert.strictEqual(e.introHint(), null, 'after the guided start, the hint is the advisor\'s');
   console.log('fever over the lesson: ok');
 })();
+
+// ---- The opening case's own Quarter comes with the hire, and only that one ------------------
+(function openingQuarter() {
+  var e = CF.Engine.newGame({ seed: 71, who: 'watchman', name: 'Door', opening: true, guided: true });
+  e.s.flags.stage = 'questioned';
+  var c = e.spawnCase('missing', { quiet: true, district: 'warrens', roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+  rec.opening = true;
+  assert.strictEqual(byDef(e, 'district').length, 0, 'no Quarter before the hire');
+  e.openingHired();
+  var q = byDef(e, 'district');
+  assert.ok(q.length === 1 && q[0].data.district === 'warrens', 'the hire gives the case\'s own Quarter');
+  assert.ok(!e.s.flags.marketOpen && !(e.s.flags.districts || {}).market, 'the rest of the city waits for the keep');
+  var hired = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.hired; })[0];
+  assert.ok(hired && hired.text.indexOf('You have the run of The Warrens. Go door to door') > 0, 'the hire says so: ' + (hired && hired.text));
+  assert.strictEqual(e.introHint(), CF.OPENING_TEXT.doorHint, 'nobody named: the hint sends you door to door');
+  // Door to door now works on the first case: the people who saw.
+  e.introUnlock(['investigate']);
+  var found = run(e, 'investigate', [byDef(e, 'case')[0], q[0]]);
+  assert.ok(found.some(function (x) { return x && x.def === 'witness'; }), 'door to door finds who saw: ' + found.map(function (x) { return x && x.def; }));
+  // A save from before, hired with no Quarter: it comes on the next tick, once, with a word.
+  var o = CF.Engine.newGame({ seed: 72, who: 'monk', name: 'Old', opening: true, guided: true });
+  o.s.flags.stage = 'questioned';
+  var oc = o.spawnCase('missing', { quiet: true, district: 'warrens', roles: o.openingScene().roles });
+  o.caseRec(oc.caseId).opening = true;
+  o.openingHired();
+  o.cardsOf('district', true).forEach(function (d) { o.remove(d); });
+  delete o.s.flags.districts;
+  var old = CF.Engine.load(o.save());
+  old.tick(0.1);
+  assert.strictEqual(byDef(old, 'district').length, 1, 'an old hired save gets its Quarter');
+  assert.ok(old.s.journal.some(function (j) { return j.title === CF.OPENING_TEXT.door; }));
+  old.tick(0.1);
+  assert.strictEqual(old.cardsOf('district', true).length, 1, 'once');
+  console.log('the opening quarter: ok');
+})();
