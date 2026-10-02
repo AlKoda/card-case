@@ -133,6 +133,23 @@
       return { title: P ? P.label : 'A Patron\'s Seal', text: text || 'The seal is broken, and nobody answers it.' };
     },
   });
+  // The Council's favour past the last office: a Writ of the Council, used once, by what goes with it.
+  R.push({
+    id: 'duty_councilwrit', verb: 'duty', label: 'The Council\'s Favour', duration: 10,
+    preview: function (ctx) { var t = ctx.slots.favour; return t ? ctx.e.councilFavourGives(t) : 'Put a Case, the Rolls, the Rival or a Witness with it.'; },
+    blocked: function (ctx) {
+      var t = ctx.slots.favour;
+      if (!t) return 'Put a Case, the Rolls, the Rival or a Witness with it.';
+      if (t.def === 'case' && !ctx.e.councilMayTake(ctx.caseOf(t))) return 'The Council will not take this one off your hands.';
+      return null;
+    },
+    requires: { primary: 'councilwrit' },
+    run: function (ctx) {
+      var e = ctx.e, t = ctx.slots.favour;
+      ctx.consume(ctx.primary);
+      return { title: 'Writ of the Council', text: e.councilFavour(t) };
+    },
+  });
   R.push({
     id: 'duty_writsale', verb: 'duty', label: 'Sell a Writ', duration: 10,
     preview: function (ctx) { var d = ctx.primary.data; return 'Find cause where there is none and have ' + d.rival + '\'s house turned over at first light. Three Coin, and a patrician who owes you.' + (d.council ? ' The rival is a Council family; the Council will hear of it.' : ''); },
@@ -1680,6 +1697,7 @@
       var o = CF.ORDERS[p.data.order];
       e.removeOrder(p.data.order);
       ctx.consume(p);
+      if (o.endow) return { title: o.label, text: e.endowed(p.data.order) };
       if (o.room) {
         e.s.rooms[o.room] = true;
         e.pathGain('commissioner', 1, 'built the ' + o.label.replace(/^The /, ''));

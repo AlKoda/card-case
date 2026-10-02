@@ -23,7 +23,7 @@
       // What a junior can do here; the office powers follow from CF.POWERS (Engine.verbInfo).
       basics: 'The Watch-house. Health walks a round for Coin; Wit keeps the day-book. A Petition or a Letter of Service with Coin is paid here, and the Council\'s letters, purses and your watchmen are seen to.',
       slots: [
-        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'seal', 'chair', 'informant', 'case', 'order', 'personnel', 'district', 'gang', 'syndicate', 'dagger'], primary: true },
+        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'seal', 'councilwrit', 'chair', 'informant', 'case', 'order', 'personnel', 'district', 'gang', 'syndicate', 'dagger'], primary: true },
         { key: 'extra', label: 'Rolls / Coin', accepts: ['paperwork', 'funds'], when: function (p) { return any(p, ['focus', 'teammate', 'case', 'district']); } },
         { key: 'extra2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['teammate', 'case']); } },
         { key: 'mind', label: 'Wit', accepts: ['focus'], when: function (p) { return has(p, 'case'); } },
@@ -31,6 +31,7 @@
         { key: 't2', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
         { key: 't3', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
         { key: 'guard', label: 'Watchman', accepts: ['teammate'], when: function (p) { return any(p, ['informant', 'dagger']); } },
+        { key: 'favour', label: 'Favour', accepts: ['case', 'paperwork', 'rival', 'witness'], when: function (p) { return has(p, 'councilwrit'); } },
         { key: 'f1', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
         { key: 'f2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
         { key: 'f3', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },

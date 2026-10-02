@@ -170,6 +170,88 @@
     return list.join('; ');
   };
 
+  // ---- Roads: the endings nearest (round 8) -------------------------------------
+  // e.roads() lists the ways this run could end that it has touched, nearest
+  // first: up to three roads (the wins and the Hangman's table) and, ahead of
+  // them, the defeats the city has already warned of. Each is
+  //   { id, title, warn, frac, near, want }
+  // `id` keys the ending's seal; `near` is a word ('Near', 'Halfway', 'A long
+  // road'; for a warning 'Warned'), `want` one sentence of what it still
+  // wants, in words rather than counts. DOM-free: the journal draws it.
+  Callings.ROADS_HELP = 'There are many ways to end. The journal\'s Roads show the three you are nearest, and what each still wants.';
+  Callings.NEAR = [[0.8, 'Near'], [0.5, 'Halfway'], [0, 'A long road']];
+  function part(have, need) { return need > 0 ? Math.max(0, Math.min(1, have / need)) : 1; }
+  function nearWord(frac) { for (var i = 0; i < Callings.NEAR.length; i++) if (frac >= Callings.NEAR[i][0]) return Callings.NEAR[i][1]; return 'A long road'; }
+  P.roads = function () {
+    var s = this.s, st = s.stats || {}, cnt = s.counts || {}, m = s.meters || {}, court = s.court || {};
+    var roads = [], warns = [];
+    function road(id, parts, want) {
+      var frac = parts.reduce(function (a, b) { return a + b; }, 0) / parts.length;
+      roads.push({ id: id, title: CF.ENDINGS[id].title, warn: false, frac: frac, near: nearWord(frac), want: want });
+    }
+    function warn(id, want) { warns.push({ id: id, title: CF.ENDINGS[id].title, warn: true, frac: 1, near: 'Warned', want: want }); }
+    var top = this.rankCap ? this.rankCap() : CF.TOP_RANK, rep = m.reputation || 0;
+    // The Burgomaster: the red gown, Standing for the Seat, three seals, and a quiet, clean city.
+    if (s.calling === 'commissioner' && top >= CF.TOP_RANK) {
+      var pl = this.seatPledges(), rank = s.rank || 0;
+      road('commissioner', [part(rank, CF.TOP_RANK), part(rep, CF.COMMISSIONER_REP), part(pl.n, 3)],
+        rank < CF.TOP_RANK ? 'The red gown first.' : !this.seatSeasoned() ? 'The Council wants a season in the red gown first.' :
+        rep < CF.COMMISSIONER_REP ? 'The Seat wants more Standing.' : !pl.all ? 'The Seat wants the seals of the Council, the Bishop and the Guilds.' :
+        (m.pressure > 4 || m.scrutiny > 4) ? 'The Seat wants a quieter city and a cleaner name.' : 'The Seat waits, in Attend.');
+    }
+    // The Scholar: three Loose Ends in Rest, then the Architect convicted.
+    var loose = this.cardsOf('looseend', true).length, archOpen = this.openCases().some(function (r) { return r.template === 'architect'; });
+    if ((s.calling === 'master' || loose || archOpen) && this.pathOpen('master')) {
+      road('master', archOpen ? [1, 0.5] : [part(loose, 3), 0], archOpen ? 'The Architect, convicted.' : 'Three Loose Ends, together in Rest.');
+    }
+    // The Reformer: the Bailiff's staff, two leaves of the ledger, the King of Thunes convicted.
+    var synd = this.countOf('syndicate') > 0 && !s.flags.syndicateFallen, ledger = this.cardsOf('ledger', true).length;
+    var kingCase = this.openCases().some(function (r) { return r.template === 'syndicate'; });
+    if (synd && (s.calling === 'crusader' || ledger || kingCase) && this.pathOpen('crusader') && court.stance !== 'treaty') {
+      road('crusader', kingCase ? [1, 1, 0.5] : [part(s.rank || 0, 2), part(ledger, 2), 0],
+        kingCase ? 'The King of Thunes, convicted.' : (s.rank || 0) < 2 ? 'The Bailiff\'s staff, to go among them.' : 'Two leaves of the Coquille\'s ledger.');
+    }
+    // The Treaty City: quiet weeks under the Treaty.
+    if (court.stance === 'treaty' && CF.Coquille) road('treatycity', [part(court.quietWeeks || 0, CF.Coquille.TREATY_WEEKS)], 'Quiet weeks under the Treaty, with the Crowd low.');
+    // The King of Thunes: weeks inside the Court, a Purse it respects, a name it fears.
+    if (court.stance === 'rule' && court.inside && CF.Coquille) {
+      var T = CF.Coquille.THRONE;
+      road('kingofthunes', [part(court.insideWeeks || 0, T.weeks), part(cnt.purse || 0, T.purse), part(cnt.cruelty || 0, T.cruelty)],
+        (court.insideWeeks || 0) < T.weeks ? 'More weeks inside the Court.' : (cnt.purse || 0) < T.purse ? 'A Purse the Court respects.' :
+        (cnt.cruelty || 0) < T.cruelty ? 'A name the Court fears.' : 'The barrel is within reach.');
+    }
+    // The Thief-taker General: purses, settlements, Standing and the red gown, and few wrong names.
+    var TT = CF.Purse && CF.Purse.THIEFTAKER;
+    if (TT && ((cnt.purse || 0) || (st.settled || 0)) && (st.wrongful || 0) <= TT.wrongful) {
+      road('thieftaker', [part(cnt.purse || 0, TT.purse), part(st.settled || 0, TT.settled), part(rep, TT.standing), part(s.rank || 0, TT.rank)],
+        (cnt.purse || 0) < TT.purse ? 'More purses taken.' : (st.settled || 0) < TT.settled ? 'Cases settled by the thief-takers.' :
+        rep < TT.standing ? 'More Standing.' : (s.rank || 0) < TT.rank ? 'The red gown.' : 'The fences already call you General.');
+    }
+    // The Merciful Judge: mercies, and citizens made of the ones sent home; closed by cruelty.
+    var MJ = CF.Societies && CF.Societies.MERCIFUL, reformed = this.reformedCount ? this.reformedCount() : 0;
+    if (MJ && (cnt.mercy || 0) && (cnt.cruelty || 0) <= MJ.cruelty) {
+      road('merciful', [part(cnt.mercy || 0, MJ.mercy), part(reformed, MJ.reformed)],
+        (cnt.mercy || 0) < MJ.mercy ? 'More mercies at the Court.' : reformed < MJ.reformed ? 'Citizens made of the ones sent home.' : 'Hold to it one more week.');
+    }
+    // The Hangman's Examiner: cruelty, and a city that fears you.
+    var HG = CF.Societies && CF.Societies.HANGMANS;
+    if (HG && (cnt.cruelty || 0) >= 3) {
+      road('hangmans', [part(cnt.cruelty || 0, HG.cruelty), part(m.dread || 0, HG.dread)],
+        (cnt.cruelty || 0) < HG.cruelty ? 'More cruelty on the ladder.' : 'The city must fear you.');
+    }
+    // The defeats already warned of.
+    if (this.blowWouldKill && this.blowWouldKill()) warn('death', 'With a Wound and no Health, the next blow kills.');
+    if (s.flags.oldbaileyWarned) warn('oldbailey', 'One more purse, wrong name or debt, and the brother\'s ledger is enough.');
+    if (s.flags.mountainIgnored && !s.flags.mountainDone) warn('dagger', 'The Order of the Mountain has warned you once.');
+    if (s.flags.stakeWarned) warn('stake', 'The Inquisitor has asked for your name.');
+    if ((m.pressure || 0) >= this.meterMax('pressure') - 2) warn('dismissed', 'The Crowd is close to the end of its patience.');
+    if ((m.scrutiny || 0) >= this.meterMax('scrutiny') - 2) warn('corruption', 'The Council\'s sergeants are close.');
+    if ((m.dread || 0) >= this.meterMax('dread') - 2) warn('riot', 'The city\'s fear is close to turning.');
+    var order = Object.keys(CF.ENDINGS);
+    roads.sort(function (a, b) { return b.frac - a.frac || order.indexOf(a.id) - order.indexOf(b.id); });
+    return warns.slice(0, 2).concat(roads.slice(0, 3));
+  };
+
   Callings.summary = function (e) {
     var p = e.s.paths;
     return Object.keys(CF.PATHS).map(function (k) { return CF.PATHS[k].label + ' ' + (p[k] || 0); }).join(' · ');

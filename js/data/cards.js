@@ -189,6 +189,9 @@
     // A patron's favour you can call in once (patrons.js, Pat.SEAL): the instance carries its patron.
     seal: { label: 'A Patron\'s Seal', kind: 'career', tags: ['career', 'letter'], aspects: { seal: 1 },
       desc: 'A favour owed you. Put it in Attend to call it in, at the cost of the patron\'s favour.' },
+    // The Council's favour past the last office (engine.js, favourNext): one use, picked by what goes with it.
+    councilwrit: { label: 'Writ of the Council', kind: 'career', tags: ['career', 'letter'], image: 'icon-court', aspects: { councilwrit: 1 },
+      desc: 'The Council grants you one favour. Put it in Attend with a Case (the Council takes it off your hands), with the Rolls (Suspicion -2), with the Rival (recalled for eight weeks) or with a Witness (held for the Court).' },
     // Kept for older saves; the generic `promotion` card replaced them.
     promo_inspector: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The Council has noticed you. Attend on them.' },
@@ -230,6 +233,11 @@
     thieftakers: { label: 'The Thief-takers\' Office', cost: 6, room: 'thieftakers', rank: 1 },
     lab: { label: 'The Apothecary', cost: 10, room: 'lab', rank: 3 },
     survroom: { label: 'The Belfry', cost: 8, room: 'survroom', rank: 3 },
+    // A Magistrate's endowments: Coin for a lasting good, no card to keep (engine.js, endowed).
+    abbey: { label: 'Endow the Abbey Hospital', cost: 8, endow: true, rank: 3,
+      desc: 'The Bishop\'s favour +2, and the Abbey keeps a bed for you: a Weariness lifted at every Bell.' },
+    lanes: { label: 'Light the Lanes', cost: 6, endow: true, rank: 3,
+      desc: 'Lanterns at every corner of the Stews and the Warrens: a blow on the stair comes less often.' },
   };
 
   // The Watch-house: a second board. Each room changes a system (see

@@ -204,3 +204,40 @@ console.log('callings: drift, card, endings from any start, origin bonus kept, p
   assert.ok(!kl.s.choice, 'not at the next deed');
   console.log('keep to your road: ok');
 })();
+
+// ---- Roads: the endings this run has touched, nearest first, in words (round 8) ----
+(function roads() {
+  var g = game(95, 'commissioner');
+  var r = g.roads();
+  assert.ok(r.length >= 1 && r.length <= 5, 'a short list');
+  var seat = r.filter(function (x) { return x.id === 'commissioner'; })[0];
+  assert.ok(seat && !seat.warn && seat.near === 'A long road' && seat.want === 'The red gown first.', 'the Burgomaster\'s road, from the start');
+  assert.ok(r.every(function (x) { return CF.ENDINGS[x.id] && x.title === CF.ENDINGS[x.id].title && typeof x.want === 'string' && !/\d/.test(x.want); }), 'each names its ending, and wants in words');
+  // Untouched roads stay off the list: no purse, no mercy, no Coquille.
+  assert.ok(!r.some(function (x) { return x.id === 'thieftaker' || x.id === 'merciful' || x.id === 'treatycity' || x.id === 'kingofthunes'; }), 'only the roads this run has touched');
+  // Nearer roads first; the Seat's road says what it still wants.
+  g.s.rank = CF.TOP_RANK; g.s.rankWeek = -1; g.s.meters.reputation = 15;
+  g.s.counts.purse = 8; g.s.stats.settled = 2;
+  r = g.roads();
+  var ids = r.map(function (x) { return x.id; });
+  assert.ok(ids.indexOf('thieftaker') >= 0 && ids.indexOf('commissioner') >= 0, 'the purse opens the Thief-taker\'s road');
+  for (var i = 1; i < r.length; i++) if (!r[i].warn && !r[i - 1].warn) assert.ok(r[i - 1].frac >= r[i].frac, 'nearest first');
+  assert.strictEqual(r.filter(function (x) { return x.id === 'commissioner'; })[0].want, 'The Seat wants more Standing.');
+  assert.strictEqual(r.filter(function (x) { return x.id === 'thieftaker'; })[0].near, 'Near');
+  // A wrong name too many closes the Thief-taker's road; cruelty closes the Merciful Judge's.
+  g.s.stats.wrongful = 2; g.s.counts.mercy = 5; g.s.counts.cruelty = 3;
+  ids = g.roads().map(function (x) { return x.id; });
+  assert.ok(ids.indexOf('thieftaker') < 0 && ids.indexOf('merciful') < 0, 'closed roads are not shown');
+  // A defeat already warned of comes first, as a warning.
+  g.s.flags.mountainIgnored = true; g.s.meters.pressure = 9;
+  r = g.roads();
+  assert.ok(r[0].warn && r[1].warn, 'warnings first');
+  assert.ok(r.some(function (x) { return x.id === 'dagger' && x.want === 'The Order of the Mountain has warned you once.'; }), 'the dagger, warned once');
+  assert.ok(r.some(function (x) { return x.id === 'dismissed'; }), 'the Crowd near its end');
+  assert.ok(r.filter(function (x) { return !x.warn; }).length <= 3, 'three roads at most');
+  // The same state gives the same roads, and reading them changes nothing.
+  var before = g.save();
+  assert.deepStrictEqual(g.roads(), r);
+  assert.strictEqual(g.save(), before, 'DOM-free and read-only');
+  console.log('roads: ok');
+})();

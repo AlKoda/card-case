@@ -411,3 +411,111 @@ function run(e, verb, cards) {
   assert.ok(c.s.over && c.s.over.id === 'commissioner', 'three seals, a quiet city: the Seat');
   console.log('record, tiers a week on, the Seat as a campaign: ok');
 })();
+
+// ---- Past the last office: the Council's favour, a Magistrate's endowments (round 8) ----
+(function councilFavour() {
+  var e = game(160);
+  e.s.flags.firstCase = true;
+  e.s.rank = 2; e.s.meters.reputation = 30;
+  assert.strictEqual(e.favourNext(), null, 'no favour below the top office');
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 0);
+  e.cardsWith('promotion').forEach(function (c) { e.remove(c); });
+  e.s.rank = CF.TOP_RANK; e.s.meters.reputation = 15;
+  var f = e.favourNext();
+  assert.deepStrictEqual([f.base, f.step, f.at], [12, 0, 16], 'the next writ at 16');
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 0, 'not before the first step');
+  e.s.meters.reputation = 16; e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 1, 'four past the last office: a Writ of the Council');
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 1, 'once per step');
+  assert.strictEqual(e.favourNext().at, 20, 'the meter shows the next step');
+  e.s.meters.reputation = 15; e.s.meters.reputation = 19; e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 1, 'falling back and climbing the same step writes nothing');
+  // A hangman's top office is Bailiff, and the steps start where the red gown would have.
+  var h = game(161); h.s.who = 'hangman'; h.s.rank = 2; h.s.meters.reputation = 16; h.s.flags.capTold = true;
+  assert.ok(h.favourNext() && h.favourNext().step === 1, 'a hangman at Bailiff has the favour too');
+  // With the Rolls: Suspicion -2.
+  e.s.meters.scrutiny = 3;
+  var writ = byDef(e, 'councilwrit')[0], roll = e.create('paperwork');
+  assert.ok(e.autoSlot('duty', writ.uid) === 'main');
+  assert.ok(/Put a Case/.test(e.preview('duty').blocked), 'it wants something to go with it');
+  var r = run(e, 'duty', [roll]);
+  assert.strictEqual(e.s.meters.scrutiny, 1, 'the Rolls: Suspicion -2');
+  assert.ok(r.id === 'duty_councilwrit' && byDef(e, 'councilwrit').length === 0 && !e.card(roll.uid), 'the writ and the Rolls are spent');
+  // With a Case: taken off your hands, no Crowd, Standing -1, nobody walks.
+  var w2 = e.create('councilwrit'), rec = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+  var crowd = e.s.meters.pressure, rep = e.s.meters.reputation, cold = e.s.stats.cold, abroad = e.cardsOf('atlarge', true).length;
+  run(e, 'duty', [w2, e.caseCard(rec.id)]);
+  assert.strictEqual(rec.status, 'council', 'the Council takes it');
+  assert.ok(e.s.meters.pressure === crowd && e.s.meters.reputation === rep - 1 && e.s.stats.cold === cold, 'no Crowd, Standing -1, not cold');
+  assert.strictEqual(e.cardsOf('atlarge', true).length, abroad, 'nobody walks');
+  // Not the city's great cases.
+  var w3 = e.create('councilwrit'), pat = e.caseRec(e.spawnCase('pattern', { quiet: true }).caseId);
+  e.autoSlot('duty', w3.uid); e.autoSlot('duty', e.caseCard(pat.id).uid);
+  assert.ok(/will not take/.test(e.preview('duty').blocked), 'the Pattern is yours to answer');
+  e.clearSlots('duty');
+  // With the Rival: recalled for eight weeks, their race ended.
+  var rv = e.create('rival', { label: 'The Rival: Anselm Vogt', data: { name: 'Anselm Vogt', heat: 0, stalled: 0 } });
+  var raced = e.caseRec(e.spawnCase('fraud', { quiet: true }).caseId); raced.rival = true;
+  run(e, 'duty', [w3, rv]);
+  assert.ok(!e.cardsOf('rival', true).length && e.s.flags.rivalGone === e.s.week + CF.FAVOUR_RECALL && !raced.rival, 'the Rival recalled');
+  // With a Witness: held for the Court.
+  var w4 = e.create('councilwrit'), wit = e.create('witness', e.witnessSpec(raced));
+  var life = wit.life;
+  run(e, 'duty', [w4, wit]);
+  assert.ok(e.card(wit.uid) && e.card(wit.uid).life >= life + CF.FAVOUR_HOLD - 15 && e.card(wit.uid).data.held, 'the witness held for the Court');
+  // An older save: no writ written yet, and one comes at the next step.
+  var old = JSON.parse(e.save()); delete old.flags.favourStep; delete old.councilCount;
+  var l = CF.Engine.load(old);
+  assert.ok(l.s.flags.favourStep === 0 && l.s.councilCount === null, 'older saves load with the favour and the count unset');
+
+  // A Magistrate's endowments: Petitions at the top office, no card to keep.
+  var m = game(162);
+  assert.ok(CF.ORDERS.abbey.endow && CF.ORDERS.lanes.endow && CF.ORDERS.abbey.rank === 3);
+  m.addOrdersForRank(3);
+  var lanes = byDef(m, 'order').filter(function (c) { return c.data.order === 'lanes'; })[0];
+  assert.ok(lanes && /a blow on the stair comes less often/.test(m.descOf(lanes)), 'the petition says what it buys');
+  for (var i = 0; i < 6; i++) m.create('funds');
+  var out = run(m, 'duty', [lanes].concat(byDef(m, 'funds').slice(0, CF.costOf(lanes))));
+  assert.ok(m.endowedWith('lanes') && out.story.title === 'Light the Lanes' && !out.out.some(function (c) { return c.def === 'order'; }), 'the lanes are lit');
+  var abbey = byDef(m, 'order').filter(function (c) { return c.data.order === 'abbey'; })[0];
+  for (var j = 0; j < 8; j++) m.create('funds');
+  var bishop = m.favour().bishop;
+  run(m, 'duty', [abbey].concat(byDef(m, 'funds').slice(0, CF.costOf(abbey))));
+  assert.strictEqual(m.favour().bishop, bishop + 2, 'the Bishop is pleased');
+  m.create('fatigue');
+  var lines = m.patronsWeek();
+  assert.ok(!m.countOf('fatigue') && lines.some(function (x) { return /keeps a bed for you/.test(x); }), 'a bed at the Abbey every Bell');
+  console.log('the Council\'s favour and the endowments: ok');
+})();
+
+// ---- From Bailiff the Council counts what you closed, gently (round 8) ----
+(function councilCount() {
+  var e = game(170);
+  e.s.flags.firstCase = true;
+  assert.strictEqual(e.councilExpects(), null, 'nothing expected of an Examiner');
+  e.s.rank = 2;
+  e.councilCountWeek();
+  var ex = e.councilExpects();
+  assert.deepStrictEqual([ex.n, ex.m, ex.weeksLeft], [0, 1, 2], 'a Bailiff: one case a fortnight');
+  e.s.week += 2;
+  e.s.meters.pressure = 0;
+  var short = e.councilCountWeek();
+  assert.ok(/0 of 1 this fortnight\. It expected more/.test(short[0]) && e.s.meters.pressure === 1, 'short: the Crowd rises a step');
+  e.s.stats.convictions += 1;
+  assert.strictEqual(e.councilExpects().n, 1, 'an answered case counts');
+  e.s.week += 2;
+  var met = e.councilCountWeek();
+  assert.ok(/1 of 1 this fortnight, and is content/.test(met[0]) && e.s.meters.pressure === 0, 'met: the Crowd eases');
+  // Never a road to dismissal: from Restless up, falling short adds nothing.
+  e.s.week += 2; e.s.meters.pressure = 5;
+  e.councilCountWeek();
+  assert.strictEqual(e.s.meters.pressure, 5, 'a nudge, never the last push');
+  // A Magistrate: two a fortnight; the week between says nothing.
+  e.s.rank = 3; e.s.week += 1;
+  assert.deepStrictEqual(e.councilCountWeek(), [], 'counted only at the fortnight');
+  assert.strictEqual(e.councilExpects().m, 2);
+  console.log('the Council counts: ok');
+})();

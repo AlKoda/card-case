@@ -1380,3 +1380,70 @@ console.error = function (err) { throw err; };
   assert.deepStrictEqual(CF.Engine.load(old).s.roomUse, {}, 'an older save counts from now');
   console.log('what the rooms did: ok');
 })();
+
+// ---- How a card leaves: the engine says why, for the table to show it (round 8) ----
+(function goneWhy() {
+  var e = CF.Engine.newGame({ seed: 180, calling: 'master' });
+  var seen = {};
+  e.on(function (type, p) { if (type === 'gone') seen[p.uid] = p.why; });
+  // A Health taken for good by a need run out: lost.
+  e.create('health');
+  var hp = e.cardsOf('health').map(function (c) { return c.uid; });
+  var need = e.create('hunger', { lifetime: 1 });
+  e.needExpired(need);
+  var gone = hp.filter(function (u) { return !e.card(u); })[0];
+  assert.ok(gone && seen[gone] === 'lost', 'a Health lost for good burns: ' + seen[gone]);
+  // A token gone stale: faded. A witness leaving the city: left. A purse taken back: left.
+  var rec = e.openCases()[0];
+  var clue = e.create('clue', { label: 'A Thread', caseId: rec.id, aspects: { opportunity: 1 } });
+  var wit = e.create('witness', e.witnessSpec(rec));
+  var purse = e.create('bribe');
+  e.expire(clue); e.expire(wit); e.expire(purse);
+  assert.strictEqual(seen[clue.uid], 'faded');
+  assert.strictEqual(seen[wit.uid], 'left');
+  assert.strictEqual(seen[purse.uid], 'left');
+  // Coin paid at the Bell: spent. A blow: wounded.
+  var coins = e.cardsOf('funds').map(function (c) { return c.uid; });
+  e.s.flags.firstCase = true; e.weekTick();
+  assert.ok(coins.some(function (u) { return seen[u] === 'spent'; }), 'the Bell\'s dues are spent');
+  var h2 = e.cardsOf('health')[0];
+  e.hurtYou('A blow.', 'test');
+  assert.strictEqual(seen[h2.uid], 'wounded');
+  // A case card cleared, or a token taken by a recipe, says nothing.
+  var plain = e.create('clue', { label: 'Plain', caseId: rec.id, aspects: { motive: 1 } });
+  e.remove(plain);
+  assert.strictEqual(seen[plain.uid], undefined, 'an ordinary removal is silent');
+  console.log('how a card leaves: ok');
+})();
+
+// ---- A name to match the role: a nephew is a man, a niece a woman, whose they are does not count (round 8) ----
+(function namesByRole() {
+  var P = CF.Engine.prototype;
+  assert.strictEqual(P.sexOf('a nephew of the house'), 'm');
+  assert.strictEqual(P.sexOf('the victim\'s brother'), 'm');
+  assert.strictEqual(P.sexOf('a wool-merchant\'s son'), 'm');
+  assert.strictEqual(P.sexOf('a journeyman turned off'), 'm');
+  assert.strictEqual(P.sexOf('the widow\'s son'), 'm', 'the widow is whose he is');
+  assert.strictEqual(P.sexOf('the miller\'s wife'), 'f');
+  assert.strictEqual(P.sexOf('the child\'s older sister'), 'f');
+  assert.strictEqual(P.sexOf('a niece of the Bishop'), 'f');
+  assert.strictEqual(P.sexOf('the midwife'), 'f');
+  assert.strictEqual(P.sexOf('a person of no account'), null, 'a person is either');
+  assert.strictEqual(P.sexOf('the mason'), null, 'a mason is not a son');
+  // Every accused named for a role that says its sex gets a name of that sex, and keeps it on the record.
+  for (var i = 0; i < 30; i++) {
+    var e = CF.Engine.newGame({ seed: 190 + i, calling: 'master' });
+    var rec = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+    rec.suspects.forEach(function (x) {
+      var want = P.sexOf(x.role);
+      if (want) assert.strictEqual(e.sexOfName(x.name), want, x.name + ', ' + x.role);
+      assert.ok(x.sex === want || (!want && x.sex === e.sexOfName(x.name)), 'the record keeps the sex: ' + x.name);
+    });
+  }
+  // An older save's accused are given theirs on load.
+  var g = CF.Engine.newGame({ seed: 221, calling: 'master' }), old = JSON.parse(g.save());
+  Object.keys(old.cases).forEach(function (k) { old.cases[k].suspects.forEach(function (x) { delete x.sex; }); });
+  var l = CF.Engine.load(old);
+  l.openCases().forEach(function (r) { r.suspects.forEach(function (x) { assert.ok(x.sex !== undefined, 'migrated'); }); });
+  console.log('names by role: ok');
+})();

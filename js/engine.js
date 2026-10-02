@@ -275,6 +275,16 @@
       if (vr.template === 'missing' && vr.alive === undefined) vr.alive = false;
       if (vr.foundAlive === undefined) vr.foundAlive = false;
     });
+    // An accused keeps their sex, for the face the interface gives them (round 8): an older record's from its role or its name.
+    Object.keys(s.cases || {}).forEach(function (id) {
+      (s.cases[id].suspects || []).forEach(function (x) { if (x.sex === undefined) x.sex = P.sexOf(x.role) || P.sexOfName(x.name); });
+    });
+    // The Council counts each fortnight from Bailiff (round 8): an older save starts its count at the next Bell.
+    if (s.councilCount === undefined) s.councilCount = null;
+    // The Council's favour past the last office (round 8): an older save has been written no writ yet.
+    if (typeof s.flags.favourStep !== 'number') s.flags.favourStep = 0;
+    // The Council election is asked a week ahead (round 8): an older save has answered nothing.
+    if (s.flags.election === undefined) s.flags.election = null;
     // A patron's seal (round 8): an older save has been sent none, and gets one when Favour next reaches 3.
     if (!s.seals || typeof s.seals !== 'object') s.seals = {};
     // What each built room has done for you (round 8): an older save counts from now.
@@ -336,6 +346,7 @@
     });
     // The calling's own question (callings.js) is kept with the city's.
     if (CF.Callings && CF.Callings.register) CF.Callings.register();
+    if (CF.Patrons && CF.Patrons.register) CF.Patrons.register();
     // A question the city no longer asks, or a hook left from an older hour, is dropped.
     if (s.choice && !(CF.CHOICES || []).some(function (c) { return c.id === s.choice.id; })) s.choice = null;
     // A question still asked: its answers as the city words them now (a free way out added since is shown, and choose(i) runs what is shown).
@@ -347,6 +358,8 @@
     var e = new Engine(s);
     e.initPaths();
     e.layoutVerbs();
+    // A file finished before the ending told what became of them (round 8): told from what it kept.
+    if (s.over && s.over.epilogue === undefined) s.over.epilogue = e.epilogue();
     // A save stranded by an opening case that went cold, or was lost before the desk was kept
     // on a loss (round 8): the desk is given now, with the Bell and the city's clock.
     if (s.flags.opening && s.flags.stage === 'hired' && !s.over && !Object.keys(s.cases || {}).some(function (k) { var r = s.cases[k]; return r.opening && (r.status === 'open' || r.status === 'trial'); })) {
@@ -826,9 +839,19 @@
     card.loc = null;
   };
 
-  P.remove = function (card) {
+  // How a card leaves, for the interface to show it (round 8): 'lost' an
+  // ability gone for good, 'faded' a token gone stale, 'left' a person or a
+  // purse gone from the city, 'spent' Coin paid out, 'wounded' Health taken
+  // by a blow. P.remove(card, why) emits 'gone' { uid, def, why } just before
+  // the card goes; without a why, Coin is 'spent' and Health, Wit or Instinct
+  // removed whole is 'lost' (spending one transforms it, and is not a removal).
+  // 'none' says nothing.
+  CF.GONE_DEFAULT = { funds: 'spent', health: 'lost', focus: 'lost', instinct: 'lost' };
+  P.remove = function (card, why) {
     if (typeof card === 'number') card = this.card(card);
     if (!card || !this.s.cards[card.uid]) return;
+    var gone = why || CF.GONE_DEFAULT[card.def];
+    if (gone && gone !== 'none') this.emit('gone', { uid: card.uid, def: card.def, why: gone });
     // A card taken out of a running verb's hands (a charge clears its case, a case goes cold):
     // the verb remembers what it lost, to say so when it finishes.
     var hv = card.loc && card.loc.t === 'held' && this.s.verbs[card.loc.verb];
@@ -1652,8 +1675,10 @@
       if (named) this.story('The Trail Fades', label + ' has faded beyond use.', 'minor');
       else (this.s.weekFaded || (this.s.weekFaded = [])).push(label);
     }
-    this.remove(card);
+    this.remove(card, CF.EXPIRE_GONE[card.def] || 'faded');
   };
+  // How a card whose clock ran out leaves the table (see CF.GONE_DEFAULT).
+  CF.EXPIRE_GONE = { witness: 'left', atlarge: 'left', bribe: 'left', tribute: 'left', writsale: 'left' };
 
   // What the Bell draws each week: lodging, and a Coin for every two
   // watchmen in your service.
@@ -1764,7 +1789,7 @@
     if (r >= 5 && !s.flags.stairWarned) {
       s.flags.stairWarned = true;
       this.story('Which Stair Is Yours', 'A man has been asking in the Red Ox which stair is yours. He was not asking for the landlord.', 'danger');
-    } else if (r >= 3 && this.rng() < r * 0.07) this.attack();
+    } else if (r >= 3 && this.rng() < r * (this.endowedWith('lanes') ? 0.05 : 0.07)) this.attack();
 
     // Temptation.
     if (!this.countOf('bribe') && this.rng() < 0.15 + 0.1 * (gangs + synd * 2)) {
@@ -1811,6 +1836,8 @@
     lines.push(U.fill('The ledger: {what}; {open} open; {coin} Coin in hand.', { what: ledger.length ? ledger.join(', ') : 'no case closed', open: this.openCases().length, coin: this.countOf('funds') }));
     // The patrons' favour moved this week, a line each.
     if (this.favourMoved) lines = lines.concat(this.favourMoved(snap.favour || { council: 0, bishop: 0, guild: 0 }));
+    // From Bailiff, the Council counts what you closed this fortnight.
+    lines = lines.concat(this.councilCountWeek());
     var fav = this.favour ? this.favour() : null;
     s.weekSnap = { convictions: s.stats.convictions || 0, acquittals: s.stats.acquittals || 0, cold: s.stats.cold || 0,
       favour: fav ? { council: fav.council || 0, bishop: fav.bishop || 0, guild: fav.guild || 0 } : null };
@@ -1994,7 +2021,7 @@
     var hp = this.cardsOf('health', true).sort(held);
     if (!hp.length) hp = this.cardsOf('spent_health', true).sort(held);
     if (hp.length) {
-      this.remove(hp[0]);
+      this.remove(hp[0], 'wounded');
       var w = this.create('wound');
       if (this.woundFactor && this.woundFactor() !== 1) { w.life *= this.woundFactor(); w.maxLife = w.life; }
       this.story('Wounded', text, 'danger', { cue: 'harm' });
@@ -2125,7 +2152,148 @@
       s.flags.capTold = true;
       this.story('The Letter That Will Not Come', U.fill('You have the Standing for the red gown, and every councillor knows it. None of them will seat a hangman on the bench. The sergeant says it for them: {office} is as high as the Ravenstone reaches.', { office: CF.RANK_DEFS[cap].label }), 'major');
     }
+    // The Council's favour: past the last office, a Writ of the Council at every step of Standing.
+    var fav = this.favourNext();
+    if (fav && fav.step > fav.given) {
+      s.flags.favourStep = fav.step;
+      this.create('councilwrit');
+      this.story('Writ of the Council', fav.given ? 'The Council writes again, under the city\'s seal: one more favour, when you need it.' :
+        'There is no office left for the Council to give you, so it gives you its favour instead: a writ under the city\'s seal, good for one thing you ask.', 'major');
+    }
   };
+
+  // ---- The Council's favour (round 8) ------------------------------------------
+  // Past the last office (the red gown, or the highest a hangman may rise),
+  // every CF.FAVOUR_STEP Standing the Council writes a Writ of the Council:
+  // once per step (s.flags.favourStep counts the steps written). In Attend it
+  // does one thing, by what goes with it: a Case taken off your hands (no
+  // Crowd, Standing -1), the Rolls (Suspicion -2), the Rival (recalled for
+  // CF.FAVOUR_RECALL weeks) or a Witness (held for the Court).
+  // favourNext() is { base, step, given, at } at the top office, else null:
+  // `at` is the Standing of the next writ, for the Standing meter.
+  CF.FAVOUR_STEP = 4;
+  CF.FAVOUR_RECALL = 8;
+  CF.FAVOUR_HOLD = 120;
+  CF.FAVOUR_INFO = 'Past the last office, every four Standing the Council grants you a favour.';
+  P.favourNext = function () {
+    var s = this.s, cap = this.rankCap ? this.rankCap() : CF.TOP_RANK;
+    if ((s.rank || 0) < cap) return null;
+    var base = CF.RANK_REP[Math.min(cap + 1, CF.TOP_RANK)];
+    var rep = s.meters.reputation || 0, given = s.flags.favourStep || 0;
+    var step = Math.max(0, Math.floor((rep - base) / CF.FAVOUR_STEP));
+    return { base: base, step: step, given: given, at: base + CF.FAVOUR_STEP * (given + 1) };
+  };
+  // Will the Council take this case off your hands? An ordinary case still open; not the city's great ones.
+  P.councilMayTake = function (rec) {
+    return !!rec && rec.status === 'open' && !rec.special && !rec.opening && rec.template !== 'pattern';
+  };
+  // What the writ will do with this card, for the verb's preview.
+  P.councilFavourGives = function (card) {
+    if (!card) return '';
+    if (card.def === 'case') return 'The Council takes it off your hands: no Crowd, Standing -1.';
+    if (card.def === 'paperwork') return 'The clerks lose a leaf of their list: Suspicion -2.';
+    if (card.def === 'rival') return U.fill('The Harbourmaster\'s examiner is recalled for {n} weeks.', { n: CF.FAVOUR_RECALL });
+    if (card.def === 'witness') return 'Held for the Court: they stay in the city until it sits.';
+    return '';
+  };
+  // Use the writ on a card (the Attend recipe): what it did, as story text.
+  P.councilFavour = function (card) {
+    var s = this.s;
+    if (!card) return 'The writ is filed, and nothing comes of it.';
+    if (card.def === 'case') {
+      var rec = this.caseRec(card.caseId);
+      if (!this.councilMayTake(rec)) return 'The Council will not take this one off your hands.';
+      return this.councilTakes(rec);
+    }
+    if (card.def === 'paperwork') {
+      this.remove(card, 'none');
+      this.meter('scrutiny', -2);
+      return 'The writ goes to the clerks with the Rolls under it. Two leaves of their list go into the fire. Suspicion -2.';
+    }
+    if (card.def === 'rival') {
+      var name = card.data && card.data.name || 'The Harbourmaster\'s examiner';
+      this.remove(card, 'left');
+      s.flags.rivalGone = Math.max(s.flags.rivalGone || 0, s.week + CF.FAVOUR_RECALL);
+      this.openCases().forEach(function (r) { if (r.rival) { r.rival = false; r.rivalBoasted = false; } });
+      return U.fill('The Council writes to the Customs House. {name} is recalled, and their desk is empty by the Bell. The Harbourmaster will not try again for {n} weeks.', { name: name, n: CF.FAVOUR_RECALL });
+    }
+    if (card.def === 'witness') {
+      card.life = (card.life || 0) + CF.FAVOUR_HOLD;
+      card.maxLife = Math.max(card.maxLife || 0, card.life);
+      card.data = card.data || {};
+      card.data.held = true;
+      this.dirty = true;
+      return U.fill('The Council\'s writ holds {name} in the city for the Court. They grumble, and stay.', { name: this.labelOf(card).replace(/^Witness: /, '') });
+    }
+    return 'The writ is filed, and nothing comes of it.';
+  };
+  // The Council takes a case off your hands: closed by its own sergeants, the
+  // right name taken quietly. Not a case gone cold (no Crowd, no Unanswered
+  // card, nobody walks) and not yours either: Standing -1.
+  P.councilTakes = function (rec) {
+    var s = this.s;
+    var card = this.caseCard(rec.id);
+    var seat = card ? { uid: card.uid, at: card.loc && card.loc.t === 'table' ? { x: card.loc.x, y: card.loc.y } : null } : null;
+    if (card) this.remove(card);
+    rec.status = 'council';
+    if (rec.commission && !rec.commission.delivered) rec.commission.delivered = 'council';
+    this.releaseDelegate(rec);
+    var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0] || null;
+    s.stats.councilTook = (s.stats.councilTook || 0) + 1;
+    this.emit('resolved', this.caseRecord(rec, 'council', culprit ? culprit.name : null, seat));
+    this.clearCaseCards(rec.id);
+    this.meter('reputation', -1);
+    if (culprit) {
+      var c = this.criminalByName(culprit.name);
+      if (c) { c.status = 'jailed'; c.history.push({ week: s.week, title: rec.title, how: 'council' }); var al = this.atLargeCardFor(c); if (al) this.remove(al); }
+    }
+    return U.fill('The Council\'s sergeants take {title} off your hands. {name} is taken quietly at first light, and the Rolls say the case is answered. Not by you: Standing -1.', { title: rec.title, name: culprit ? culprit.name : 'Somebody' });
+  };
+  // A Magistrate's endowment granted (the Petition paid): what it does, as story text.
+  P.endowed = function (key) {
+    if (key === 'abbey') {
+      if (this.favourGain) this.favourGain('bishop', 2);
+      return 'The Abbey hospital has a new ward with your name over the door. The Bishop\'s favour +2, and a bed kept for you: a Weariness lifted at every Bell.';
+    }
+    if (key === 'lanes') return 'Lanterns go up at every corner of the Stews and the Warrens, and a lamplighter walks them at dusk. A blow on the stair comes less often now.';
+    return '';
+  };
+  // ---- The Council counts (round 8) ---------------------------------------------
+  // From Bailiff the Council expects cases answered: rank - 1 a fortnight
+  // (the record it counts, rankRecord). At the fortnight's Bell, met, the
+  // Crowd eases a step; part met, it is only said; nothing answered at all,
+  // the Crowd rises a step, but only while it is below
+  // CF.COUNCIL_COUNT.crowdBelow: a nudge, never a road to dismissal.
+  //   s.councilCount = { from: week, record }   the fortnight being counted (null below Bailiff)
+  // councilExpects() is { n, m, weeksLeft } for the Bell's pane, else null.
+  CF.COUNCIL_COUNT = { rank: 2, weeks: 2, crowdBelow: 2 };
+  P.councilExpects = function () {
+    var s = this.s, C = CF.COUNCIL_COUNT, c = s.councilCount;
+    if ((s.rank || 0) < C.rank) return null;
+    var m = (s.rank || 0) - 1;
+    if (!c) return { n: 0, m: m, weeksLeft: C.weeks };
+    return { n: Math.max(0, this.rankRecord() - (c.record || 0)), m: m, weeksLeft: Math.max(0, c.from + C.weeks - s.week) };
+  };
+  P.councilCountWeek = function () {
+    var s = this.s, C = CF.COUNCIL_COUNT, lines = [];
+    if ((s.rank || 0) < C.rank) { s.councilCount = null; return lines; }
+    if (!s.councilCount) { s.councilCount = { from: s.week, record: this.rankRecord() }; return lines; }
+    if (s.week - s.councilCount.from < C.weeks) return lines;
+    var ex = this.councilExpects();
+    if (ex.n >= ex.m) {
+      if (s.meters.pressure > 0) this.meter('pressure', -1);
+      lines.push(U.fill('The Council counts what you closed: {n} of {m} this fortnight, and is content. The Crowd eases.', ex));
+    } else if (ex.n > 0) {
+      lines.push(U.fill('The Council counts what you closed: {n} of {m} this fortnight. It expected more.', ex));
+    } else {
+      if (s.meters.pressure < C.crowdBelow) this.meter('pressure', 1);
+      lines.push(U.fill('The Council counts what you closed: {n} of {m} this fortnight. It expected more, and the Crowd hears of it.', ex));
+    }
+    s.councilCount = { from: s.week, record: this.rankRecord() };
+    return lines;
+  };
+  // Whether an endowment has been paid (the Petition granted).
+  P.endowedWith = function (key) { return !!(this.s.flags.bought || {})[key] && !!CF.ORDERS[key] && !!CF.ORDERS[key].endow; };
 
   // ---- Endings -------------------------------------------------------------
   CF.ENDINGS = {
@@ -2208,6 +2376,7 @@
     var text = CF.Story ? CF.Story.ending(this, id) : end.text;
     s.over = { id: id, win: end.win, title: end.title, text: text, week: s.week, origin: s.origin, calling: s.calling,
       cause: cause || null, threat: end.threat || null, lesson: end.win ? null : this.endingLesson(id, cause) };
+    s.over.epilogue = this.epilogue();
     this.story(end.title, text, end.win ? 'victory' : 'defeat');
     s.legacy = this.buildLegacy();
     this.emit('over', s.over);
@@ -2315,6 +2484,58 @@
     return out;
   };
 
+  // What became of them (round 8): the run's own late story, told back under
+  // the ending. Up to four lines, each { id, text } (id keys an icon: pattern,
+  // coquille, rival, abroad, watch), drawn from state alone, never from the
+  // dice: the same run gives the same lines. gameOver keeps them in s.over.
+  P.epilogue = function () {
+    var s = this.s, st = s.stats || {}, out = [];
+    var cases = Object.keys(s.cases || {}).map(function (k) { return s.cases[k]; });
+    // The Pattern: answered at its last door, or never.
+    var pat = cases.filter(function (r) { return r.template === 'pattern'; })[0];
+    if (pat) {
+      var nth = ['', 'first', 'second', 'third', 'fourth', 'fifth'][Math.min(5, Math.max(1, pat.victims || 1))];
+      out.push({ id: 'pattern', text: pat.status === 'closed'
+        ? U.fill('The girls of {scene}: answered at the {nth} door.', { scene: pat.scene, nth: nth })
+        : U.fill('The girls of {scene}: never answered. He still walks the lanes.', { scene: pat.scene }) });
+    }
+    // The Coquille's King: on his barrel, on the Ravenstone, or kneeling to you.
+    var court = s.court || {}, ev = this.endingVars();
+    var kingCase = cases.filter(function (r) { return r.template === 'syndicate' && r.status === 'closed'; })[0];
+    if (s.over && s.over.id === 'kingofthunes') out.push({ id: 'coquille', text: 'The old King went into the river. The Court kneels to you.' });
+    else if (kingCase || s.flags.syndicateFallen) out.push({ id: 'coquille', text: U.fill('{king} hangs on the Ravenstone.', { king: ev.king }) });
+    else if (court.stance === 'treaty') out.push({ id: 'coquille', text: U.fill('{king} keeps the Treaty, and his barrel.', { king: ev.king }) });
+    else if (this.countOf('syndicate')) out.push({ id: 'coquille', text: U.fill('{king} still sits on his barrel.', { king: ev.king }) });
+    // The Harbourmaster's examiners, sent home.
+    var sent = st.rivalExposed || 0;
+    if (sent === 1) out.push({ id: 'rival', text: 'One examiner sent home to the Customs House.' });
+    else if (sent > 1) out.push({ id: 'rival', text: U.fill('{N} examiners sent home to the Customs House.', { N: CF.numberWord(sent, true) }) });
+    // The worst of those abroad: the one who walked from you most.
+    var WALKED = { cold: 1, acquitted: 1, wrongful: 1, rival: 1, slipped: 1, burned: 1 };
+    var worst = null, walks = 0;
+    this.criminalsAtLarge().forEach(function (c) {
+      var n = (c.history || []).filter(function (h) { return WALKED[h.how]; }).length;
+      if (n > walks || (n === walks && worst && c.crimes > worst.crimes)) { worst = c; walks = n; }
+    });
+    if (worst && walks >= 1) {
+      var last = (worst.history || []).filter(function (h) { return h.title; }).slice(-1)[0];
+      var rec = last && cases.filter(function (r) { return r.title === last.title; })[0];
+      var where = rec && CF.DISTRICTS[rec.district] ? CF.DISTRICTS[rec.district].label : null;
+      var vars = { name: worst.name, k: CF.numberWord(walks), where: where };
+      var seen = where ? [
+        '{name}, who walked from you once, was last seen in {where}.', '{name}, who walked from you twice, was last seen in {where}.', '{name}, who walked from you {k} times, was last seen in {where}.',
+      ] : [
+        '{name}, who walked from you once, is still inside the walls.', '{name}, who walked from you twice, is still inside the walls.', '{name}, who walked from you {k} times, is still inside the walls.',
+      ];
+      out.push({ id: 'abroad', text: U.fill(seen[Math.min(3, walks) - 1], vars) });
+    }
+    // The watchman you drilled hardest.
+    var best = null;
+    this.cardsOf('teammate', true).forEach(function (c) { var lv = (c.data && c.data.level) || 1; if (lv >= 2 && (!best || lv > best.data.level)) best = c; });
+    if (best && best.data.name) out.push({ id: 'watch', text: U.fill('{name} is sergeant now.', { name: best.data.name }) });
+    return out.slice(0, 4);
+  };
+
   // What a successor inherits: your cold cases and your enemies.
   P.buildLegacy = function () {
     var self = this;
@@ -2394,11 +2615,23 @@
     var i = (name || '').indexOf(' ');
     return i < 0 ? [name || '', ''] : [name.slice(0, i), name.slice(i + 1)];
   };
-  // What a witness's description says of their sex, for the name they are given.
+  // What a description says of a person's sex (a witness's, an accused's
+  // role), for the name and the face they are given. Whose they are does not
+  // count: 'the widow's son' is a man, 'the miller's wife' a woman.
   P.sexOf = function (who) {
     if (!who) return null;
-    if (/woman|wife|maid|widow|laundress|sister|fishwife|girl/i.test(who)) return 'f';
-    if (/\bman\b|boy|husband|porter|sergeant|baker|shepherd|bargeman|ferryman|tapster|drunk|doorkeeper|infirmarian|assayer|watchman/i.test(who)) return 'm';
+    var head = String(who).replace(/\b[\w-]+(?:'s|s')(?=\s)/gi, ' ');
+    if (/woman|wife|maid|widow|laundress|sister|fishwife|girl|niece|daughter|mother|\baunt\b|midwife|lady|abbess|\bnun\b/i.test(head)) return 'f';
+    if (/\bman\b|boy|husband|porter|sergeant|baker|shepherd|bargeman|ferryman|tapster|drunk|doorkeeper|infirmarian|assayer|watchman|nephew|\bson\b|brother|father|uncle|journeyman|apprentice|novice|\bking\b|master\b/i.test(head)) return 'm';
+    return null;
+  };
+
+  // A name's sex, by its first name ('m', 'f', or null for one not in the lists):
+  // the interface picks a face to match (a suspect record also keeps `sex`).
+  P.sexOfName = function (name) {
+    var first = CF.nameParts(name)[0], N = CF.NAMES || {};
+    if ((N.f || []).indexOf(first) >= 0) return 'f';
+    if ((N.m || []).indexOf(first) >= 0) return 'm';
     return null;
   };
 
@@ -2506,7 +2739,7 @@
   P.orderSpec = function (key) {
     var o = CF.ORDERS[key];
     if (!o) return null;
-    var what = o.room ? CF.ROOMS[o.room].desc : CF.CARDS[o.give].desc;
+    var what = o.desc || (o.room ? CF.ROOMS[o.room].desc : CF.CARDS[o.give].desc);
     var disc = this.s.who === 'clerk' ? 1 : 0;
     return { label: 'Petition: ' + o.label, desc: what + ' Costs ' + Math.max(1, o.cost - disc) + ' Coin.', data: { order: key, discount: disc } };
   };
@@ -2796,9 +3029,9 @@
     this.openCases().forEach(function (r) { (r.suspects || []).forEach(function (x) { ex.last.push(CF.nameParts(x.name)[1]); }); });
     if (opts.culpritName) { var cp = CF.nameParts(opts.culpritName); ex.first.push(cp[0]); ex.last.push(cp[1]); }
     var suspects = roles.map(function (r, i) {
-      var name = i === guiltyIdx && opts.culpritName ? opts.culpritName : self.newName(r.sex || null, ex);
+      var name = i === guiltyIdx && opts.culpritName ? opts.culpritName : self.newName(r.sex || self.sexOf(r.role), ex);
       var np = CF.nameParts(name); ex.first.push(np[0]); ex.last.push(np[1]);
-      return { key: 's' + i, name: name, role: r.role, motive: r.motive, trait: traits[i].id, guilty: i === guiltyIdx, revealed: false };
+      return { key: 's' + i, name: name, role: r.role, motive: r.motive, trait: traits[i].id, guilty: i === guiltyIdx, revealed: false, sex: r.sex || self.sexOf(r.role) || self.sexOfName(name) };
     });
     if (from) {
       // The same names: nobody is in the casebook yet, but the cleared stay cleared.

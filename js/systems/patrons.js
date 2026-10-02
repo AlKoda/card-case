@@ -273,15 +273,20 @@
     var s = this.s, f = this.favour(), lines = [];
     this.sealCheck(); // favour moved by a choice or a beat this week
     if (f.council >= 3 && s.meters.scrutiny > 0) { this.meter('scrutiny', -1); lines.push('A word from your patron on the Council, and a leaf of the clerks\' list is lost.'); }
-    if (f.bishop >= 3 && this.countOf('fatigue')) { this.remove(this.cardsOf('fatigue')[0]); lines.push('The Abbey hospital keeps a bed for you. You sleep a night in it.'); }
+    if ((f.bishop >= 3 || (this.endowedWith && this.endowedWith('abbey'))) && this.countOf('fatigue')) { this.remove(this.cardsOf('fatigue')[0]); lines.push('The Abbey hospital keeps a bed for you. You sleep a night in it.'); }
     if (f.guild >= 3 && this.rng() < 0.5) { this.create('funds'); lines.push('The Market Warden sends the guilds\' fee for a quiet Market.'); }
     // The letter of office the Council is not writing.
     if (this.promotionHeld && this.promotionHeld() && s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
       lines.push('You have the Standing for a new office. The letter does not come; the Council is displeased.');
     }
     // Elections: every twelve weeks the Council may turn, and Favour becomes Suspicion.
+    // Answered the week before (The Council Elects), the count follows the answer.
     // Told whichever way it goes, once the city knows you.
-    if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0 && this.rng() < 0.4) {
+    var el = s.flags.election;
+    if (el && s.week >= el.week) {
+      s.flags.election = null;
+      lines = lines.concat(this.electionCount(el.stance, el.holds));
+    } else if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0 && this.rng() < 0.4) {
       this.meter('scrutiny', f.council);
       lines.push('The Council election goes against your patron. Every favour he did you is read aloud by the men who beat him, and the clerks write each one down.');
       f.council = 0;
@@ -293,8 +298,13 @@
     // The Inquisitor arrives when the Bishop's Favour is low.
     if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican, white habit under a black cloak, has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
     if (f.bishop >= 0 && s.flags.inquisitor) { s.flags.inquisitor = false; lines.push('The Inquisitor has been recalled. The Bishop is satisfied, for now.'); }
-    // The week before an election, the seat your patron holds is in play.
-    if (s.week % Pat.ELECTION_EVERY === Pat.ELECTION_EVERY - 1 && f.council > 0) lines.push('The Council elects next week. Your patron\'s seat is contested.');
+    // The week before an election, the seat your patron holds is in play: told,
+    // and asked (The Council Elects) when he is your patron in earnest (favour 2
+    // or more) and no other question waits. At favour 1 the count is only told.
+    if (s.week % Pat.ELECTION_EVERY === Pat.ELECTION_EVERY - 1 && f.council > 0) {
+      lines.push('The Council elects next week. Your patron\'s seat is contested.');
+      if (f.council >= 2) this.offerElection();
+    }
     // A case that smells of heresy is asked after at a week, and taken at two:
     // by the Inquisitor when he is here, else only while the Bishop is cold.
     var self = this;
@@ -316,6 +326,69 @@
       self.inquisitorSeizes(rec);
       lines.push('The Inquisitor has taken ' + rec.title + ' out of your hands.');
     });
+    return lines;
+  };
+
+  // ---- The Council elects ------------------------------------------------------
+  // The week before an election, with a patron on the Council (favour 2 or
+  // more: at 1 there is too little at stake to ask), the city asks how you stand. The count is the next week, at the Bell,
+  // and told: your patron holds his seat six times in ten.
+  //   s.flags.election = { stance: 'stand'|'distance'|'dine', week, holds }   answered, told at `week`
+  Pat.HOLDS = 0.6;
+  Pat.ELECTION = { id: 'election', when: function () { return false; },
+    title: 'The Council Elects', text: 'Your patron\'s seat is contested. The other side has been counting the favours he did you.',
+    options: [
+      { label: 'Stand with him openly', cost: 'funds', gain: 'If he holds the seat, Council favour +2; if not, Suspicion for every favour',
+        text: 'You dine at his table the night before the count, where the chamber can see you.',
+        effect: function (e) { e.electionStance('stand'); } },
+      { label: 'Keep your distance', gain: 'Favour halves; no Suspicion either way',
+        text: 'You are busy at the Watch-house all week, and say so to anyone who asks.',
+        effect: function (e) { var f = e.favour(); f.council = Math.floor((f.council || 0) / 2); e.electionStance('distance'); } },
+      { label: 'Dine with the other side', cost: 'focus', gain: 'Council favour +1 under the new man; Bishop -1',
+        text: 'The other side keeps a good table, and the Bishop\'s chaplain hears whose.',
+        effect: function (e) { e.favourGain('bishop', -1); e.electionStance('dine'); } },
+    ] };
+  Pat.register = function () {
+    if (!CF.CHOICES) return false;
+    if (!CF.CHOICES.some(function (c) { return c.id === Pat.ELECTION.id; })) CF.CHOICES.push(Pat.ELECTION);
+    return true;
+  };
+  // Put the question, if it can be put now. Returns true when asked.
+  P.offerElection = function () {
+    var s = this.s;
+    if (s.choice || s.over || !this.offerChoice || !Pat.register()) return false;
+    this.offerChoice(Pat.ELECTION, null);
+    return true;
+  };
+  // The answer, and the count it waits on: the votes are already promised
+  // when the seat is contested, and read out at the next Bell.
+  P.electionStance = function (stance) {
+    var s = this.s;
+    s.flags.election = { stance: stance, week: s.week + 1, holds: this.rng() < Pat.HOLDS };
+    this.dirty = true;
+  };
+  // The count in the chamber, as the answer left it: the Bell's lines.
+  P.electionCount = function (stance, held) {
+    var s = this.s, f = this.favour(), lines = [];
+    var holds = typeof held === 'boolean' ? held : this.rng() < Pat.HOLDS;
+    lines.push(holds ? 'The Count in the Chamber: your patron holds.' : 'The Count in the Chamber: your patron loses.');
+    if (stance === 'stand') {
+      if (holds) { this.favourGain('council', 2); lines.push('He remembers who stood with him. Council favour +2.'); }
+      else {
+        var owed = Math.max(0, f.council || 0);
+        f.council = 0;
+        if (owed) { this.meter('scrutiny', owed); lines.push(U.fill('Every favour he did you is read aloud by the men who beat him. Suspicion +{n}.', { n: owed })); }
+        else lines.push('The new men have nothing against you, and nothing for you.');
+      }
+    } else if (stance === 'distance') {
+      if (!holds) f.council = 0;
+      lines.push(holds ? 'He keeps his seat, and notes that you kept your distance.' : 'The new men have nothing against you, and nothing for you.');
+    } else {
+      if (holds) { f.council = Math.floor((f.council || 0) / 2); lines.push('He keeps his seat, and has heard where you dined. Council favour halves.'); }
+      else { f.council = 1; lines.push('The new man remembers your face from his table. Council favour +1.'); }
+    }
+    this.sealCheck();
+    this.dirty = true;
     return lines;
   };
 

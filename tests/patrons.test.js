@@ -378,3 +378,69 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   assert.strictEqual(u.favour().guild, 1, 'a sentence they would not wish is not noticed');
   console.log('a patron\'s seal, called in: ok');
 })();
+
+// ---- The Council elects: asked the week before, counted and told at the next Bell (round 8) ----
+(function electionChoice() {
+  function asked(seed, council) {
+    var e = game(seed); e.s.flags.firstCase = true; e.favour().council = council; e.s.week = CF.Patrons.ELECTION_EVERY - 1;
+    e.s.choice = null;
+    e.patronsWeek();
+    return e;
+  }
+  var e = asked(760, 2);
+  assert.ok(e.s.choice && e.s.choice.id === 'election', 'the week before, the city asks how you stand');
+  assert.strictEqual(e.s.choice.options.length, 3, 'three answers');
+  assert.ok(e.s.choice.options.every(function (o) { return o.gain; }), 'each says what it gives');
+  // No patron, no question; a patron of favour 1 has too little at stake to ask, and is only told.
+  var none = asked(761, 0);
+  assert.ok(!none.s.choice || none.s.choice.id !== 'election', 'no patron, no question');
+  var slight = game(762); slight.s.flags.firstCase = true; slight.favour().council = 1; slight.s.week = CF.Patrons.ELECTION_EVERY - 1; slight.s.choice = null;
+  assert.ok(slight.patronsWeek().some(function (l) { return /elects next week/.test(l); }) && !slight.s.choice, 'favour 1: told, not asked');
+  // Stand with him: Coin paid; the count told the next week, and its return either way.
+  var held = false, lost = false;
+  for (var i = 0; i < 40 && !(held && lost); i++) {
+    var g = asked(770 + i, 2);
+    var coins = g.cardsOf('funds').length;
+    assert.ok(g.choose(0), 'standing with him costs a Coin');
+    assert.strictEqual(g.cardsOf('funds').length, coins - 1);
+    assert.ok(g.s.flags.election && g.s.flags.election.stance === 'stand');
+    g.s.week++;
+    g.s.meters.scrutiny = 0;
+    var l = g.patronsWeek().join(' ');
+    assert.ok(/The Count in the Chamber: your patron (holds|loses)\./.test(l), 'the count is told');
+    assert.strictEqual(g.s.flags.election, null, 'and counted once');
+    if (/holds/.test(l)) { held = true; assert.strictEqual(g.favour().council, 4, 'he holds: Council favour +2'); }
+    else { lost = true; assert.ok(g.favour().council === 0 && g.s.meters.scrutiny === 2, 'he loses: Suspicion for every favour'); }
+  }
+  assert.ok(held && lost, 'both counts come');
+  // Keep your distance: favour halves now, and no Suspicion whichever way.
+  for (var j = 0; j < 10; j++) {
+    var d = asked(820 + j, 3);
+    d.choose(1);
+    assert.strictEqual(d.favour().council, 1, 'distance halves the favour');
+    d.s.week++; d.s.meters.scrutiny = 0;
+    d.patronsWeek();
+    assert.strictEqual(d.s.meters.scrutiny, 0, 'and no Suspicion either way');
+  }
+  // Dine with the other side: Wit spent, the Bishop cools; the new man gives +1.
+  var lostSeen = false;
+  for (var k = 0; k < 30 && !lostSeen; k++) {
+    var n = asked(840 + k, 2), bishop = n.favour().bishop;
+    if (!n.canChoose(2)) continue;
+    n.choose(2);
+    assert.strictEqual(n.favour().bishop, bishop - 1, 'the Bishop hears whose table');
+    n.s.week++;
+    var ln = n.patronsWeek().join(' ');
+    if (/loses/.test(ln)) { lostSeen = true; assert.strictEqual(n.favour().council, 1, 'Council favour +1 under the new man'); }
+    else assert.strictEqual(n.favour().council, 1, 'he holds, and has heard where you dined: favour halves');
+  }
+  assert.ok(lostSeen, 'the other side wins sometimes');
+  // A save from before: the question unanswered loads, and the old roll still runs.
+  var old = JSON.parse(game(860).save()); delete old.flags.election;
+  var lo = CF.Engine.load(old);
+  assert.strictEqual(lo.s.flags.election, null, 'an older save has answered nothing');
+  var open = asked(861, 2), saved = CF.Engine.load(open.save());
+  assert.ok(saved.s.choice && saved.s.choice.id === 'election', 'a save holds the question open');
+  assert.ok(saved.choose(1), 'and it can be answered after loading');
+  console.log('the Council elects: ok');
+})();

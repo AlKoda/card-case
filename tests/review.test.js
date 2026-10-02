@@ -131,3 +131,49 @@ function run(e, verb, cards) {
   }
   console.log('dead ends: ok');
 })();
+
+// What became of them: the run's late story under the ending, from state alone (round 8).
+(function epilogue() {
+  function lateRun(seed) {
+    var e = game(seed, 'crusader');
+    var pat = e.caseRec(e.spawnCase('pattern', { quiet: true, headline: 'The Pattern: ' }).caseId);
+    pat.victims = 3;
+    e.create('syndicate');
+    e.s.court = { king: { name: 'Gerd Thune' }, stance: null, since: 0, inside: false, insideWeeks: 0, quietWeeks: 0, handed: 0 };
+    e.s.stats.rivalExposed = 2;
+    var b = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+    var cul = b.suspects.filter(function (x) { return x.guilty; })[0];
+    e.criminalEscapes(b, cul, 'cold');
+    e.criminalEscapes(b, cul, 'acquitted');
+    var t = e.create('teammate', e.teammateSpec('veteran'));
+    t.data.level = 3;
+    return { e: e, pat: pat, b: b, cul: cul, t: t };
+  }
+  var r = lateRun(140), lines = r.e.epilogue();
+  assert.strictEqual(lines.length, 4, 'four lines at most');
+  assert.deepStrictEqual(lines.map(function (l) { return l.id; }), ['pattern', 'coquille', 'rival', 'abroad'], 'in their order');
+  assert.strictEqual(lines[0].text, 'The girls of ' + r.pat.scene + ': never answered. He still walks the lanes.');
+  assert.ok(/still sits on his barrel\.$/.test(lines[1].text), lines[1].text);
+  assert.strictEqual(lines[2].text, 'Two examiners sent home to the Customs House.');
+  assert.strictEqual(lines[3].text, r.cul.name + ', who walked from you twice, was last seen in ' + CF.DISTRICTS[r.b.district].label + '.');
+  // Answered at the third door; the King hanged; the watchman sergeant once there is room.
+  r.pat.status = 'closed';
+  r.e.s.flags.syndicateFallen = true;
+  r.e.s.stats.rivalExposed = 0;
+  lines = r.e.epilogue();
+  assert.strictEqual(lines[0].text, 'The girls of ' + r.pat.scene + ': answered at the third door.');
+  assert.ok(/hangs on the Ravenstone\.$/.test(lines[1].text));
+  assert.ok(lines.some(function (l) { return l.id === 'watch' && l.text === r.t.data.name + ' is sergeant now.'; }), 'the watchman drilled hardest');
+  // Deterministic: the same seed and the same play give the same lines; reading them draws no dice.
+  var a = lateRun(141), b = lateRun(141), rng = a.e.rng.getState();
+  assert.deepStrictEqual(a.e.epilogue(), b.e.epilogue(), 'the same run, the same epilogue');
+  assert.strictEqual(a.e.rng.getState(), rng, 'no dice drawn');
+  // Kept with the ending, and told for a file finished before it existed.
+  a.e.gameOver('dismissed', { meter: 'pressure' });
+  assert.deepStrictEqual(a.e.s.over.epilogue, b.e.epilogue(), 'gameOver keeps it in s.over');
+  var old = JSON.parse(a.e.save()); delete old.over.epilogue;
+  assert.deepStrictEqual(CF.Engine.load(old).s.over.epilogue, a.e.s.over.epilogue, 'an older finished file is told it on load');
+  // A quiet run: nothing to tell, nothing made up.
+  assert.deepStrictEqual(game(142).epilogue(), [], 'nothing to tell');
+  console.log('epilogue: ok');
+})();
