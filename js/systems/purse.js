@@ -42,6 +42,9 @@
     if (roll < 0.6) {
       // Settled: the goods come back, the case closes, nobody stands trial.
       rec.status = 'settled';
+      // The Council wanted it answered: settled is cold to the Council. The Bishop and the Guilds had nobody to judge.
+      if (rec.commission && rec.commission.from === 'council') { if (this.commissionCold) this.commissionCold(rec); }
+      else if (rec.commission && !rec.commission.delivered) rec.commission.delivered = 'settled';
       this.releaseDelegate(rec);
       var cc = this.caseCard(rec.id);
       if (cc) this.remove(cc);

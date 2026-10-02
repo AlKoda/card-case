@@ -70,10 +70,13 @@ function step(e, temper) {
   var spent = of(e, 'spent_focus')[0] || of(e, 'spent_health')[0] || of(e, 'spent_instinct')[0];
   if (spent && !of(e, spent.def === 'spent_focus' ? 'focus' : spent.def === 'spent_health' ? 'health' : 'instinct').length) tryRun(e, 'reflect', [spent]);
   if (of(e, 'looseend').length >= 3) tryRun(e, 'reflect', of(e, 'looseend').slice(0, 3));
-  // The Harbourmaster's Examiner: a thread with Wit, and a week later one with Instinct, and the Council sends them home.
+  // The Harbourmaster's Examiner: a thread with Wit, then caught at it with their own work (a spoiled token,
+  // a paid witness, the case they took) in Question, and the Council sends them home.
   var rival = of(e, 'rival')[0];
-  if (rival && rival.data.heatHow === 'question') { if (of(e, 'instinct')[0]) tryRun(e, 'investigate', [rival, of(e, 'instinct')[0]]); }
-  else if (rival && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0]]);
+  if (rival && (rival.data.heat || 0) >= 1) {
+    var work = table(e, function (c) { return e.rivalWork(c); })[0];
+    if (work && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0], work]);
+  } else if (rival && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0]]);
 
   // Sentence, by temperament: merciful takes the lightest rung, brutal the
   // heaviest, custom what the Council would do, corrupt whatever a purse asks.
@@ -206,13 +209,20 @@ var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
 var earlyCoquille = 0, drifts = {}, attacks = {}, seatWins = [];
+var rivalCame = 0, rivalExposed = 0, rivalClosed = 0, rivalCaught = 0;
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
   var temper = TEMPERS[Math.floor(g / 3) % 4];
   // The whole city: the needs and the choices run from the first day.
   var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who, life: true });
-  e.on(function (type, p) { if (type === 'story' && /^Lost: /.test(p.title)) lost++; if (type === 'chosen') choices++; });
+  e.on(function (type, p) {
+    if (type === 'story' && /^Lost: /.test(p.title)) lost++;
+    if (type === 'chosen') choices++;
+    if (type === 'story' && (p.title === 'The Harbourmaster\'s Examiner' || p.title === 'Another Examiner')) rivalCame++;
+    if (type === 'story' && p.title === 'Answered by the Rival') rivalClosed++;
+    if (type === 'story' && p.title === 'Quicker than the Customs House') rivalCaught++;
+  });
   var band = null, reached2 = false, below = 0, early = false;
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
     step(e, temper);
@@ -225,6 +235,7 @@ for (var g = 0; g < GAMES; g++) {
       !e.s.journal.some(function (j) { return j.title === 'The Coquille' && /^The bands have stopped/.test(j.text); })) early = true;
   }
   if (early) earlyCoquille++;
+  rivalExposed += e.s.stats.rivalExposed || 0;
   attacks[calling] = attacks[calling] || { runs: 0, n: 0 };
   attacks[calling].runs++; attacks[calling].n += e.s.stats.attacks || 0;
   if (e.s.over && e.s.over.id === 'commissioner') seatWins.push(e.s.week);
@@ -298,7 +309,11 @@ console.log('insights earned', insights, '| bands formed', bands.length, '| Bail
 console.log('callings drifted', JSON.stringify(drifts));
 console.log('attacks per game by calling', JSON.stringify(Object.keys(attacks).reduce(function (o, k) { o[k] = +(attacks[k].n / attacks[k].runs).toFixed(2); return o; }, {})), '| the Seat won at weeks', JSON.stringify(seatWins.sort(function (a, b) { return a - b; })));
 console.log('per game: needs met', (needsMet / GAMES).toFixed(2), '| abilities lost', (lost / GAMES).toFixed(2), '| choices answered', (choices / GAMES).toFixed(2));
+console.log('the Rival: came', rivalCame, '| exposed', rivalExposed, '| closed a case', rivalClosed, '| beaten on their case', rivalCaught);
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
+// The Rival is a race, not a Standing faucet: caught only at their own work, so in a run of games they win one.
+if (GAMES >= 20) assert.ok(rivalClosed >= 1, 'the Rival closes a case in at least one game: ' + rivalClosed);
+assert.ok(rivalExposed <= rivalCame, 'never exposed more often than sent');
 // The city teaches: Insights are earned in play.
 assert.ok(insights >= 1, 'somebody earned an Insight');
 // The needs are met in Rest with what the table has, and the choices answered: the city rarely takes an ability for good.

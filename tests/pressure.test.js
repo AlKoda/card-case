@@ -255,7 +255,7 @@ function run(e, verb, cards) {
   rb = b2.s.meters.retaliation;
   b2.expire(b2.create('bribe'));
   assert.strictEqual(b2.s.meters.retaliation - rb, 1, 'with a Band in the city it feeds the Vendetta');
-  assert.ok(b2.s.journal.some(function (j) { return /The people who left it remember/.test(j.text); }), 'and the story says so');
+  assert.ok(b2.s.journal.some(function (j) { return /The band that left it keeps a tally, and your name is on it/.test(j.text); }), 'and the story says so');
   // The warning before a case goes cold speaks in the city's days, and the cold case goes into the Rolls.
   var w1 = game(32);
   var wk = byDef(w1, 'case')[0], wrec = w1.caseRec(wk.caseId);

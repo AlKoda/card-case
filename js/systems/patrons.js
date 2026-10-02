@@ -81,10 +81,52 @@
 
   // ---- Delivery ----------------------------------------------------------------
   // At the verdict (the Council), at the sentence (the Bishop, the Guilds).
+  // What the Bishop and the Guilds ask of the sentence, as rungs of the ladder.
+  Pat.WISH = { bishop: ['pardon', 'fine'], guild: ['pillory', 'fine'] };
+  // The line the Condemned card carries: who asked, and what.
+  // Only the rungs the ladder holds are asked for.
+  Pat.ASKS = {
+    bishop: { both: 'The Bishop asks: a Pardon or a Fine.', pardon: 'The Bishop asks: a Pardon.', fine: 'The Bishop asks: a Fine.' },
+    guild: { both: 'The Guilds ask: the Pillory or a Fine.', pillory: 'The Guilds ask: the Pillory.', fine: 'The Guilds ask: a Fine.' },
+  };
+  Pat.asksLine = function (from, wish) {
+    var A = Pat.ASKS[from];
+    if (!A || !wish || !wish.length) return '';
+    return wish.length > 1 ? A.both : A[wish[0]] || '';
+  };
+  // What a commission comes to when nobody stands trial (gone cold, settled, taken by the Rival).
+  Pat.LOST = {
+    council: 'The Council wanted {title} answered. It went into the Rolls unanswered, and the Council\'s favour with it.',
+    bishop: 'The Bishop asked mercy for whoever did {title}. Nobody stood before the Court to receive it, and the Bishop\'s favour cools.',
+    guild: 'The Guilds wanted {title} answered in the square. Nobody stood there, and the wardens\' favour cools.',
+  };
+  // A week's favour moved, for the Bell's ledger.
+  Pat.MOVED = {
+    council: ['The Council\'s favour rises.', 'The Council\'s favour falls.'],
+    bishop: ['The Bishop\'s favour rises.', 'The Bishop\'s favour falls.'],
+    guild: ['The Guilds\' favour rises.', 'The Guilds\' favour falls.'],
+  };
+  P.favourMoved = function (before) {
+    var f = this.favour(), out = [];
+    if (!before) return out;
+    ['council', 'bishop', 'guild'].forEach(function (k) {
+      var d = (f[k] || 0) - (before[k] || 0);
+      if (d) out.push(Pat.MOVED[k][d > 0 ? 0 : 1]);
+    });
+    return out;
+  };
+
   P.commissionVerdict = function (rec, d, convicted, notes) {
     var c = rec.commission;
     if (!c) return;
-    if (c.from !== 'council') return;
+    if (c.from !== 'council') {
+      // The Bishop and the Guilds wait for the sentence; an acquittal gives them nothing to judge.
+      if (!convicted && !c.delivered) {
+        c.delivered = 'acquitted';
+        notes.push(c.from === 'bishop' ? 'The Bishop asked mercy for a penitent; the sworn men gave a walk instead, and the Bishop has nothing to say.' : 'The Guilds wanted a brother shamed; he walked.');
+      }
+      return;
+    }
     if (!convicted) { this.favourGain('council', -1); notes.push('The Council wanted this answered. It was not.'); return; }
     var charged = rec.suspects.filter(function (x) { return x.name === d.name; })[0];
     if (charged && charged.key === c.ofCouncil) {
@@ -118,13 +160,20 @@
         else notes.push('The Bishop is pleased.');
         c.delivered = 'desired';
       } else if (death) { this.favourGain('bishop', -1); notes.push('The Bishop asked for mercy and was refused. His chaplain will not come to the Watch-house for a while.'); c.delivered = 'truth'; }
+      else { notes.push('Not the rope, and not mercy. The Bishop says nothing.'); c.delivered = 'half'; }
     } else if (c.from === 'guild') {
       if (square) { this.favourGain('guild', 1); this.create('funds'); notes.push('The wardens send a fee, and their thanks.'); c.delivered = 'desired'; }
       else if (death) { this.favourGain('guild', -1); s.flags.marketQuietUntil = s.week + 1; notes.push('The guild wanted a brother shamed, not hanged. The Market goes quiet for a week.'); c.delivered = 'truth'; }
+      else { notes.push('Not the square, and not the rope. The wardens say nothing.'); c.delivered = 'half'; }
     }
   };
+  // A commission nobody answered (cold, settled, closed by the Rival): favour -1, and a word of it.
   P.commissionCold = function (rec) {
-    if (rec.commission && !rec.commission.delivered) this.favourGain(rec.commission.from, -1);
+    var c = rec && rec.commission;
+    if (!c || c.delivered) return;
+    c.delivered = 'lost';
+    this.favourGain(c.from, -1);
+    if (Pat.LOST[c.from]) this.story('A Patron Displeased', U.fill(Pat.LOST[c.from], { title: rec.title }), 'minor');
   };
 
   // ---- Favour, every week ------------------------------------------------------

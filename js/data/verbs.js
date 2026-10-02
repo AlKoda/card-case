@@ -69,12 +69,14 @@
     },
     interrogate: {
       label: 'Question', rank: 0, lockedBy: 'burnout',
-      desc: 'Question a Witness or an Accused. Your manner matters: Wit to listen, Instinct to bluff, Health to lean. Confronting the accused with a token from their own case can break them.',
+      desc: 'Question a Witness or an Accused. Your manner matters: Wit to listen, Instinct to bluff, Health to lean. Confronting the accused with a token from their own case can break them. The Rival, with their own work in hand, is caught at it.',
       slots: [
         { key: 'main', label: 'Subject', accepts: ['witness', 'suspect', 'rival', 'watchq'], primary: true },
         { key: 'mind', label: 'Manner', accepts: ['focus', 'instinct', 'health'], when: function (p) { return !!p; } },
         { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'rival'); } },
         { key: 'clue', label: 'Confront With', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
+        // The Rival caught at it: only their own work (a token they spoiled, a witness they paid, a case they took).
+        { key: 'theirs', label: 'Their Work', accepts: ['clue', 'evidence', 'witness', 'case'], fits: function (c, e) { return !!(e && e.rivalWork && e.rivalWork(c)); }, when: function (p) { return has(p, 'rival'); } },
         { key: 'help', label: 'Watch', accepts: ['teammate'], when: function (p) { return !!p; } },
       ],
     },

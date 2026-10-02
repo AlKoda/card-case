@@ -219,3 +219,78 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   assert.ok(seen, 'a second contradiction is told as a second reading');
   console.log('court words: ok');
 })();
+
+// ---- Every commission speaks (round 8) -----------------------------------------
+(function commissionsSpeak() {
+  // The Bishop's case: the Condemned card says what he asks, the rungs that please him carry his seal, and he always pleads.
+  // On a burglary the ladder holds a Fine and the Pillory as well as a Pardon.
+  var b = null;
+  for (var bi = 0; bi < 400 && !b; bi++) {
+    var be = game(300 + bi), brec = be.caseRec(be.spawnCase('burglary', { quiet: true }).caseId);
+    if (brec.commission && brec.commission.from === 'bishop') b = { e: be, rec: brec };
+  }
+  assert.ok(b, 'a Bishop\'s burglary');
+  var g = convictOn(b.e, b.rec, b.rec.suspects.filter(function (x) { return x.guilty; })[0]);
+  var cond = byDef(g, 'condemned')[0];
+  assert.ok(cond.desc.indexOf('The Bishop asks: a Pardon or a Fine.') > 0, cond.desc);
+  assert.strictEqual(cond.data.patron, 'bishop');
+  byDef(g, 'rung').forEach(function (r) {
+    var pleases = r.data.rung === 'pardon' || r.data.rung === 'fine';
+    assert.strictEqual(r.data.patron, pleases ? 'bishop' : null, r.data.rung + ' carries the patron only if it pleases him');
+  });
+  assert.ok(byDef(g, 'plea').some(function (p) { return p.data.from === 'church'; }), 'the Bishop always pleads on his own case');
+  // A middle rung: no favour moved, and a line.
+  var mid = byDef(g, 'rung').filter(function (r) { return r.data.rung === 'pillory' || r.data.rung === 'banish'; })[0];
+  assert.ok(mid, 'a middle rung: ' + byDef(g, 'rung').map(function (r) { return r.data.rung; }));
+  {
+    var res = g.passSentence(cond, mid.data.rung, null, { quiet: true });
+    assert.strictEqual(g.favour().bishop, 0, 'neither mercy nor the rope: favour unmoved');
+    assert.ok(/The Bishop says nothing/.test(res.text), res.text);
+    assert.strictEqual(g.caseRec(b.rec.id).commission.delivered, 'half');
+  }
+  // The Guilds' brother pardoned: neither the square nor the rope.
+  var gu = commission(340, 'guild');
+  var g2 = convictOn(gu.e, gu.rec, gu.rec.suspects.filter(function (x) { return x.guilty; })[0]);
+  var c2 = byDef(g2, 'condemned')[0];
+  assert.ok(byDef(g2, 'plea').some(function (p) { return p.data.from === 'guild'; }), 'the Guilds always plead on their own case');
+  assert.ok(c2.desc.indexOf('The Guilds ask: the Pillory or a Fine.') > 0);
+  assert.ok(byDef(g2, 'rung').some(function (r) { return r.data.rung === 'pardon'; }), 'a fraud can be pardoned');
+  {
+    var r2 = g2.passSentence(c2, 'pardon', null, { quiet: true });
+    assert.ok(/The wardens say nothing/.test(r2.text), r2.text);
+    assert.strictEqual(g2.favour().guild, 0);
+  }
+  // A Guild's case acquitted is told, and its favour is not lost twice when nothing else happens.
+  var ga = commission(380, 'guild'), notes = [];
+  ga.e.commissionVerdict(ga.rec, { name: 'X', guilty: true }, false, notes);
+  assert.ok(notes.some(function (n) { return /he walked/.test(n); }), notes.join(' '));
+  assert.strictEqual(ga.rec.commission.delivered, 'acquitted');
+  // Gone cold: favour -1 and a word of it.
+  var cold = commission(420, 'bishop');
+  cold.e.goCold(cold.rec.id);
+  assert.strictEqual(cold.e.favour().bishop, -1);
+  assert.ok(cold.e.s.journal.some(function (j) { return j.title === 'A Patron Displeased' && j.text.indexOf(cold.rec.title) >= 0; }), 'the patron is displeased, out loud');
+  // Settled by the thief-takers: cold to the Council, out loud; the Bishop and the Guilds had nobody to judge.
+  var sc = commission(440, 'council'), sb = commission(460, 'bishop');
+  var settle = function (x) { var rng = function () { return 0.1; }; return x.e.thieftakersSettle(x.rec, { rng: rng }); };
+  settle(sc); settle(sb);
+  assert.strictEqual(sc.e.favour().council, -1, 'a Council case settled is not answered');
+  assert.strictEqual(sc.rec.commission.delivered, 'lost');
+  assert.ok(sc.e.s.journal.some(function (j) { return j.title === 'A Patron Displeased'; }));
+  assert.strictEqual(sb.e.favour().bishop, 0, 'the Bishop has no sentence to judge');
+  assert.strictEqual(sb.rec.commission.delivered, 'settled', 'and the commission is closed, not kept forever');
+  // The Bell says whose favour moved this week.
+  var w = game(77);
+  w.favourGain('bishop', 1); w.favourGain('guild', -1);
+  w.s.flags.firstCase = true;
+  w.tick(CF.WEEK - w.s.weekT + 0.01);
+  var wk = w.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk && wk.text.indexOf('The Bishop\'s favour rises.') >= 0 && wk.text.indexOf('The Guilds\' favour falls.') >= 0, wk && wk.text);
+  assert.ok(wk.text.indexOf('The Council\'s favour') < 0, 'an unmoved patron is not mentioned');
+  // An older save counts from its load.
+  var old = JSON.parse(game(78).save());
+  delete old.weekSnap; old.favour = { council: 2, bishop: 0, guild: 0 };
+  var l = CF.Engine.load(old);
+  assert.deepStrictEqual(l.s.weekSnap.favour, { council: 2, bishop: 0, guild: 0 }, 'an older save starts counting favour now');
+  console.log('every commission speaks: ok');
+})();

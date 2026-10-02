@@ -469,7 +469,8 @@
       maybe(ctx, 0.25, 'fatigue');
       if (!got.length) {
         ctx.give('obsession');
-        return { title: afraid ? 'Doors Shut' : 'Every Door Knocked', text: afraid ? 'A shutter closes as you come up the lane. Nobody near ' + rec.scene + ' saw anything, and nobody will, while they are more afraid of you than of the thief.' : 'The quarter has told you everything it is going to. You go round again anyway.' };
+        return { title: afraid ? 'Doors Shut' : 'Every Door Knocked', text: afraid ? 'A shutter closes as you come up the lane. Nobody near ' + rec.scene + ' saw anything, and nobody will, while they are more afraid of you than of the thief.' : U.pick(ctx.rng, ['The quarter has told you everything it is going to. You go round again anyway.',
+          'The same doors, the same faces, the same shrug. One old man offers you a stool. That is all the quarter has.']) };
       }
       return { title: 'Door to Door', text: 'Around ' + rec.scene + ' people are frightened, and frightened people talk. You come away with: ' + got.join('; ') + '.' + (afraid ? ' One door stayed shut; they had heard what happens in the Hole.' : '') };
     },
@@ -909,18 +910,19 @@
   });
 
   // ==================================================================== RIVAL
-  // The Harbourmaster's Examiner: find their weakness twice to expose them,
-  // or buy them off, or frighten them. Exposure is a short hunt: one thread a
-  // week (they are careful after the first), and the second by the other road
-  // (Question with Wit, then Shadow with Instinct, or the reverse), so they act
-  // at least once before they go. The first thread tells you what they are
+  // The Harbourmaster's Examiner: find a thread on them (Question with Wit,
+  // or Shadow them in Explore with Instinct), then catch them at it: their
+  // own work in Question (a token they spoiled, a witness they paid, the case
+  // they took), or a case they took answered in the Blood Court first. One
+  // thread a week; a thread left three weeks goes slack (rivalFade). Or buy
+  // them off, or frighten them. The first thread tells you what they are
   // after (data.eyes, the case they have been asking about).
   function rivalStall(ctx, weeks) { var r = ctx.primary; r.data.stalled = ctx.e.s.week + weeks; }
-  // Why another thread cannot be pulled now, or null.
-  function rivalWait(ctx, how) {
+  // Why a thread cannot be pulled now, or null.
+  function rivalWait(ctx) {
     var d = ctx.primary.data, week = ctx.e.s.week;
     if (typeof d.heatWeek === 'number' && d.heatWeek >= week) return 'They are careful this week. Try again after the Bell.';
-    if ((d.heat || 0) >= 1 && d.heatHow === how) return how === 'question' ? 'They have learnt your questions. Shadow them with Instinct.' : 'They know your face in the doorways now. Question them with Wit.';
+    if ((d.heat || 0) >= 1) return CF.RIVAL_CATCH;
     return null;
   }
   // The case of yours they have their eye on: one you have opened and held a week, or any open one.
@@ -931,24 +933,34 @@
   }
   function rivalHeat(ctx, how, text) {
     var e = ctx.e, r = ctx.primary;
-    r.data.heat = (r.data.heat || 0) + 1;
-    r.data.heatWeek = e.s.week;
-    r.data.heatHow = how;
-    if (r.data.heat >= 2) {
-      e.remove(r);
-      e.s.flags.rivalGone = e.s.week + 8;
-      e.meter('reputation', 1);
-      e.favour().council += 1;
-      return { title: 'The Rival Exposed', text: text + ' The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
-    }
+    e.rivalThread(r, how);
     var rec = rivalTarget(e);
     r.data.eyes = rec ? rec.id : null;
     return { title: 'A Weakness Found', kind: 'verb',
-      text: text + (rec ? ' ' + U.fill('They have been asking about {title}.', { title: rec.title }) : '') + ' ' + (how === 'question' ? 'After the Bell, shadow them with Instinct, and you will have them.' : 'After the Bell, question them with Wit, and you will have them.') };
+      text: text + (rec ? ' ' + U.fill('They have been asking about {title}.', { title: rec.title }) : '') + ' ' +
+        'Now catch them at it: bring what they spoiled, a witness they paid or a case they took to Question, or answer their case in the Blood Court first.' };
   }
-  R.push({ id: 'int_rival_weakness', verb: 'interrogate', label: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'Expose Them' : 'Find Their Weakness'; }, duration: 30,
-    preview: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'You have one thread. Pull it in front of the Council.' : 'Everyone has something. Find theirs.'; },
-    blocked: function (ctx) { return rivalWait(ctx, 'question'); },
+  function theirWork(ctx) { var c = ctx.slots.theirs; return c && ctx.e.rivalWork(c) ? c : null; }
+  R.push({ id: 'int_rival_expose', verb: 'interrogate', priority: 5, label: 'Expose Them', duration: 30,
+    preview: 'You have a thread, and their own work in your hand. Put it in front of the Council.',
+    blocked: function (ctx) { var d = ctx.primary.data; return typeof d.heatWeek === 'number' && d.heatWeek >= ctx.e.s.week ? 'They are careful this week. Try again after the Bell.' : null; },
+    requires: { primary: 'rival', aspects: ['focus'], when: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 && !!theirWork(ctx); } },
+    run: function (ctx) {
+      var e = ctx.e, work = theirWork(ctx);
+      var th = work ? e.rivalThread(ctx.primary, 'caught') : null;
+      // Their work gone from your hand while you talked (a case closed, a token faded): the thread holds, no more.
+      if (!th) return { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' };
+      // The thread went slack at the Bell while you worked: this is a new one.
+      if (!th.exposed) return { title: 'A Weakness Found', kind: 'verb', text: CF.RIVAL_CATCH };
+      var rec = work.def === 'case' ? e.caseRec(work.caseId) : null;
+      var what = work.def === 'witness' ? 'A witness they paid to forget remembers who paid.' : work.def === 'case' ? 'The case they took, and the Harbourmaster\'s men seen at it.' : 'A token they spoiled, and the lane where their people were seen.';
+      // The case they took is yours again.
+      if (rec) { rec.rival = false; rec.rivalSince = null; rec.rivalBoasted = false; }
+      return { title: 'The Rival Exposed', text: what + ' ' + th.text, kind: 'major' };
+    } });
+  R.push({ id: 'int_rival_weakness', verb: 'interrogate', label: 'Find Their Weakness', duration: 30,
+    preview: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? CF.RIVAL_CATCH : 'Everyone has something. Find theirs.'; },
+    blocked: function (ctx) { return rivalWait(ctx); },
     requires: { primary: 'rival', aspects: ['focus'] },
     run: function (ctx) { return rivalHeat(ctx, 'question', 'Two hours of polite questions, and a name they did not want spoken: a moneylender, a widow, a file of their own.'); } });
   R.push({ id: 'int_rival_buy', verb: 'interrogate', label: 'Buy a Quiet Fortnight', duration: 8,
@@ -960,9 +972,9 @@
   R.push({ id: 'int_rival_none', verb: 'interrogate', label: 'A Polite Conversation', duration: 5,
     preview: 'Without Wit, Coin or Health, this is a chat about the weather.', requires: { primary: 'rival' },
     effects: [{ story: { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' } }] });
-  R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'Expose Them' : 'Shadow Them'; }, duration: 30,
-    preview: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'You have one thread. Follow it to a door the Council cannot ignore.' : 'Follow the Harbourmaster\'s Examiner through a night. See where they go, and who pays.'; },
-    blocked: function (ctx) { return rivalWait(ctx, 'shadow'); },
+  R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: 'Shadow Them', duration: 30,
+    preview: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? CF.RIVAL_CATCH : 'Follow the Harbourmaster\'s Examiner through a night. See where they go, and who pays.'; },
+    blocked: function (ctx) { return rivalWait(ctx); },
     requires: { primary: 'rival', aspects: ['instinct'] },
     run: function (ctx) { return rivalHeat(ctx, 'shadow', 'A night in doorways, and at the end of it a door you can name and a purse you saw change hands.'); } });
 
@@ -1030,7 +1042,9 @@
       ctx.consume(ctx.primary);
       ctx.e.openingHired();
       if (ctx.e.legacyStory) ctx.e.legacyStory();
-      return { title: 'The Sergeant Listens', text: ctx.e.openingScene().hired };
+      // The case's own Quarter comes with the desk, so door to door is learnt in the first case.
+      var quarter = ctx.e.openingQuarter();
+      return { title: 'The Sergeant Listens', text: ctx.e.openingScene().hired + (quarter ? ' ' + CF.OPENING_QUARTER : '') };
     },
   });
 
@@ -1049,14 +1063,17 @@
       e.cardsOf('spent_health').concat(e.cardsOf('spent_focus'), e.cardsOf('spent_instinct')).forEach(function (c) {
         if (c.loc && c.loc.t === 'table') { e.transform(c, CF.CARDS[c.def].restores); e.placeOnTable(c, { x: c.loc.x, y: c.loc.y }); }
       });
-      return { title: 'Yourself Again', text: 'A moment on the bench, and you are yourself again.' };
+      return { title: 'Yourself Again', text: U.pick(ctx.rng, ['A moment on the bench, and you are yourself again.',
+        'A cup of small beer at the Watch-house door, and the street comes back into focus.',
+        'You sit on the stair with your head in your hands until it stops. It stops.']) };
     },
   });
 
   // Resting. Funds buy a proper night off: a third of the time. `all` lets
   // one rest take every like card lying on the table: { unpaid: n, paid: n }
   // is how many in all (the primary among them) without and with Coin.
-  function rest(id, defId, label, dur, text, preview, all) {
+  // `text` may be a list (one picked by the run's dice); `paidText` is what a paid rest says.
+  function rest(id, defId, label, dur, text, preview, all, paidText) {
     var noun = CF.CARDS[defId] ? CF.CARDS[defId].label : defId;
     var others = function (ctx) {
       return all ? ctx.e.cardsOf(defId).filter(function (c) { return c.loc && c.loc.t === 'table' && c !== ctx.primary; }) : [];
@@ -1073,12 +1090,18 @@
       duration: function (ctx) { return ctx.has('funds') ? Math.ceil(dur / 3) : dur; },
       preview: function (ctx) { return (ctx.has('funds') ? preview + ' With silver in your pocket it goes quicker: a good dinner, a clean bed at the Swan, a barber-surgeon who does not ask questions.' : preview + ' (Add Coin to make it quicker.)') + allLine(ctx); },
       requires: { primary: defId },
-      effects: [{ call: function (ctx) { others(ctx).slice(0, Math.max(0, takes(ctx) - 1)).forEach(ctx.consume); } },
-        { consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: label, text: text } }],
+      effects: [{ story: { title: label, text: function (ctx) { return paidText && ctx.has('funds') ? paidText : typeof text === 'string' ? text : U.pick(ctx.rng, text); } } },
+        { call: function (ctx) { others(ctx).slice(0, Math.max(0, takes(ctx) - 1)).forEach(ctx.consume); } },
+        { consume: 'primary' }, { consume: 'funds', n: 1 }],
     });
   }
   // One Sleep for every Weariness on the table (two without Coin), one Let It Go for every Obsession.
-  rest('ref_fatigue', 'fatigue', 'Sleep', 20, 'You sleep from vespers to terce and wake up hungry. The world is still there. So are you.', 'Close the shutters. Bar the door. Sleep.', { unpaid: 2, paid: Infinity });
+  rest('ref_fatigue', 'fatigue', 'Sleep', 20, [
+    'You sleep from vespers to terce and wake up hungry. The world is still there. So are you.',
+    'You sleep in your coat. Somebody bangs on the door at lauds and goes away again. You never find out who.',
+    'Ten hours, and no dreams you will admit to. The bell for prime gets you up.',
+    'You sleep through the Watch changing and the carts coming in, and wake with the inkhorn still in your hand.',
+  ], 'Close the shutters. Bar the door. Sleep.', { unpaid: 2, paid: Infinity }, 'A bed at the Swan, a fire in the room and a door that locks. You sleep like a councillor.');
   rest('ref_burnout', 'burnout', 'A Long Rest', 60, 'A week of nothing. Long walks outside the walls. Small beer and bread. Your hands stop shaking on the fourth day. On the seventh you want to go back to the Watch-house, which is either a good sign or a very bad one.', 'Take time away. Real time. The cases will wait. Some of them will not.');
   rest('ref_obsession', 'obsession', 'Let It Go', 30, 'You take the papers off the wall. You go to the players in the inn-yard. You do not think about the case for three whole hours.', 'Put the case down for a night. Just one.', { unpaid: Infinity, paid: Infinity });
   // The needs: hunger wants Coin, sickness wants Coin or the Physician's Case, stress wants time (or Coin for a quick one).
@@ -1191,7 +1214,7 @@
       }
       e.meter('dread', 1);
       e.meter('retaliation', 2);
-      if (ctx.rng() < 0.3) { e.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts.'); return { title: 'They Came Anyway', text: 'The Order keeps its word. Not all of it, this time.' }; }
+      if (ctx.rng() < 0.3) { e.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts.', 'order'); return { title: 'They Came Anyway', text: 'The Order keeps its word. Not all of it, this time.' }; }
       return { title: 'Endured', text: 'You bar the door and change the servant and sleep, when you sleep, with a blade. Nothing comes. For now.' };
     },
   });
@@ -1742,7 +1765,7 @@
         e.count('cruelty', 0);
         return { title: 'Of the Coquille', kind: 'major', text: 'The dummy hangs from the beam with a hundred little bells sewn on. You lift the purse and not one of them speaks. The Court roars. You are one of them now, and you may stay as long as you like. Nobody asks what you do in the daytime.' };
       }
-      e.hurtYou('A bell rings. Then all of them. They beat you at the foot of the King\'s barrel and throw you into the Warrens ditch, and you are lucky it is only that.');
+      e.hurtYou('A bell rings. Then all of them. They beat you at the foot of the King\'s barrel and throw you into the Warrens ditch, and you are lucky it is only that.', 'court');
       return { title: 'A Bell Rings', text: 'One bell, then all of them. The Court has its fun with you before it throws you out.' };
     },
   });
@@ -1823,7 +1846,7 @@
         }
       }
       if (ctx.rng() < risk) {
-        e.hurtYou('Your cover slips. You get out, but not in one piece.');
+        e.hurtYou('Your cover slips. You get out, but not in one piece.', 'cover');
         out.text += ' But your cover slipped on the way out, and it cost you.';
       }
       return out;
@@ -1921,7 +1944,22 @@
   CF.ASKS = [
     { when: function (id) { return id === 'inv_search'; },
       at: 0.3, label: 'A locked door', text: 'The back room is locked. Instinct finds the key under the sill; a watchman puts a shoulder to it. Left locked, whatever is behind it stays there.',
-      accepts: ['instinct', 'teammate'], penalty: 'thin', thanks: 'The door gave, and the back room had something to say.', miss: 'The back room stayed locked, and whatever it held stays there.' },
+      accepts: ['instinct', 'teammate'], penalty: 'thin', thanks: 'The door gave, and the back room had something to say.', miss: 'The back room stayed locked, and whatever it held stays there.',
+      // The door is the scene's own: a hatch at the quay, a stable on the road, a press in the Abbey.
+      byTemplate: {
+        harbor: { label: 'A battened hatch', text: 'The hold under the quay is battened down. Instinct finds the loose board; a watchman takes a bar to it. Left shut, whatever is below stays there.',
+          thanks: 'The hatch came up, and the hold had something to say.', miss: 'The hatch stayed battened, and whatever was below stays there.' },
+        highway: { label: 'A barred stable', text: 'The inn\'s stable is barred from inside. Instinct finds the loose plank; a watchman takes a bar to it. Left shut, whatever is in there stays there.',
+          thanks: 'The stable door gave, and the stalls had something to say.', miss: 'The stable stayed barred, and whatever was in there stays there.' },
+        scriptorium: { label: 'A locked press', text: 'The sacristan\'s press is locked and the sacristan is at prayer. Instinct finds the key; a watchman finds the hinge. Left shut, the Abbey keeps its own.',
+          thanks: 'The press opened, and the Abbey\'s papers had something to say.', miss: 'The press stayed locked, and the Abbey kept its own.' },
+        witch: { label: 'A barred shed', text: 'The shed by the water is barred. Instinct finds the gap in the planks; a watchman lifts the door off its pins. Left barred, whatever is inside stays there.',
+          thanks: 'The shed door came away, and what was inside had something to say.', miss: 'The shed stayed barred, and whatever was inside stays there.' },
+        fraud: { label: 'A locked counting-room', text: 'The counting-room is locked and the clerk is at his dinner. Instinct finds the key in the sand-box; a watchman puts a shoulder to it. Left locked, the books stay where they are.',
+          thanks: 'The counting-room opened, and its books had something to say.', miss: 'The counting-room stayed locked, and its books with it.' },
+        coining: { label: 'A locked counting-room', text: 'The counting-room is locked and the clerk is at his dinner. Instinct finds the key in the sand-box; a watchman puts a shoulder to it. Left locked, the books stay where they are.',
+          thanks: 'The counting-room opened, and its books had something to say.', miss: 'The counting-room stayed locked, and its books with it.' },
+      } },
     { when: function (id, verb) { return verb === 'investigate' && lead(id); },
       at: 0.3, label: 'A locked door', text: 'The back room is locked. Instinct finds the key under the sill; a watchman puts a shoulder to it. Left locked, you climb in the hard way, and it costs you.',
       accepts: ['instinct', 'teammate'], penalty: 'fatigue', thanks: 'The door gave, and the back room had something to say.', miss: 'The back room stayed locked, and the hard way in wore you out.' },

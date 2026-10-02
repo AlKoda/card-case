@@ -124,27 +124,32 @@
     var penitent = d.confession === 'free';
     var custom = lesser ? (rungs.indexOf('pillory') >= 0 ? 'pillory' : rungs[rungs.length - 1]) : (c && c.crimes >= 2 && L.repeat ? L.repeat : L.custom);
     var sus = rec.suspects.filter(function (x) { return x.name === d.name; })[0] || {};
+    // A Bishop's or a Guild's commission is judged at the sentence: the card says who asked, and the rungs that please them carry the patron.
+    var patron = rec.commission && (rec.commission.from === 'bishop' || rec.commission.from === 'guild') && CF.Patrons && CF.Patrons.WISH ? rec.commission.from : null;
+    var wish = patron ? CF.Patrons.WISH[patron].filter(function (r) { return rungs.indexOf(r) >= 0; }) : [];
     var cond = this.create('condemned', {
       label: d.name,
       desc: d.name + (sus.role ? ', ' + sus.role : '') + ', convicted of ' + rec.title + (lesser ? ' (the lesser crime)' : '') + ', waits in the Hole for your word. ' +
-        (penitent ? 'They confessed freely and ask for the Church. ' : '') + 'By custom the Council would give them ' + Sen.rungLabel(rec.template, custom).toLowerCase() + '. Say nothing and it will.',
+        (penitent ? 'They confessed freely and ask for the Church. ' : '') + 'By custom the Council would give them ' + Sen.rungLabel(rec.template, custom).toLowerCase() + '. Say nothing and it will.' +
+        (patron && wish.length ? ' ' + CF.Patrons.asksLine(patron, wish) : ''),
       caseId: rec.id,
       data: { name: d.name, caseId: rec.id, guilty: !!d.guilty, lesser: lesser, penitent: penitent, custom: custom, template: rec.template,
-        highProfile: !!rec.highProfile, trait: sus.trait || null, role: sus.role || '', crimes: c ? c.crimes : 1 },
+        highProfile: !!rec.highProfile, trait: sus.trait || null, role: sus.role || '', crimes: c ? c.crimes : 1, patron: patron, patronWants: wish },
     });
     var self = this;
     rungs.forEach(function (r) {
       self.create('rung', {
         label: Sen.rungShort(rec.template, r),
         desc: Sen.rungLabel(rec.template, r) + '. ' + Sen.rungDesc(rec.template, r) + (r === custom ? ' This is the custom for the crime.' : '') + ' (' + CF.RUNGS[r].cost + ')',
-        caseId: rec.id, data: { rung: r, condemned: cond.uid },
+        caseId: rec.id, data: { rung: r, condemned: cond.uid, patron: wish.indexOf(r) >= 0 ? patron : null },
       });
     });
     // Pleas arrive with the morning.
     var pleas = [];
     var rng = this.rng;
-    if (rng() < (penitent ? 0.8 : 0.25)) pleas.push({ from: 'church', label: 'The Bishop\'s Plea', text: 'The Bishop\'s chaplain writes that ' + d.name + ' has made a good confession and asks mercy for a penitent. The Church counts pardons.' });
-    if (['burglary', 'fraud', 'coining', 'extortion'].indexOf(rec.template) >= 0 && rng() < 0.3) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: 'The wardens of ' + d.name + '\'s guild ask that a brother be fined and shamed, not hanged. They would remember the favour.' });
+    // The patron who commissioned the case always pleads.
+    if (patron === 'bishop' || rng() < (penitent ? 0.8 : 0.25)) pleas.push({ from: 'church', label: 'The Bishop\'s Plea', text: 'The Bishop\'s chaplain writes that ' + d.name + ' has made a good confession and asks mercy for a penitent. The Church counts pardons.' });
+    if (patron === 'guild' || (['burglary', 'fraud', 'coining', 'extortion'].indexOf(rec.template) >= 0 && rng() < 0.3)) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: 'The wardens of ' + d.name + '\'s guild ask that a brother be fined and shamed, not hanged. They would remember the favour.' });
     if (rng() < 0.5) {
       var purse = rng() < 0.4;
       pleas.push({ from: 'family', purse: purse, label: 'A Family\'s Plea', text: d.name + '\'s ' + U.pick(rng, ['mother', 'wife', 'brother', 'father', 'sister']) + ' waits at the Watch-house door with a letter for the Examiner.' + (purse ? ' The letter is heavier than paper.' : '') });

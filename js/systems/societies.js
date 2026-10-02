@@ -93,7 +93,7 @@
     if (s.flags.mountainIgnored && this.rng() < 0.5) { this.gameOver('dagger'); return; }
     var first = !s.flags.mountainIgnored;
     s.flags.mountainIgnored = true;
-    this.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts. The Order of the Mountain keeps its word.');
+    this.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts. The Order of the Mountain keeps its word.', 'order');
     this.meter('dread', 1);
     if (first && !s.over) this.story('They Came Anyway', 'The Order of the Mountain kept its word, and let you live to hear it. The next time they will not leave a dagger.', 'danger');
   };
