@@ -647,6 +647,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/\.title-buttons \.plate-btn, #menu \.plate-btn \{ display: flex; align-items: center;[^}]*gap: 10px/.test(css) && /\.plate-btn \.mi \{ display: block; flex: none;[^}]*margin: -6px 0;/.test(css), 'a plate with an icon is a flex row, the icon never over its words');
   assert.ok(/@media \(max-height: 520px\) \{[^@]*\.title-scene \.title-buttons \{ display: grid; grid-template-columns: 1fr 1fr/.test(css) && />Install<\/button>/.test(html), 'the title plates go two abreast on a short screen; Install is one word');
   assert.ok(/#hint \{[^}]*top: 10px;[^}]*pointer-events: auto/.test(css) && /#hint::before \{[^}]*bround-17/.test(css) && /#hint::after \{[^}]*clabel-06/.test(css), 'the hint is a painted bar under the verbs');
+  assert.ok(!/#hint \{ display: none/.test(css) && /@media \(max-width: 980px\) \{[^@]*#hint \{ left: 8px; right: 8px; top: 62px;[^}]*max-width: none; transform: none/.test(css), 'on a phone the hint is a strip under the tool row, never hidden');
   var box = /\.screen-box \{ width: 100%[^}]*\}/.exec(css)[0];
   assert.ok(/display: flex; flex-direction: column/.test(box) && /overflow: hidden/.test(box), 'a screen is a column that never outgrows the page');
   assert.ok(/\.help-paper, \.settings-paper, \.precinct-paper, \.archive-body \{ flex: 1 1 auto; min-height: 0; overflow: auto; max-height: none/.test(css), 'the paper scrolls, the buttons stay');

@@ -148,7 +148,7 @@ console.log('intro: ok');
   assert.strictEqual(e.s.flags.stage, 'hired');
   assert.ok(e.s.choice && e.s.choice.id === 'calling', 'the calling is asked once Explore is idle');
   assert.ok(e.choose(1));
-  var hireT = e.s.t, journalAt = e.s.journal.length;
+  var hireT = e.s.intro.lastBeatT, journalAt = e.s.journal.length; // the hire itself: the calling is put a tick after its answer is taken
   assert.strictEqual(e.s.intro.step, 3, 'the lessons the opening gave are skipped: ' + e.s.intro.step);
   assert.ok(!e.s.journal.some(function (j) { return j.title === 'What the Scene Gives' || j.title === 'People' || j.title === 'The Casebook'; }), 'no lesson told twice');
   // The table is ripe for the Charge; the beat still waits eight seconds and a verb.
@@ -189,4 +189,66 @@ console.log('intro: ok');
   h.tick(0.1);
   assert.ok(h.s.choice && h.s.choice.id === 'calling', 'Explore idle: asked at once');
   console.log('opening beats: ok');
+})();
+
+// ---- The sergeant with no Wit on the table: the questioning starts again by itself ----
+// An origin with one Wit, spent on the day-book and never collected: Explore's finds are taken
+// first, the Watch comes, and Question has nothing to talk with. The hint names the card instead
+// of saying wait; when the Wit comes back (uncollected in Attend, on the table, or parked in an
+// idle slot) the sergeant's questioning runs by itself; the calling waits until his answer is taken.
+(function sergeantWaits() {
+  function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function run(g, vid, cards) { cards.forEach(function (c) { assert.ok(g.autoSlot(vid, c.uid), vid + ' takes ' + c.def); }); assert.ok(g.start(vid), vid + ' starts'); }
+  var e = CF.Engine.newGame({ seed: 7, who: 'watchman', name: 'Bartel', opening: true, guided: true });
+  assert.strictEqual(e.cardsOf('focus', true).length + e.s.intro.stash.filter(function (it) { return it.def === 'focus'; }).length, 1, 'the watchman has one Wit');
+  run(e, 'duty', [tbl(e, 'health')[0]]); e.tick(e.verb('duty').duration + 0.01); e.collect('duty');
+  run(e, 'duty', [tbl(e, 'focus')[0]]); e.tick(e.verb('duty').duration + 0.01); // the day-book done, its output (Wits' End) left in Attend
+  e.tick(0.1);
+  assert.strictEqual(e.s.flags.stage, 'search');
+  assert.strictEqual(e.verb('duty').status, 'done', 'the day-book waits uncollected');
+  e.tick(e.verb('investigate').duration + 0.01); e.collect('investigate'); e.tick(0.1);
+  assert.strictEqual(e.s.flags.stage, 'questioned');
+  assert.strictEqual(e.verb('interrogate').status, 'idle', 'no Wit on the table: nothing runs');
+  assert.ok(/^The sergeant waits\. When your Wit comes back, put The Sergeant's Questions in Question with it\./.test(e.introHint()), 'the hint names the card: ' + e.introHint());
+  assert.strictEqual(tbl(e, 'watchq').length, 1, 'his questions lie on the table');
+  // A card waiting in a verb does not recover; the day-book taken, the Wits' End comes back on
+  // the table in time, and the sergeant takes it from there.
+  e.tick(60);
+  assert.strictEqual(e.verb('interrogate').status, 'idle', 'uncollected, the Wit stays spent');
+  e.collect('duty');
+  for (var t = 0; t < 60 && e.verb('interrogate').status === 'idle'; t++) e.tick(1);
+  assert.strictEqual(e.verb('interrogate').status, 'running', 'the questioning started by itself: ' + e.introHint());
+  assert.strictEqual(e.verb('interrogate').recipe, 'int_watchq');
+  assert.strictEqual(tbl(e, 'watchq').length, 0);
+  assert.ok(/Your Wit is doing the talking/.test(e.introHint()), 'and the hint says so');
+  e.tick(e.verb('interrogate').duration + 0.01); e.tick(0.1);
+  assert.strictEqual(e.s.flags.stage, 'hired');
+  // The calling waits until the sergeant's answer is taken out of Question (on a phone its sheet covers the box).
+  e.tick(12);
+  assert.ok(!e.s.choice, 'no choice while the result waits in Question');
+  e.collect('interrogate'); e.tick(0.1);
+  assert.ok(e.s.choice && e.s.choice.id === 'calling', 'taken: the calling is asked');
+  // Wit parked in an idle verb's slot: pulled from there too.
+  var f = CF.Engine.newGame({ seed: 8, who: 'hangman', name: 'Nan', opening: true, guided: true });
+  run(f, 'duty', [tbl(f, 'health')[0]]); f.tick(f.verb('duty').duration + 0.01); f.collect('duty');
+  for (var u = 0; u < 60 && !tbl(f, 'health').length; u++) f.tick(1);
+  run(f, 'duty', [tbl(f, 'health')[0]]); f.tick(f.verb('duty').duration + 0.01); f.collect('duty'); f.tick(0.1);
+  assert.strictEqual(f.s.flags.stage, 'search');
+  f.tick(f.verb('investigate').duration + 0.01); f.collect('investigate');
+  assert.ok(f.autoSlot('duty', tbl(f, 'focus')[0].uid), 'the Wit parked in Attend, never pressed');
+  f.tick(0.1);
+  assert.strictEqual(f.s.flags.stage, 'questioned');
+  assert.strictEqual(f.verb('interrogate').status, 'running', 'the sergeant took the Wit out of Attend: ' + f.introHint());
+  assert.deepStrictEqual(f.verb('duty').slots, {}, 'Attend stands empty again');
+  // Loading a save from the stall: the retry runs from the loaded state too.
+  var g = CF.Engine.newGame({ seed: 9, who: 'monk', name: 'Sebald', opening: true, guided: true });
+  run(g, 'duty', [tbl(g, 'health')[0]]); g.tick(g.verb('duty').duration + 0.01); g.collect('duty');
+  run(g, 'duty', [tbl(g, 'focus')[0]]); g.tick(g.verb('duty').duration + 0.01); g.tick(0.1);
+  g.tick(g.verb('investigate').duration + 0.01); g.collect('investigate'); g.tick(0.1);
+  assert.strictEqual(g.verb('interrogate').status, 'idle');
+  var g2 = CF.Engine.load(g.save());
+  g2.collect('duty');
+  for (var w = 0; w < 60 && g2.verb('interrogate').status === 'idle'; w++) g2.tick(1);
+  assert.strictEqual(g2.verb('interrogate').status, 'running', 'loaded: the questioning starts when the Wit is back');
+  console.log('sergeant waits: ok');
 })();

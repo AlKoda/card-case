@@ -159,15 +159,30 @@
       var q = this.create('watchq', { label: 'The Sergeant\'s Questions', desc: sc.found + ' Reason with him: put this in Question with Wit.' });
       this.story(CF.OPENING_TEXT.body, sc.found, 'danger');
       if (this.introUnlock) this.introUnlock(['interrogate']);
-      var wits = this.introReveal ? this.introReveal(['focus']) : [];
-      var wit = wits[0] || this.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0];
-      // The sergeant does not wait to be invited: the questioning starts by itself.
-      this.autoRun('interrogate', [q.uid].concat(wit ? [wit.uid] : []));
-      hint(this, 'The Watch wants a word, and the sergeant has already sat you down. Your Wit is doing the talking; wait for him to be satisfied.');
+      if (this.introReveal) this.introReveal(['focus']);
+      // The sergeant does not wait to be invited: the questioning starts by itself (below, this tick).
+    }
+    if (s.flags.stage === 'questioned') {
+      // The sergeant does not go away. While his questions lie about and Question is idle, the
+      // questioning starts by itself whenever a Wit is to be had: on the table, left in an idle
+      // verb's slot, or still uncollected in a verb (the day-book never opened, a Wits' End that
+      // came back there). Until then the hint names what he wants, instead of saying wait.
+      if (this.verb('interrogate').status !== 'idle') return;
+      var wq = this.cardsOf('watchq', true).filter(function (c) { return c.loc.t === 'table' || c.loc.t === 'out' || (c.loc.t === 'slot' && s.verbs[c.loc.verb] && s.verbs[c.loc.verb].status !== 'running'); })[0];
+      if (!wq) return;
+      var wit = this.choicePayment({ cost: 'focus' });
+      if (!wit) { hint(this, 'The sergeant waits. When your Wit comes back, put The Sergeant\'s Questions in Question with it.'); return; }
+      [wq, wit].forEach(function (c) {
+        if (c.loc.t === 'out') this.takeOutput(c.loc.verb, c.uid);
+        else if (c.loc.t !== 'table') { this.detach(c); this.placeOnTable(c); }
+      }, this);
+      if (this.autoRun('interrogate', [wq.uid, wit.uid])) hint(this, 'The Watch wants a word, and the sergeant has already sat you down. Your Wit is doing the talking; wait for him to be satisfied.');
+      else hint(this, 'The sergeant waits. Put The Sergeant\'s Questions in Question with Wit.');
       return;
     }
-    // The desk is yours: what you want from it is asked once Explore is idle, or ten seconds on.
-    if (s.flags.stage === 'hired' && s.flags.callingDue && s.flags.callingOpen && !s.choice) {
+    // The desk is yours: what you want from it is asked once the sergeant's answer is taken out of
+    // Question (on a phone its sheet would cover the box) and Explore is idle, or ten seconds on.
+    if (s.flags.stage === 'hired' && s.flags.callingDue && s.flags.callingOpen && !s.choice && this.verb('interrogate').status === 'idle') {
       if (s.t - (s.flags.hiredT || 0) >= 10 || this.verb('investigate').status === 'idle') {
         delete s.flags.callingDue;
         this.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'calling'; })[0]);

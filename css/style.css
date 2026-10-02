@@ -630,7 +630,6 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   #main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
   #toasts { width: 300px; }
   .vwin { width: min(370px, calc(100% - 8px)); }
-  #hint { display: none; }
   .callings { grid-template-columns: 1fr; }
   .help-grid { grid-template-columns: 1fr; }
   /* The bar in one 44px row: icon-only meters, a short week, the play button alone (it cycles the speed);
@@ -898,6 +897,12 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   .title-scene .title-buttons .plate-btn { font-size: 11px; letter-spacing: 0.08em; padding: 2px 8px; border-width: 10px 20px; gap: 6px; }
   .title-scene .title-buttons .plate-btn .mi { width: 22px; height: 22px; margin: -4px 0; }
   #menu .plate-btn { border-width: 10px 20px; }
+}
+/* A narrow screen: the hint is a strip under the tool row (the opening is taught by it: Health onto Attend, open
+   Explore, the sergeant), a few lines at most, tappable like the bar on a desk. After the phone block, so it beats
+   the short window's 44% cap. */
+@media (max-width: 980px) {
+  #hint { left: 8px; right: 8px; top: 62px; width: auto; max-width: none; transform: none; padding: 7px 16px 7px 54px; text-align: start; font-size: 12px; line-height: 1.25; }
 }
 /* A narrow phone: the pause menu in one column; the bar's gaps close so the five meters, the badge and the controls fit 360px. */
 @media (max-width: 480px) {

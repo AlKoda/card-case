@@ -219,7 +219,24 @@ for (var g = 0; g < GAMES; g++) {
   ranks[e.s.rank]++;
   convictions += e.s.stats.convictions; acquittals += e.s.stats.acquittals; wrongful += e.s.stats.wrongful;
 }
-console.log('bot: ' + GAMES + ' games');
+// The opening, played by the bot from the first morning for every origin: the labour, the notice,
+// the sergeant (whose questioning starts again by itself when the one Wit comes back from the
+// day-book), the hire and the calling. Each must reach the desk and answer the calling in time.
+CF.ORIGIN_ORDER.forEach(function (who, i) {
+  var o = CF.Engine.newGame({ seed: 900 + i, who: who, name: 'Opening', opening: true, guided: true });
+  var hiredAt = null, answered = null;
+  for (var t = 0; t < 600 && !o.s.over && answered === null; t++) {
+    step(o, 'custom');
+    CF.VERB_ORDER.forEach(function (vid) { var v = o.s.verbs[vid]; if (v.status === 'running') seen[v.recipe] = true; });
+    o.tick(1);
+    if (hiredAt === null && (o.s.flags.stage === 'hired' || o.s.flags.stage === 'keep')) hiredAt = t;
+    if (hiredAt !== null && !o.s.flags.callingDue && !o.s.choice) answered = t;
+  }
+  assert.ok(hiredAt !== null && hiredAt < 400, who + ' reaches the desk in the opening: stage ' + o.s.flags.stage + ', hint: ' + o.introHint());
+  assert.ok(o.s.stats.verbs.interrogate >= 1 && !o.cardsOf('watchq', true).length, who + ': the sergeant was answered');
+  assert.ok(answered !== null && o.s.journal.some(function (j) { return /^What You Want: /.test(j.title); }), who + ': the calling was put and answered');
+});
+console.log('bot: ' + GAMES + ' games, and the opening for every origin');
 console.log('endings', JSON.stringify(endings));
 console.log('final rank [Det, Senior, Insp, ChiefInsp]', JSON.stringify(ranks), 'avg week', (weeks.reduce(function (a, b) { return a + b; }, 0) / GAMES).toFixed(1));
 console.log('convictions', convictions, 'acquittals', acquittals, 'wrongful', wrongful);

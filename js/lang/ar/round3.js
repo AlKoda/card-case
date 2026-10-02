@@ -852,5 +852,7 @@
     "{name} is boasting of a name for {title}.": "يتباهى {name} باسم في {title}.",
     "Your informer's trust falls": "تنخفض ثقة مخبرك",
     "Install": "تثبيت",
+    "The sergeant waits. When your Wit comes back, put The Sergeant's Questions in Question with it.": "الرقيب ينتظر. حين تعود فطنتك، ضع أسئلة الرقيب في الاستجواب معها.",
+    "The sergeant waits. Put The Sergeant's Questions in Question with Wit.": "الرقيب ينتظر. ضع أسئلة الرقيب في الاستجواب مع الفطنة.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);
