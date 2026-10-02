@@ -224,6 +224,47 @@ function run(e, verb, cards) {
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'ordered');
   e.s.rooms.intel = true;
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'owned');
+  // Lane 2, item 99: a built room's foot says what it has done, where the rules count it (s.roomUse); a game whose
+  // rules do not, or a room not yet at work, reads plain Built; a room not built shows no count.
+  function tile(k) { return CF.Precinct.tiles(e).filter(function (t) { return t.key === k; })[0]; }
+  delete e.s.roomUse;
+  assert.strictEqual(tile('intel').use, 0, 'no count without the rules\' tally');
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built');
+  e.s.roomUse = { intel: 3, suite: 6 };
+  assert.strictEqual(tile('intel').use, 3);
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built · Fronts named, informers seated: 3', 'the return, in one phrase');
+  assert.strictEqual(tile('suite').use, 0, 'an unbuilt room has nothing to show');
+  e.s.roomUse = { intel: 'x' };
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built', 'a bad count is no count');
+  delete e.s.roomUse;
+  // Lane 2, item 106: the Petitions that are not rooms stand on the same board, bought, locked, on the table or
+  // open; the cheapest the office allows and not yet bought is the next.
+  var goods = CF.Precinct.goods(e), gk = {};
+  goods.forEach(function (t) { gk[t.key] = t; });
+  assert.strictEqual(goods.length, Object.keys(CF.ORDERS).filter(function (k) { return !CF.ORDERS[k].room; }).length, 'every instrument Petition');
+  assert.ok(gk.prints && gk.prints.good && gk.prints.icon && gk.prints.desc === CF.CARDS.prints.desc, 'a good with its picture and the instrument\'s words');
+  e.s.rank = 0;
+  assert.strictEqual(CF.Precinct.goods(e).filter(function (t) { return t.key === 'surveillance'; })[0].state, 'locked', 'Lantern and Cloak needs Bailiff');
+  e.s.flags.bought = e.s.flags.bought || {};
+  e.s.flags.bought.prints = true;
+  assert.strictEqual(CF.Precinct.goods(e).filter(function (t) { return t.key === 'prints'; })[0].state, 'owned', 'bought');
+  var all = CF.Precinct.tiles(e).concat(CF.Precinct.goods(e)), nk = CF.Precinct.next(all);
+  var cheapest = all.filter(function (t) { return t.state === 'open' || t.state === 'ordered'; }).sort(function (a, b) { return a.cost - b.cost; })[0];
+  assert.ok(nk && cheapest && all.filter(function (t) { return t.key === nk; })[0].cost === cheapest.cost, 'the next is the cheapest within reach: ' + nk);
+  assert.strictEqual(CF.Precinct.next([{ key: 'a', state: 'owned', cost: 1 }, { key: 'b', state: 'locked', cost: 2 }]), null, 'nothing within reach, no next');
+  delete e.s.flags.bought.prints;
+  e.s.rank = 2;
+
+  // A Clerk's petition from the board costs a Coin less, as the Council's forms do.
+  var ck = game(77);
+  ck.s.who = 'clerk';
+  var lockerOrder = CF.ROOMS.locker.order, full = CF.ORDERS[lockerOrder].cost;
+  assert.strictEqual(CF.Precinct.tiles(ck).filter(function (t) { return t.key === 'locker'; })[0].cost, Math.max(1, full - 1), 'the board shows the Clerk his price');
+  assert.ok(CF.Precinct.order(ck, 'locker'));
+  var form = ck.cardsOf('order', true).filter(function (c) { return c.data.order === lockerOrder; })[0];
+  assert.ok(form, 'the petition is on the table');
+  assert.strictEqual(form.data.discount, 1, 'the board petition carries the Clerk discount');
+  assert.ok(form.desc.indexOf('Costs ' + Math.max(1, full - 1) + ' Coin.') >= 0, form.desc);
 
   // Intelligence Office: a linked clue reveals its front at once.
   var g = game(76);

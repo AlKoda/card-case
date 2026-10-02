@@ -12,12 +12,16 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>html,body{background:#0b1516}</style>
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/art/menu.css">
-  <link rel="stylesheet" href="css/art/noir-tables.css">
+  <!-- The heavy art (the table, the cards, the icons) does not hold up the first paint: it loads beside the page
+       and the title's New Game and Continue wait for it (js/main.js, CF.artLoaded). -->
+  <link rel="stylesheet" href="css/art/noir-tables.css" media="print" onload="this.media='all';window.CF&amp;&amp;CF.artLoaded&amp;&amp;CF.artLoaded()" onerror="this.media='all';window.CF&amp;&amp;CF.artLoaded&amp;&amp;CF.artLoaded()">
   <link rel="stylesheet" href="css/art/deck-menu.css">
-  <link rel="stylesheet" href="css/art/cm-cards.css">
-  <link rel="stylesheet" href="css/art/cm-icons.css">
+  <link rel="stylesheet" href="css/art/cm-cards.css" media="print" onload="this.media='all';window.CF&amp;&amp;CF.artLoaded&amp;&amp;CF.artLoaded()" onerror="this.media='all';window.CF&amp;&amp;CF.artLoaded&amp;&amp;CF.artLoaded()">
+  <link rel="stylesheet" href="css/art/cm-icons.css" media="print" onload="this.media='all';window.CF&amp;&amp;CF.artLoaded&amp;&amp;CF.artLoaded()" onerror="this.media='all';window.CF&amp;&amp;CF.artLoaded&amp;&amp;CF.artLoaded()">
+  <noscript><link rel="stylesheet" href="css/art/noir-tables.css"><link rel="stylesheet" href="css/art/cm-cards.css"><link rel="stylesheet" href="css/art/cm-icons.css"></noscript>
   <link rel="stylesheet" href="css/art/cm-ui.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -27,7 +31,7 @@
       <div class="brand">The Free City</div>
       <div id="rank-badge" title="Rank"></div>
       <div class="rank" id="rank"></div>
-      <div id="weekbar" title="The week"><div class="wb-shade"></div></div>
+      <div id="weekbar" title="The week"><div class="wb-shade"></div><span class="wb-glass"></span></div>
       <div id="meters"></div>
       <div id="controls">
         <div class="speed">
@@ -47,8 +51,9 @@
         <div id="tilt"><div id="board"></div></div>
         <div id="peek"></div>
         <button id="peek-x" title="Close">×</button>
+        <div id="peek-head" aria-hidden="true"></div>
         <div id="windows"></div>
-        <div id="pause-banner">Paused <span>Space to resume</span></div>
+        <div id="pause-banner">Paused <span class="pb-key">Space to resume</span><span class="pb-tap">Tap to resume</span></div>
         <div id="zoom">
           <button data-zoom="out" title="Zoom out (-)">−</button>
           <button data-zoom="fit" title="Fit the table (0)">⤢</button>
@@ -60,6 +65,7 @@
           <button data-tool="undo" class="tool-word tool-art hidden" style="--i:var(--art-bsq-10)" title="Undo">Undo</button>
         </div>
         <div id="hint"></div>
+        <div id="turn" role="dialog" aria-label="Turn the phone on its side"><span class="turn-card"></span><button class="ctl dbi" id="turn-ok" title="Play upright" style="--i:var(--art-bround-05)"></button></div>
         <aside id="journal-drawer">
           <div class="side-head">Journal <button id="journal-close" title="Close">×</button></div>
           <div id="journal"></div>
@@ -75,6 +81,7 @@
     <div class="title-wrap">
       <div class="title-scene">
       <div class="title-logo" role="img" aria-label="Case File: The Free City"></div>
+      <div class="title-sub" aria-hidden="true">Case File: The Free City</div>
       <div class="title-buttons">
         <button class="plate-btn gold" id="t-new"><i class="mi" style="--i:var(--art-bround-24)"></i>New Game</button>
         <button class="plate-btn red" id="t-continue"><i class="mi" style="--i:var(--art-bround-05)"></i>Continue</button>
@@ -82,7 +89,7 @@
         <button class="plate-btn blue" id="t-settings"><i class="mi" style="--i:var(--art-bround-01)"></i>Settings</button>
         <button class="plate-btn red" id="t-help"><i class="mi" style="--i:var(--art-bround-22)"></i>How to Play</button>
         <button class="plate-btn teal hidden" id="t-install"><i class="mi" style="--i:var(--art-bround-16)"></i>Install</button>
-        <button class="plate-btn blue lang" id="t-lang" data-no-i18n title="Language / اللغة">English</button>
+        <button class="plate-btn dark lang" id="t-lang" data-no-i18n title="Language / اللغة"><i class="mi" style="--i:var(--art-cset2-01)"></i><span>English</span></button>
       </div>
       </div>
     </div>
@@ -120,6 +127,7 @@
           <div class="set-row"><label for="s-guided">Guided start (new games)</label><input type="checkbox" class="toggle" id="s-guided"></div>
           <div class="set-row"><label for="s-textSpeed">Text Speed</label><input type="range" id="s-textSpeed" min="0" max="100"><output></output></div>
           <div class="set-row"><label for="s-shake">Window Shake</label><input type="checkbox" class="toggle red" id="s-shake"></div>
+          <div class="set-row"><label for="s-calm">Reduce motion</label><input type="checkbox" class="toggle" id="s-calm"></div>
           <div class="set-row"><label for="s-pauseOnCase">Pause when a case arrives</label><input type="checkbox" class="toggle" id="s-pauseOnCase"></div>
           <div class="set-row"><label for="s-pauseOnVerb">Pause when a verb finishes</label><input type="checkbox" class="toggle" id="s-pauseOnVerb"></div>
           <div class="set-row"><label for="s-pauseOnBlur">Pause when you switch away</label><input type="checkbox" class="toggle" id="s-pauseOnBlur"></div>
@@ -185,18 +193,43 @@
     </div>
   </div>
 
-  <!-- Help -->
+  <!-- Help: five chapters and the words of the city, a tab row to each; a verb window's i links to its verb. -->
   <div class="modal screen hidden" id="help">
     <div class="screen-box wide">
       <div class="banner dark"><span>How to Play</span></div>
-      <div class="paper help-paper">
-      <div class="help-grid">
-        <div>
-          <h4>Your table</h4>
-          <p>Everything is a card. The <b>verbs</b> are the square tiles with a ring round them; move them like any card. Drag a card onto a verb, or tap the verb to open it at the side of the table: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. <b>Clear</b> hands the cards back. Some combinations fit the slots but lead nowhere, at least not yet.</p>
-          <p>Move any card or stack anywhere on the table; with <i>Cards settle on the grid</i> on (Settings, Table) they land on an invisible grid's cells; <i>Show the grid</i> draws it if you want to see it. The New cards tab marks the collection pile. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away. Coloured <b>strings</b> run from each case to its tokens, witnesses and accused, pinned to the cards; turn them off in Settings, Table.</p>
-          <h4>Your first case, in order</h4>
-          <p><b>Explore</b> a case to search its scene. <b>Study</b> raw proof so it counts. <b>Question</b> witnesses with Wit for their word. <b>Rest</b> two tokens to see if they agree. <b>The Court</b>: the accused and their tokens; the window says how it stands before you commit.</p>
+      <nav class="help-tabs" id="help-tabs">
+        <button data-ch="help-goal" class="on"><i class="ico" style="background-image:var(--art-cwax-02)"></i>The Goal</button>
+        <button data-ch="help-case"><i class="ico" style="background-image:var(--art-iinv-02)"></i>A Case</button>
+        <button data-ch="help-court"><i class="ico" style="background-image:var(--art-cwax-03)"></i>The Court</button>
+        <button data-ch="help-self"><i class="ico" style="background-image:var(--art-imed-01)"></i>Yourself</button>
+        <button data-ch="help-city"><i class="ico" style="background-image:var(--art-iplace-16)"></i>The City and the Table</button>
+        <button data-ch="help-words"><i class="ico" style="background-image:var(--art-ilaw-21)"></i>Words of the City</button>
+      </nav>
+      <div class="paper help-paper" id="help-paper">
+        <section class="help-ch" id="help-goal">
+          <h3>The Goal</h3>
+          <div class="help-cols">
+          <h4>Winning</h4>
+          <p>There are many ways to end. The journal's <b>Roads</b> show the three you are nearest, and what each still wants. Your <b>Calling</b> leans you toward its own. Lodging and dues come out at every bell. Do not run dry.</p>
+          <h4>Cases</h4>
+          <p>Cases arrive on the city's clock and count down. When one runs out it goes <b>Unanswered</b>, the culprit is <b>Abroad</b>, and the Crowd grows louder. You cannot answer everything.</p>
+          <h4>Your first days, in order</h4>
+          <p>You begin with Health and Wit. Put Health into <b>Attend</b> for a day's labour and a Coin. A notice on the desk opens <b>Explore</b>; the sergeant's questions open <b>Question</b>, answered with Wit. Then the first case: <b>Explore</b> its scene, <b>Study</b> raw proof so it counts, <b>Question</b> the witnesses with Wit, <b>Rest</b> two tokens to see if they agree, and <b>confront</b> the accused with a token of their case. <b>The Court</b> takes the accused and their tokens; the window says how it stands before you commit.</p>
+          </div>
+        </section>
+        <section class="help-ch" id="help-case">
+          <h3>A Case</h3>
+          <div class="help-cols">
+          <h4 id="help-attend"><i class="hv" style="--i:var(--art-cvtok-duty)"></i>Attend</h4>
+          <p><b>Attend</b> is the Watch-house: Wit keeps the day-book for a Coin, Health walks the hard round for two, Petitions are bought there, and it deals with what lands on the desk.</p>
+          <h4 id="help-explore"><i class="hv" style="--i:var(--art-cvtok-investigate)"></i>Explore</h4>
+          <p><b>Explore</b> is the city: a case to search its scene, a case with its Quarter to go door to door, Instinct alone to walk the ward.</p>
+          <h4 id="help-study"><i class="hv" style="--i:var(--art-cvtok-analyze)"></i>Study</h4>
+          <p>Take raw proof to <b>Study</b> to make it speak.</p>
+          <h4 id="help-question"><i class="hv" style="--i:var(--art-cvtok-interrogate)"></i>Question</h4>
+          <p><b>Question</b> witnesses and the accused with Wit, Instinct or Health. Once an accused has been questioned, <b>confront</b> them: a token of their case in Question, Wit beside it. Heavy proof may break them into a free confession.</p>
+          <h4 id="help-rest"><i class="hv" style="--i:var(--art-cvtok-reflect)"></i>Rest</h4>
+          <p><b>Rest</b> a case with its tokens and see what they add up to, or rest.</p>
           <h4>What a verb finds</h4>
           <p>A finished verb shows a card back on its token. Open it: what it found lies face down. Tap a card to turn it over where it lies; tap it again to read it; double-tap to take it, or <b>Take all</b>. Closing the window leaves everything where it is, story included. Taken cards join a stack of their kind if one is on the table, else they land in the <b>collection pile</b>, the yellow strip; drag the strip anywhere. New cases land there too.</p>
           <h4>Asks</h4>
@@ -204,45 +237,74 @@
           <h4>Proof of six kinds</h4>
           <p>Tokens carry proof of six kinds: Body, Word, Motive, Presence, Writ, Coin.</p>
           <div id="help-aspects"></div>
-          <h4>The Court</h4>
+          <h4>Read everything</h4>
+          <p>The accused have their marks. Tokens sometimes betray the culprit's. A careful reader can name the culprit before the casebook does. From Bailiff, a scene may hold a second mark, put there to be found: lay the two marks side by side in <b>Rest</b>.</p>
+          </div>
+        </section>
+        <section class="help-ch" id="help-court">
+          <h3>The Court</h3>
+          <div class="help-cols">
+          <h4 id="help-court-verb"><i class="hv" style="--i:var(--art-cvtok-arrest)"></i>The Court</h4>
           <p>The Blood Court sits under the Carolina, the Emperor's law of 1532: two witnesses, a free confession, or full proof of the right kinds convict; anything less is indicia, grounds to hold and to question, not to hang. The sworn men are its jury; the Hole its cells.</p>
-          <p>An accused with tokens from their case in <b>The Court</b> is a charge. The right kinds in enough weight make full proof. Indicia alone will not convict; on half proof the accused may walk, and they will not forget you. A conviction makes a Condemned card and lays the ladder beside it; the Condemned with a rung in The Court is a sentence.</p>
+          <p>An accused with tokens from their case in <b>The Court</b> is a charge. Four seals say how it stands: <b>Enough</b> proof, of <b>Two kinds</b> the case turns on, with <b>Word behind it</b> (a witness, a confession, a token that names them), and <b>Nothing against them</b>. All four lit is full proof. Under each token the Court says whether it names them, describes someone else, or is off the case. Indicia alone will not convict; on half proof the accused may walk, and they will not forget you. A conviction makes a Condemned card and lays the ladder beside it; the Condemned with a rung in The Court is a sentence.</p>
           <h4>The ladder</h4>
           <p>Pardon, a Fine, the Pillory, Banishment, Branding, the Sword, the Rope, the Wheel. A plea or a free confession is a reason for mercy. Every rung has its price in Mercy, Cruelty and Dread. Say nothing and the Council sentences by custom.</p>
-        </div>
-        <div>
-          <h4>Six verbs</h4>
-          <p><b>Attend</b> is the Watch-house: Wit keeps the day-book for a Coin, Health walks the hard round for two, Petitions are bought there, and it deals with what lands on the desk. <b>Explore</b> is the city: a case to search its scene, a case with its Quarter to go door to door, Instinct alone to walk the ward. Take raw proof to <b>Study</b> to make it speak. <b>Question</b> witnesses and the accused with Wit, Instinct or Health. <b>Rest</b> a case with its tokens and see what they add up to, or rest.</p>
+          <h4>The question</h4>
+          <p>Question the accused with Health and everybody confesses; only the guilty tell the truth. The Carolina allows it only on sufficient indicia, and the Court takes the confession only when Body or Writ agrees. Two witnesses who agree for different reasons are full proof; a beaten witness is not credible.</p>
+          </div>
+        </section>
+        <section class="help-ch" id="help-self">
+          <h3>Yourself</h3>
+          <div class="help-cols">
           <h4>Yourself</h4>
           <p>Work spends you: Health comes back <b>Winded</b>, Wit at <b>Wits' End</b>, Instinct <b>Restless</b>. Each recovers on its own in a little while, or at once in Rest. The city also teaches; see <b>Growing</b>. Some of the city's questions take a card to answer. A question that takes a card spends it, like a verb; one marked for good keeps it.</p>
           <h4>Growing</h4>
           <p>Health, Wit and Instinct grow by <b>Insights</b>, and the city hands you one when you have done a thing often or well. Walk the hard round (Health into Attend) three times and a fencing-master teaches Health; see off three needs before their clocks run out and hardship teaches Health. Convict someone on full proof, or let a case add up in Rest three times, and the method teaches Wit. Walk the ward (Instinct alone into Explore) three times and the street teaches Instinct; earn an informer's trust and the right ear teaches Instinct. An Insight into <b>Rest</b> on its own is a lesson: one more of that ability, for good. With the ability beside it, it is kept as a <b>trick</b> instead. Open Health, Wit or Instinct to see each way and how far along it is.</p>
+          <p id="help-office-growth" class="hidden">Each office opens new Insights, one for each ability, learned by that office's own work. Open Health, Wit or Instinct to see them.</p>
           <h4>Needs</h4>
           <p>Between cases the desk comes for you: <b>Hunger</b>, <b>Sickness</b>, <b>Stress</b>, each with a clock. Hunger with Coin in Rest is a dinner; Sickness wants Coin for a physician, or the Physician's Case; Stress wants an evening in Rest, quicker with Coin. Coin is never the only way: a watchman feeds you from the pot or takes the round, a Quarter feeds you on credit, an informer feeds you and remembers it, Health sweats a fever out, Instinct walks stress off. Let a clock run out and it takes what it came for: a Health, an Instinct, a Wit, for good if you had a spare, and if you did not it takes your strength and stays. The Bell's window lists what is on your back.</p>
-          <h4>Choices</h4>
-          <p>Now and then the city puts a question to you, often because of something you just did: a search, a reading, a questioning, a conviction, the round. The camera goes to it and the clock waits. Every answer says what it gives (a Coin, a witness, a token, a favour, a need lifted) and what it costs, and bends what comes after: the Crowd, the Council's eye, the underworld's grudge, the city's Dread of you, your purse. There is no right answer, only the one you can live with.</p>
-          <h4>Cases</h4>
-          <p>Cases arrive on the city's clock and count down. When one runs out it goes <b>Unanswered</b>, the culprit is <b>Abroad</b>, and the Crowd grows louder. You cannot answer everything.</p>
-          <h4>The question</h4>
-          <p>Question the accused with Health and everybody confesses; only the guilty tell the truth. The Carolina allows it only on sufficient indicia, and the Court takes the confession only when Body or Writ agrees. Two witnesses who agree for different reasons are full proof; a beaten witness is not credible.</p>
-          <h4>Patrons and the Court</h4>
-          <p>Some cases are <b>commissions</b>: the Council, the Bishop or the Guilds want a particular answer, and Favour follows. The Coquille has a court under the Warrens: break it, parley with its King (the Coquille with Wit in Explore), or stand its trial (with Instinct and Coin) and stay inside. The purse is always open, and every coin that changes the truth is counted.</p>
-          <h4>Read everything</h4>
-          <p>The accused have their marks. Tokens sometimes betray the culprit's. A careful reader can name the culprit before the casebook does.</p>
-          <h4>The Rival</h4>
-          <p>From the middle of the game the Provost sends an examiner of his own. Every week they act against you: take one of your cases and close it first, spoil a token, pay a witness to forget. Question them with Wit to find their weakness (twice, and the Council sends them home), with Coin to buy a quiet fortnight, with Health to frighten them; shadow them in Explore with Instinct.</p>
           <h4>Threats</h4>
           <p><b>Weariness</b> ×3 becomes Fever. <b>Obsession</b> ×3 becomes Fixation, and you misread proof. The <b>Crowd</b>, the Council's <b>Suspicion</b>, the underworld's <b>Vendetta</b> and the city's <b>Dread</b> of you are read at the top in words, not numbers: from Quiet to Boiling, Unwatched to Marked, Forgotten to Condemned, Easy to Terrified. Sleep it off in Rest. Answer cases. Keep your hands clean, or don't.</p>
+          </div>
+        </section>
+        <section class="help-ch" id="help-city">
+          <h3>The City and the Table</h3>
+          <div class="help-cols">
+          <h4>Choices</h4>
+          <p>Now and then the city puts a question to you, often because of something you just did: a search, a reading, a questioning, a conviction, the round. The camera goes to it and the clock waits. Every answer says what it gives (a Coin, a witness, a token, a favour, a need lifted) and what it costs, and bends what comes after: the Crowd, the Council's eye, the underworld's grudge, the city's Dread of you, your purse. There is no right answer, only the one you can live with.</p>
+          <h4>Patrons and the Court</h4>
+          <p>Some cases are <b>commissions</b>: the Council, the Bishop or the Guilds want a particular answer, and Favour follows. The Coquille has a court under the Warrens: break it, parley with its King (the Coquille with Wit in Explore), or stand its trial (with Instinct and Coin) and stay inside. The purse is always open, and every coin that changes the truth is counted.</p>
+          <h4>The Rival</h4>
+          <p>From the middle of the game the Harbourmaster sends an examiner of his own. Every week they act against you: take one of your cases and close it first, spoil a token, pay a witness to forget. Find their weakness: question them with Wit, or shadow them in Explore with Instinct. Then catch them at it: question them with a token they spoiled, a witness they paid, or the case they took, and the Council sends them home. One thread a week, and a thread goes cold in three. Convict on a case they took before they close it, and they lose ground. Question them with Coin to buy a quiet fortnight, or with Health to frighten them.</p>
+          <p id="help-harbour" class="hidden">An examiner sent home leaves a leaf from the Customs House. Two, laid in Rest, open the Harbourmaster's Books. Convict the Harbourmaster himself, and no examiner comes again.</p>
           <h4>Rising</h4>
-          <p>The Market opens after your first conviction and the Petitions after your second. Spend Coin in <b>Attend</b> on instruments, Watch-house rooms and watchmen. Standing brings the Council's letters, and each office opens something inside the verbs: Sworn Examiner, a Writ (an accused with cause in Explore); Bailiff, the Watch and Disguise (Explore) and Deputise (Attend); Magistrate, Muster and Proclamation (Attend). The ⌂ button shows your Watch-house: rooms that change how the verbs work.</p>
-          <h4>Winning</h4>
-          <p>Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Lodging and dues come out at every bell. Do not run dry.</p>
+          <p>The Market opens after your first conviction and the Petitions after your second. Spend Coin in <b>Attend</b> on instruments, Watch-house rooms and watchmen. Standing brings the Council's letters, and each office opens something inside the verbs: Sworn Examiner, a Writ (an accused with cause in Explore); Bailiff, the Watch and Disguise (Explore) and Deputise (Attend); Magistrate, Muster and Proclamation (Attend). The map at the top (on a phone, in the menu) opens your <b>Watch-house</b>: rooms that change how the verbs work.</p>
+          <h4>Your table</h4>
+          <p>Everything is a card. The <b>verbs</b> are the square tiles with a ring round them; move them like any card. Drag a card onto a verb, or tap the verb to open it at the side of the table: its first slot takes a card, and filling it reveals the others. Cards that fit glow, and tapping an empty slot lists every card on the table that fits it. When the verb says what it will do, press the button that names it. <b>Clear</b> hands the cards back. Some combinations fit the slots but lead nowhere, at least not yet.</p>
+          <p>Move any card or stack anywhere on the table; with <i>Cards settle on the grid</i> on (Settings, Table) they land on an invisible grid's cells; <i>Show the grid</i> draws it if you want to see it. The New cards tab marks the collection pile. Any two cards that read the same stack: drop one on the other; drag the top card off a stack to take one, or drag the stack by its number (or Shift-drag) to move all of it. Drag the table to pan, scroll or pinch to zoom, <b>0</b> to fit. The corner tools <b>Stack</b> like cards together and <b>Tidy</b> the whole table; <b>Undo</b> puts them back. The verb window stands at the side; tapping the table, a card or another verb puts it away. Coloured <b>strings</b> run from each case to its tokens, witnesses and accused, pinned to the cards; turn them off in Settings, Table.</p>
           <h4>Keys</h4>
           <p><b>S</b> or <b>Enter</b> starts the open verb (on a finished one: turns its finds over, then takes them). <b>C</b> collects every finished verb. <b>Esc</b> closes it. <b>Tab</b> stacks, <b>T</b> tidies, <b>Z</b> undoes that, <b>J</b> opens the journal, <b>+</b> and <b>−</b> zoom.</p>
-          <h4>Time</h4>
+          <h4 id="help-time"><i class="hv" style="--i:var(--art-cvtok-time)"></i>Time</h4>
           <p><b>Space</b> pauses; <b>1</b>, <b>2</b>, <b>3</b> set the speed. You can still move cards and start verbs while paused. Settings can pause the game for you when a case arrives, a verb finishes, or while you drag. The ring around a card is its clock, and it stops while the card is inside a verb. Clues and witnesses warn you half a minute before they fade; tap the warning to find them. The Bell says when the next pay and lodging fall due. The Bell's box shows the <b>dues</b> it is about to draw: lodging, and a Coin for every two watchmen you keep.</p>
-        </div>
-      </div>
+          </div>
+        </section>
+        <section class="help-ch" id="help-words">
+          <h3>Words of the City</h3>
+          <div class="help-cols">
+          <p class="hw"><b>Carolina</b>: the Emperor's law of 1532, by which the Blood Court judges.</p>
+          <p class="hw"><b>Indicia</b>: suspicion, not proof: grounds to hold and to question, not to hang.</p>
+          <p class="hw"><b>Blood Court</b>: the city's court for crimes of blood and theft. The Court tile is its door.</p>
+          <p class="hw"><b>Sworn men</b>: the Court's jury. They take as long as they take.</p>
+          <p class="hw"><b>The Hole</b>: the cells under the Watch-house, where the accused and the Condemned wait.</p>
+          <p class="hw"><b>Quarter</b>: a part of the city. A case with its Quarter in Explore goes door to door.</p>
+          <p class="hw"><b>Writ</b>: proof on paper: a ledger, a letter, a hand matched. From Sworn Examiner, also the Council's leave to search an accused's house.</p>
+          <p class="hw"><b>Abroad</b>: a culprit who walked free or was never named. Still in the city, and the Crowd counts them.</p>
+          <p class="hw"><b>Dues</b>: lodging, and a Coin for every two watchmen, drawn at each Bell.</p>
+          <p class="hw"><b>Standing</b>: your name in the Council chamber. At each threshold, a new office.</p>
+          <p class="hw"><b>Token</b>: a card of proof from a case: what was found, read or said.</p>
+          <p class="hw"><b>Aspect</b>: a kind of proof a token carries (Body, Word, Motive, Presence, Writ, Coin) and how much of it.</p>
+          </div>
+        </section>
       </div>
       <div class="row center"><button class="plate-btn redfill" id="help-close">Back to work</button></div>
     </div>
@@ -279,6 +341,8 @@
         <div class="end-main">
           <h2 id="end-sub"></h2>
           <p class="lead" id="end-text"></p>
+          <p class="end-lesson hidden" id="end-lesson"><i id="end-lesson-icon"></i><span id="end-lesson-text"></span></p>
+          <div class="end-epi hidden" id="end-epi"><h6>What Became of Them</h6><ul id="end-epi-list"></ul></div>
           <div class="stats" id="end-stats"></div>
         </div>
       </div>
@@ -345,6 +409,13 @@
         reg.addEventListener('updatefound', function () {
           var w = reg.installing;
           if (w) w.addEventListener('statechange', function () { if (w.state === 'installed') ready(); });
+        });
+        // A page left open for days (an installed app) looks for a new edition when it comes back into view, once an hour at most.
+        var lookedAt = Date.now();
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden || Date.now() - lookedAt < 3600000) return;
+          lookedAt = Date.now();
+          reg.update().catch(function () { /* offline */ });
         });
       }).catch(function () { /* offline install unavailable */ });
       // The new worker took over after the tap: the page reloads onto it (never on a first install).

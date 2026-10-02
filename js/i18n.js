@@ -10,14 +10,23 @@
 
   CF.LANGS = {
     en: { name: 'English', dir: 'ltr' },
-    ar: { name: 'العربية', dir: 'rtl', fonts: 'css/fonts-ar.css' },
+    // A count past two changes the noun's form in Arabic: 3-10 take the plural, 11-99 the singular in the
+    // accusative, 100 and up the singular again. The rule names the form a number wants (see pick below).
+    ar: { name: 'العربية', dir: 'rtl', fonts: 'css/fonts-ar.css', plural: function (n) {
+      var h = n % 100;
+      return n === 0 ? 'zero' : n === 1 ? 'one' : n === 2 ? 'two' : h >= 3 && h <= 10 ? 'few' : h >= 11 && h <= 99 ? 'many' : 'other';
+    } },
   };
 
-  var I = (CF.I18N = { lang: 'en', dicts: {}, compiled: {}, lower: {}, cache: {}, cacheN: 0, missing: {}, track: false });
+  var I = (CF.I18N = { lang: 'en', dicts: {}, compiled: {}, lower: {}, cache: {}, cacheN: 0, cutoffs: 0, missing: {}, partial: {}, track: false });
 
+  // A value is a string, or its forms by count: { one, two, few, many, other } (and zero), picked by the number the
+  // string carries (see pick). A key given in forms keeps them: a plain value for it in a file loaded later does not
+  // undo them, so the forms can be written beside the newer text without touching the older files.
+  // 'Key#f' is the same key when the person it is about is a woman (see womanIn).
   CF.addStrings = function (lang, map) {
     var d = I.dicts[lang] || (I.dicts[lang] = {});
-    for (var k in map) d[k] = map[k];
+    for (var k in map) { if (d[k] && typeof d[k] === 'object' && typeof map[k] === 'string') continue; d[k] = map[k]; }
     I.compiled[lang] = null; I.lower[lang] = null;
     I.cache = {}; I.cacheN = 0;
   };
@@ -31,6 +40,9 @@
       document.documentElement.setAttribute('dir', CF.LANGS[lang].dir);
       if (CF.LANGS[lang].fonts) CF.loadFonts(CF.LANGS[lang].fonts, 'fonts-' + lang);
       I.applyDOM(document.body);
+      // The tab, the app switcher and the recents read the game's name in the player's language.
+      if (I.docTitle === undefined) I.docTitle = document.title || 'Case File: The Free City';
+      document.title = translate(I.docTitle, 0);
     }
     return lang;
   };
@@ -47,6 +59,56 @@
   CF.lang = function () { return I.lang; };
   CF.isRTL = function () { return CF.LANGS[I.lang].dir === 'rtl'; };
 
+  // The form of a value for a count: a string is its own form; forms pick by the language's rule, else 'one'
+  // and 'other'. Without a count (a key read bare), the general form.
+  function pick(v, n) {
+    if (v === undefined || v === null || typeof v !== 'object') return v;
+    if (typeof n !== 'number' || isNaN(n)) return v.other;
+    var rule = CF.LANGS[I.lang] && CF.LANGS[I.lang].plural, f = rule ? rule(n) : n === 1 ? 'one' : 'other';
+    return v[f] !== undefined ? v[f] : v.other !== undefined ? v.other : v.many;
+  }
+  CF.I18N.pick = pick;
+  // The number a string counts: the placeholder named for it ({n}, {d}, {count}, {days}) when it holds a whole
+  // number, else the first that does.
+  var COUNT_KEYS = { n: 1, d: 1, count: 1, days: 1 };
+  function countOf(keys, valueOf) {
+    var first;
+    for (var i = 0; i < keys.length; i++) {
+      var v = valueOf(keys[i], i);
+      if (typeof v === 'number' ? v % 1 !== 0 : !/^\s*\d+\s*$/.test(String(v))) continue;
+      if (COUNT_KEYS[keys[i]]) return +v;
+      if (first === undefined) first = +v;
+    }
+    return first;
+  }
+  // The person a line is about, by the first of its person placeholders: a woman when her first name is one the
+  // city gives women. Then 'Key#f', where written, is the line: 'تتحدث ... عن زوجها', not 'يتحدث'.
+  var PERSON_KEYS = { name: 1, witness: 1, who: 1, culprit: 1, nick: 1, suspect: 1, accused: 1, victim: 1 };
+  var WOMEN_EXTRA = ['Lucia', 'Margarethe', 'Carolina', 'Anna'];
+  function isWoman(v) {
+    if (typeof v !== 'string') return false;
+    if (!I.women) {
+      var names = (CF.NAMES && CF.NAMES.f) || [];
+      if (!names.length) return false;
+      I.women = {};
+      names.concat(WOMEN_EXTRA).forEach(function (w) { I.women[w] = 1; });
+    }
+    var first = v.replace(/^[^A-Za-z\u00C0-\u024F]+/, '').split(' ')[0];
+    return !!I.women[first];
+  }
+  function personAt(keys) { for (var i = 0; i < keys.length; i++) if (PERSON_KEYS[keys[i]]) return i; return -1; }
+  function keysOf(k) { var out = [], m, re = /\{(\w+)\}/g; while ((m = re.exec(k))) out.push(m[1]); return out; }
+  // A key's value for a line with these values in it: the woman's form where the line is about one, and the form
+  // its count wants.
+  // Inside a line about a woman (I.fem), the pieces read in her form too: her mark, her role ('{name}, {role}. {text}').
+  function valueFor(k, keys, valueOf) {
+    var d = I.dicts[I.lang], v = d[k], pi = personAt(keys);
+    if (d[k + '#f'] !== undefined && (pi >= 0 ? isWoman(valueOf(keys[pi], pi)) : I.fem)) v = d[k + '#f'];
+    return pick(v, countOf(keys, valueOf));
+  }
+  // Whether a line's pieces read in a woman's form: its own person decides; a line with none follows the line it is in.
+  function femFor(keys, valueOf) { var pi = personAt(keys); return pi >= 0 ? isWoman(valueOf(keys[pi], pi)) : !!I.fem; }
+
   function lowerIndex(lang) {
     var d = I.dicts[lang], out = {};
     for (var k in d) out[k.toLowerCase()] = d[k];
@@ -59,7 +121,7 @@
   function compile(lang) {
     var d = I.dicts[lang], list = [];
     for (var k in d) {
-      if (k.indexOf('{') < 0) continue;
+      if (k.indexOf('{') < 0 || /#f$/.test(k)) continue;
       var keys = [], lit = 0;
       var parts = k.split(/(\{\w+\})/), tail = [], adj = [];
       var src = parts.map(function (part, idx) {
@@ -75,8 +137,9 @@
         lit += part.length;
         return escapeRe(part);
       }).join('');
-      if (!keys.length || !/[A-Za-z]{3}/.test(k.replace(/\{\w+\}/g, ''))) continue;
-      list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, out: d[k], lit: lit });
+      // Some words of its own ('It is {name}'s.'), not bare glue ('{a}: {b}', '{a} of {b}').
+      if (!keys.length || (k.replace(/\{\w+\}/g, '').match(/[A-Za-z]/g) || []).length < 4) continue;
+      list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, k: k, lit: lit });
     }
     list.sort(function (a, b) { return b.lit - a.lit; });
     return (I.compiled[lang] = list);
@@ -87,45 +150,65 @@
 
   function lookup(s, depth) {
     var d = I.dicts[I.lang];
-    if (d[s] !== undefined) return d[s];
+    if (d[s] !== undefined) return pick(I.fem && d[s + '#f'] !== undefined ? d[s + '#f'] : d[s]);
     var t = s.trim();
     if (!t || !LETTERS.test(t)) return s;
-    if (t !== s && d[t] !== undefined) return s.replace(t, d[t]);
+    if (t !== s && d[t] !== undefined) return s.replace(t, pick(d[t]));
     // 'the clerk of the court' for a label the code lower-cased.
-    var lower = I.lower[I.lang] || lowerIndex(I.lang), lk = lower[t.toLowerCase()];
+    var lower = I.lower[I.lang] || lowerIndex(I.lang), lk = pick(lower[t.toLowerCase()]);
     if (lk !== undefined) return s.replace(t, lk);
-    if (depth > 5) return miss(s);
-    var viaTpl = matchTemplate(t, depth);
+    if (depth > 5) { I.cutoffs++; return miss(s); }
+    var fallback = null;
+    // A pattern that reads every piece wins at once; one that leaves a piece in English is kept for last.
+    var viaTpl = matchTemplate(t, depth, true);
     if (viaTpl !== null) return t === s ? viaTpl : s.replace(t, viaTpl);
+    var loose = matchTemplate(t, depth);
+    if (loose !== null) fallback = t === s ? loose : s.replace(t, loose);
     // A parenthesis in front: '(The Market) The crier has sung it.'
     var par = /^\(([^()]+)\)\s+([\s\S]+)$/.exec(t);
     if (par) {
       var a = translate(par[1], depth + 1), b2 = translate(par[2], depth + 1);
       if (a !== par[1] || b2 !== par[2]) return s.replace(t, '(' + a + ') ' + b2);
     }
-    // A symbol in front of a known string: '★ The Body at the Crane'.
-    var sym = /^([^A-Za-z{(]+)([\s\S]+)$/.exec(t);
-    if (sym && LETTERS.test(sym[2])) {
+    // A symbol in front of a known string: '★ The Body at the Crane'. A number in front is the string's
+    // own ('2 who walked from you...'), unless the rest is one phrase.
+    var sym = /^([^A-Za-z{("“]+)([\s\S]+)$/.exec(t);
+    if (sym && LETTERS.test(sym[2]) && !(/\d/.test(sym[1]) && /[.!?]["'”)]*\s+\S/.test(sym[2]))) {
       var body = translate(sym[2], depth + 1);
       if (body !== sym[2]) return s.replace(t, sym[1].replace(/,/g, '،').replace(/;/g, '؛') + body);
     }
     // 'Label: the text' (the text may have colons of its own).
+    // The label is one phrase: a colon after a sentence ('Rent is due. The stipend: 4 Coin.') is not a label's.
     var colon = t.indexOf(': ');
-    if (colon > 0 && colon < 60 && /[A-Za-z]{2}/.test(t.slice(0, colon))) {
+    if (colon > 0 && colon < 60 && /[A-Za-z]{2}/.test(t.slice(0, colon)) && !/[.!?]["'”)]*\s/.test(t.slice(0, colon))) {
       var lab = translate(t.slice(0, colon), depth + 1), txt = translate(t.slice(colon + 2), depth + 1);
-      if (lab !== t.slice(0, colon) && txt !== t.slice(colon + 2)) return s.replace(t, lab + ': ' + txt);
+      // Read in part, it is kept in case nothing reads it whole ('Witness: X; Y (accused)' is a list).
+      if (lab !== t.slice(0, colon) && txt !== t.slice(colon + 2)) {
+        if (whollyRead(txt)) return s.replace(t, lab + ': ' + txt);
+        if (fallback === null) fallback = s.replace(t, lab + ': ' + txt);
+      }
     }
     // The longest opening run of sentences that is one known text (a case's
     // brief, a story beat), then whatever follows it.
-    var bre = /[.!?]["'”)]*\s+/g, cuts = [], bm;
+    var bre = /[.!?]["'”)]*\s+/g, cuts = [], bm, firstCut = null;
     while ((bm = bre.exec(t))) cuts.push(bm.index + bm[0].length);
     for (var ci = cuts.length - 1; ci >= 0; ci--) {
       var head = t.slice(0, cuts[ci]).replace(/\s+$/, ''), gap = t.slice(head.length, cuts[ci]), rest = t.slice(cuts[ci]);
       var hd = whole(head);
-      if (hd === null) hd = matchTemplate(head, depth + 1);
+      // A quoted saying: '"A gold ring. Big, on the little finger." (Loves the accused.)'
+      var qt = hd === null ? /^(["“])([\s\S]+?)(["”])$/.exec(head) : null;
+      // Arabic quotes a saying in guillemets.
+      if (qt) { var qin = whole(qt[2]), rtl = CF.LANGS[I.lang].dir === 'rtl'; if (qin !== null) hd = (rtl ? '«' : qt[1]) + qin + (rtl ? '»' : qt[3]); }
+      // A pattern that fits the run but leaves a piece of it in English is the wrong cut: a shorter run is tried.
+      if (hd === null) hd = matchTemplate(head, depth + 1, true);
       if (hd === null) continue;
-      return s.replace(t, hd + gap + translate(rest, depth + 1));
+      // What follows is the next sentence along, not a piece inside this one: a long week's news reads to its end.
+      // A cut that leaves what follows in English (the run took a sentence the next pattern needed) gives way to a shorter one.
+      var rr = translate(rest, Math.max(1, depth)), cut = s.replace(t, hd + gap + rr);
+      if (whollyRead(rr)) return cut;
+      if (firstCut === null) firstCut = cut;
     }
+    if (firstCut !== null) return firstCut;
     // Sentence by sentence.
     var parts = t.match(/[^.!?]+[.!?]+["'”)]*(\s+|$)|[^.!?]+$/g);
     if (parts && parts.length > 1) {
@@ -149,13 +232,21 @@
     for (var si = 0; si < SEPS.length; si++) {
       var items = t.split(SEPS[si]);
       if (items.length < 2) continue;
-      var all2 = true;
-      var out2 = items.map(function (p) {
-        if (!/[A-Za-z]{2}/.test(p)) return p;
-        var tr = translate(p, depth + 1);
+      var all2 = true, out2 = [];
+      // An item may hold the separator itself ('A ledger in weights, not sums'): an unknown piece is
+      // read together with the next one or two before the list is given up.
+      for (var ii = 0; ii < items.length; ii++) {
+        var p = items[ii];
+        if (!/[A-Za-z]{2}/.test(p)) { out2.push(p); continue; }
+        var tr = translate(p, depth + 1), took = 0;
+        for (var more = 1; tr === p && more <= 2 && ii + more < items.length; more++) {
+          var joined = items.slice(ii, ii + more + 1).join(SEPS[si]), tj = translate(joined, depth + 1);
+          if (tj !== joined) { tr = tj; p = joined; took = more; }
+        }
         if (tr === p) all2 = false;
-        return tr;
-      });
+        out2.push(tr);
+        ii += took;
+      }
       if (all2) return s.replace(t, out2.join(SEPS[si] === ', ' ? '، ' : SEPS[si] === '; ' ? '؛ ' : SEPS[si] === ' and ' ? ' و' : SEPS[si]));
     }
     // A run of known words, or two known parts: 'Hans van der Meer',
@@ -164,16 +255,17 @@
     if (words.length > 1 && words.length <= 6) {
       var all = true;
       // A number, or a count, stands as it is: 'Body 1', 'Word 2'.
-      var out3 = words.map(function (w) { if (!LETTERS.test(w)) return w; if (d[w] === undefined) all = false; return d[w]; });
+      var out3 = words.map(function (w) { if (!LETTERS.test(w)) return w; if (d[w] === undefined) all = false; return pick(d[w]); });
       if (all) return s.replace(t, out3.join(' '));
       for (var w = 1; w < words.length; w++) {
         var left = words.slice(0, w).join(' '), right = words.slice(w).join(' ');
         if (d[left] !== undefined) {
           var r2 = translate(right, depth + 1);
-          if (r2 !== right) return s.replace(t, d[left] + ' ' + r2);
+          if (r2 !== right) return s.replace(t, pick(d[left]) + ' ' + r2);
         }
       }
     }
+    if (fallback !== null) return fallback;
     return miss(s);
   }
   // Exact keys only: what a captured piece must satisfy when it spans
@@ -181,11 +273,11 @@
   // sentences that follow a composed string.
   function whole(t) {
     var d = I.dicts[I.lang];
-    if (d[t] !== undefined) return d[t];
+    if (d[t] !== undefined) return pick(I.fem && d[t + '#f'] !== undefined ? d[t + '#f'] : d[t]);
     var lower = I.lower[I.lang] || lowerIndex(I.lang);
-    return lower[t.toLowerCase()] !== undefined ? lower[t.toLowerCase()] : null;
+    return lower[t.toLowerCase()] !== undefined ? pick(lower[t.toLowerCase()]) : null;
   }
-  function matchTemplate(t, depth) {
+  function matchTemplate(t, depth, strict) {
     var tpls = I.compiled[I.lang] || compile(I.lang);
     for (var i = 0; i < tpls.length; i++) {
       var m = tpls[i].re.exec(t);
@@ -206,37 +298,118 @@
           if (translate(l, depth + 1) !== l && translate(r, depth + 1) !== r) { caps[a] = l; caps[a + 1] = r; break; }
         }
       }
-      var out = tpls[i].out;
-      for (var j = 0; j < tpls[i].keys.length; j++) out = out.split('{' + tpls[i].keys[j] + '}').join(translate(caps[j], depth + 1));
+      var capOf = function (key, at) { return caps[at]; };
+      var out = valueFor(tpls[i].k, tpls[i].keys, capOf), filled = true;
+      var wasFem = I.fem, fem = femFor(tpls[i].keys, capOf);
+      for (var j = 0; j < tpls[i].keys.length; j++) {
+        I.fem = fem;
+        var tc = translate(caps[j], depth + 1);
+        if (strict && /[A-Za-z]{3}/.test(caps[j]) && !whollyRead(tc)) filled = false;
+        out = out.split('{' + tpls[i].keys[j] + '}').join(tc);
+      }
+      I.fem = wasFem;
+      if (!filled) continue;
       return out;
     }
     return null;
   }
   function miss(s) { return s; }
+  function whollyRead(r) { return !/[A-Za-z]{3}/.test(r.replace(KEEP_LATIN, '')); }
+  // Words that stay in Latin letters in every language: the names of keys.
+  var KEEP_LATIN = /\b(Shift|Esc|Enter|Tab|Space|Ctrl|Alt)\b/g;
+  // A text that opens on a woman's name is about her ('Grete Welser, a widow. Has a key to the house for years.'):
+  // its sentences read in her form.
   function translate(s, depth) {
     if (I.lang === 'en' || !s || !I.dicts[I.lang]) return s;
-    if (I.cache[s] !== undefined) return I.cache[s];
-    var r = lookup(s, depth);
-    if (I.track && depth === 0 && r === s) I.missing[s] = (I.missing[s] || 0) + 1;
+    var wasFem = I.fem;
+    if (!wasFem) { var fw = /^([A-Z][^\s,.:;!?]+) [A-Z]/.exec(s); if (fw && isWoman(fw[1])) I.fem = true; }
+    try { return translate1(s, depth); } finally { I.fem = wasFem; }
+  }
+  function translate1(s, depth) {
+    // Read in a woman's line, a piece is kept apart from the same piece read plain.
+    var ck = I.fem ? '\u2640' + s : s;
+    if (I.cache[ck] !== undefined) return I.cache[ck];
+    var cut = I.cutoffs, r = lookup(s, depth);
+    if (I.track && depth === 0) {
+      if (r === s) I.missing[s] = (I.missing[s] || 0) + 1;
+      // Half translated: English words left in the answer (the keys' caps aside) are as much a leak as none.
+      else if (I.lang !== 'en' && !whollyRead(r)) I.partial[s] = r;
+    }
+    // A string read deep inside another may have met the depth cut-off on the way: that answer is only good for
+    // where it was asked, so it is not kept (else a name reached first in a long sentence stays English everywhere).
+    if (depth > 0 && I.cutoffs !== cut) return r;
     if (I.cacheN > 4000) { I.cache = {}; I.cacheN = 0; }
-    I.cache[s] = r; I.cacheN++;
+    I.cache[ck] = r; I.cacheN++;
     return r;
   }
+
+  // In a right-to-left paragraph a sign before a number is drawn after it ('+1' reads '1+'), and
+  // 'a / b' turns about. Each such run is wrapped in invisible isolates (LRI ... PDI) so it keeps
+  // its own order. A run already wrapped, or a sign that joins two numbers ('3-5'), is left be.
+  var BIDI_RUN = /[+\u2212\u00b1\u00d7-] ?\d+(?:[.,]\d+)?%?|\d+(?:[.,]\d+)? ?\/ ?\d+/g;
+  var LRI = '\u2066', PDI = '\u2069';
+  CF.bidi = function (s) {
+    if (typeof s !== 'string' || I.lang === 'en' || !CF.isRTL() || !/[+\u2212\u00b1\u00d7\/-] ?\d/.test(s)) return s;
+    return s.replace(BIDI_RUN, function (m, off, all) {
+      var prev = all.charAt(off - 1);
+      if (prev === LRI) return m;
+      if (/^[^\d]/.test(m) && /[0-9A-Za-z]/.test(prev)) return m;
+      return LRI + m + PDI;
+    });
+  };
 
   // Translate a string (and fill {vars}, translating each value too).
   CF.T = function (s, vars) {
     if (s === undefined || s === null) return s;
-    var out = translate(String(s), 0);
+    s = String(s);
+    var d = I.lang !== 'en' && I.dicts[I.lang], out;
+    // A key asked with its values: the values choose its form (a count, a woman).
+    if (vars && d && d[s] !== undefined && (typeof d[s] === 'object' || d[s + '#f'] !== undefined)) out = valueFor(s, keysOf(s), function (key) { return vars[key]; });
+    else out = translate(s, 0);
     if (vars) {
-      var tv = {};
+      var tv = {}, wasFem = I.fem;
+      I.fem = d ? femFor(keysOf(s), function (key) { return vars[key]; }) : false;
       for (var k in vars) tv[k] = typeof vars[k] === 'string' ? translate(vars[k], 1) : vars[k];
+      I.fem = wasFem;
       out = CF.util.fill(out, tv);
     }
-    return out;
+    return CF.bidi(joinPrefix(out));
   };
+  // An Arabic one-letter preposition stretched to meet a placeholder ('بـ{card}') joins the Arabic word that fills
+  // it: 'بالفطنة', not 'بـالفطنة'. Before a number or a Latin name the stretch stays.
+  var STRETCHED = /(^|[\s(«"“'])([بلك])\u0640(?=[\u0621-\u064A])/g;
+  function joinPrefix(s) { return typeof s === 'string' && s.indexOf('\u0640') >= 0 ? s.replace(STRETCHED, '$1$2') : s; }
+  CF.joinPrefix = joinPrefix;
 
   // ---- Static markup. A paragraph with only <b>/<i> inside is one unit, so
   // the translation can reorder it; anything else is walked text by text.
+  // The few words on the face of a card, read off its label: a person's card
+  // is their name, a token's card is what kind of token it is. A status a
+  // token gained later (kept past its case, matched, read only in part, found staged) is
+  // looked through, so the face says what the token is and the status is a
+  // seal beside it. DOM-free, so the tests can check every face a game makes
+  // has its words in each language. The table's case cards are titled by the
+  // interface from their case.
+  var FACE_SHORTS = [
+    [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
+    [/^Found at .*House$/, 'The House'], [/^Corroborated: /, 'Corroborated'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
+    [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
+  ];
+  var FACE_STATUS = /^(Kept|Matched|Partial|Staged): (?=\S)/;
+  var FACE_PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
+  CF.cardFace = function (card, label) {
+    var def = (CF.CARDS && CF.CARDS[card.def]) || {}, status = [], m;
+    label = String(label || '');
+    while ((m = FACE_STATUS.exec(label))) { status.push(m[1]); label = label.slice(m[0].length); }
+    for (var i = 0; i < FACE_SHORTS.length; i++) if (FACE_SHORTS[i][0].test(label)) return { text: FACE_SHORTS[i][1], status: status };
+    var at = label.indexOf(': ');
+    if (at < 0) return { text: label, status: status };
+    var head = label.slice(0, at), tail = label.slice(at + 2);
+    if (FACE_PERSONS[card.def]) return { text: (head === 'Prime Suspect' ? '★ ' : '') + tail, status: status, person: true };
+    if (card.def === 'order' || card.def === 'personnel' || def.kind === 'calling' || card.def === 'gang') return { text: tail, status: status };
+    return { text: head, status: status };
+  };
+
   var INLINE = { B: 1, I: 1, EM: 1, STRONG: 1, BR: 1, KBD: 1 };
   var ATTRS = ['title', 'placeholder', 'aria-label'];
   function inlineOnly(el) {
@@ -262,7 +435,7 @@
     if (el.nodeType === 3) {
       if (el.__en === undefined) el.__en = el.nodeValue;
       var v = el.__en, t = v.trim();
-      if (t) el.nodeValue = v.replace(t, translate(t, 0));
+      if (t) el.nodeValue = v.replace(t, CF.bidi(translate(t, 0)));
       return;
     }
     if (el.nodeType !== 1 || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
@@ -272,7 +445,7 @@
       if (!el.hasAttribute(name)) continue;
       var key = '__en_' + name;
       if (el[key] === undefined) el[key] = el.getAttribute(name);
-      el.setAttribute(name, translate(el[key], 0));
+      el.setAttribute(name, CF.bidi(translate(el[key], 0)));
     }
     if (el.tagName === 'BUTTON' && el.hasAttribute('value')) {
       if (el.__en_value === undefined) el.__en_value = el.getAttribute('value');
@@ -280,7 +453,7 @@
     }
     if (unitOf(el)) {
       if (el.__enHTML === undefined) el.__enHTML = el.innerHTML.replace(/\s+/g, ' ').trim();
-      el.innerHTML = translate(el.__enHTML, 0);
+      el.innerHTML = CF.bidi(translate(el.__enHTML, 0));
       return;
     }
     var kids = Array.prototype.slice.call(el.childNodes);

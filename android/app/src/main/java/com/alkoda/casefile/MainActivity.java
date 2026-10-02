@@ -6,6 +6,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -91,6 +92,50 @@ public class MainActivity extends AppCompatActivity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.vibrate(VibrationEffect.createOneShot(d, VibrationEffect.DEFAULT_AMPLITUDE));
                 else v.vibrate(d);
             } catch (Exception ignored) { /* no haptics is fine */ }
+        }
+
+        /**
+         * A felt cue by name. The touches (tick, confirm, reject) are the system's own feedback, asked of the
+         * root view with no flags, so the phone's touch-feedback setting is kept; the WebView's own stays off.
+         * The weights (heavy, toll, harm) go to the vibrator as a predefined click or a short waveform.
+         */
+        @JavascriptInterface
+        public void haptic(final String kind) {
+            if (kind == null) return;
+            runOnUiThread(() -> {
+                try {
+                    boolean r30 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
+                    switch (kind) {
+                        case "tick": root.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); break;
+                        case "confirm": root.performHapticFeedback(r30 ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY); break;
+                        case "reject": root.performHapticFeedback(r30 ? HapticFeedbackConstants.REJECT : HapticFeedbackConstants.LONG_PRESS); break;
+                        case "heavy": heavy(); break;
+                        case "toll": wave(new long[] {0, 12, 140, 12}); break;
+                        case "harm": wave(new long[] {0, 30, 60, 30}); break;
+                        default: break;
+                    }
+                } catch (Exception ignored) { /* no haptics is fine */ }
+            });
+        }
+
+        private Vibrator vibrator() {
+            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            return v != null && v.hasVibrator() ? v : null;
+        }
+
+        private void heavy() {
+            Vibrator v = vibrator();
+            if (v == null) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK));
+            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE));
+            else v.vibrate(30);
+        }
+
+        private void wave(long[] pattern) {
+            Vibrator v = vibrator();
+            if (v == null) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.vibrate(VibrationEffect.createWaveform(pattern, -1));
+            else v.vibrate(pattern, -1);
         }
     }
 

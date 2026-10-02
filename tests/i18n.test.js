@@ -26,6 +26,14 @@ Object.keys(CF.LANGS).forEach(function (lang) {
   });
 });
 
+// The extractor reads a lowercase literal as a fragment unless it is a whole sentence of three words or more:
+// the ask's hints once started 'or drop a card...' and no test saw they had no Arabic.
+assert.strictEqual(extract.literalKind('or drop a card on the token. Ignore it and the work still finishes, but it finds less.'), 'key', 'a lowercase sentence is a key');
+assert.strictEqual(extract.literalKind('the {who} says'), 'fragment', 'a piece with a placeholder stays a fragment');
+assert.strictEqual(extract.literalKind('and then'), 'fragment', 'two words without a stop stay a fragment');
+assert.strictEqual(extract.literalKind('Rest'), 'key', 'a capitalised word is a key');
+assert.strictEqual(extract.literalKind('cwax-01'), 'skip', 'an art key is not text');
+
 // The lookup: exact, template, trailing stop, sentence run, list, name.
 CF.setLang('ar');
 var d = CF.I18N.dicts.ar;
@@ -38,34 +46,223 @@ assert.notStrictEqual(CF.T('Body 1, Word 2'), 'Body 1, Word 2', 'an aspect with 
 assert.ok(!/[A-Za-z]/.test(CF.T('Body 1, Word 2')), 'and nothing of it stays English: ' + CF.T('Body 1, Word 2'));
 assert.ok(!/[A-Za-z]/.test(CF.T('Wit and Instinct')) && /\sو\S/.test(CF.T('Health and Wit and Instinct')), '\'and\' joins a list');
 assert.strictEqual(CF.T('Week {n}', { n: 4 }).indexOf('{'), -1, 'placeholders are filled');
+// A name first reached deep inside a composed string (past the depth cut-off) is not kept in English: the card
+// face, the dossier and the windows still read it in Arabic afterwards.
+['Lorem', 'Ipsum', 'Dolor', 'Sitam', 'Ametx', 'Consec', 'Adipis', 'Elitus', 'Quarto'].forEach(function (x, n, all) {
+  var colons = all.slice(0, n + 1).join(': ') + ': Hans Schmidt', parens = 'Hans Schmidt';
+  for (var i = 0; i <= n; i++) parens = '(' + all[i] + ') ' + parens;
+  [colons, parens].forEach(function (deep) {
+    CF.setLang('ar');
+    CF.T(deep);
+    assert.ok(!/[A-Za-z]/.test(CF.T('Hans Schmidt')), 'a name met in \'' + deep + '\' still reads in Arabic: ' + CF.T('Hans Schmidt'));
+  });
+});
+// A sign before a number keeps its place in a right-to-left line: the run is wrapped in invisible isolates.
+CF.setLang('ar');
+var plus = CF.T('Body +1');
+assert.ok(plus.indexOf('\u2066+1\u2069') >= 0, 'Body +1 isolates its +1: ' + JSON.stringify(plus));
+assert.strictEqual(CF.T(plus), plus, 'a string read twice is wrapped once');
+assert.ok(CF.T('3 / 8').indexOf('\u20663 / 8\u2069') === 0, 'a / b is isolated');
+assert.ok(CF.T('×3').indexOf('\u2066×3\u2069') === 0, 'a count is isolated');
+assert.strictEqual(CF.bidi('1600-1610'), '1600-1610', 'a range is left be');
+// The go plate's seconds are Arabic seconds.
+var plate = CF.T('{label} · {n}s', { label: 'Search the Scene', n: 30 });
+assert.ok(!/[A-Za-z]/.test(plate) && /30 ث/.test(plate), 'the plate reads its seconds in Arabic: ' + plate);
+// A count takes the noun's Arabic form: one, two, 3-10, 11-99, 100 and up each read their own way, asked with its
+// value or met inside a composed line; no count is dodged with 'من ال...'.
+assert.strictEqual(CF.T('{n} days', { n: 1 }), 'يوم واحد', 'one day');
+assert.strictEqual(CF.T('{n} days', { n: 2 }), 'يومان', 'two days');
+assert.strictEqual(CF.T('{n} days', { n: 5 }), '5 أيام', '3-10 days take the plural');
+assert.strictEqual(CF.T('{n} days', { n: 12 }), '12 يومًا', '11-99 days take the singular in the accusative');
+assert.strictEqual(CF.T('{n} days', { n: 100 }), '100 يوم', '100 days');
+assert.strictEqual(CF.T('12 days for the Council'), '12 يومًا للمجلس', 'a composed line picks its form: ' + CF.T('12 days for the Council'));
+assert.strictEqual(CF.T('11 cards'), '11 بطاقةً', '11 cards: ' + CF.T('11 cards'));
+assert.strictEqual(CF.T('2 convictions'), 'إدانتان', 'two convictions');
+assert.ok(/يومًا/.test(CF.T('The Body at the Crane has 14 days left. Charge Hans Weber with what you have, or let it go.')), 'the count is the {d} it names');
+var bellDues = CF.T('Coin on the table: 3. Every week the Council pays 1 in stipend and the Bell draws 1 in dues (lodging 1); miss it and you sleep on the Watch-house bench.');
+assert.ok(/راتبًا قدره 1/.test(bellDues) && !/راتباً/.test(bellDues), 'the Bell\'s dues line is Arabic: ' + bellDues);
+assert.strictEqual(CF.I18N.pick({ one: 'a', other: 'b' }, 7), 'b', 'a form not written falls to the general one');
+(function () {
+  var forms = 0, dodges = [];
+  ['{n} days', '{n} days left', '{n} cards', '{n} Coin', '{n} sworn', '{n} crimes on the record.', 'Costs {n} Coin.'].forEach(function (k) {
+    if (typeof d[k] === 'object') forms++;
+    [1, 2, 7, 23, 104].forEach(function (n) { var r = CF.T(k, { n: n }); if (/من ال/.test(r) || r.indexOf('{') >= 0) dodges.push(k + ' ' + n + ': ' + r); });
+  });
+  assert.strictEqual(forms, 7, 'the counts are written in their forms');
+  assert.deepStrictEqual(dodges, [], 'no count is dodged');
+  // A key in forms is not undone by a plain value for it loaded later.
+  CF.addStrings('ar', { '{n} cards': '{n} من البطاقات' });
+  assert.strictEqual(CF.T('{n} cards', { n: 2 }), 'بطاقتان', 'the forms keep their place');
+})();
+// A woman is written as a woman: the line about her takes its '#f' form; a man's stays the plain one.
+assert.ok(/فعلتها/.test(CF.T('Margery Tanner has done it again: The Body at the Crane.')), 'she did it again: ' + CF.T('Margery Tanner has done it again: The Body at the Crane.'));
+assert.ok(/فعلها/.test(CF.T('Hans Weber has done it again: The Body at the Crane.')), 'he did it again');
+assert.ok(/فعلتها/.test(CF.T('{name} has done it again: {title}.', { name: 'Els Vos', title: 'The Body at the Crane' })), 'asked with her name as a value');
+var talks = function (who) { return CF.T(who + ' talks for an hour. Most of it is about their late husband. Then, almost as an afterthought: "{hint}"'); };
+assert.ok(/^تتحدث .*زوجها الراحل/.test(talks('Grete Bicker')), 'a widow talks of her late husband: ' + talks('Grete Bicker'));
+assert.ok(/^يتحدث .*زوجته الراحلة/.test(talks('Gregory Bicker')), 'a widower of his late wife: ' + talks('Gregory Bicker'));
+// Her card's words open on her name, and her mark reads in her form; the same mark on a man's card stays his.
+var herDesc = CF.T('Grete Welser, a journeyman turned off. Has ink-black fingers; works a printer\'s press.');
+assert.ok(/أصابعها .*تعمل/.test(herDesc), 'her mark: ' + herDesc);
+assert.ok(/أصابعه .*يعمل/.test(CF.T('Hans Welser, a journeyman turned off. Has ink-black fingers; works a printer\'s press.')), 'his mark');
+assert.ok(/أصابعه /.test(CF.T('Has ink-black fingers; works a printer\'s press.')), 'and the mark alone is read plain, not from her line');
+assert.strictEqual(CF.T('Witness: Kathrin Barker'), 'الشاهدة: ' + CF.T('Kathrin Barker'), 'her card names her a witness in the feminine');
 CF.setLang('en');
+assert.strictEqual(CF.T('Body +1'), 'Body +1', 'English is left alone');
 assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
 
-// A played game, read in Arabic: nothing the player could see stays English.
+// A token's face says what kind of token it is, and looks through a status it gained later (a seal instead).
+(function faces() {
+  var f = CF.cardFace({ def: 'clue' }, 'Kept: Warning: The Hook');
+  assert.strictEqual(f.text, 'Warning', 'a kept warning still reads Warning on its face');
+  assert.deepStrictEqual(f.status, ['Kept'], 'and Kept is its seal');
+  assert.strictEqual(CF.cardFace({ def: 'clue' }, 'Matched: Deposition: Anna Weber').text, 'Deposition', 'a matched deposition reads Deposition');
+  assert.strictEqual(CF.cardFace({ def: 'clue' }, 'Partial: A Bloody Shoe').text, 'A Bloody Shoe', 'a partial reading shows the token it is');
+  assert.strictEqual(CF.cardFace({ def: 'clue' }, 'Kept: Sighting: Jakob Hess').text, 'A Sighting', 'the short names apply under a status');
+  assert.strictEqual(CF.cardFace({ def: 'suspect' }, 'Prime Suspect: Jakob Hess').text, '★ Jakob Hess', 'a person is their name');
+  CF.setLang('ar');
+  ['Partial', 'Deposition', 'Kept', 'Alibi', 'Confession', 'Warning', 'Theory', 'Matched', 'Traced', 'Confirmed Identification', 'False Confession', 'Letter', 'Left Behind', 'A Tavern Token', 'Take On', 'Petition For'].forEach(function (head) {
+    assert.ok(!/[A-Za-z]/.test(CF.T(head)), 'the face \'' + head + '\' reads in Arabic: ' + CF.T(head));
+  });
+  CF.setLang('en');
+})();
+
+// Round 8, lane 2, items 25-32: the Bell's week spelled out, the keys kept as their caps, the ask box,
+// an instrument's kinds of find, the promotion's note and the city's days in Arabic.
+(function round8d() {
+  CF.setLang('ar');
+  assert.ok(/^أسبوع /.test(CF.T('Wk {n}', { n: 3 })), 'the week spelled out: ' + CF.T('Wk {n}', { n: 3 }));
+  assert.ok(/\(Esc\)/.test(CF.T('Close (Esc)')) && /\(Space\)/.test(CF.T('Pause (Space)')) && /\(Tab\)/.test(CF.T('Stack like cards together (Tab)')), 'the keys keep their caps');
+  ['Or drop a card on the token. Ignore it and the work still finishes, but wearier.', 'Or drop a card on the token. Ignore it and the work still finishes, but it finds less.',
+    'Or drop a card on the token. Ignore it and the work finishes as it would have.'].forEach(function (k) {
+    assert.ok(!/[A-Za-z]/.test(CF.T(k)), 'the ask box in Arabic: ' + CF.T(k));
+  });
+  var boost = CF.T('{boosts} on {tags}', { boosts: CF.T('Body') + ' +1', tags: CF.T('Bodies and traces') });
+  assert.ok(!/[A-Za-z]/.test(boost), 'an instrument\'s boost in Arabic: ' + boost);
+  var lately = CF.T('Lately: {list}', { list: CF.T('{path} +{n} ({why})', { path: 'Power', n: 1, why: 'promoted' }) });
+  assert.ok(!/[A-Za-z]/.test(lately), 'the promotion note in Arabic: ' + lately);
+  var fade = CF.T('{left} before it is gone. A card\'s clock stops while a verb works on it.', { left: CF.T('{n} days', { n: 4 }) });
+  assert.ok(!/[A-Za-z]/.test(fade), 'the days left in Arabic: ' + fade);
+  var origin = CF.T('Once {origin}; set out as {calling}', { origin: 'the physician-monk', calling: 'The Scholar' });
+  assert.ok(!/[A-Za-z]/.test(origin), 'the origin line in Arabic: ' + origin);
+  CF.setLang('en');
+  console.log('i18n: the Bell\'s week, the keys, the ask box, the instruments, the promotion and the days in Arabic');
+})();
+
+// The lookup reads a long composed text to its end: a colon after a sentence is not a label's, a number in
+// front belongs to its sentence, a quoted saying is read inside its quotes, a list item may hold a comma, a
+// pattern that leaves a piece in English gives way to one that reads it whole.
+(function lookups() {
+  CF.setLang('ar');
+  function whole(s) { var r = CF.T(s); assert.ok(!/[A-Za-z]{3}/.test(r), 'read whole: ' + s + '\n  => ' + r); return r; }
+  whole('Lodging and dues take 6. The Council\'s stipend: 3 Coin. 2 who walked from you are still inside the walls. The Abbey hospital keeps a bed for you. You sleep a night in it. Another girl in the Warrens. The fifth. There is a purse on your desk. Nobody saw who left it. The ledger: no case closed; 4 open; 3 Coin in hand.');
+  whole('"A gold ring. Big, on the little finger. It caught the lantern." (Loves the accused.)');
+  whole('You find: The Carrier\'s Chit, The Bad Coin, A ledger in weights, not sums.');
+  whole('The blackmailer\'s own hand, on the thing they were most careful about. It is Hal Kramer\'s.');
+  whole('A parish beadle with a staff and a loud voice. Knocks on doors without complaining and whips beggars without being asked. Slot them into a verb to help. Known: Doors open for them. A canvass turns up one more person.');
+  whole('Around the Claesz Print-shop people are frightened, and frightened people talk. You come away with: Witness: Ursel Bicker; Cicely Hobson (accused); Witness: Lienhard Adornes. One door stayed shut, and the street talked less for it.');
+  whole('Without the Apothecary\'s Key, you only get part of it. a ghost on the wage-roll. The clerk finds the thread and pulls it: one signature, over and over. You worked into the dark, and it cost you.');
+  // Half a translation is caught: the tracker keeps what came back with English words in it.
+  CF.I18N.track = true; CF.I18N.partial = {}; CF.I18N.cache = {};
+  CF.T('Wit. Zorblax quintessence.');
+  CF.T('Pause (Space)');
+  CF.I18N.track = false;
+  assert.ok(CF.I18N.partial['Wit. Zorblax quintessence.'], 'a half-English answer is recorded');
+  assert.ok(!CF.I18N.partial['Pause (Space)'], 'a key\'s cap is not');
+  CF.setLang('en');
+  console.log('i18n: long composed texts read to their end');
+})();
+
+// Round 8, lane 2, item 57: the house terms hold, and the words a player sees all the time read right.
+(function houseTerms() {
+  var drift = require('../tools/i18n_glossary.js').drift('ar');
+  assert.strictEqual(drift.length, 0, drift.length + ' Arabic entries drift from the glossary:\n  ' + drift.slice(0, 20).map(function (x) { return x.term + ' wants ' + x.want + ': ' + x.key; }).join('\n  '));
+  CF.setLang('ar');
+  assert.strictEqual(CF.T('Answer with Wit'), 'أجب بالفطنة', 'no stretch before the article: ' + CF.T('Answer with Wit'));
+  assert.ok(CF.T('Hold {clue} against {name}.', { clue: 'Wit', name: 'Hans Schmidt' }).indexOf('\u0640') < 0, 'a stretched preposition joins the Arabic name that fills it');
+  assert.strictEqual(CF.joinPrefix('بـ7'), 'بـ7', 'before a number the stretch stays');
+  assert.strictEqual(CF.T('Mark'), 'ضع علامة', 'Mark is not \'teach\'');
+  assert.ok(/^البواكير/.test(CF.T('Firsts: {n} of {total}', { n: 2, total: 9 })), 'the firsts are not the ancients');
+  assert.strictEqual(CF.T('Give her a Coin'), 'أعطها قطعة نقد', 'a coin, counted');
+  CF.setLang('en');
+  console.log('i18n: the house terms hold');
+})();
+
+// Played games, read in Arabic: nothing the player could see stays English, not even in part. Three plain
+// games and four with the opening and the life of the city (needs, choices, the Bell, the rival).
 CF.setLang('ar');
 CF.I18N.track = true;
 CF.I18N.missing = {};
+CF.I18N.partial = {};
+CF.I18N.cache = {};
 function read(s) { if (s) CF.T(s); }
 var FACE_KINDS = { clue: 1, evidence: 1, intel: 1, paper: 1 }, faces = [];
-[0, 1, 2].forEach(function (g) {
-  var e = CF.Engine.newGame({ seed: 900 + g, calling: ['master', 'commissioner', 'crusader'][g], who: CF.ORIGIN_ORDER[g] });
-  bot.play(e, 60 * 22, ['custom', 'merciful', 'brutal'][g]);
+function readGame(e) {
   Object.keys(e.s.cards).forEach(function (uid) {
     var c = e.s.cards[uid];
     read(e.labelOf(c)); read(e.descOf(c));
-    // A token's face: the head of its label, read through a status, and the status as a seal.
+    // The face: the few words a card shows on the table, and its status seal's name.
+    if (CF.CARDS[c.def].kind !== 'case') { var face = CF.cardFace(c, e.labelOf(c)); read(face.text); face.status.forEach(read); }
+    // A token's face on the engine: the head of its label, read through a status, and the status as a seal.
     if (FACE_KINDS[e.def(c).kind]) { var f = e.cardFace(c); faces.push(f.title); if (f.seal) faces.push(f.seal); }
     if (c.loc && c.loc.t === 'table') read(e.unavailableReason(c));
   });
   e.s.journal.forEach(function (j) { read(j.title); read(j.text); });
   Object.keys(e.s.cases).forEach(function (id) { var r = e.s.cases[id]; read(r.title); read(r.short); read(r.scene); read(r.victim); });
-  CF.VERB_ORDER.forEach(function (vid) { read(e.lockReason(vid)); });
+  CF.VERB_ORDER.forEach(function (vid) { read(e.lockReason(vid)); var v = e.verb(vid); if (v && v.ask) { read(v.ask.label); read(v.ask.text); } });
+  if (e.s.choice) { read(e.s.choice.title); read(e.s.choice.text); (e.s.choice.options || []).forEach(function (o) { read(o.label); read(o.text); read(o.gain); }); }
   if (e.s.over) { read(e.s.over.title); read(e.s.over.text); }
+}
+var games = [];
+[0, 1, 2].forEach(function (g) {
+  var e = CF.Engine.newGame({ seed: 900 + g, calling: ['master', 'commissioner', 'crusader'][g], who: CF.ORIGIN_ORDER[g] });
+  bot.play(e, 60 * 22, ['custom', 'merciful', 'brutal'][g]);
+  readGame(e);
+  games.push(e);
 });
+[0, 1, 2, 3].forEach(function (g) {
+  var e = CF.Engine.newGame({ seed: 930 + g, calling: ['master', 'commissioner', 'crusader', 'master'][g], who: CF.ORIGIN_ORDER[g % CF.ORIGIN_ORDER.length], life: true, opening: true, guided: true, name: 'Vogel' });
+  bot.play(e, 60 * 25, ['custom', 'merciful', 'brutal', 'corrupt'][g]);
+  readGame(e);
+  games.push(e);
+});
+// The dossier of every card on those tables, as js/ui.js composes it (UI.dossierLines, no page needed): the
+// conviction profile, an instrument's boosts, the Calling's notes, a witness's word all read whole.
+(function dossiers() {
+  var stub = { addEventListener: function () {}, querySelector: function () { return null; }, querySelectorAll: function () { return []; }, documentElement: {} };
+  var saved = { document: globalThis.document, window: globalThis.window, matchMedia: globalThis.matchMedia, addEventListener: globalThis.addEventListener };
+  globalThis.window = globalThis; globalThis.document = stub; globalThis.matchMedia = function () { return { matches: false, addEventListener: function () {} }; }; globalThis.addEventListener = function () {};
+  CF.Settings = CF.Settings || { get: function () {}, onChange: function () {} };
+  CF.Audio = CF.Audio || { play: function () {} };
+  require('vm').runInThisContext(fs.readFileSync(path.join(root, 'js/ui.js'), 'utf8'), { filename: 'js/ui.js' });
+  var n = 0;
+  games.forEach(function (e) {
+    CF.UI.e = e;
+    // The lines are composed with tracking off (a template asked with its values is not a line anyone reads), and
+    // then read as the player reads them.
+    e.tableCards().forEach(function (c) {
+      if (c.hidden) return;
+      CF.I18N.track = false;
+      var lines = CF.UI.dossierLines(c);
+      CF.I18N.track = true;
+      lines.forEach(function (l) { read(l); n++; });
+    });
+  });
+  CF.UI.e = null;
+  Object.keys(saved).forEach(function (k) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; });
+  assert.ok(n > 200, 'the dossiers of the played tables were read: ' + n);
+})();
+// What the interface itself says of the city's life: the asks, the choices, the needs.
+(CF.ASKS || []).forEach(function (a) { read(a.label); read(a.text); read(a.thanks); read(a.miss); });
+(CF.CHOICES || []).forEach(function (c) { read(c.title); read(c.text); (c.options || []).forEach(function (o) { read(o.label); read(o.text); read(o.gain); }); });
+Object.keys(CF.NEEDS || {}).forEach(function (k) { read(CF.NEEDS[k].arrive); read(CF.NEEDS[k].loss); });
 var miss = Object.keys(CF.I18N.missing).filter(function (s) { return /[A-Za-z]{3}/.test(s); });
+var part = Object.keys(CF.I18N.partial);
 CF.I18N.track = false;
 CF.setLang('en');
 assert.strictEqual(miss.length, 0, miss.length + ' strings from a played game stay English:\n  ' + miss.slice(0, 80).join('\n  '));
+assert.strictEqual(part.length, 0, part.length + ' strings from a played game are half English:\n  ' + part.slice(0, 40).map(function (s) { return s + '\n    => ' + CF.I18N.partial[s]; }).join('\n  '));
+console.log('i18n: bot-played games, with the opening and the city\'s life, read fully in Arabic');
 CF.setLang('ar');
 var englishFaces = faces.filter(function (t, i) { return faces.indexOf(t) === i && /[A-Za-z]{3}/.test(CF.T(t)); });
 CF.setLang('en');
@@ -131,4 +328,4 @@ assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Deposition: Hans 
   assert.strictEqual(bad.length, 0, 'week parts left English:\n  ' + bad.slice(0, 30).join('\n  '));
   console.log('i18n: the Bell\'s week reads in Arabic part by part (' + n + ' parts)');
 })();
-console.log('i18n: a bot-played game reads fully in Arabic, token faces too');
+console.log('i18n: token faces, composed lines and the Bell\'s week read in Arabic too');

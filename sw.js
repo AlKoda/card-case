@@ -65,16 +65,19 @@ var FILES = [
 // An edition is one cache: every file in it was fetched together at install,
 // so a page never runs a script from one release with a stylesheet from
 // another. The home-screen icons are rasterised at deploy time; a missing one
-// (a local checkout) does not stop the install.
+// (a local checkout) does not stop the install. Every file is fetched past the
+// browser's HTTP cache (cache: 'reload'): a host that keeps files for ten
+// minutes would otherwise hand a new edition the last one's scripts.
 var ICONS = /\.png$/;
+function fresh(f) { return new Request(f, { cache: 'reload' }); }
 // Files of the edition fetched only when first asked for (the Arabic face,
 // which English players never load) and kept in the same cache from then on.
 var LAZY = ["css/fonts-ar.css"];
 self.addEventListener('install', function (ev) {
   ev.waitUntil(caches.open(VERSION).then(function (c) {
-    return c.addAll(FILES.filter(function (f) { return !ICONS.test(f); })).then(function () {
+    return c.addAll(FILES.filter(function (f) { return !ICONS.test(f); }).map(fresh)).then(function () {
       return Promise.all(FILES.filter(function (f) { return ICONS.test(f); }).map(function (f) {
-        return fetch(f).then(function (res) { if (res && res.ok) return c.put(f, res); }).catch(function () { /* no icon here */ });
+        return fetch(fresh(f)).then(function (res) { if (res && res.ok) return c.put(f, res); }).catch(function () { /* no icon here */ });
       }));
     });
   }));
@@ -108,7 +111,7 @@ self.addEventListener('fetch', function (ev) {
   ev.respondWith(caches.open(VERSION).then(function (c) {
     return c.match(p).then(function (hit) {
       if (hit) return hit;
-      return fetch(ev.request).then(function (res) {
+      return fetch(lazy ? fresh(p) : ev.request).then(function (res) {
         if (lazy && res && res.ok) c.put(p, res.clone());
         return res;
       });
