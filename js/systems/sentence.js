@@ -127,6 +127,9 @@
     // Half proof convicts of the lesser crime: nothing past banishment.
     if (lesser) rungs = rungs.filter(function (r) { return Sen.ORDER.indexOf(r) <= Sen.ORDER.indexOf('banish'); });
     if (c && c.traits.indexOf('branded') >= 0) rungs = rungs.filter(function (r) { return r !== 'pardon'; });
+    // A branded hand on half proof of a crime whose only lighter rung is mercy (a poisoning, say):
+    // the lesser crime's limit, banishment, is the ladder.
+    if (!rungs.length) rungs = ['banish'];
     var penitent = d.confession === 'free';
     var custom = lesser ? (rungs.indexOf('pillory') >= 0 ? 'pillory' : rungs[rungs.length - 1]) : (c && c.crimes >= 2 && L.repeat ? L.repeat : L.custom);
     var sus = rec.suspects.filter(function (x) { return x.name === d.name; })[0] || {};

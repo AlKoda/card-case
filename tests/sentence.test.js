@@ -247,3 +247,18 @@ console.log('sentence: ladder, prices, capital, council all OK');
   assert.deepStrictEqual(back.s.flags.oldDebt, {}, 'an older save loads with no old debt');
   console.log('an old debt: ok (' + tries + ' cases)');
 })();
+
+// ---- A branded hand on half proof of a poisoning: the ladder is never empty (round 8) ----
+(function brandedLesser() {
+  var e = game(77);
+  var rec = e.caseRec(e.spawnCase('poison', { quiet: true }).caseId);
+  var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  e.s.criminals.branded1 = { id: 'branded1', name: cul.name, traits: ['branded'], crimes: 1, history: [], organization: null, status: 'free' };
+  e.remove(e.caseCard(rec.id));
+  var cond = e.condemn(rec, { name: cul.name, guilty: true, solid: false }, 'half');
+  assert.ok(cond, 'condemned');
+  var rungs = byDef(e, 'rung').filter(function (r) { return r.data.condemned === cond.uid; }).map(function (r) { return r.data.rung; });
+  assert.deepStrictEqual(rungs, ['banish'], 'no mercy for a branded hand, nothing past banishment for the lesser crime');
+  assert.strictEqual(cond.data.custom, 'banish');
+  console.log('a branded hand, the lesser crime: ok');
+})();

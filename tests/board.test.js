@@ -710,7 +710,9 @@ console.error = function (err) { throw err; };
   // An older save's examiner carries no week or road yet.
   var oe = CF.Engine.newGame({ calling: 'crusader', name: 'Old Rival' });
   oe.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 1, stalled: 0 } });
-  var ol = CF.Engine.load(JSON.parse(oe.save()));
+  var osv = JSON.parse(oe.save());
+  Object.keys(osv.cards).forEach(function (u) { var od = osv.cards[u].def === 'rival' && osv.cards[u].data; if (od) { delete od.heatWeek; delete od.heatHow; delete od.eyes; } });
+  var ol = CF.Engine.load(osv);
   var or = ol.cardsOf('rival', true)[0];
   assert.ok(or.data.heatWeek === -1 && or.data.heatHow === null && or.data.eyes === null, 'an older examiner is defaulted');
   // The next one needs no introduction, and is not the same person.

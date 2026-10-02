@@ -208,6 +208,11 @@
     // The Order wants a case left alone (round 8): an older save has neither its peace nor its war.
     if (s.flags.mountainDone === undefined) s.flags.mountainDone = false;
     if (s.flags.mountainWar === undefined) s.flags.mountainWar = false;
+    // The calendar (round 8): the Assize's pension is asked of nothing yet; a save past the Assize's
+    // weeks has had none (it is not read late); the Long Service has not been told.
+    if (s.flags.pension === undefined) s.flags.pension = false;
+    if (s.flags.assize === undefined) s.flags.assize = (s.week || 0) > CF.ASSIZE.last ? { week: null, record: null } : null;
+    if (s.flags.longService === undefined) s.flags.longService = null;
     // Round 8: the opening case may be lost and the desk kept; a failed vote waits six weeks.
     if (s.flags.openingAcquitted === undefined) s.flags.openingAcquitted = false;
     if (typeof s.flags.chairCooldown !== 'number') s.flags.chairCooldown = 0;
@@ -455,6 +460,8 @@
     // (for the interface to toll a cracked bell, and to fly them out of the Bell).
     if (opts && opts.paid !== undefined) entry.paid = !!opts.paid;
     if (opts && opts.uids) entry.uids = opts.uids.slice();
+    // The Bell's week: the season it fell in (CF.SEASONS), for the week bar.
+    if (opts && opts.season) entry.season = opts.season;
     this.s.journal.unshift(entry);
     if (this.s.journal.length > 300) this.s.journal.length = 300;
     this.emit('story', entry);
@@ -490,6 +497,14 @@
   P.create = function (defId, spec, prefer) {
     var card = this.make(defId, spec);
     if (defId === 'witness' && card.life && this.perkHas('longmemory')) { card.life = Math.round(card.life * 1.5); card.maxLife = card.life; }
+    // The Rival keeps the week and the road of the last thread pulled from the first day, as
+    // Engine.load gives an older card, so a save written the week one arrives round-trips.
+    if (defId === 'rival') {
+      var rd = card.data = card.data || {};
+      if (typeof rd.heatWeek !== 'number') rd.heatWeek = -1;
+      if (rd.heatHow === undefined) rd.heatHow = null;
+      if (rd.eyes === undefined) rd.eyes = null;
+    }
     this.placeOnTable(card, prefer);
     this.dirty = true;
     return card;
@@ -1720,9 +1735,16 @@
     s.week++;
     if (s.intro && !s.intro.finished) this.introFinish('The week turns.');
     var lines = [];
+    // The calendar: the season's turn opens the Bell; a year at the top of the road is pensioned.
+    var seaLine = this.seasonLine();
+    if (seaLine) lines.push(seaLine);
+    var pension = this.longServiceWeek();
+    if (s.over) return;
+    if (pension) lines.push(pension);
 
     // Dues first, out of what is on the table; then the salary.
     var salary = (CF.RANK_DEFS[s.rank] || {}).salary || CF.ECONOMY.salary[s.rank] || 1;
+    if (s.flags.pension) salary += 1; // asked of the Assize
     // Coin on the table pays first, then Coin waiting in an idle verb's slot or among its outputs.
     var funds = this.cardsOf('funds', true).filter(function (c) {
       var vb = c.loc.verb && s.verbs[c.loc.verb];
@@ -1775,6 +1797,7 @@
     if (this.banishedReturn) lines = lines.concat(this.banishedReturn());
     if (this.purseWeek) lines = lines.concat(this.purseWeek());
     if (this.coquilleWeek) lines = lines.concat(this.coquilleWeek());
+    lines = lines.concat(this.assizeWeek());
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
     if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
     lines = lines.concat(this.rivalFade());
@@ -1810,7 +1833,7 @@
     } else if (r >= 3 && this.rng() < r * (this.endowedWith('lanes') ? 0.05 : 0.07)) this.attack();
 
     // Temptation.
-    if (!this.countOf('bribe') && this.rng() < 0.15 + 0.1 * (gangs + synd * 2)) {
+    if (!this.countOf('bribe') && this.rng() < 0.15 + 0.1 * (gangs + synd * 2) + (this.season().purse || 0)) {
       this.create('bribe');
       lines.push('There is a purse on your desk. Nobody saw who left it.');
     }
@@ -1860,7 +1883,7 @@
     s.weekSnap = { convictions: s.stats.convictions || 0, acquittals: s.stats.acquittals || 0, cold: s.stats.cold || 0,
       favour: fav ? { council: fav.council || 0, bishop: fav.bishop || 0, guild: fav.guild || 0 } : null };
     if (this.growthTick) this.growthTick();
-    this.story('Week ' + s.week, lines, 'week', { paid: paid, uids: stipend });
+    this.story('Week ' + s.week, lines, 'week', { paid: paid, uids: stipend, season: this.season().id });
     if (this.checkPurseEndings) this.checkPurseEndings();
   };
 
@@ -2313,6 +2336,105 @@
   // Whether an endowment has been paid (the Petition granted).
   P.endowedWith = function (key) { return !!(this.s.flags.bought || {})[key] && !!CF.ORDERS[key] && !!CF.ORDERS[key].endow; };
 
+  // ---- The calendar (round 8) ------------------------------------------------
+  // The year turns in four quarters of thirteen weeks, counted from the hire:
+  // (week - 1) % 52. Two of them change the crimes the city sends (`weigh`:
+  // a crime's share of casePool multiplied), and the Fair leaves purses on the
+  // desk more often (`purse`, added to the week's chance). The Bell says the
+  // season the week it turns (`line`); the interface reads season() for the
+  // week bar: `name`, and `effect` (null when nothing changes).
+  CF.YEAR_WEEKS = 52;
+  CF.SEASONS = [
+    { id: 'lent', name: 'Lent', from: 1, weigh: {}, purse: 0, effect: null,
+      line: 'Lent: fish on every table, and the taverns shut at vespers.' },
+    { id: 'fair', name: 'The Midsummer Fair', from: 14, weigh: { fraud: 2, coining: 2, extortion: 2 }, purse: 0.1,
+      effect: 'More fraud, false coin and protection; more purses on the desk.',
+      line: 'The Midsummer Fair: booths in the Market, strangers at every inn, and more false coin than true.' },
+    { id: 'plague', name: 'The Plague Summer', from: 27, weigh: { poison: 2, missing: 2 }, purse: 0,
+      effect: 'More poisonings, and more of the missing.',
+      line: 'The Plague Summer: the Abbey cart goes round twice a day.' },
+    { id: 'winter', name: 'Winter', from: 40, weigh: {}, purse: 0, effect: null,
+      line: 'Winter: ice in the Harbour, and the night watch doubled.' },
+  ];
+  // The week of the year (1 to 52) for a week of the run (default: this one).
+  P.weekOfYear = function (week) {
+    var w = typeof week === 'number' ? week : this.s.week;
+    return ((Math.max(1, w) - 1) % CF.YEAR_WEEKS) + 1;
+  };
+  P.season = function (week) {
+    var wy = this.weekOfYear(week), out = CF.SEASONS[0];
+    CF.SEASONS.forEach(function (x) { if (wy >= x.from) out = x; });
+    return out;
+  };
+  // The Bell's first line the week a season turns, else null.
+  P.seasonLine = function () {
+    var sea = this.season();
+    return this.s.week > 1 && this.weekOfYear() === sea.from ? sea.line : null;
+  };
+
+  // ---- The Assize: the Council reads your half-year aloud --------------------
+  // At the Bell of week 26 (or the first Bell after it, to week 29, when a
+  // question was waiting), the clerk reads the record in the chamber and the
+  // Council asks what the Examiner wants of it (the 'assize' question,
+  // patrons.js). s.flags.assize = { week, record } once read; an older save
+  // past week 29 had none (load).
+  CF.ASSIZE = { week: 26, last: 29 };
+  P.assizeRecord = function () {
+    var st = this.s.stats || {};
+    return { cases: st.cases || 0, convictions: st.convictions || 0, acquittals: st.acquittals || 0, cold: st.cold || 0,
+      wrongful: st.wrongful || 0, sentHome: st.sentHome || 0, attacks: st.attacks || 0 };
+  };
+  // The reading, as lines (the journal keeps them; the interface may show them again).
+  P.assizeLines = function (r) {
+    var lines = [U.fill('Cases sent to your desk: {n}.', { n: r.cases }),
+      U.fill('Convicted: {c}. Acquitted: {a}. Gone cold: {k}.', { c: r.convictions, a: r.acquittals, k: r.cold })];
+    if (r.wrongful) lines.push(U.fill('Wrong names, by the ballads\' count: {n}.', { n: r.wrongful }));
+    if (r.sentHome) lines.push(U.fill('Sent home from the Court: {n}.', { n: r.sentHome }));
+    if (r.attacks) lines.push(U.fill('Blows taken in the city\'s service: {n}.', { n: r.attacks }));
+    lines.push(r.convictions > r.acquittals + r.cold + r.wrongful
+      ? 'The councillors knock on the benches. In this chamber, that is applause.'
+      : 'The councillors say nothing. In this chamber, that is a verdict.');
+    return lines;
+  };
+  P.assizeWeek = function () {
+    var s = this.s;
+    if (s.flags.assize || s.over || s.week < CF.ASSIZE.week || s.week > CF.ASSIZE.last) return [];
+    if (s.choice || !this.offerLate) return []; // a question waits: the Assize sits at the next Bell
+    var rec = this.assizeRecord();
+    s.flags.assize = { week: s.week, record: rec };
+    this.story('The Assize', ['Twenty-six weeks. The Council\'s clerk reads your half-year aloud in the chamber.'].concat(this.assizeLines(rec)), 'major');
+    this.offerLate('assize');
+    return ['The Assize sits. The Council has read your half-year.'];
+  };
+
+  // ---- The Long Service: a year at the top of your road ---------------------
+  // A run at its rank cap (rankCap) that has not otherwise ended is pensioned
+  // at week 52: told four weeks before (s.flags.longService = the week told),
+  // and ended no sooner than four weeks after the telling, so a file that
+  // reaches the cap late, or an older save, still has its warning.
+  CF.LONG_SERVICE = { week: 52, warn: 4 };
+  P.atRankCap = function () { return (this.s.rank || 0) >= (this.rankCap ? this.rankCap() : CF.TOP_RANK); };
+  // The week the pension falls due (for the journal's Roads), or null while
+  // the run is not at its cap.
+  P.longServiceDue = function () {
+    var s = this.s, L = CF.LONG_SERVICE;
+    if (!this.atRankCap()) return null;
+    var told = typeof s.flags.longService === 'number' ? s.flags.longService : Math.max(L.week - L.warn, s.week);
+    return Math.max(L.week, told + L.warn);
+  };
+  // At the Bell: the warning, or the ending. Returns the Bell's line, or null.
+  P.longServiceWeek = function () {
+    var s = this.s, L = CF.LONG_SERVICE;
+    if (s.over || !this.atRankCap()) return null;
+    if (typeof s.flags.longService !== 'number') {
+      if (s.week < L.week - L.warn) return null;
+      s.flags.longService = s.week;
+      return 'The Council is drawing up your pension. Four more weeks.';
+    }
+    if (s.week >= this.longServiceDue()) this.gameOver('longservice');
+    return null;
+  };
+
   // ---- Endings -------------------------------------------------------------
   CF.ENDINGS = {
     dismissed: { win: false, title: 'Dismissed', text: 'The city lost patience. Too many names the crier sang, too many of them walking free. The Burgomaster takes your letter of office back in front of the whole Watch-house and does not meet your eyes.',
@@ -2341,7 +2463,11 @@
     commissioner: { win: true, title: 'The Burgomaster', text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
     master: { win: true, title: 'The Scholar', text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
     crusader: { win: true, title: 'The Reformer', text: 'The Court of Miracles is a wet cellar with nobody in it. The King of Thunes hangs on the Ravenstone. It cost you more than you will ever say, and the city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law.' },
+    longservice: { win: true, title: 'The Long Service', text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. You never caught them all. Nobody does.' },
   };
+  // Every ending has its words in CF.ENDING_VARIANTS (js/data/story.js); the
+  // Long Service brings its own until the story gives it more.
+  if (CF.ENDING_VARIANTS && !CF.ENDING_VARIANTS.longservice) CF.ENDING_VARIANTS.longservice = [{ text: CF.ENDINGS.longservice.text }];
 
   // A losing ending says what would have saved you: `lesson` (one line, the
   // remedy) and `threat` (the card or meter that ended it, for its icon).
@@ -2595,6 +2721,7 @@
     'The Stake': 'the Fire',
     'The Dagger on the Pillow': 'the dagger',
     'The Old Bailey': 'the trial',
+    'The Long Service': 'they took the Council\'s pension',
   };
   // The inheritance, once the desk is yours (the hire in the opening). Once.
   P.legacyStory = function () {
@@ -2948,7 +3075,11 @@
   P.casePool = function () {
     var s = this.s, pool = [], rank = this.caseRank(), seen = (s.flags && s.flags.seenCases) || [];
     CF.CASE_TIERS.forEach(function (tier, i) { if (i <= rank) pool = pool.concat(tier); });
-    return pool.filter(function (t) { return (CF.ONCE_CASES || []).indexOf(t) < 0 || seen.indexOf(t) < 0; });
+    pool = pool.filter(function (t) { return (CF.ONCE_CASES || []).indexOf(t) < 0 || seen.indexOf(t) < 0; });
+    // The season weighs its crimes: one sent twice as often is in the pool twice.
+    var weigh = this.season().weigh || {}, extra = [];
+    pool.forEach(function (t) { for (var k = 1; k < (weigh[t] || 1); k++) extra.push(t); });
+    return pool.concat(extra);
   };
   // The office a new case is sent to: the rank, but in the week of a
   // promotion still the one before it (its crimes and its charges).
@@ -3584,7 +3715,7 @@
     if (s.week - r.data.heatWeek < CF.RIVAL_THREAD_WEEKS) return [];
     r.data.heat = 0;
     r.data.heatHow = null;
-    r.data.heatWeek = null;
+    r.data.heatWeek = -1; // no thread: as a new card, and as Engine.load reads it
     r.data.eyes = null;
     this.dirty = true;
     return [U.fill('The thread on {name} has gone slack. Find another.', { name: r.data.name || 'the Rival' })];

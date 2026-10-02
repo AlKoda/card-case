@@ -239,6 +239,9 @@
       road('hangmans', [part(cnt.cruelty || 0, HG.cruelty), part(m.dread || 0, HG.dread)],
         (cnt.cruelty || 0) < HG.cruelty ? 'More cruelty on the ladder.' : 'The city must fear you.');
     }
+    // The Long Service: a year at the top of your road, and the pension.
+    var due = this.longServiceDue ? this.longServiceDue() : null;
+    if (due) road('longservice', [part(s.week || 0, due)], typeof s.flags.longService === 'number' ? 'The Council is drawing up your pension.' : 'A year in the Council\'s service, at the top of your road.');
     // The defeats already warned of.
     if (this.blowWouldKill && this.blowWouldKill()) warn('death', 'With a Wound and no Health, the next blow kills.');
     if (s.flags.oldbaileyWarned) warn('oldbailey', 'One more purse, wrong name or debt, and the brother\'s ledger is enough.');

@@ -438,6 +438,19 @@
         { label: 'Decline', gain: 'The Council\'s favour; Dread rises', text: 'You send a clerk with your regrets. The glovers are grateful, and the Council likes an examiner who knows his company.',
           effect: function (e) { e.favourGain('council', 1); e.meter('dread', 1); } },
       ] },
+    // Asked by the Bell at the Assize (engine.js assizeWeek), once a run, after the
+    // clerk has read the half-year: a pension (s.flags.pension: a Coin more at
+    // every Bell), a watchman, or Standing.
+    { id: 'assize', when: function () { return false; },
+      title: 'The Assize', text: 'The clerk rolls up your record. The Council asks what the Examiner wants of it.',
+      options: [
+        { label: 'Ask for a pension', gain: 'A Coin more at every Bell', text: 'The clerk writes it in the book: a Coin a week more, for as long as you serve.',
+          effect: function (e) { e.s.flags.pension = true; } },
+        { label: 'Ask for more men', gain: 'A Letter of Service', text: 'The Council signs a letter of service before the chamber rises.',
+          effect: function (e) { e.create('personnel', e.personnelSpec(U.pick(e.rng, ['rookie', 'tech', 'interviewer', 'analyst', 'veteran']))); } },
+        { label: 'Ask for nothing', gain: 'Standing +2', text: 'You ask for nothing. The chamber is not used to it, and remembers.',
+          effect: function (e) { e.meter('reputation', 2); } },
+      ] },
   ];
   // The mother's words when the wrong name was her daughter.
   Pat.WRONG_DAUGHTER = 'A woman in black waits at the Watch-house door. Her daughter answered for {case}. The ballad says she did not do it. She wants to hear you say so.';

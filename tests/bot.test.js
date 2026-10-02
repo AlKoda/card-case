@@ -52,11 +52,37 @@ function bestTool(e, need) {
   return tools.filter(function (t) { return need && asp(t)[map[need]]; })[0] || tools[0];
 }
 
-// The city has asked something: the first answer the table can pay for. The
-// clock waits until it is given, so an idle verb's slots are emptied to pay.
+// A calling answers the city's questions for its own road: each payable answer
+// is tried on a copy of the file and the best by the calling's measure is
+// given (ties go to the first). One who wants the Seat, from the Bailiff's
+// staff, counts the patrons pledged, then the city quiet and the name clean,
+// then Standing.
+function seatScore(g) {
+  var pl = g.seatPledges ? g.seatPledges() : { n: 0 }, f = g.s.favour || {}, m = g.s.meters;
+  return pl.n * 100 + ['council', 'bishop', 'guild'].reduce(function (a, k) { return a + Math.min(f[k] || 0, CF.SEAT_PLEDGE + 1); }, 0) * 10 -
+    5 * (Math.max(0, (m.pressure || 0) - 4) + Math.max(0, (m.scrutiny || 0) - 4)) + (m.reputation || 0);
+}
+// The Reformer, with the Coquille to break, answers for the Watch: the Vendetta
+// kept off the stair, then more men to post on the Coquille's.
+function watchScore(g) { return -10 * (g.s.meters.retaliation || 0) + g.cardsOf('teammate', true).length + g.cardsOf('personnel', true).length; }
+function bestAnswer(e, score) {
+  var c = e.s.choice, best = -1, bestScore = -Infinity, saved = e.save();
+  for (var i = 0; i < c.options.length; i++) {
+    if (!e.canChoose(i)) continue;
+    var g = CF.Engine.load(saved);
+    g.choose(i);
+    var sc = score(g);
+    if (sc > bestScore) { best = i; bestScore = sc; }
+  }
+  return best;
+}
+// The city has asked something: the calling's answer, else the first answer the table can
+// pay for. The clock waits until it is given, so an idle verb's slots are emptied to pay.
 function answerChoice(e) {
   var c = e.s.choice;
   if (!c) return false;
+  var k = e.s.calling === 'commissioner' && e.s.rank >= 2 ? bestAnswer(e, seatScore) : e.s.calling === 'crusader' ? bestAnswer(e, watchScore) : -1;
+  if (k >= 0) return e.choose(k);
   for (var i = 0; i < c.options.length; i++) if (e.canChoose(i)) return e.choose(i);
   CF.VERB_ORDER.forEach(function (vid) { if (e.verb(vid).status === 'idle') e.clearSlots(vid); });
   for (var j = 0; j < c.options.length; j++) if (e.canChoose(j)) return e.choose(j);

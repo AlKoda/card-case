@@ -445,3 +445,110 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   assert.ok(saved.choose(1), 'and it can be answered after loading');
   console.log('the Council elects: ok');
 })();
+
+// ---- The calendar: two seasons weigh the crimes, the Assize, the Long Service (round 8) ----
+(function calendar() {
+  var e = game(901);
+  assert.deepStrictEqual([1, 13, 14, 26, 27, 39, 40, 52, 53, 66].map(function (w) { return e.season(w).id; }),
+    ['lent', 'lent', 'fair', 'fair', 'plague', 'plague', 'winter', 'winter', 'lent', 'fair'], 'four quarters of thirteen weeks, and the year turns');
+  assert.ok(CF.SEASONS.every(function (x) { return x.name && x.line && (x.effect === null || typeof x.effect === 'string'); }), 'each season has a name and a line');
+  function share(g, t) { return g.casePool().filter(function (x) { return x === t; }).length; }
+  e.s.rank = 1; e.s.rankWeek = -1;
+  e.s.week = 5;
+  assert.ok(['fraud', 'coining', 'extortion', 'poison', 'missing', 'burglary'].every(function (t) { return share(e, t) === 1; }), 'Lent sends the crimes evenly');
+  e.s.week = 20;
+  assert.ok(share(e, 'fraud') === 2 && share(e, 'coining') === 2 && share(e, 'extortion') === 2 && share(e, 'burglary') === 1, 'the Fair: fraud, false coin and protection twice as often');
+  e.s.week = 30;
+  assert.ok(share(e, 'poison') === 2 && share(e, 'missing') === 2 && share(e, 'fraud') === 1, 'the Plague Summer: poison and the missing twice as often');
+  e.s.week = 45;
+  assert.ok(share(e, 'poison') === 1 && share(e, 'fraud') === 1, 'Winter sends them evenly');
+  e.s.rank = 0;
+  e.s.week = 20;
+  assert.ok(share(e, 'fraud') === 0 && share(e, 'coining') === 2, 'a season weighs only the crimes the office is sent');
+
+  // The Bell says the season the week it turns, first, and keeps it on the week.
+  var b = game(902);
+  b.s.week = 13; b.weekTick();
+  var wk = b.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk && wk.title === 'Week 14' && wk.parts[0] === CF.SEASONS[1].line && wk.season === 'fair', 'the Fair opens the Bell: ' + (wk && wk.parts[0]));
+  b.weekTick();
+  wk = b.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk.parts.indexOf(CF.SEASONS[1].line) < 0 && wk.season === 'fair', 'told once, kept on the week');
+
+  // The Assize: the half-year read aloud, then a question with three returns.
+  function assize(seed) {
+    var g = game(seed);
+    g.s.stats.cases = 14; g.s.stats.convictions = 8; g.s.stats.acquittals = 2; g.s.stats.cold = 3; g.s.stats.wrongful = 1;
+    g.s.week = CF.ASSIZE.week - 1; g.weekTick();
+    return g;
+  }
+  var a = assize(903);
+  assert.ok(a.s.flags.assize && a.s.flags.assize.week === 26 && a.s.flags.assize.record.convictions === 8, 'the record kept');
+  var read = a.s.journal.filter(function (j) { return j.title === 'The Assize' && /Cases sent to your desk: 14\./.test(j.text); })[0];
+  assert.ok(read && /Convicted: 8\. Acquitted: 2\. Gone cold: 3\./.test(read.text) && /Wrong names, by the ballads' count: 1\./.test(read.text), 'the half-year, read from the record');
+  assert.ok(/applause/.test(read.text), 'a good record is applauded');
+  assert.ok(a.s.choice && a.s.choice.id === 'assize' && a.s.choice.options.length === 3, 'the Council asks what you want');
+  assert.ok([0, 1, 2].every(function (i) { return a.canChoose(i); }) && a.s.choice.options.every(function (o) { return o.gain; }), 'every answer is free and says its return');
+  var g0 = CF.Engine.load(a.save()), sal0 = (CF.RANK_DEFS[0] || {}).salary || CF.ECONOMY.salary[0] || 1;
+  assert.ok(g0.choose(0) && g0.s.flags.pension === true, 'a pension');
+  for (var k = 0; k < 6; k++) g0.create('funds');
+  g0.weekTick();
+  var bell = g0.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.strictEqual(bell.uids.length, sal0 + 1, 'a Coin more at the Bell');
+  var g1 = CF.Engine.load(a.save()), men = g1.cardsOf('personnel', true).length;
+  assert.ok(g1.choose(1) && g1.cardsOf('personnel', true).length === men + 1, 'a letter of service');
+  var g2 = CF.Engine.load(a.save()), rep = g2.s.meters.reputation;
+  assert.ok(g2.choose(2) && g2.s.meters.reputation === rep + 2, 'Standing +2');
+  g2.weekTick();
+  assert.ok(!g2.s.choice || g2.s.choice.id !== 'assize', 'sat once');
+  // A question waiting: the Assize sits at the next Bell, and not after its weeks.
+  var w = game(904);
+  w.s.week = 25; w.s.choice = { id: 'swan', title: 'x', text: 'x', options: [] };
+  assert.deepStrictEqual(w.assizeWeek(), [], 'not over a question');
+  w.s.week = 26; assert.deepStrictEqual(w.assizeWeek(), [], 'the clock waits for the answer');
+  w.s.choice = null; w.s.week = 27;
+  assert.ok(w.assizeWeek().length === 1 && w.s.choice.id === 'assize', 'the next Bell');
+  var late = game(905); late.s.week = 30;
+  assert.deepStrictEqual(late.assizeWeek(), [], 'not read late');
+
+  // The Long Service: at the cap, told at week 48, pensioned at 52.
+  var L = game(906);
+  L.s.rank = L.rankCap(); L.s.rankWeek = -1;
+  L.s.week = 46; L.weekTick();
+  assert.strictEqual(L.s.flags.longService, undefined, 'not told before week 48');
+  L.weekTick();
+  assert.strictEqual(L.s.flags.longService, 48, 'told at week 48');
+  wk = L.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk.parts.indexOf('The Council is drawing up your pension. Four more weeks.') >= 0, 'on the Bell');
+  var road = L.roads().filter(function (x) { return x.id === 'longservice'; })[0];
+  assert.ok(road && road.want === 'The Council is drawing up your pension.' && road.frac < 1, 'on the Roads');
+  for (var i = 0; i < 3 && !L.s.over; i++) { for (var c = 0; c < 4; c++) L.create('funds'); L.weekTick(); }
+  assert.ok(!L.s.over && L.s.week === 51, 'not before week 52');
+  L.weekTick();
+  assert.ok(L.s.over && L.s.over.id === 'longservice' && L.s.over.win && L.s.week === 52, 'pensioned at week 52');
+  assert.strictEqual(L.s.over.text, CF.ENDINGS.longservice.text);
+  assert.strictEqual(L.buildLegacy().ending, 'The Long Service');
+  // Below the cap at week 52: no pension; the cap reached late is told, and ended four weeks on.
+  var N = game(907);
+  N.s.week = 51; N.weekTick();
+  assert.ok(!N.s.over && N.s.flags.longService === undefined && N.longServiceDue() === null, 'below the cap, the year goes on');
+  N.s.rank = N.rankCap(); N.s.rankWeek = -1; N.s.week = 59; N.weekTick();
+  assert.ok(N.s.flags.longService === 60 && N.longServiceDue() === 64 && !N.s.over, 'told when the cap is reached');
+  // A hangman's road tops out at Bailiff.
+  var H = CF.Engine.newGame({ seed: 908, calling: 'master', who: 'hangman' });
+  H.s.rank = 2; H.s.week = 47; H.weekTick();
+  assert.strictEqual(H.s.flags.longService, 48, 'the cap is the road\'s, not the ladder\'s');
+
+  // An older save: nothing asked, the Assize past its weeks had none, the pension untold.
+  var old = JSON.parse(game(909).save());
+  delete old.flags.pension; delete old.flags.assize; delete old.flags.longService;
+  old.week = 40;
+  var lo = CF.Engine.load(JSON.stringify(old));
+  assert.ok(lo.s.flags.pension === false && lo.s.flags.assize && lo.s.flags.assize.week === null && lo.s.flags.longService === null, 'defaulted');
+  assert.deepStrictEqual(lo.assizeWeek(), [], 'not read late in an older save');
+  assert.strictEqual(CF.Engine.load(lo.save()).save(), lo.save(), 'round-trips');
+  old.week = 20;
+  var young = CF.Engine.load(JSON.stringify(old));
+  assert.strictEqual(young.s.flags.assize, null, 'a save before the Assize still has it to come');
+  console.log('the calendar, the Assize and the Long Service: ok');
+})();
