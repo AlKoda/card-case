@@ -373,11 +373,6 @@
     if (CF.Patrons && CF.Patrons.register) CF.Patrons.register();
     // A question the city no longer asks, or a hook left from an older hour, is dropped.
     if (s.choice && !(CF.CHOICES || []).some(function (c) { return c.id === s.choice.id; })) s.choice = null;
-    // A question still asked: its answers as the city words them now (a free way out added since is shown, and choose(i) runs what is shown).
-    if (s.choice) {
-      var cspec = CF.CHOICES.filter(function (c) { return c.id === s.choice.id; })[0];
-      s.choice.options = Engine.choiceOptions(cspec);
-    }
     if (s.choiceHook && !(s.t - s.choiceHook.t <= 6)) s.choiceHook = null;
     var e = new Engine(s);
     e.initPaths();
@@ -391,7 +386,9 @@
     if (s.flags.opening && s.flags.stage === 'hired' && !s.over && !Object.keys(s.cases || {}).some(function (k) { var r = s.cases[k]; return r.opening && (r.status === 'open' || r.status === 'trial'); })) {
       e.openingLost(null, 'cold');
     }
-    if (s.choice && e.refreshChoice) e.refreshChoice(); // the answers shown are the spec's own (life.js)
+    // A question still asked: its answers as the city words them now (a free way out added since is shown, and
+    // choose(i) runs what is shown; life.js).
+    if (s.choice && e.refreshChoice) e.refreshChoice();
     // Verbs and cards from older saves may sit off the table, or on each other: bring them back onto it.
     CF.VERB_ORDER.forEach(function (id) {
       var v = s.verbs[id];
@@ -608,39 +605,6 @@
 
   P.labelOf = function (card) { return card.label || this.def(card).label; };
   P.descOf = function (card) { return card.desc || this.def(card).desc; };
-  // What a card's face says, read without the DOM (the interface and the
-  // language test both ask). A token's face is the head of its label, read
-  // through a status (a kept Warning is a Warning, with a seal), and the
-  // status comes back as a seal for a small mark; a person's face is the
-  // name; a case's, its short title. Both strings are English: the
-  // interface translates them.
-  CF.FACE_SHORTS = [
-    [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
-    [/^Found at .*House$/, 'The House'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
-    [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
-    [/^The Mark at /, 'The Mark'],
-  ];
-  CF.FACE_SEALS = ['Kept', 'Matched', 'Partial', 'Corroborated'];
-  var FACE_PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
-  P.cardFace = function (card) {
-    var def = this.def(card), label = this.labelOf(card), seal = null;
-    if (def.kind === 'case') { var rec = this.caseRec(card.caseId); return { title: (rec && rec.highProfile ? '★ ' : '') + (rec ? rec.short : label), seal: null }; }
-    if (!FACE_PERSONS[card.def]) {
-      for (var guard = 0; guard < 3; guard++) {
-        var at0 = label.indexOf(': ');
-        if (at0 < 0 || CF.FACE_SEALS.indexOf(label.slice(0, at0)) < 0) break;
-        seal = seal || label.slice(0, at0);
-        label = label.slice(at0 + 2);
-      }
-    }
-    for (var i = 0; i < CF.FACE_SHORTS.length; i++) if (CF.FACE_SHORTS[i][0].test(label)) return { title: CF.FACE_SHORTS[i][1], seal: seal };
-    var at = label.indexOf(': ');
-    if (at < 0) return { title: label, seal: seal };
-    var head = label.slice(0, at), tail = label.slice(at + 2);
-    if (FACE_PERSONS[card.def]) return { title: (head === 'Prime Suspect' ? '★ ' : '') + tail, seal: seal };
-    if (card.def === 'order' || card.def === 'personnel' || def.kind === 'calling' || card.def === 'gang') return { title: tail, seal: seal };
-    return { title: head, seal: seal };
-  };
   P.kindOf = function (card) { return this.def(card).kind; };
   P.stackKey = function (card) {
     var d = card.data || {};
@@ -2568,6 +2532,7 @@
     ],
     financial: [
       { text: 'ledgers, pledges and chits read in Study', ok: function () { return true; } },
+      { text: 'a pawnbroker\'s page', ok: function () { return true; } },
     ],
   };
   // The ways open today to find proof of `aspect` for a case (a record or its id), as text.
@@ -2604,40 +2569,8 @@
     });
     return U.fill(t, vars);
   };
-  // Small numbers in words, for an ending that counts them in words.
-  CF.NUMBER_WORDS = ['none', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
-  CF.numberWord = function (n, cap) {
-    var w = n >= 0 && n < CF.NUMBER_WORDS.length && n === Math.floor(n) ? CF.NUMBER_WORDS[n] : String(n);
-    return cap ? w.charAt(0).toUpperCase() + w.slice(1) : w;
-  };
-  // What an ending may name besides the run's numbers (CF.Story.ending fills
-  // its text from this): the King of Thunes and the Architect as this run
-  // knew them, how the last blow fell, and the counts in words.
-  //   {king} {architect} {architectRole} {killedBy}
-  //   {sentHomeWord} {SentHomeWord} {reformedWord} {ReformedWord}
-  P.endingVars = function () {
-    var s = this.s, st = s.stats || {}, out = {};
-    Object.keys(st).forEach(function (k) { out[k] = st[k]; });
-    var king = null;
-    Object.keys(s.criminals || {}).forEach(function (k) { if (s.criminals[k].king && !king) king = s.criminals[k].name; });
-    if (!king && s.court && s.court.king && s.court.king.name) king = s.court.king.name;
-    out.king = king || 'the King of Thunes';
-    var arch = null;
-    Object.keys(s.cases || {}).forEach(function (k) {
-      var rec = s.cases[k];
-      if (rec.template !== 'architect' || (arch && arch.closed)) return;
-      var cul = (rec.suspects || []).filter(function (x) { return x.guilty; })[0];
-      if (cul) arch = { name: cul.name, role: cul.role || '', closed: rec.status === 'closed' };
-    });
-    out.architect = arch ? arch.name : 'the Architect';
-    out.architectRole = arch && arch.role ? arch.role : 'a patient man';
-    out.killedBy = st.killedBy || null;
-    out.sentHomeWord = CF.numberWord(st.sentHome || 0);
-    out.SentHomeWord = CF.numberWord(st.sentHome || 0, true);
-    out.reformedWord = CF.numberWord(st.reformed || 0);
-    out.ReformedWord = CF.numberWord(st.reformed || 0, true);
-    return out;
-  };
+  // Small numbers in words, as a chronicle tells them ('no', 'seven'; digits past a dozen): story.js Story.words.
+  CF.numberWord = function (n, cap) { return CF.Story.words(n, cap); };
 
   // What became of them (round 8): the run's own late story, told back under
   // the ending. Up to four lines, each { id, kind, icon, key, vars, text } (id
@@ -2978,7 +2911,7 @@
   };
   // { text, vars } for a room that has done something (through tr), or null.
   P.roomUseText = function (room) {
-    var n = (this.s.roomUse || {})[room] || 0, t = CF.ROOM_USE[room];
+    var u = this.s.roomUse, n = u && typeof u[room] === 'number' && u[room] > 0 ? u[room] : 0, t = CF.ROOM_USE[room];
     if (!n || !t) return null;
     return { text: n === 1 ? t[0] : t[1], vars: { n: n }, n: n };
   };

@@ -581,7 +581,7 @@ console.log('choices: all OK');
   var opt = spec('swan').options.map(function (o, i) { return o.cost === 'focus' ? i : -1; }).filter(function (i) { return i >= 0; })[0];
   if (opt !== undefined && q.canChoose(opt)) {
     var pw = q.choicePreview(opt);
-    assert.ok(pw.cards.focus === -1 && pw.cards.spent_focus === 1, 'Wit spent, not lost: ' + JSON.stringify(pw.cards));
+    assert.ok(!pw.cards.focus && !pw.cards.spent_focus, 'what it pays with is the cost, not a return: ' + JSON.stringify(pw.cards));
   }
   console.log('choice preview: ok');
 })();
@@ -718,13 +718,12 @@ console.log('choices: all OK');
   assert.ok(!ld.s.over && ld.s.flags.abbey, 'an old save gets its one reprieve');
   // The lessons.
   ['burnout', 'collapse', 'consumed', 'dismissed', 'corruption', 'death'].forEach(function (id) {
-    var l = CF.Story.lesson(ld, id);
-    assert.ok(l && l.icon && l.text && !CF.ENDINGS[id].win, id + ' has a lesson');
+    var l = ld.endingLesson(id, null);
+    assert.ok(l && CF.ENDINGS[id].threat && !CF.ENDINGS[id].win, id + ' has a lesson');
   });
-  assert.strictEqual(CF.Story.lesson(ld, 'master'), null, 'a won run needs none');
-  assert.ok(/Rest/.test(CF.Story.lesson(ld, 'burnout').text));
-  ld.s.over = { id: 'burnout', cause: { fever: 90, restIdle: true } };
-  assert.strictEqual(CF.Story.lesson(ld, 'burnout').text.indexOf(CF.ENDING_REST_IDLE), 0, 'Rest stood empty: said first');
+  assert.strictEqual(ld.endingLesson('master', null), null, 'a won run needs none');
+  assert.ok(/Rest/.test(ld.endingLesson('burnout', null)));
+  assert.strictEqual(ld.endingLesson('burnout', { fever: 90, restIdle: true }).indexOf(CF.ENDING_REST_IDLE), 0, 'Rest stood empty: said first');
   console.log('the abbey and the lessons: ok');
 })();
 

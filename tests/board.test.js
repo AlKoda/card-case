@@ -1060,18 +1060,10 @@ console.error = function (err) { throw err; };
   assert.strictEqual(d.s.stats.killedBy, 'order');
   assert.ok(d.s.journal.some(function (j) { return j.title === 'The Last Blow'; }), 'the blow is told as itself');
   assert.ok(!d.s.journal.some(function (j) { return j.title === 'In the Council\'s Service'; }), 'and not as a second ending title');
-  var v = CF.Engine.newGame({ seed: 63, calling: 'master' });
-  v.s.criminals.kx = { id: 'kx', name: 'Old Jacquot', king: true, crimes: 3, heat: 0, organization: 'syndicate', traits: [], status: 'at_large', history: [] };
-  var ar = v.caseRec(v.spawnCase('architect', { quiet: true }).caseId), arc = ar.suspects.filter(function (x) { return x.guilty; })[0];
-  v.s.stats.sentHome = 7; v.s.stats.reformed = 4;
-  var ev = v.endingVars();
-  assert.strictEqual(ev.king, 'Old Jacquot');
-  assert.strictEqual(ev.architect, arc.name);
-  assert.strictEqual(ev.architectRole, arc.role);
-  assert.strictEqual(ev.SentHomeWord, 'Seven');
-  assert.strictEqual(ev.reformedWord, 'four');
-  assert.strictEqual(ev.sentHome, 7, 'the numbers stay numbers');
-  assert.strictEqual(CF.Engine.newGame({ seed: 64 }).endingVars().king, 'the King of Thunes', 'a run that never met him');
+  // One number helper: the engine's counts in words are the chronicle's (Story.words).
+  assert.strictEqual(CF.numberWord(0), CF.Story.words(0));
+  assert.strictEqual(CF.numberWord(7, true), 'Seven');
+  assert.strictEqual(CF.numberWord(15), '15');
 
   // The locked door is the scene's own.
   var a = CF.Engine.newGame({ seed: 65, calling: 'master' });

@@ -232,7 +232,7 @@ function run(e, verb, cards) {
   assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built');
   e.s.roomUse = { intel: 3, suite: 6 };
   assert.strictEqual(tile('intel').use, 3);
-  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built · Fronts named, informers seated: 3', 'the return, in one phrase');
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built · 3 fronts named or informers seated', 'the return, in one phrase');
   assert.strictEqual(tile('suite').use, 0, 'an unbuilt room has nothing to show');
   e.s.roomUse = { intel: 'x' };
   assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built', 'a bad count is no count');

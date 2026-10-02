@@ -13,8 +13,8 @@
   var Charge = (CF.Charge = {});
   // gloss: a few words for the tier's name, beside it in the Court window.
   Charge.TIERS = {
-    weak: { label: 'Indicia', gloss: 'suspicion only', text: 'Indicia: suspicion, not proof. Enough to hold them in the Hole, the cells under the Watch-house; before the sworn men who judge, an advocate will eat it alive.' },
-    reasonable: { label: 'Half Proof', gloss: 'may hold', text: 'It could go either way. The sworn men might take it, or convict of the lesser crime.' },
+    weak: { label: 'Indicia', gloss: 'Suspicion, not proof: it will not convict', text: 'Indicia: suspicion, not proof. Enough to hold them in the Hole, the cells under the Watch-house; before the sworn men who judge, an advocate will eat it alive.' },
+    reasonable: { label: 'Half Proof', gloss: 'Half the proof the Carolina asks: it may hold', text: 'It could go either way. The sworn men might take it, or convict of the lesser crime.' },
     strong: { label: 'Full Proof', gloss: '', text: 'Several independent kinds of proof, all pointing one way. The Carolina, the Emperor\'s law the Court sits under, is satisfied. It should hold.' },
   };
 
@@ -164,7 +164,6 @@
     // honest road there is to confront the accused (see confrontFor).
     var profileRows = Object.keys(profile);
     res.rowsMet = profileRows.length > 0 && profileRows.every(function (k) { return (res.have[k] || 0) >= profile[k]; });
-    res.wordWanted = res.rowsMet && res.tier !== 'strong' && res.contradictions === 0;
     // What the player has already worked out, for the Court to repeat: the
     // Prime Suspect their own reasoning named (when this charge names another),
     // and a free confession whose own words say it is a lie. The tier stands
@@ -183,6 +182,8 @@
       { id: 'clean', ok: apparent.contradictions === 0 },
     ];
     res.gates.forEach(function (g) { g.label = Charge.GATES[g.id]; });
+    // A word wanted: every row met, and of the four seals only the word is dark.
+    res.wordWanted = res.rowsMet && res.tier !== 'strong' && res.gates.every(function (g) { return g.id === 'word' ? !g.ok : g.ok; });
     // How full proof was reached, when it was: by the four seals, or by one
     // of the Carolina's own roads (a free confession, two witnesses who
     // agree for different reasons, a confession checked against Body or Writ).
@@ -232,17 +233,6 @@
     return { suspect: suspectCard.uid, token: tokens[0].uid, wit: wit ? wit.uid : null, ready: !!(v && v.unlocked && v.status !== 'running') };
   };
 
-  // The tier's name with its gloss: 'Indicia (suspicion only)', 'Half Proof (may hold)', 'Full Proof'.
-  Charge.tierTitle = function (tier) {
-    var T = Charge.TIERS[tier];
-    return T.gloss ? T.label + ' (' + T.gloss + ')' : T.label;
-  };
-  // The first two charges of a run show the tier's meaning under its name.
-  P.chargeNovice = function () {
-    var st = this.s.stats || {};
-    return (st.convictions || 0) + (st.acquittals || 0) < 2;
-  };
-
   // Lines for the Arrest window: what the case needs, what the clues give.
   Charge.describe = function (a) {
     var rows = Object.keys(a.profile).map(function (k) {
@@ -290,6 +280,6 @@
       else notes.push({ kind: 'dim', text: 'To full proof: ' + gaps.join(', ') + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
     }
     return { rows: rows, notes: notes, bad: bad, wordWanted: !!a.wordWanted, gates: a.gates || [], fullBy: a.fullBy || null, standing: a.standing || {}, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text,
-      tierGloss: Charge.TIERS[a.tier].gloss, tierTitle: Charge.tierTitle(a.tier) };
+      tierGloss: Charge.TIERS[a.tier].gloss };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

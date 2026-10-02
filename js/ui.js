@@ -137,42 +137,13 @@
   var VERB_TOKENS = { time: 'cvtok-time', duty: 'cvtok-duty', investigate: 'cvtok-investigate', analyze: 'cvtok-analyze', interrogate: 'cvtok-interrogate', reflect: 'cvtok-reflect', arrest: 'cvtok-arrest' };
   var ASK_ART = { instinct: 'iinv-06', focus: 'cres-05', funds: 'itrade-20', teammate: 'rrole-03', health: 'imed-01' };
   var ASPECT_ART = { forensic: 'iev-01', testimony: 'cwit-01', motive: 'icrime-06', opportunity: 'iev-02', digital: 'ilaw-12', financial: 'itrade-20' };
-  // Where each kind of proof is found, for the popover, the Help and the advisor: each way with the test of whether
-  // it is open to this player now (rec, the case in question, may be null: any open case). The advisor and the
-  // popover name only the open ways; the Help names them all.
-  function onTable(e, def, rec) { return e.tableCards().some(function (c) { return c.def === def && (!rec || c.caseId === rec.id || (c.data && c.data.caseId === rec.id)); }); }
-  function quarterFor(e, rec) {
-    return e.tableCards().some(function (c) {
-      if (c.def !== 'district' || !c.data) return false;
-      if (rec) return c.data.district === rec.district;
-      return e.openCases().some(function (r) { return r.district === c.data.district; });
-    });
-  }
-  function always() { return true; }
-  var ASPECT_FROM = {
-    forensic: [{ text: 'the scene and the body, read in Study', ok: always }],
-    testimony: [
-      { text: 'a witness in Question', ok: function (e, rec) { return onTable(e, 'witness', rec); } },
-      { text: 'door to door: the case with its Quarter in Explore', ok: quarterFor },
-      { text: 'the accused confronted with a token of the case in Question', ok: always },
-    ],
-    motive: [{ text: 'the accused questioned with Wit', ok: always }, { text: 'coin and quarrels laid side by side in Rest', ok: always }],
-    opportunity: [
-      { text: 'the scene searched again', ok: always },
-      { text: 'a canvass with the case\'s Quarter', ok: quarterFor },
-      { text: 'two descriptions laid side by side in Rest', ok: always },
-    ],
-    digital: [
-      { text: 'a search of the accused\'s lodging with a Writ (Sworn Examiner)', ok: function (e) { return e.s.rank >= 1; } },
-      { text: 'ledgers and papers read in Study', ok: function (e, rec) { return onTable(e, 'evidence', rec); } },
-      { text: 'the Rolls', ok: function (e) { return !!(e.s.rooms && e.s.rooms.archive); } },
-    ],
-    financial: [{ text: 'ledgers, pledges and chits read in Study', ok: always }, { text: 'a pawnbroker\'s page', ok: always }],
-  };
+  // Where each kind of proof is found, for the popover, the Help and the advisor: the engine's
+  // CF.ASPECT_SOURCES. With an engine, only the ways open to this player now (rec, the case in
+  // question, may be null); without one (the Help), every way.
   var FROM_NONE = 'nothing in your reach yet: charge on what you have, or confront the accused with a token in Question';
   // In English, joined; CF.T reads each way of a '; ' list on its own.
   function aspectFrom(k, e, rec) {
-    var ways = (ASPECT_FROM[k] || []).filter(function (w) { return !e || w.ok(e, rec || null); }).map(function (w) { return w.text; });
+    var ways = e ? e.aspectSources(k, rec || null) : (CF.ASPECT_SOURCES[k] || []).map(function (w) { return U.fill(w.text, { quarter: 'its Quarter' }); });
     return ways.length ? ways.join('; ') : FROM_NONE;
   }
   // The stamp the Court token takes when a case ends. A wrongful verdict wears the same wax as a true one.
@@ -1024,7 +995,6 @@
   // Every row met and still half proof: full proof wants word behind it (a witness, a confession, a token that
   // names them), and nothing on the table says they did it.
   var WORD_WANTED = 'a witness, a confession, or proof that names them';
-  function wantsWord(a) { return !a.contradictions && !(a.witnesses >= 1 || a.confession || a.corroboration >= 1); }
   // What the best charge against an accused still lacks: the short rows, or (all met) word behind it.
   function stillWanted(e, suspectCard) {
     var rec = e.caseRec(suspectCard.caseId);
@@ -1034,7 +1004,7 @@
     if (!a || a.tier === 'strong') return null;
     var rows = CF.Charge.describe(a).rows.filter(function (r) { return r.have < r.need; });
     if (rows.length) return { a: a, rows: rows };
-    return a.n && wantsWord(a) ? { a: a, rows: [], word: true } : null;
+    return a.wordWanted ? { a: a, rows: [], word: true } : null;
   }
   // The accused a case's tokens on the table (and `extra`, a token elsewhere) would carry at half proof or better:
   // the Prime Suspect first, then the best score. Null when nobody is chargeable.
@@ -1151,13 +1121,9 @@
         var sw = stillWanted(e, sc[k]);
         if (sw && sw.rows.length && (!lacking || sw.a.score > lacking.a.score)) lacking = { a: sw.a, row: sw.rows[0], card: sc[k] };
         // Every row met, and no word behind it: the accused it points to (or the only one left) can be confronted
-        // with a token of the case. A confession freely given is full proof.
+        // with a token of their own case (e.confrontFor). A confession freely given is full proof.
         var only = standing.length === 1 && standing[0] === sc[k];
-        if (sw && sw.word && !confront && (rec.identified === sc[k].data.key || only) && !e.unavailableReason(sc[k]) &&
-          !tokens.some(function (t) { return t.data.confession === 'free'; })) {
-          var tok = tokens.filter(function (t) { return !e.unavailableReason(t); })[0];
-          if (tok) confront = sc[k];
-        }
+        if (sw && sw.word && !confront && (rec.identified === sc[k].data.key || only) && !e.unavailableReason(sc[k]) && e.confrontFor(sc[k])) confront = sc[k];
       }
     }
     if (confront && wit && can('interrogate')) { UI.hintGo = { uid: confront.uid }; return tr('Confront {name}: put them into Question with a token of the case and Wit. A confession freely given is full proof.', { name: e.labelOf(confront) }); }
@@ -1423,29 +1389,27 @@
     box.classList.add('open', 'pinned');
     box.querySelector('.peek-close').addEventListener('click', function () { box.classList.remove('open', 'pinned'); box.dataset.uid = ''; });
   };
-  // The patrons' seals under Standing: how warm each patron is, in a word, and what the next step brings
-  // (patrons.js, patronsWeek: a boon each week at 3; the Inquisitor, or the next office held, at -2).
-  var FAVOUR_STEPS = {
-    council: { boon: 'Suspicion falls a step each week', threat: 'The next office is held back' },
-    bishop: { boon: 'A bed in the Abbey hospital each week, a Weariness slept off', threat: 'The Inquisitor comes' },
-    guild: { boon: 'Now and then the guilds\' fee for a quiet Market', threat: null },
-  };
-  // A patron's favour in a word: the rules' own words where they keep them (patrons.js Pat.WORDS: Cold, Cool, ...).
+  // The patrons' seals under Standing: how warm each patron is, in a word, and what the next step brings, or
+  // what it brings now (patrons.js favourSteps: a boon each week at 3; the Inquisitor, or the next office held, at -2).
+  // A patron's favour in a word: the rules' own words (patrons.js Pat.WORDS: Cold, Cool, ...).
   function favourWord(f) {
-    var W = CF.Patrons && CF.Patrons.WORDS;
-    if (W && W.length) { for (var i = 0; i < W.length; i++) if (f <= W[i][0]) return W[i][1]; return 'Your patron'; }
-    return f >= 3 ? 'Your patron' : f >= 1 ? 'Warm' : f <= -1 ? 'Cold' : 'Neutral';
+    var W = CF.Patrons.WORDS;
+    for (var i = 0; i < W.length; i++) if (f <= W[i][0]) return W[i][1];
+    return 'Your patron';
   }
+  var FAVOUR_TONE = { 'Your patron': 'patron', Warm: 'warm', Neutral: 'even', Cool: 'cool', Cold: 'cold' };
   function favourRows(e) {
-    if (!CF.PATRONS || !e.favour) return '';
-    var fv = e.favour(), html = '<div class="i-favour">';
-    ['council', 'bishop', 'guild'].forEach(function (k) {
-      var f = fv[k] || 0, st = FAVOUR_STEPS[k], lines = [];
-      lines.push(f >= 3 ? tr('Now: {what}', { what: st.boon }) : tr('At 3: {what}', { what: st.boon }));
-      if (st.threat && f <= -2) lines.push(tr('Now: {what}', { what: st.threat }));
-      else if (st.threat && f <= 0) lines.push(tr('At -2: {what}', { what: st.threat }));
-      html += '<div class="fv-row fv-' + (f >= 3 ? 'patron' : f >= 1 ? 'warm' : f <= -1 ? 'cold' : 'even') + '"><i style="background-image:' + art(PATRON_ART[k]) + '"></i>' +
-        '<b>' + esc(CF.PATRONS[k].label) + '</b><em title="' + escText(tr('Favour {n}', { n: f })) + '">' + esc(favourWord(f)) + '</em>' +
+    if (!CF.PATRONS || !e.favourSteps) return '';
+    var html = '<div class="i-favour">';
+    e.favourSteps().forEach(function (st) {
+      var lines = [];
+      if (st.upNow) lines.push(tr('Now: {what}', { what: st.upNow }));
+      if (st.up) lines.push(st.up);
+      // The step down is named only while the patron is not warm to you.
+      if (st.downNow) lines.push(tr('Now: {what}', { what: st.downNow }));
+      else if (st.down && st.n <= 0) lines.push(st.down);
+      html += '<div class="fv-row fv-' + (FAVOUR_TONE[st.word] || 'even') + '"><i style="background-image:' + art(PATRON_ART[st.key]) + '"></i>' +
+        '<b>' + esc(st.label) + '</b><em title="' + escText(tr('Favour {n}', { n: st.n })) + '">' + esc(st.word) + '</em>' +
         lines.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('') + '</div>';
     });
     // A patron at 3 sends a seal to call in, where the rules have one (the engine's 'seal' card).
@@ -2040,47 +2004,28 @@
   var choiceEl = null;
   // An answered choice holds still this long: the price goes into the option, the wax comes down on it.
   var CHOICE_HOLD = 550;
-  // The options a waiting choice shows. The save keeps a copy from when it was asked, but choose(i) runs the
-  // question's own option i: when the copy no longer matches it (a save from before an option was added), or
-  // none of the copy's options can be paid, the question's own list is shown, so the free way out is never hidden.
-  UI.choiceOptions = function (e, c) {
-    var spec = c && CF.CHOICES && CF.CHOICES.filter(function (x) { return x.id === c.id; })[0];
-    var kept = (c && c.options) || [];
-    if (!spec || !spec.options) return kept;
-    var differs = kept.length !== spec.options.length || kept.some(function (o, i) { return o.label !== spec.options[i].label; });
-    var payable = kept.some(function (o, i) { return e.canChoose(i); });
-    if (!differs && payable) return kept;
-    return spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; });
-  };
-  // What an answer gives and takes, seen before it is given: the answer is tried on a copy of the game (the
-  // same dice, so the copy is exact; no listeners, so nothing on the table hears it) and the meters, the
-  // patrons' favour and the cards are compared. What it pays is shown apart (the cost), so the card it pays
-  // with is left out. Something the answer only sets in motion shows no change: its sentence stays beside.
+  // The options a waiting choice shows: the save's copy, which the engine reads again from the question's own
+  // spec when an old save loads (refreshChoice), so choose(i) runs what is shown and the free way out is never hidden.
+  UI.choiceOptions = function (e, c) { return (c && c.options) || []; };
+  // What an answer gives and takes, seen before it is given: the engine's dry run (e.choicePreview, on a copy
+  // with the same dice, the card it pays with left out) as chips. Something the answer only sets in motion
+  // shows no change: its sentence stays beside.
   function choiceDeltas(e, i) {
-    var c = e.s.choice, spec = c && CF.CHOICES && CF.CHOICES.filter(function (x) { return x.id === c.id; })[0];
-    if (!spec || !spec.options[i] || !e.canChoose(i)) return null;
-    var t;
-    try {
-      t = CF.Engine.load(e.save());
-      t.listeners = [];
-      var pay = t.choicePayment(spec.options[i]), payUid = pay ? pay.uid : null;
-      if (!t.choose(i)) return null;
-    } catch (err) { return null; }
+    var pv;
+    try { pv = e.choicePreview(i); } catch (err) { return null; }
+    if (!pv) return null;
     var out = [];
     Object.keys(METER_ICONS).forEach(function (k) {
-      var d = (t.s.meters[k] || 0) - (e.s.meters[k] || 0);
+      var d = pv.meters[k] || 0;
       if (d) out.push({ kind: 'meter', key: k, d: d, good: k === 'reputation' ? d > 0 : d < 0, art: METER_ICONS[k], title: tr(METER_INFO[k].title) });
     });
-    var f0 = e.s.favour || {}, f1 = t.s.favour || {};
     Object.keys(PATRON_ART).forEach(function (k) {
-      var d = (f1[k] || 0) - (f0[k] || 0);
+      var d = pv.favour[k] || 0;
       if (d && CF.PATRONS && CF.PATRONS[k]) out.push({ kind: 'favour', key: k, d: d, good: d > 0, art: PATRON_ART[k], title: tr(CF.PATRONS[k].label) });
     });
-    var count = function (s) { var n = {}; Object.keys(s.cards).forEach(function (u) { if (+u !== payUid) { var d = s.cards[u].def; n[d] = (n[d] || 0) + 1; } }); return n; };
-    var n0 = count(e.s), n1 = count(t.s);
-    Object.keys(n0).concat(Object.keys(n1)).forEach(function (d, j, all) {
-      if (all.indexOf(d) !== j || !CF.CARDS[d]) return;
-      var dd = (n1[d] || 0) - (n0[d] || 0), kind = CF.CARDS[d].kind;
+    Object.keys(pv.cards).forEach(function (d) {
+      if (!CF.CARDS[d]) return;
+      var dd = pv.cards[d], kind = CF.CARDS[d].kind;
       if (!dd) return;
       var need = !!(CF.NEEDS && CF.NEEDS[d]) || kind === 'threat';
       out.push({ kind: 'card', key: d, d: dd, good: need ? dd < 0 : dd > 0, art: ICONS[d] || FULLS[d] || KIND_ART[d] || KIND_ART[kind] || 'iinv-02', title: tr(CF.CARDS[d].label) });
@@ -2883,12 +2828,10 @@
     var primaryCard = v.slots[e.primaryKey(vid)];
     if (UI.about === vid) {
       // What a junior can do here now; each office's power below it, dim, and the ones still to come as one line each.
-      pane.appendChild(h('p', 'vw-desc vw-about', verbBasics(vid)));
-      Object.keys(CF.POWERS || {}).forEach(function (k) {
-        var pw = CF.POWERS[k];
-        if (pw.verb !== vid) return;
-        var open = e.powerOpen ? e.powerOpen(k) : e.s.rank >= pw.rank;
-        pane.appendChild(h('p', 'vw-desc vw-power' + (open ? '' : ' locked'), open ? tr('{label}: {text}', { label: tr(pw.label), text: tr(pw.text) }) : tr('At {rank}: {label}', { rank: tr(CF.RANKS[pw.rank]), label: tr(pw.label) })));
+      var info = e.verbInfo(vid);
+      pane.appendChild(h('p', 'vw-desc vw-about', info.basics));
+      info.powers.forEach(function (pw) {
+        pane.appendChild(h('p', 'vw-desc vw-power' + (pw.open ? '' : ' locked'), pw.open ? tr('{label}: {text}', { label: tr(pw.label), text: tr(pw.text) }) : tr('At {rank}: {label}', { rank: tr(pw.rankLabel), label: tr(pw.label) })));
       });
       var sr = e.s.stats.recipes || {};
       var ways = e.s.stats.ways || {};
@@ -3020,14 +2963,8 @@
 
   // The Charge plate's colour by the charge it would bring.
   var TIER_PLATE = { weak: 'dark', reasonable: 'redfill', strong: 'gold' };
-  // A verb's first words, for the window's info: what anyone can do with it from the first day. The rules' own
-  // `basics` where a verb carries one; the offices' powers are listed under it, so they are left out here.
-  var VERB_BASICS = {
-    duty: 'The Watch-house. Work for Coin: Health walks a hard round, Wit keeps the day-book. Spend Coin on a Petition or a Letter of Service, and attend to what lands on the desk.',
-    investigate: 'Go out. A Case: search its scene; with its Quarter, go door to door. Instinct alone: walk the ward. An Accused: search their lodging.',
-  };
-  function verbBasics(vid) { var d = CF.VERBS[vid]; return d.basics || VERB_BASICS[vid] || d.desc; }
-  UI.verbBasics = verbBasics;
+  // A verb's first words, for the window's info: what anyone can do with it from the first day (e.verbInfo).
+  UI.verbBasics = function (vid) { return UI.e ? UI.e.verbInfo(vid).basics : CF.VERBS[vid].basics || CF.VERBS[vid].desc; };
 
   // Whether Post the Watch takes this kind of card as its first (the engine may widen it from the bands to the Coquille).
   function postWatchTakes(def) {
@@ -3279,7 +3216,6 @@
 
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
-  var TIER_GLOSS = { weak: 'Suspicion, not proof: it will not convict', reasonable: 'Half the proof the Carolina asks: it may hold' };
   // The four things full proof asks, as four wax seals lit or dark: enough proof, of two kinds the case turns
   // on, with word behind it (a witness, a confession, a token that names or corroborates), and nothing that
   // describes somebody else. The rules may give them (describe().gates); else they are read off the charge.
@@ -3302,8 +3238,8 @@
         return '<span class="ch-gate ' + (g.ok ? 'on' : 'off') + '" data-gate="' + id + '" title="' + esc(GATES[id].label) + '"><i style="background-image:' + art(GATES[id].art) + '"></i><em>' + esc(GATES[id].label) + '</em></span>';
       }).join('') + '</div>';
     }
-    // The Court's words, glossed where they stand: what the tier means.
-    if (TIER_GLOSS[d.tier]) html += '<div class="ch-gloss">' + esc(TIER_GLOSS[d.tier]) + '</div>';
+    // The Court's words, glossed where they stand: what the tier means (Charge.TIERS[*].gloss).
+    if (d.tierGloss) html += '<div class="ch-gloss">' + esc(d.tierGloss) + '</div>';
     if (firstCase && d.tier === 'weak') html += '<div class="ch-note bad ch-first">' + esc('The first case of your office. On Indicia the Court will let them go.') + '</div>';
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
@@ -3334,13 +3270,6 @@
   var STANDING = { names: 'Names them', other: 'Someone else', off: 'Off the case', proof: 'Proof' };
   UI.tokenStanding = tokenStanding;
 
-  // What an instrument's tags mean to a reader: the kinds of find it sharpens.
-  var TAG_WORDS = { biology: 'Bodies and traces', physical: 'Bodies and traces', records: 'Papers', surfaces: 'Surfaces', watching: 'Watching' };
-  function tagWords(tags) {
-    var out = [];
-    tags.forEach(function (t) { var l = (CF.TAGS && CF.TAGS[t] && CF.TAGS[t].label) || TAG_WORDS[t]; var w = l ? tr(l).toLowerCase() : t; if (out.indexOf(w) < 0) out.push(w); });
-    return out.join(' / ');
-  }
 
   // Short handwritten notes for the inspector's dossier.
   // Health, Wit and Instinct: the tricks you keep, and how the ability grows.
@@ -3438,7 +3367,8 @@
       if (card.data.level) lines.push(tr('Level {n}', { n: card.data.level }));
     } else if (k === 'equipment') {
       var m = def.mods || {};
-      if (m.boost) lines.push(tr('{boosts} on {tags}', { boosts: joinList(Object.keys(m.boost.aspects).map(function (x) { return tr(CF.ASPECTS[x].label) + ' +' + m.boost.aspects[x]; })), tags: tagWords(m.boost.tags) }));
+      // What an instrument sharpens, in words (story.js Story.boostLine: the kinds of find, never the tag ids).
+      if (m.boost) lines.push(tr(CF.Story.boostLine(m.boost)));
       if (m.gate) lines.push('Reads raw proof that needs it');
       if (m.extraEvidence) lines.push('Finds more at a scene');
       if (m.unlocks) lines.push(tr('Opens: {what}', { what: (CF.RECIPES_BY_ID[m.unlocks] || {}).label || m.unlocks }));
@@ -3622,7 +3552,7 @@
       if (!a) return;
       if (a.tier === 'strong') { strong = true; return; }
       var rows = CF.Charge.describe(a).rows.filter(function (r) { return r.have < r.need; });
-      if ((rows.length || (a.n && wantsWord(a))) && (!best || a.score > best.score)) best = { score: a.score, rows: rows };
+      if ((rows.length || a.wordWanted) && (!best || a.score > best.score)) best = { score: a.score, rows: rows };
     });
     return best && !strong ? wantedList(best.rows) : null;
   }

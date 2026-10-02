@@ -121,27 +121,16 @@
     longservice: 'cherald-05', long_service: 'cherald-05' };
   UI.ENDING_ART = ENDING_ART;
 
-  // What would have saved you, under a losing ending: one line with the threat's seal. The rules' own lesson
-  // (CF.ENDINGS[id].lesson) where they give one; the cause the engine keeps (s.over.cause) makes it particular.
-  var LESSONS = {
-    burnout: ['imed-10', 'The Fever ends the file when its clock runs out. Lay it alone in Rest; Coin beside it makes it quick.'],
-    collapse: ['imed-13', 'A third Weariness on top of the Fever is the end. Sleep Weariness off in Rest before the third.'],
-    consumed: ['iinv-13', 'A third Obsession on top of a Fixation swallows you. Let Obsession go in Rest; a conviction clears the Fixation.'],
-    dismissed: ['cres-04', 'The Crowd boils over at unanswered cases and names that walk free. Close cases; take the names off the wall.'],
-    corruption: ['cres-03', 'Suspicion rises with searches without a Writ, proof arranged and purses kept. Enter the Rolls, and let time pass.'],
-    riot: ['cres-12', 'Dread rises with cruelty on the ladder and leaning on people. Mercy and fair dealing lower it.'],
-    death: ['imed-09', 'A Wound carried and no Health left: the next blow kills. Dress the Wound in Rest before you go out.'],
-    dagger: ['citem2-07', 'The dagger on the pillow is a warning. Lay it in Rest with two Coin for weeks of peace.'],
-  };
+  // What would have saved you, under a losing ending: one line with the threat's seal. The line is the rules' own
+  // (s.over.lesson, from e.endingLesson, made particular by s.over.cause); an older ending without one is read
+  // again from the rules. The seal is the threat's that ended it (s.over.threat, else CF.ENDINGS[id].threat).
+  var LESSON_ART = { burnout: 'imed-10', fatigue: 'imed-13', obsession: 'iinv-13', pressure: 'cres-04', scrutiny: 'cres-03', dread: 'cres-12', wound: 'imed-09', dagger: 'citem2-07' };
   function endLesson(over) {
     if (!over || over.win) return null;
-    var end = CF.ENDINGS[over.id] || {}, row = LESSONS[over.id];
-    var text = over.lesson || end.lesson || (row && row[1]);
+    var end = CF.ENDINGS[over.id] || {};
+    var text = over.lesson || CF.Engine.prototype.endingLesson(over.id, over.cause || null);
     if (!text) return null;
-    var line = tr(text), cause = over.cause || {};
-    // The rules' own lesson already says it first (e.endingLesson); an older ending without one is told here.
-    if (cause.restIdle && !over.lesson) line += ' ' + tr('Rest stood idle the whole time.');
-    return { art: end.lessonArt || (row && row[0]) || 'imed-10', text: line };
+    return { art: LESSON_ART[over.threat || end.threat] || 'imed-10', text: tr(text) };
   }
   UI.endLesson = endLesson;
 

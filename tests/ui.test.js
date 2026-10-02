@@ -1303,8 +1303,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   // An instrument names the kinds of find it sharpens, not the engine's tag ids.
   var kit = e.create('kit'), lab = e.create('labpass');
   var kt = peekText(kit), lt = peekText(lab);
-  assert.ok(/Body \+1 on bodies and traces/.test(kt) && !/biology|physical/.test(kt), 'the Physician\'s Case in words: ' + kt);
-  assert.ok(/Writ \+1 on papers/.test(lt) && !/records/.test(lt), 'the Apothecary\'s Key in words: ' + lt);
+  assert.ok(/Body \+1, on finds from blood and hair, things handled/.test(kt) && !/biology|physical/.test(kt), 'the Physician\'s Case in words: ' + kt);
+  assert.ok(/Writ \+1, on finds from papers and the Rolls/.test(lt) && !/records/.test(lt), 'the Apothecary\'s Key in words: ' + lt);
   e.remove(kit); e.remove(lab);
   // The Calling: near an ending the counts say how near, the origin is one line, only the latest note.
   e.initPaths();
@@ -1855,7 +1855,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var rec = e.openCases()[0];
   var dig = UI.aspectFrom('digital', e, rec);
   assert.ok(!/Writ|Rolls/.test(dig), 'a junior is not sent for a Writ or to the Rolls: ' + dig);
-  assert.ok(/nothing in your reach yet/.test(dig), 'and is told so, with what is left to do');
+  assert.strictEqual(dig, 'ledgers and papers read in Study', 'and is sent to Study, the way that is always open');
   e.s.rank = 1; e.s.rooms.archive = true;
   dig = UI.aspectFrom('digital', e, rec);
   assert.ok(/Writ/.test(dig) && /the Rolls/.test(dig), 'a Sworn Examiner with the Rolls is: ' + dig);
@@ -2205,7 +2205,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/0\.5s linear/.test(shade.style.transition), 'then it slides again');
 
   // Item 76: the lesson under a loss, the rules' own first, the cause made particular.
-  var lessonSrc = mainSrc.slice(mainSrc.indexOf('  var LESSONS = {'), mainSrc.indexOf('  UI.endLesson = endLesson;'));
+  var lessonSrc = mainSrc.slice(mainSrc.indexOf('  var LESSON_ART = {'), mainSrc.indexOf('  UI.endLesson = endLesson;'));
   var endLesson = new Function('CF', 'tr', lessonSrc + '\nreturn endLesson;')(CF, CF.T);
   ['burnout', 'collapse', 'consumed', 'dismissed', 'corruption', 'death'].forEach(function (id) {
     var l = endLesson({ id: id, win: false });
@@ -2497,8 +2497,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var peek = $('#peek').innerHTML;
   assert.ok(/class="i-favour"/.test(peek) && (peek.match(/class="fv-row /g) || []).length === 3, 'three seal rows: ' + peek.slice(0, 200));
   assert.ok(/Your patron/.test(peek) && /Now: Suspicion falls a step each week/.test(peek), 'the Council at 3 is your patron, and its boon is now');
-  assert.ok(/Cold/.test(peek) && /Now: The Inquisitor comes/.test(peek) && /At 3: A bed in the Abbey hospital/.test(peek), 'the Bishop at -2: the Inquisitor now, the bed at 3');
-  assert.ok(/Warm/.test(peek) && /At 3: Now and then the guilds/.test(peek) && !/At -2: [^<]*guild/i.test(peek), 'the Guilds warm, with no threat to name');
+  assert.ok(/Cold/.test(peek) && /Now: The Inquisitor comes/.test(peek) && /At 3: a bed in the Abbey hospital/.test(peek), 'the Bishop at -2: the Inquisitor now, the bed at 3');
+  assert.ok(/Warm/.test(peek) && /At 3: the guilds' fee now and then/.test(peek) && !/At -2: [^<]*guild/i.test(peek), 'the Guilds warm, with no threat to name');
   assert.ok(peek.indexOf(PATRON_ART_OF('council')) >= 0, 'each row wears its patron\'s seal');
   function PATRON_ART_OF(k) { return 'var(--art-' + { council: 'casp-05', bishop: 'casp-04', guild: 'cres-01' }[k] + ')'; }
   $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';

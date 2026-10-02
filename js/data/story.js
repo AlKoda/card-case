@@ -126,19 +126,10 @@
     ],
   };
 
-  // What would have saved you: one line under a losing ending, with the threat's icon (a card
-  // def or a meter). s.over.cause, when the engine records one, makes it particular:
-  // { restIdle: true } says Rest stood empty while the clock ran.
   // What would have saved you, on the end paper: the ending's own lesson (CF.ENDINGS[id].lesson,
-  // made particular by s.over.cause in e.endingLesson), with its threat for the icon.
+  // made particular by s.over.cause in e.endingLesson): { restIdle: true } says Rest stood empty
+  // while the Fever's clock ran.
   CF.ENDING_REST_IDLE = 'Rest stood idle the whole time the Fever ran.';
-  // The lesson for ending `id`, { icon, text }, or null for a won run or an ending without one.
-  Story.lesson = function (e, id) {
-    var end = CF.ENDINGS && CF.ENDINGS[id];
-    if (!end || end.win || !end.lesson) return null;
-    var text = e.endingLesson ? e.endingLesson(id, (e.s.over && e.s.over.cause) || null) : end.lesson;
-    return { icon: end.threat || id, text: text };
-  };
 
   // Five first mornings, one per origin (docs/CITY.md §2).
   CF.OPENINGS_WHO = {
@@ -217,15 +208,14 @@
   };
 
   // ---- Words for the dossier --------------------------------------------------------
-  // What an instrument's boost reads on: its tags in words, never their ids ('biology'), joined
-  // as a list each part of which is a key, so the line reads whole in every language.
-  CF.TAG_WORDS = { watching: 'watching and waiting', surfaces: 'marks on doors and sills', biology: 'blood and hair', physical: 'things handled', records: 'papers and the Rolls' };
+  // What an instrument's boost reads on: its tags in words (CF.TAGS[t].words), never their ids
+  // ('biology'), joined as a list each part of which is a key, so the line reads whole in every language.
   CF.BOOST_LINE = '{list}, on finds from {tags}';
   // The line in English, for an instrument's boost; the dossier translates it whole.
   Story.boostLine = function (boost) {
     if (!boost || !boost.aspects) return null;
     var list = Object.keys(boost.aspects).map(function (x) { return (CF.ASPECTS[x] ? CF.ASPECTS[x].label : x) + ' +' + boost.aspects[x]; }).join(', ');
-    var tags = (boost.tags || []).map(function (t) { return CF.TAG_WORDS[t] || t; }).join(', ');
+    var tags = (boost.tags || []).map(function (t) { return (CF.TAGS[t] && CF.TAGS[t].words) || t; }).join(', ');
     return U.fill(CF.BOOST_LINE, { list: list, tags: tags });
   };
 

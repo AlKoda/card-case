@@ -101,20 +101,14 @@
       var room = CF.ROOMS[key], order = CF.ORDERS[room.order];
       var owned = !!e.s.rooms[key];
       var onTable = e.cardsOf('order', true).some(function (c) { return c.data.order === room.order; });
-      var locked = e.s.rank < order.rank;
+      var locked = e.s.rank < order.rank, used = owned && e.roomUseText ? e.roomUseText(key) : null;
       return { key: key, label: room.label, desc: room.desc, cost: Math.max(1, order.cost - orderDiscount(e)), rank: order.rank,
-        state: owned ? 'owned' : locked ? 'locked' : onTable ? 'ordered' : 'open', use: owned ? roomUse(e, key) : 0 };
+        state: owned ? 'owned' : locked ? 'locked' : onTable ? 'ordered' : 'open', use: used ? used.n : 0, useText: used };
     });
   };
-  // What a built room has done for you, where the rules count it (s.roomUse, { room: n }, kept by the engine at
-  // each point a room's effect lands): one short phrase on the tile's foot, so the Coin it cost shows its return.
-  var ROOM_USE = {
-    locker: 'Tokens kept past their fading: {n}', suite: 'Questionings with more Word: {n}', archive: 'Cases opened again: {n}',
-    intel: 'Fronts named, informers seated: {n}', training: 'Coin saved at the drill: {n}', thieftakers: 'Cases settled by the thief-takers: {n}',
-    lab: 'Readings at the bench: {n}', survroom: 'Fronts seen from the Belfry: {n}',
-  };
-  function roomUse(e, key) { var u = e.s.roomUse; return u && typeof u[key] === 'number' && u[key] > 0 ? u[key] : 0; }
-  Precinct.useLine = function (t) { return t.use && ROOM_USE[t.key] ? CF.T(ROOM_USE[t.key], { n: t.use }) : ''; };
+  // What a built room has done for you, where the rules count it (e.roomUseText, from s.roomUse kept by the engine
+  // at each point a room's effect lands): one short phrase on the tile's foot, so the Coin it cost shows its return.
+  Precinct.useLine = function (t) { return t.useText ? CF.T(t.useText.text, t.useText.vars) : ''; };
   // The foot of a tile: built (with its return), the office it needs, the petition on the table, or its price.
   Precinct.foot = function (t) {
     if (t.state === 'owned') { var used = Precinct.useLine(t); return used ? CF.T('Built · {use}', { use: used }) : CF.T('Built'); }

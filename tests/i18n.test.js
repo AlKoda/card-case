@@ -142,7 +142,7 @@ assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
     'Or drop a card on the token. Ignore it and the work finishes as it would have.'].forEach(function (k) {
     assert.ok(!/[A-Za-z]/.test(CF.T(k)), 'the ask box in Arabic: ' + CF.T(k));
   });
-  var boost = CF.T('{boosts} on {tags}', { boosts: CF.T('Body') + ' +1', tags: CF.T('Bodies and traces') });
+  var boost = CF.T(CF.Story.boostLine({ tags: ['biology', 'physical'], aspects: { forensic: 1 } }));
   assert.ok(!/[A-Za-z]/.test(boost), 'an instrument\'s boost in Arabic: ' + boost);
   var lately = CF.T('Lately: {list}', { list: CF.T('{path} +{n} ({why})', { path: 'Power', n: 1, why: 'promoted' }) });
   assert.ok(!/[A-Za-z]/.test(lately), 'the promotion note in Arabic: ' + lately);
@@ -233,7 +233,7 @@ function readGame(e) {
     // The face: the few words a card shows on the table, and its status seal's name.
     if (CF.CARDS[c.def].kind !== 'case') { var face = CF.cardFace(c, e.labelOf(c)); read(face.text); face.status.forEach(read); }
     // A token's face on the engine: the head of its label, read through a status, and the status as a seal.
-    if (FACE_KINDS[e.def(c).kind]) { var f = e.cardFace(c); faces.push(f.title); if (f.seal) faces.push(f.seal); }
+    if (FACE_KINDS[e.def(c).kind]) { var f = CF.cardFace(c, e.labelOf(c)); faces.push(f.text); faces.push.apply(faces, f.status); }
     headsOf(e, c);
     if (c.loc && c.loc.t === 'table') read(e.unavailableReason(c));
   });
@@ -301,9 +301,11 @@ assert.strictEqual(englishFaces.length, 0, 'token faces that stay English: ' + e
 // A status is read through: a kept Warning shows the Warning, with a seal.
 var fg = CF.Engine.newGame({ seed: 5, calling: 'master' });
 var kept = fg.create('clue', { label: 'Kept: Warning: Theft', data: {} });
-assert.deepStrictEqual(fg.cardFace(kept), { title: 'Warning', seal: 'Kept' });
-assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Partial: The Blade Read', data: {} })), { title: 'The Blade Read', seal: 'Partial' });
-assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Deposition: Hans Schmidt', data: {} })), { title: 'Deposition', seal: null });
+assert.deepStrictEqual(CF.cardFace(kept, fg.labelOf(kept)), { text: 'Warning', status: ['Kept'] });
+assert.deepStrictEqual(CF.cardFace({ def: 'clue' }, 'Partial: The Blade Read'), { text: 'The Blade Read', status: ['Partial'] });
+assert.deepStrictEqual(CF.cardFace({ def: 'clue' }, 'Deposition: Hans Schmidt'), { text: 'Deposition', status: [] });
+assert.deepStrictEqual(CF.cardFace({ def: 'clue' }, 'Staged: A Bloody Shoe'), { text: 'A Bloody Shoe', status: ['Staged'] });
+assert.deepStrictEqual(CF.cardFace({ def: 'clue' }, 'Kept: Matched: Warning: X'), { text: 'Warning', status: ['Kept', 'Matched'] });
 // Lane 1, items 33-40: the composed lines read in Arabic.
 (function composed() {
   var texts = [];
@@ -332,7 +334,7 @@ assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Deposition: Hans 
   CF.Sentence.REFORMED_PLACES.forEach(function (pl) {
     texts.push(cul.name + ' walks out of the Hole into the Market and does not look back. A year from now they keep ' + pl + ', and a family, and they cross the street when they see you.');
   });
-  texts.push(CF.RUNGS.fine.desc, CF.RUNGS.pillory.desc, CF.Charge.tierTitle('weak'), CF.Charge.tierTitle('reasonable'), CF.Charge.tierTitle('strong'));
+  texts.push(CF.RUNGS.fine.desc, CF.RUNGS.pillory.desc, CF.Charge.TIERS.weak.gloss, CF.Charge.TIERS.reasonable.gloss);
   Object.keys(CF.CALLINGS).forEach(function (k) { texts.push(CF.CALLINGS[k].win); });
   CF.setLang('ar');
   var bad = texts.filter(function (t) { var a = CF.T(t); return /[A-Za-z]{3}/.test(a) || a.indexOf('{') >= 0; }).map(function (t) { return t + '  =>  ' + CF.T(t); });

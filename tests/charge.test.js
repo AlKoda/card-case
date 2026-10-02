@@ -166,6 +166,8 @@ var rowsOnly = assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ f
 assert.strictEqual(rowsOnly.tier, 'reasonable');
 assert.ok(rowsOnly.rowsMet && rowsOnly.wordWanted, 'every row met, a word wanted');
 assert.ok(!assess([clue({ forensic: 2 }), clue({ opportunity: 2 })]).wordWanted, 'a row short is not a word wanted');
+var wordIn = assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 }, { corroborated: true })]);
+assert.ok(wordIn.gates.filter(function (g) { return g.id === 'word'; })[0].ok && !wordIn.wordWanted, 'a word already behind it is no word wanted');
 assert.ok(!spread.wordWanted, 'full proof wants nothing');
 var dRows = CF.Charge.describe(rowsOnly);
 assert.ok(dRows.wordWanted && dRows.notes.some(function (n) { return n.kind === 'dim' && /^Word behind it: .*Confront them in Question with a token of the case\.$/.test(n.text); }), 'the way to full proof is named');
@@ -248,14 +250,10 @@ var qLie = pg.make('clue', { caseId: prec.id, aspects: { testimony: 4 }, data: {
 assert.ok(!pg.assessCharge(pOn(pinn.key), [qLie]).falseFree, 'a confession under the question never gives away who is innocent');
 
 // ---- The Court's words are glossed where they are first met ---------------------------
-assert.strictEqual(half.tierTitle, 'Half Proof (may hold)', 'half proof, glossed');
-assert.strictEqual(gap.tierTitle, 'Indicia (suspicion only)', 'indicia, glossed');
-assert.strictEqual(CF.Charge.tierTitle('strong'), 'Full Proof', 'full proof needs no gloss');
+assert.strictEqual(half.tierGloss, 'Half the proof the Carolina asks: it may hold', 'half proof, glossed');
+assert.strictEqual(gap.tierGloss, 'Suspicion, not proof: it will not convict', 'indicia, glossed');
+assert.ok(!CF.Charge.TIERS.strong.gloss, 'full proof needs no gloss');
 assert.strictEqual(gap.tierLabel, 'Indicia', 'the bare name stays for the prose');
-var nov = CF.Engine.newGame({ seed: 5, calling: 'master' });
-assert.ok(nov.chargeNovice(), 'the first charges are taught');
-nov.s.stats.convictions = 1; nov.s.stats.acquittals = 1;
-assert.ok(!nov.chargeNovice(), 'after two, the label alone');
 assert.ok(/indicia, suspicion that is not yet proof, will not convict alone/.test(CF.VERBS.arrest.desc), 'the Court\'s description glosses indicia');
 var q = CF.RECIPES_BY_ID.int_suspect;
 ['sufficient', 'not'].forEach(function (k) {

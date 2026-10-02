@@ -158,7 +158,6 @@
     "Presence +{n}": "التواجد +{n}",
     "Writ +{n}": "الصك +{n}",
     "Coin +{n}": "النقود +{n}",
-    "{boosts} on {tags}": "{boosts} على {tags}",
     "against interest": "ضد مصلحته",
     "not credible": "غير موثوق",
     "Keeps for {t}": "يبقى {t}",

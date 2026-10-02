@@ -265,13 +265,14 @@
   };
 
   // What an instrument's boost reads, in words: the tags of the finds it sharpens.
-  // CF.tagLabels(['biology', 'physical']) gives ['Bodies and traces'] (one label, not two).
+  // CF.tagLabels(['biology', 'physical']) gives ['Bodies and traces'] (one label, not two);
+  // `words` are the finds themselves, for the dossier's boost line (story.js Story.boostLine).
   CF.TAGS = {
-    biology: { label: 'Bodies and traces' },
-    physical: { label: 'Bodies and traces' },
-    surfaces: { label: 'Surfaces' },
-    records: { label: 'Papers' },
-    watching: { label: 'Watching' },
+    biology: { label: 'Bodies and traces', words: 'blood and hair' },
+    physical: { label: 'Bodies and traces', words: 'things handled' },
+    surfaces: { label: 'Surfaces', words: 'marks on doors and sills' },
+    records: { label: 'Papers', words: 'papers and the Rolls' },
+    watching: { label: 'Watching', words: 'watching and waiting' },
   };
   CF.tagLabels = function (tags) {
     var out = [];

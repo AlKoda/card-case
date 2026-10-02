@@ -995,9 +995,7 @@
     this.offerChoice(U.pick(this.rng, open), null);
   };
   // What the window shows of a question's answers: read from its spec, so a save holds a copy.
-  function choiceView(spec) {
-    return spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; });
-  }
+  function choiceView(spec) { return CF.Engine.choiceOptions(spec); }
   // A save keeps the answers as they were when it was written, while choose() runs the spec's own.
   // On load the shown answers are read again from the spec (its title and text stay), so an answer
   // added since, like the free way out of the swan, is there to take. Returns true if they changed.
@@ -1072,14 +1070,17 @@
     return true;
   };
   // What an answer would do, without doing it: the answer is given on a copy of the game (the same
-  // dice, no listeners), and what moved is read back: meters, favour, and cards by kind (a spent Wit
-  // reads as one Wit less and one Wits' End more). For the window's icons; an answer whose return
-  // comes later (a flag, a relation, an event next week) shows nothing here, so its words stay.
+  // dice, no listeners), and what moved is read back: meters, favour, and cards by kind. What it pays
+  // with is shown apart (the cost), so the card it pays with is left out of the counts. For the
+  // window's icons; an answer whose return comes later (a flag, a relation, an event next week)
+  // shows nothing here, so its words stay.
   P.choicePreview = function (i) {
     if (!this.s.choice || !this.canChoose(i)) return null;
+    var id = this.s.choice.id, spec = CF.CHOICES.filter(function (x) { return x.id === id; })[0];
     var t = CF.Engine.load(this.save());
+    var pay = t.choicePayment(spec.options[i]), payUid = pay ? String(pay.uid) : null;
     if (!t.choose(i)) return null;
-    function kinds(e) { var n = {}; Object.keys(e.s.cards).forEach(function (u) { var c = e.s.cards[u]; if (c && c.loc) n[c.def] = (n[c.def] || 0) + 1; }); return n; }
+    function kinds(e) { var n = {}; Object.keys(e.s.cards).forEach(function (u) { var c = e.s.cards[u]; if (c && c.loc && String(c.uid) !== payUid) n[c.def] = (n[c.def] || 0) + 1; }); return n; }
     function diff(a, b) { var out = {}; Object.keys(a).concat(Object.keys(b)).forEach(function (k) { var d = (b[k] || 0) - (a[k] || 0); if (d) out[k] = d; }); return out; }
     return { meters: diff(this.s.meters, t.s.meters), favour: diff(this.s.favour || {}, t.s.favour || {}), cards: diff(kinds(this), kinds(t)) };
   };

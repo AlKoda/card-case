@@ -98,12 +98,15 @@
   };
   // The three patrons' standing for the Standing meter's popover: the
   // Favour, a word for it, and the next step each way (null when there is
-  // none). `seal`: their seal is on the table now.
+  // none), or what it brings now once reached (upNow, downNow). `seal`: their
+  // seal is on the table now.
   Pat.WORDS = [[-2, 'Cold'], [-1, 'Cool'], [0, 'Neutral'], [2, 'Warm'], [5, 'Your patron']];
   Pat.STEPS = {
-    council: { up: 'At 3: Suspicion eases each week, and the Council\'s Seal.', down: 'At -2: the Council holds your next office.' },
-    bishop: { up: 'At 3: a bed in the Abbey hospital each week, and the Bishop\'s Seal.', down: 'At -2: the Inquisitor comes.' },
-    guild: { up: 'At 3: the guilds\' fee now and then, and the Guilds\' Seal.', down: null },
+    council: { up: 'At 3: Suspicion eases each week, and the Council\'s Seal.', down: 'At -2: the Council holds your next office.',
+      upNow: 'Suspicion falls a step each week', downNow: 'The next office is held back' },
+    bishop: { up: 'At 3: a bed in the Abbey hospital each week, and the Bishop\'s Seal.', down: 'At -2: the Inquisitor comes.',
+      upNow: 'A bed in the Abbey hospital each week, a Weariness slept off', downNow: 'The Inquisitor comes' },
+    guild: { up: 'At 3: the guilds\' fee now and then, and the Guilds\' Seal.', down: null, upNow: 'Now and then the guilds\' fee for a quiet Market', downNow: null },
   };
   P.favourSteps = function () {
     var f = this.favour(), self = this;
@@ -112,6 +115,7 @@
       for (var i = 0; i < Pat.WORDS.length; i++) if (n <= Pat.WORDS[i][0]) { word = Pat.WORDS[i][1]; break; }
       return { key: k, label: CF.PATRONS[k].label, icon: CF.PATRONS[k].icon, n: n, word: word,
         up: n < Pat.SEAL_AT ? Pat.STEPS[k].up : null, down: n > -2 ? Pat.STEPS[k].down : null,
+        upNow: n >= Pat.SEAL_AT ? Pat.STEPS[k].upNow : null, downNow: n <= -2 ? Pat.STEPS[k].downNow : null,
         seal: self.cardsOf('seal', true).some(function (c) { return c.data && c.data.patron === k; }) };
     });
   };
