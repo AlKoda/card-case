@@ -1449,3 +1449,48 @@ console.error = function (err) { throw err; };
   l.openCases().forEach(function (r) { r.suspects.forEach(function (x) { assert.ok(x.sex !== undefined, 'migrated'); }); });
   console.log('names by role: ok');
 })();
+
+// ---- The engine says it the way the table reads it (round 8 handoffs) ------------------------
+(function handoffs() {
+  // The Council's count, as the Bell's pane reads it.
+  var e = CF.Engine.newGame({ seed: 171, calling: 'master' });
+  assert.strictEqual(e.councilQuota(), null, 'nothing counted of an Examiner');
+  e.s.rank = 2; e.councilCountWeek(); e.s.stats.convictions += 1;
+  var ex = e.councilExpects(), q = e.councilQuota();
+  assert.deepStrictEqual([q.closed, q.expect], [ex.n, ex.m], 'the quota is the count: ' + JSON.stringify(q));
+  // A road carries its line in the journal's own field.
+  e.s.counts.mercy = 2;
+  var roads = e.roads();
+  assert.ok(roads.length >= 1, 'a mercy opens a road');
+  roads.forEach(function (r) { assert.ok(typeof r.text === 'string' && r.text === r.want, 'the road says what it wants: ' + JSON.stringify(r)); });
+  // Harm is marked as harm.
+  var hurt = e.story('Wounded', 'A blow.', 'danger', { cue: 'harm' }), omen = e.story('An Omen', 'A crow.', 'danger');
+  assert.ok(hurt.harm === true && !omen.harm, 'harm, and only harm, is marked');
+  // A verdict names its case.
+  var rec = e.openCases()[0], record = e.caseRecord(rec, 'cold', null);
+  assert.strictEqual(record.caseId, rec.id, 'the record keeps the case id');
+  // The opening's pile sits a row higher; a plain start keeps it where it was.
+  var op = CF.Engine.newGame({ seed: 172, who: 'clerk', opening: true });
+  assert.strictEqual(op.pile().y, T.TOP, 'the opening pile: the first row under the verbs');
+  op.tableCards().forEach(function (c) { assert.strictEqual(c.loc.y, T.TOP, c.def + ' within the short table'); });
+  assert.strictEqual(e.pile().y, T.TOP + 2 * T.PY, 'a plain start: as before');
+  // An older opening save without its asides gets an empty set.
+  var old = JSON.parse(op.save());
+  delete old.intro.asides;
+  assert.deepStrictEqual(CF.Engine.load(old).s.intro.asides, {}, 'asides migrated');
+  // A weakness found tells the move the Bell will see them make.
+  var g = CF.Engine.newGame({ seed: 173, calling: 'master' });
+  g.s.week = 8;
+  for (var w = 0; w < 8 && !g.cardsOf('rival', true).length; w++) g.rivalWeek();
+  var r = g.cardsOf('rival', true)[0];
+  assert.ok(r, 'a Rival to find');
+  g.openCases().forEach(function (x) { x.searches = 1; x.week = g.s.week - 2; x.rival = false; });
+  var wit = g.tableCards().filter(function (c) { return c.def === 'focus'; })[0] || g.create('focus');
+  g.autoSlot('interrogate', r.uid); g.autoSlot('interrogate', wit.uid);
+  assert.strictEqual(g.currentRecipe('interrogate').recipe.id, 'int_rival_weakness');
+  assert.ok(g.start('interrogate')); g.tick(g.verb('interrogate').duration + 0.01);
+  var next = r.data.next, found = g.verb('interrogate').story;
+  assert.ok(next && next.act, 'a move foreseen: ' + JSON.stringify(next));
+  assert.ok(/ at the next Bell/.test(found.text), 'and told: ' + found.text);
+  console.log('handoffs: ok');
+})();

@@ -972,8 +972,12 @@
     e.rivalThread(r, how);
     var rec = rivalTarget(e);
     r.data.eyes = rec ? rec.id : null;
+    // The weakness also shows their next move, the one the Bell will see them make (life.js
+    // rivalForesee); with nothing of yours in their hands yet, there is none to tell.
+    var next = e.rivalForesee ? e.rivalForesee() : null;
+    if (!r.data.next) next = null;
     return { title: 'A Weakness Found', kind: 'verb',
-      text: text + (rec ? ' ' + U.fill('They have been asking about {title}.', { title: rec.title }) : '') + ' ' +
+      text: text + (rec ? ' ' + U.fill('They have been asking about {title}.', { title: rec.title }) : '') + (next ? ' ' + next : '') + ' ' +
         'Now catch them at it: bring what they spoiled, a witness they paid or a case they took to Question, or answer their case in the Blood Court first.' };
   }
   function theirWork(ctx) { var c = ctx.slots.theirs; return c && ctx.e.rivalWork(c) ? c : null; }
@@ -1715,7 +1719,7 @@
       if (o.endow) return { title: o.label, text: e.endowed(p.data.order) };
       if (o.room) {
         e.s.rooms[o.room] = true;
-        e.pathGain('commissioner', 1, 'built the ' + o.label.replace(/^The /, ''));
+        e.pathGain('commissioner', 1, U.fill('built the {room}', { room: o.label.replace(/^The /, '') }));
         ctx.give('room', { label: CF.ROOMS[o.room].label, desc: CF.ROOMS[o.room].desc });
         return { title: 'The Watch-house: ' + o.label, text: 'Masons, lime dust and a blessing from the Bishop\'s chaplain. The ' + o.label + ' is open. ' + CF.ROOMS[o.room].desc };
       }

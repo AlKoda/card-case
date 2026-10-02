@@ -131,6 +131,9 @@
       over: null,
       stats: { convictions: 0, acquittals: 0, wrongful: 0, cold: 0, cases: 0, attacks: 0, sentHome: 0, reformed: 0, killedBy: null }, weekFaded: [],
     };
+    // The opening begins with a card or two, and they must be seen: its pile sits in the first
+    // row under the verbs (the abilities' own row), so a short landscape screen shows them.
+    if (opts.opening) s.pile = { x: 0, y: T.TOP };
     var e = new Engine(s);
     e.initPaths();
     // The questions kept outside the city's list (the calling's, the powers'): registered before the clock asks.
@@ -308,6 +311,8 @@
     if (!s.seals || typeof s.seals !== 'object') s.seals = {};
     // What each built room has done for you (round 8): an older save counts from now.
     if (!s.roomUse || typeof s.roomUse !== 'object') s.roomUse = {};
+    // The opening's asides, each told once (round 8, intro.js): an older save has told none.
+    if (s.intro && (!s.intro.asides || typeof s.intro.asides !== 'object')) s.intro.asides = {};
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
@@ -455,6 +460,8 @@
     var cue = opts && opts.cue;
     if (!cue && kind === 'danger') cue = storyCue(title);
     if (cue) entry.cue = cue;
+    // The interface knows harm by kind or by entry.harm: the same mark, said its way.
+    if (cue === 'harm') entry.harm = true;
     // The card the story is about, for the toast to take you to (the Fever, say).
     if (opts && opts.uid) entry.uid = opts.uid;
     // The Bell's week: whether the dues were met, and the stipend's new Coin
@@ -2316,6 +2323,11 @@
     if (!c) return { n: 0, m: m, weeksLeft: C.weeks };
     return { n: Math.max(0, this.rankRecord() - (c.record || 0)), m: m, weeksLeft: Math.max(0, c.from + C.weeks - s.week) };
   };
+  // The same count as the Bell's pane reads it: { closed, expect }, else null.
+  P.councilQuota = function () {
+    var ex = this.councilExpects();
+    return ex ? { closed: ex.n, expect: ex.m, weeksLeft: ex.weeksLeft } : null;
+  };
   P.councilCountWeek = function () {
     var s = this.s, C = CF.COUNCIL_COUNT, lines = [];
     if ((s.rank || 0) < C.rank) { s.councilCount = null; return lines; }
@@ -3472,7 +3484,7 @@
     var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
     var trait = cul && CF.TRAITS.filter(function (t) { return t.id === cul.trait; })[0];
     var out = {
-      id: rec.id + '-' + this.s.seed, title: rec.title, template: rec.template, district: rec.district, scene: rec.scene,
+      id: rec.id + '-' + this.s.seed, caseId: rec.id, title: rec.title, template: rec.template, district: rec.district, scene: rec.scene,
       victim: rec.victim, outcome: outcome, charged: charged || null, week: this.s.week, highProfile: !!rec.highProfile,
       culprit: cul ? { name: cul.name, role: cul.role, motive: cul.motive, trait: trait ? trait.desc : '' } : null,
       detective: this.s.detective, calling: this.s.calling,

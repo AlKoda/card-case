@@ -174,10 +174,10 @@
   // e.roads() lists the ways this run could end that it has touched, nearest
   // first: up to three roads (the wins and the Hangman's table) and, ahead of
   // them, the defeats the city has already warned of. Each is
-  //   { id, title, warn, frac, near, want }
+  //   { id, title, warn, frac, near, want, text }
   // `id` keys the ending's seal; `near` is a word ('Near', 'Halfway', 'A long
   // road'; for a warning 'Warned'), `want` one sentence of what it still
-  // wants, in words rather than counts. DOM-free: the journal draws it.
+  // wants, in words rather than counts (`text` is the same, as the journal reads it). DOM-free: the journal draws it.
   Callings.ROADS_HELP = 'There are many ways to end. The journal\'s Roads show the three you are nearest, and what each still wants.';
   Callings.NEAR = [[0.8, 'Near'], [0.5, 'Halfway'], [0, 'A long road']];
   function part(have, need) { return need > 0 ? Math.max(0, Math.min(1, have / need)) : 1; }
@@ -187,9 +187,9 @@
     var roads = [], warns = [];
     function road(id, parts, want) {
       var frac = parts.reduce(function (a, b) { return a + b; }, 0) / parts.length;
-      roads.push({ id: id, title: CF.ENDINGS[id].title, warn: false, frac: frac, near: nearWord(frac), want: want });
+      roads.push({ id: id, title: CF.ENDINGS[id].title, warn: false, frac: frac, near: nearWord(frac), want: want, text: want });
     }
-    function warn(id, want) { warns.push({ id: id, title: CF.ENDINGS[id].title, warn: true, frac: 1, near: 'Warned', want: want }); }
+    function warn(id, want) { warns.push({ id: id, title: CF.ENDINGS[id].title, warn: true, frac: 1, near: 'Warned', want: want, text: want }); }
     var top = this.rankCap ? this.rankCap() : CF.TOP_RANK, rep = m.reputation || 0;
     // The Burgomaster: the red gown, Standing for the Seat, three seals, and a quiet, clean city.
     if (s.calling === 'commissioner' && top >= CF.TOP_RANK) {
