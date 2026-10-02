@@ -28,7 +28,7 @@
     camera: 'cstory-04', prints: 'cstory-02', surveillance: 'cverb-08',
     gang: 'ccrime-05', syndicate: 'cherald2-07', insight: 'cstory-05', watchq: 'csign-01',
     order: 'ccrime-07', intel: 'cstory-03', thread: 'cstory-02', paperwork: 'ccourt-06', bribe: 'cverb-07', promotion: 'cstory-06', promo_inspector: 'cstory-06', promo_chief: 'cstory-06',
-    chair: 'cherald2-04', looseend: 'citem-07', ledger: 'cmyst-08', notes: 'citem2-02', writsale: 'ccrime-07', tribute: 'citem-03', dagger: 'citem2-07',
+    councilwrit: 'citem-08', chair: 'cherald2-04', looseend: 'citem-07', ledger: 'cmyst-08', notes: 'citem2-02', writsale: 'ccrime-07', tribute: 'citem-03', dagger: 'citem2-07',
     personnel: 'citem2-08', condemned: 'ccourt-07', atlarge: 'ccrime-08', trial: 'ccourt-04',
   };
   // A case: the crime as a card, and a stamp of its kind on the corner.
@@ -38,7 +38,9 @@
     eumenides: ['coccult-03', 'imyst-07'], pattern: ['coccult-06', 'icrime-05'], threedays: ['csign-06', 'icrime-02'], manhunt: ['ccrime-08', 'ilaw-18'],
     gang: ['ccrime-05', 'icrime-22'], syndicate: ['cherald2-07', 'icrime-19'], architect: ['csign-04', 'icrime-16'],
     // The weigh-house and its scales; the churchyard and the stone the searchers' cart goes to.
-    weights: ['cplace3-04', 'iplace2-04'], searchers: ['cplace2-06', 'iplace2-14'] };
+    weights: ['cplace3-04', 'iplace2-04'], searchers: ['cplace2-06', 'iplace2-14'],
+    // The light gulden's purse, the hanged man's hand, the receiver's crates on the quay.
+    mint: ['citem-02', 'icrime-21'], gloryhand: ['csign-08', 'icrime-19'], receiver: ['charb-04', 'icrime-10'] };
   var CASE_DEFAULT = ['csign-01', 'imark-16'];
   // The Harbourmaster's own case, where the rules open one: a ship at the quay and the harbour's stamp.
   var HARBOUR_CASE_ART = ['charb2-01', 'icrime-03'];
@@ -208,6 +210,7 @@
   // The Rival's dirty work on the table: a token they spoiled (data.tampered), a witness they paid (data.bribed),
   // a case they took (the case's rec.rival).
   function rivalDirt(e) {
+    if (typeof e.rivalWork === 'function') return e.tableCards().filter(function (c) { return e.rivalWork(c) && !e.unavailableReason(c); });
     return e.tableCards().filter(function (c) {
       var d = c.data || {}, rec = CF.CARDS[c.def].kind === 'case' && c.caseId ? e.caseRec(c.caseId) : null;
       return ((c.def === 'clue' && d.tampered) || (c.def === 'witness' && d.bribed) || (rec && rec.rival && rec.status === 'open')) && !e.unavailableReason(c);
@@ -250,6 +253,8 @@
     }
     if (card.def === 'rung') return full(RUNG_ART[card.data.rung] || 'ccourt-01', 'dark');
     if (FULLS[card.def]) return full(FULLS[card.def], tone);
+    // A patron's seal wears that patron's own (the crown, the church, the coins).
+    if (card.def === 'seal') return icon(PATRON_ART[card.data && card.data.patron] || 'cwax-04', tone);
     // A leaf from the Customs House wears the Customs House's seal: the crown over the anchor.
     if (card.def === customsLeafDef()) return full('charb2-06', tone);
     if (ICONS[card.def]) return icon(ICONS[card.def], card.def === 'wound' || card.def === 'burnout' || /^spent_/.test(card.def) ? 'red' : tone, /^spent_/.test(card.def));
@@ -636,6 +641,8 @@
   var HARM_TITLES = /^(A Watchman Dead|A Watchman Hurt|Wounded|Beaten on the Stair|Fever|Lost: .+)$/;
   function dangerWeight(entry) {
     var k = entry.kind;
+    // The rules mark how loud a bad story lands (engine story(): entry.cue): a body hurt, a need come, or quiet.
+    if (k === 'danger' && entry.cue) return entry.cue === 'harm' || entry.cue === 'need' || entry.cue === 'quiet' ? entry.cue : 'omen';
     if (k === 'harm' || (k === 'danger' && (entry.harm || HARM_TITLES.test(entry.title || '')))) return 'harm';
     if (k === 'need') return 'need';
     if (k !== 'danger') return null;
@@ -775,7 +782,7 @@
       var k = payload.kind, cue = k === 'week' ? null : storySound(payload);
       if (!UI.modal && cue) CF.Audio.play(cue);
       if (!UI.modal && dangerWeight(payload) === 'harm') { shake(); UI.haptic('harm'); }
-      if (k === 'case' || k === 'danger' || k === 'harm' || k === 'need' || k === 'major' || k === 'victory' || k === 'week') toast(strainUid ? { title: payload.title, text: payload.text, kind: k, uid: strainUid } : payload);
+      if (k === 'case' || k === 'danger' || k === 'harm' || k === 'need' || k === 'major' || k === 'victory' || k === 'week') toast(strainUid ? { title: payload.title, text: payload.text, parts: payload.parts, kind: k, uid: strainUid } : payload);
       if (k === 'case' && !UI.replaying && CF.Settings.get('pauseOnCase')) UI.setPaused(true);
     }
     if (type === 'complete') {
@@ -853,6 +860,14 @@
       // A need or an affliction about to take its due is heard once; a fading token or witness stays quiet.
       if (need || (fc && CF.CARDS[fc.def] && CF.CARDS[fc.def].kind === 'threat')) { CF.Audio.play('heartbeat'); UI.haptic([15, 90, 15]); }
     }
+    // The Fever half a minute from the end (engine 'pressing'): its story toasts with the card; this is the heartbeat
+    // and the mark on it, once.
+    if (type === 'pressing' && payload && payload.uid && !UI.replaying && UI.pressedUid !== payload.uid) {
+      UI.pressedUid = payload.uid;
+      CF.Audio.play('heartbeat'); UI.haptic([15, 90, 15]);
+      var pc = UI.e.card(payload.uid);
+      if (pc) UI.notice({ uid: pc.uid, label: cardTitle(pc), kind: 'danger', fresh: true });
+    }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
   }
 
@@ -885,7 +900,7 @@
     var wb = document.querySelector('#weekbar');
     if (wb) { wb.classList.remove('flash'); void wb.offsetWidth; wb.classList.add('flash'); setTimeout(function () { wb.classList.remove('flash'); }, 700); }
     // The stipend: the rules' own list where the story carries it, else the Coin this tick made.
-    var salary = payload.salary || (typeof UI.tickUid === 'number' ? e.cardsOf('funds', true).filter(function (c) { return c.uid >= UI.tickUid && c.loc && c.loc.t === 'table'; }).map(function (c) { return c.uid; }) : []);
+    var salary = payload.uids || payload.salary || (typeof UI.tickUid === 'number' ? e.cardsOf('funds', true).filter(function (c) { return c.uid >= UI.tickUid && c.loc && c.loc.t === 'table'; }).map(function (c) { return c.uid; }) : []);
     if (bell) salary.forEach(function (u) { markSpawn(u, bell); });
   }
 
@@ -897,7 +912,7 @@
     // is title-only (the window has the text); a story stays longer.
     t.style.setProperty('--bar', art(TOAST_BARS[entry.kind] || 'clabel-06'));
     t.style.setProperty('--icon', art(TOAST_ICONS[entry.kind] || 'ccirc-01'));
-    var text = entry.kind === 'verb' ? 'Tap to read' : entry.text || '';
+    var text = entry.kind === 'verb' ? 'Tap to read' : entry.parts ? storyText(entry) : entry.text || '';
     // The medallion is its own element, so a right-to-left bar can be mirrored under it while the icon is not.
     t.innerHTML = '<i class="t-icon"></i><b>' + esc(entry.title) + '</b><span>' + esc(text) + '</span>';
     var stay = TOAST_LONG[entry.kind] ? 9000 : 6000;
@@ -1247,7 +1262,7 @@
     if (UI.hintMode === 'plain' || UI.hintMode === 'gone') return;
     UI.hintMode = 'plain';
     // A player who came through the opening has dragged cards already: no lesson in it.
-    var seen = !!e.s.flags.stage;
+    var seen = !!e.s.flags.stage || !!(e.introTaughtControls && e.introTaughtControls());
     try { seen = seen || !!localStorage.getItem('casefile.hinted'); } catch (err) { /* ignore */ }
     hint.textContent = tr(PLAIN_HINT);
     hint.classList.toggle('gone', seen);
@@ -1366,8 +1381,10 @@
       '<p>' + esc(info.what) + '</p><p>' + esc(ends) + '</p>';
     if (key === 'pressure' && UI.e) {
       // The tally the broadsheet-sellers keep (engine weekTick): the count, the threshold, and the way to lower it.
-      var ue = UI.e, abroad = ue.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length + ue.countOf('gang') * 2 + ue.countOf('syndicate') * 3;
-      box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + esc(tr('Thieves abroad: {n}. At four the Market sings them, and the Crowd rises every other week (every week from Bailiff). A band counts two, the Coquille three.', { n: abroad })) + '</p>' +
+      // The rules' own count where they keep it (engine abroadTally()): the Coquille one, none while its case is open.
+      var ue = UI.e, tally = typeof ue.abroadTally === 'function' ? ue.abroadTally() : null;
+      var abroad = tally ? tally.n : ue.cardsOf('atlarge').filter(function (c) { return !c.data.band && !c.data.innocent; }).length + ue.countOf('gang') * 2 + ue.countOf('syndicate');
+      box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + esc(tr('Thieves abroad: {n}. At four the Market sings them, and the Crowd rises every other week (every week from Bailiff). A band counts two, the Coquille one.', { n: abroad })) + '</p>' +
         '<p>' + esc('A hue and cry takes a name off the wall: Work the Quarter in Explore, or Old Ghosts in Rest.') + '</p>');
     }
     // The city remembers (engine dreadFloor, where the rules keep one): Dread fades at the Bell, but not below a
@@ -1384,6 +1401,9 @@
       // Blocked only while it is: the Standing is there, the office is open, and the Council will not write.
       var held = e.promotionHeld && e.promotionHeld() && s.rank < rankCap(e) && s.meters.reputation >= CF.RANK_REP[s.rank + 1];
       if (held) box.insertAdjacentHTML('beforeend', '<p class="i-blocked">' + esc('Blocked: the Council\'s displeasure. Answer a commission, or let the Bishop speak for you.') + '</p>');
+      // The Standing is there, but the Council writes only for a record (engine recordShort(): cases still wanted).
+      var recShort = !held && s.rank < rankCap(e) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && typeof e.recordShort === 'function' ? e.recordShort() : 0;
+      if (recShort > 0) box.insertAdjacentHTML('beforeend', '<p class="i-blocked">' + esc(recShort === 1 ? tr('Held: the Council wants one more case answered first.') : tr('Held: the Council wants {n} more cases answered first.', { n: recShort })) + '</p>');
       box.insertAdjacentHTML('beforeend', favourRows(e));
     }
     box.classList.add('open', 'pinned');
@@ -1396,7 +1416,12 @@
     bishop: { boon: 'A bed in the Abbey hospital each week, a Weariness slept off', threat: 'The Inquisitor comes' },
     guild: { boon: 'Now and then the guilds\' fee for a quiet Market', threat: null },
   };
-  function favourWord(f) { return f >= 3 ? 'Your patron' : f >= 1 ? 'Warm' : f <= -1 ? 'Cold' : 'Neutral'; }
+  // A patron's favour in a word: the rules' own words where they keep them (patrons.js Pat.WORDS: Cold, Cool, ...).
+  function favourWord(f) {
+    var W = CF.Patrons && CF.Patrons.WORDS;
+    if (W && W.length) { for (var i = 0; i < W.length; i++) if (f <= W[i][0]) return W[i][1]; return 'Your patron'; }
+    return f >= 3 ? 'Your patron' : f >= 1 ? 'Warm' : f <= -1 ? 'Cold' : 'Neutral';
+  }
   function favourRows(e) {
     if (!CF.PATRONS || !e.favour) return '';
     var fv = e.favour(), html = '<div class="i-favour">';
@@ -1426,6 +1451,10 @@
     var s = e.s, m = s.meters, cap = rankCap(e), every = CF.FAVOUR_EVERY;
     if (s.rank < cap) return { max: CF.RANK_REP[s.rank + 1], line: 'At each threshold the Council writes: a new office, more cases, a bigger stipend, and the powers that come with the rank.' };
     if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && m.reputation < CF.COMMISSIONER_REP) return { max: CF.COMMISSIONER_REP, line: tr('At {n} Standing the Council offers you the Seat.', { n: CF.COMMISSIONER_REP }) };
+    // The rules' own next writ (engine favourNext(): the Standing of the next Writ of the Council).
+    var fav = null;
+    try { fav = typeof e.favourNext === 'function' ? e.favourNext() : null; } catch (err) { fav = null; }
+    if (fav && typeof fav.at === 'number') return { max: fav.at, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: CF.FAVOUR_STEP || every || 4 }) };
     if (typeof every === 'number' && every > 0) {
       var step = (s.flags && typeof s.flags.favourStep === 'number' ? s.flags.favourStep : 0) + 1;
       return { max: CF.RANK_REP[cap] + every * step, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: every }) };
@@ -1508,6 +1537,7 @@
     return CF.cardFace(card, e.labelOf(card)).text;
   }
   UI.cardTitle = cardTitle;
+  UI.cardPicture = cardPicture;
 
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
@@ -2520,7 +2550,11 @@
       var wk = ((Math.max(1, e.s.week || 1) - 1) % 52) + 1;
       se = CF.SEASONS.filter(function (x) { return wk >= x.from && wk <= x.to; })[0] || null;
     }
-    return se && se.label ? se : null;
+    if (!se) return null;
+    // The engine's season (engine.js CF.SEASONS) is named by `name`; its line already opens with that name, and
+    // `effect` says what it changes, where it changes anything.
+    var label = se.label || se.name;
+    return label ? { id: se.id, label: label, line: se.line || null, effect: se.effect || null, named: !!se.name && !se.label } : null;
   }
   UI.seasonNow = seasonNow;
   // The week bar's tooltip names the week, and the season with it.
@@ -2641,11 +2675,14 @@
   function closeAllWindows() { UI.openVerbs.slice().forEach(closeWindow); }
   UI.openWindow = openWindow;
 
-  // The Council's fortnightly count where the rules keep one (e.councilQuota(): { closed, expect }), else null.
+  // The Council's fortnightly count where the rules keep one, else null: the engine's councilExpects() gives
+  // { n answered, m expected, weeksLeft } from Bailiff (councilQuota()'s { closed, expect } is read the same way).
   function councilQuota(e) {
-    if (typeof e.councilQuota !== 'function') return null;
-    var q;
-    try { q = e.councilQuota(); } catch (err) { q = null; }
+    var q = null;
+    try {
+      if (typeof e.councilExpects === 'function') { var x = e.councilExpects(); q = x ? { closed: x.n, expect: x.m } : null; }
+      else if (typeof e.councilQuota === 'function') q = e.councilQuota();
+    } catch (err) { q = null; }
     if (!q || typeof q.expect !== 'number' || q.expect <= 0) return null;
     return { closed: Math.max(0, q.closed | 0), expect: Math.min(8, q.expect | 0) };
   }
@@ -2723,7 +2760,13 @@
     if (def.auto) {
       // The season first, where the rules keep one: the week, the season's name and its line.
       var season = seasonNow(e);
-      if (season) pane.appendChild(h('p', 'vw-desc vw-season', season.line ? tr('Week {n}. {season}: {line}', { n: e.s.week, season: season.label, line: season.line }) : tr('Week {n}. {season}', { n: e.s.week, season: season.label })));
+      if (season) {
+        // The rules' line names its season already ('Lent: fish on every table...'): it stands as the season.
+        var sline = season.named && season.line ? tr('Week {n}. {season}', { n: e.s.week, season: tr(season.line) })
+          : season.line ? tr('Week {n}. {season}: {line}', { n: e.s.week, season: season.label, line: season.line }) : tr('Week {n}. {season}', { n: e.s.week, season: season.label });
+        pane.appendChild(h('p', 'vw-desc vw-season', sline));
+        if (season.effect) pane.appendChild(h('p', 'vw-desc vw-season', tr(season.effect)));
+      }
       pane.appendChild(h('p', 'vw-desc', def.desc));
       var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
       if (wk) pane.appendChild(storyBox(wk));
@@ -3096,19 +3139,27 @@
   // Story text types itself out at the player's chosen text speed.
   var typed = typeof WeakSet !== 'undefined' ? new WeakSet() : { has: function () { return true; }, add: function () {} };
   UI.typing = null;
+  // A story's words in the reader's language: a story told in sentences (entry.parts) is read one sentence at a
+  // time, so each finds its own key; else the whole text.
+  function storyText(story) {
+    if (!story) return '';
+    if (story.parts && story.parts.length) return story.parts.map(function (x) { return tr(x); }).join(' ');
+    return tr(story.text || '');
+  }
+  UI.storyText = storyText;
   function storyBox(story) {
     var d = h('div', 'story');
     d.innerHTML = '<h5>' + esc(story.title) + '</h5>';
     var p = h('p');
     d.appendChild(p);
     if (typed.has(story) || CF.Settings.typeRate() === Infinity || !story.text) {
-      p.textContent = tr(story.text);
+      p.textContent = storyText(story);
       typed.add(story);
     } else {
       if (!UI.typing || UI.typing.story !== story) UI.typing = { story: story, t0: performance.now() };
       UI.typing.el = p;
       d.title = tr('Click to show all');
-      d.addEventListener('click', function () { typed.add(story); p.textContent = tr(story.text); UI.typing = null; });
+      d.addEventListener('click', function () { typed.add(story); p.textContent = storyText(story); UI.typing = null; });
       advanceTyping();
     }
     return d;
@@ -3117,7 +3168,7 @@
     var t = UI.typing;
     if (!t || !t.el) return;
     var n = Math.floor(((performance.now() - t.t0) / 1000) * CF.Settings.typeRate());
-    var full = tr(t.story.text);
+    var full = storyText(t.story);
     if (n >= full.length) { t.el.textContent = full; typed.add(t.story); UI.typing = null; return; }
     t.el.textContent = full.slice(0, n);
   }
@@ -3165,9 +3216,13 @@
     try { list = e.roads() || []; } catch (err) { list = []; }
     if (!(list instanceof Array)) return [];
     return list.map(function (r) {
-      if (!r || !r.id || typeof r.text !== 'string') return null;
+      if (!r || !r.id) return null;
+      // The rules' road is how near it is in a word and what it still wants in a sentence (callings.js roads()).
+      var text = typeof r.text === 'string' ? tr(r.text, r.vars || undefined)
+        : typeof r.want === 'string' ? (r.near ? glue('{near} · {want}', { near: tr(r.near), want: tr(r.want) }) : tr(r.want)) : null;
+      if (!text) return null;
       var end = (CF.ENDINGS || {})[r.id] || {};
-      return { id: r.id, title: tr(r.title || end.title || r.id), text: tr(r.text, r.vars || undefined), warn: !!r.warn, art: (UI.ENDING_ART || {})[r.id] || 'ccirc-01' };
+      return { id: r.id, title: tr(r.title || end.title || r.id), text: text, warn: !!r.warn, art: (UI.ENDING_ART || {})[r.id] || 'ccirc-01' };
     }).filter(Boolean).slice(0, 4);
   }
   UI.journalRoads = journalRoads;
@@ -3201,7 +3256,7 @@
     }
     j.slice(0, 120).forEach(function (x) {
       var d = h('div', 'journal-entry k-' + x.kind);
-      d.innerHTML = '<i class="j-icon" style="background-image:' + art(TOAST_ICONS[x.kind] || 'ccirc-01') + '"></i><div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
+      d.innerHTML = '<i class="j-icon" style="background-image:' + art(TOAST_ICONS[x.kind] || 'ccirc-01') + '"></i><div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(storyText(x)) + '</p>';
       pane.appendChild(d);
     });
   }
@@ -3251,6 +3306,9 @@
   // it describes somebody else, it is off what the case turns on, or it is plain proof.
   function tokenStanding(a, accused, tok) {
     if (!a || !accused || !tok || tok.def !== 'clue') return null;
+    // The rules' own word on each laid token (charge.js assessCharge standing), where they give it.
+    var rs = a.standing && a.standing[tok.uid];
+    if (rs && rs.id) return rs.id === 'else' ? 'other' : STANDING[rs.id] ? rs.id : null;
     if ((a.contradicting || []).some(function (c) { return c.uid === tok.uid; })) return 'other';
     if (!a.rec || tok.caseId !== a.rec.id) return 'off';
     var sus = UI.e.suspectOf(accused), d = tok.data || {};
@@ -3266,7 +3324,7 @@
   var TAG_WORDS = { biology: 'Bodies and traces', physical: 'Bodies and traces', records: 'Papers', surfaces: 'Surfaces', watching: 'Watching' };
   function tagWords(tags) {
     var out = [];
-    tags.forEach(function (t) { var w = TAG_WORDS[t] ? tr(TAG_WORDS[t]).toLowerCase() : t; if (out.indexOf(w) < 0) out.push(w); });
+    tags.forEach(function (t) { var l = (CF.TAGS && CF.TAGS[t] && CF.TAGS[t].label) || TAG_WORDS[t]; var w = l ? tr(l).toLowerCase() : t; if (out.indexOf(w) < 0) out.push(w); });
     return out.join(' / ');
   }
 
@@ -3323,7 +3381,10 @@
       if (harbourTemplate(rec.template)) lines.push('Convict the Harbourmaster himself, and no examiner comes again');
       var ctpl = CF.CASE_TEMPLATES && CF.CASE_TEMPLATES[rec.template];
       // The seizure only comes with the Inquisitor here or the Bishop not warm.
-      if (ctpl && ctpl.heresy) {
+      // The rules say it where they can (patrons.js heresyWatch: the same gate and week the seizure keeps).
+      var hw = typeof e.heresyWatch === 'function' ? e.heresyWatch(rec) : undefined;
+      if (hw) lines.push(hw.vars ? tr(hw.line, hw.vars) : hw.line);
+      else if (hw === undefined && ctpl && ctpl.heresy) {
         if (e.s.flags.inquisitor || !((e.s.favour || {}).bishop > 0)) lines.push(tr('Smells of heresy: the Inquisitor\'s after week {n}', { n: (rec.week || 0) + 2 }));
         else lines.push('The Bishop has kept the Dominicans off this one.');
       }
@@ -3403,7 +3464,9 @@
       lines.push(tr('Custom: {rung}', { rung: CF.Sentence.rungLabel(card.data.template, card.data.custom) }));
       if (card.data.penitent) lines.push('Penitent');
       // The commission, at the sentence: what the patron asked for, read off the rungs that wear their seal.
-      var asks = patronAsks(card);
+      // The rules write the patron's ask into the Condemned's own description (sentence.js condemn: data.patronWants);
+      // the line is said here only for a card that does not carry it.
+      var asks = card.data && card.data.patronWants ? null : patronAsks(card);
       if (asks) lines.push(tr('{patron} asks for: {list}', { patron: tr(CF.PATRONS[asks.who].label), list: orList(asks.names.map(function (x) { return tr(x); })) }));
     } else if (card.def === 'rung') {
       lines.push((CF.RUNGS[card.data.rung] || {}).cost || '');
@@ -3440,7 +3503,7 @@
           lines.push('The next thread: catch them at it. Question them with a token they spoiled, a witness they paid, or the case they took');
           var rdirt = rivalDirt(e)[0];
           if (rdirt) lines.push(tr('On your table: {label}', { label: e.labelOf(rdirt) }));
-          if (typeof rd.heatWeek === 'number') lines.push(tr('The thread goes cold after week {n}', { n: rd.heatWeek + 3 }));
+          if (typeof rd.heatWeek === 'number') lines.push(tr('The thread goes cold after week {n}', { n: rd.heatWeek + (CF.RIVAL_THREAD_WEEKS || 3) }));
         } else lines.push('Question with Wit, or shadow in Explore with Instinct, for a first thread');
       } else if (rway === 'investigate') lines.push('The next thread: shadow them in Explore with Instinct');
       else if (rway === 'interrogate') lines.push('The next thread: Question them with Wit');

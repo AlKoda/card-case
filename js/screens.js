@@ -191,8 +191,10 @@
   var OPENED = 'casefile.archive.opened.v1';
   var PER_PAGE = 8;
   // Each case wears its own crime card; the outcome is a wax in the corner.
-  var OUTCOME_WAX = { convicted: 'cwax-03', wrongful: 'cwax-01', acquitted: 'cok-02', cold: 'cwax-05', settled: 'cok-01', court: 'cwax-02', inquisitor: 'cwax-01' };
-  var OUTCOMES = { convicted: 'Answered', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Unanswered', settled: 'Settled', court: 'Closed by the Court', inquisitor: 'Taken by the Inquisitor' };
+  // A case the Rival closed before you (life/engine rivalCloses) and one the Council took off your hands with its writ.
+  var OUTCOME_WAX = { convicted: 'cwax-03', wrongful: 'cwax-01', acquitted: 'cok-02', cold: 'cwax-05', settled: 'cok-01', court: 'cwax-02', inquisitor: 'cwax-01', rival: 'cwax-02', council: 'cwax-04' };
+  var OUTCOMES = { convicted: 'Answered', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Unanswered', settled: 'Settled', court: 'Closed by the Court', inquisitor: 'Taken by the Inquisitor',
+    rival: 'Answered by the Rival', council: 'Taken by the Council' };
 
   function readList(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (err) { return []; } }
   function writeList(key, list) { try { localStorage.setItem(key, JSON.stringify(list)); } catch (err) { /* storage unavailable */ } }
