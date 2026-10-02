@@ -433,7 +433,14 @@
     id: 'inv_search', verb: 'investigate', label: 'Search the Scene', duration: function (ctx) { return ctx.has('teammate') ? 30 : 40; },
     preview: function (ctx) {
       var rec = ctx.caseOf(ctx.primary);
+      var trail = rec && ctx.e.trailFor(rec);
+      if (trail && trail.searchedOut) return trail.neighbour ? U.fill('Nothing more is left at {scene} but a neighbour\'s word.', { scene: rec.scene })
+        : U.fill('Nothing more is left at {scene}. Another search only feeds your Obsession.', { scene: rec.scene });
       return 'Go over ' + (rec ? rec.scene : 'the scene') + ' inch by inch. Instruments and watchmen make what you find stronger. Wit is thorough; Instinct follows hunches about people.';
+    },
+    danger: function (ctx) {
+      var rec = ctx.caseOf(ctx.primary);
+      return rec && ctx.e.trailFor(rec).searchedOut ? 'Obsession +1' : null;
     },
     requires: ['case'],
     run: function (ctx) {
@@ -802,6 +809,13 @@
           ctx.consume(sc);
           return { title: 'Cleared: ' + sus.name, text: U.fill(U.pick(ctx.rng, P.suspectAlibi), vars) };
         }
+        // From a Sworn Examiner's cases the innocent have reasons too: a first examination
+        // may bring their own motive, and the story on the next. The kind of answer names nobody.
+        if (!again && !sus.alibiGiven && !sus.motiveGiven && ctx.rng() < 0.35) {
+          sus.motiveGiven = true;
+          ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Motive: ' + sus.name, text: sus.motive, aspects: { motive: 2 }, about: sus.key }, helpers)));
+          return { title: 'A Reason', text: U.fill(U.pick(ctx.rng, P.suspectEmpathy), vars) };
+        }
         if (!sus.alibiGiven) ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
           aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key, about: sus.key }, helpers, { noMisread: true })));
         sus.alibiGiven = true;
@@ -830,8 +844,10 @@
         return { title: 'Nothing Shaken Loose', text: U.fill(U.pick(ctx.rng, P.suspectBluffFail), vars) };
       }
 
-      // Asked again, the culprit has a story too, once. It will not hold.
-      if (again && !sus.alibiGiven) {
+      // The culprit has a story too, once. It will not hold. Asked again, they tell it; from a
+      // Sworn Examiner's cases, half the time they tell it first, and the reason comes after.
+      var storyFirst = !again && e.s.rank >= 1 && !sus.alibiGiven && ctx.rng() < 0.5;
+      if ((again || storyFirst) && !sus.alibiGiven) {
         sus.alibiGiven = true;
         if (!sus.alibi) sus.alibi = vars.alibi;
         vars.alibi = sus.alibi;
@@ -964,19 +980,34 @@
     },
   });
 
-  // Resting. Funds buy a proper night off: a third of the time.
-  function rest(id, defId, label, dur, text, preview) {
+  // Resting. Funds buy a proper night off: a third of the time. `all` lets
+  // one rest take every like card lying on the table: { unpaid: n, paid: n }
+  // is how many in all (the primary among them) without and with Coin.
+  function rest(id, defId, label, dur, text, preview, all) {
+    var noun = CF.CARDS[defId] ? CF.CARDS[defId].label : defId;
+    var others = function (ctx) {
+      return all ? ctx.e.cardsOf(defId).filter(function (c) { return c.loc && c.loc.t === 'table' && c !== ctx.primary; }) : [];
+    };
+    var takes = function (ctx) { return all ? (ctx.has('funds') ? all.paid : all.unpaid) : 1; };
+    var allLine = function (ctx) {
+      var n = others(ctx).length + 1;
+      if (n < 2) return '';
+      if (n > takes(ctx)) return ' ' + U.fill('{n} {card}; Coin takes every one.', { n: takes(ctx), card: noun });
+      return ' ' + U.fill('Every {card} on the table.', { card: noun });
+    };
     R.push({
       id: id, verb: 'reflect', label: function (ctx) { return ctx.has('funds') ? label + ' (Paid)' : label; },
       duration: function (ctx) { return ctx.has('funds') ? Math.ceil(dur / 3) : dur; },
-      preview: function (ctx) { return ctx.has('funds') ? preview + ' With silver in your pocket it goes quicker: a good dinner, a clean bed at the Swan, a barber-surgeon who does not ask questions.' : preview + ' (Add Coin to make it quicker.)'; },
+      preview: function (ctx) { return (ctx.has('funds') ? preview + ' With silver in your pocket it goes quicker: a good dinner, a clean bed at the Swan, a barber-surgeon who does not ask questions.' : preview + ' (Add Coin to make it quicker.)') + allLine(ctx); },
       requires: { primary: defId },
-      effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: label, text: text } }],
+      effects: [{ call: function (ctx) { others(ctx).slice(0, Math.max(0, takes(ctx) - 1)).forEach(ctx.consume); } },
+        { consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: label, text: text } }],
     });
   }
-  rest('ref_fatigue', 'fatigue', 'Sleep', 20, 'You sleep from vespers to terce and wake up hungry. The world is still there. So are you.', 'Close the shutters. Bar the door. Sleep.');
+  // One Sleep for every Weariness on the table (two without Coin), one Let It Go for every Obsession.
+  rest('ref_fatigue', 'fatigue', 'Sleep', 20, 'You sleep from vespers to terce and wake up hungry. The world is still there. So are you.', 'Close the shutters. Bar the door. Sleep.', { unpaid: 2, paid: Infinity });
   rest('ref_burnout', 'burnout', 'A Long Rest', 60, 'A week of nothing. Long walks outside the walls. Small beer and bread. Your hands stop shaking on the fourth day. On the seventh you want to go back to the Watch-house, which is either a good sign or a very bad one.', 'Take time away. Real time. The cases will wait. Some of them will not.');
-  rest('ref_obsession', 'obsession', 'Let It Go', 30, 'You take the papers off the wall. You go to the players in the inn-yard. You do not think about the case for three whole hours.', 'Put the case down for a night. Just one.');
+  rest('ref_obsession', 'obsession', 'Let It Go', 30, 'You take the papers off the wall. You go to the players in the inn-yard. You do not think about the case for three whole hours.', 'Put the case down for a night. Just one.', { unpaid: Infinity, paid: Infinity });
   // The needs: hunger wants Coin, sickness wants Coin or the Physician's Case, stress wants time (or Coin for a quick one).
   R.push({
     id: 'ref_hunger', verb: 'reflect', label: 'Eat', duration: 8,
@@ -1084,6 +1115,22 @@
       e.meter('retaliation', 2);
       if (ctx.rng() < 0.3) { e.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts.'); return { title: 'They Came Anyway', text: 'The Order keeps its word. Not all of it, this time.' }; }
       return { title: 'Endured', text: 'You bar the door and change the servant and sleep, when you sleep, with a blade. Nothing comes. For now.' };
+    },
+  });
+  // The dagger's second door: a watchman on your stair through the nights it
+  // takes. It endures like the warning endured, without the blade on the stair.
+  R.push({
+    id: 'duty_dagger_guard', verb: 'duty', priority: 30, label: 'Double the Guard', duration: 20,
+    preview: 'A watchman sleeps across your door and another walks the stair. The Order sees it, and waits.',
+    danger: 'Dread +1 · Vendetta +2',
+    requires: { primary: 'dagger' },
+    blocked: function (ctx) { return ctx.has('teammate') ? null : 'Someone has to stand at the door: add a watchman.'; },
+    run: function (ctx) {
+      var e = ctx.e;
+      ctx.consume(ctx.primary);
+      e.meter('dread', 1);
+      e.meter('retaliation', 2);
+      return { title: 'The Guard Doubled', text: 'Two watchmen on your stair, turn and turn about, and a third at the street door. Nothing comes. For now.' };
     },
   });
   R.push({
@@ -1344,6 +1391,13 @@
       if (!rec) return '';
       var a = e.assessCharge(ctx.primary, slotClues(ctx, ['c1', 'c2', 'c3', 'c4']));
       return 'The charge is ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '. ' + CF.Charge.TIERS[a.tier].text;
+    },
+    // The first case of the office teaches the tiers: a charge on Indicia walks.
+    danger: function (ctx) {
+      var rec = ctx.caseOf(ctx.primary);
+      if (!rec || !rec.opening) return null;
+      var a = ctx.e.assessCharge(ctx.primary, slotClues(ctx, ['c1', 'c2', 'c3', 'c4']));
+      return a && a.tier === 'weak' ? 'The first case of your office. On Indicia the Court will let them go.' : null;
     },
     detail: function (ctx) {
       var a = ctx.e.assessCharge(ctx.primary, slotClues(ctx, ['c1', 'c2', 'c3', 'c4']));

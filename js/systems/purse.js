@@ -14,7 +14,9 @@
   var P = CF.Engine.prototype;
 
   var Purse = (CF.Purse = {});
-  Purse.THIEFTAKER = { purse: 6, wrongful: 1, standing: 6, rank: 2 };
+  // The corrupt road is a road: the office of a Magistrate, a name in the
+  // chamber, and the thief-takers' settlements walked more than once.
+  Purse.THIEFTAKER = { purse: 9, wrongful: 1, standing: 12, rank: 3, settled: 2 };
   Purse.OLDBAILEY = { purse: 6, wrongful: 3, frames: 2, debt: 4 };
 
   // A patrician wants a rival's house searched. The letter waits on the desk.
@@ -86,7 +88,16 @@
     return lines;
   };
 
-  // The two ends of the corrupt road.
+  // Whether the Thief-taker General's counts hold now (for the warning, the
+  // ending and the interface).
+  P.thieftakerMet = function () {
+    var s = this.s, cnt = s.counts || {}, st = s.stats || {}, T = Purse.THIEFTAKER;
+    return (cnt.purse || 0) >= T.purse && (st.wrongful || 0) <= T.wrongful && s.meters.reputation >= T.standing &&
+      s.rank >= T.rank && (st.settled || 0) >= T.settled;
+  };
+
+  // The two ends of the corrupt road. The Thief-taker General is told a
+  // week before it lands, as every count ending is (societies.js).
   P.checkPurseEndings = function () {
     var s = this.s, cnt = s.counts || {}, st = s.stats;
     if (s.over) return;
@@ -95,8 +106,12 @@
       this.gameOver('oldbailey');
       return;
     }
-    if (purse >= Purse.THIEFTAKER.purse && st.wrongful <= Purse.THIEFTAKER.wrongful && s.meters.reputation >= Purse.THIEFTAKER.standing && s.rank >= Purse.THIEFTAKER.rank) {
-      this.gameOver('thieftaker');
+    if (!this.thieftakerMet()) return;
+    if (!s.flags.thieftakerWarned) {
+      s.flags.thieftakerWarned = true;
+      this.story('The General', 'The fences of the Free City have started to call you General.', 'major');
+      return;
     }
+    this.gameOver('thieftaker');
   };
 })(typeof window !== 'undefined' ? window : globalThis);

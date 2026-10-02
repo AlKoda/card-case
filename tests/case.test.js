@@ -287,3 +287,53 @@ function jointure(d) {
   d.charge([b, j, who, d.byLabel(/Physician's Note/)[0]]);
   console.log('poison, the Book and the Jointure: convicted\n  ' + d.log.join('\n  '));
 })();
+
+// The first examination is no oracle: from a Sworn Examiner's cases an innocent may give a reason
+// first and a culprit their story first, so the kind of answer does not name the guilty. At rank 0
+// the early cases stay easy: the innocent's word clears them and the culprit has a reason.
+(function firstAnswer() {
+  var innocentMotive = 0, culpritAlibi = 0, matched = 0, seen = 0;
+  function first(seed, rank) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    e.s.rank = rank;
+    if (e.s.intro) e.s.intro.finished = true;
+    e.s.verbs.interrogate.unlocked = true;
+    var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+    var rec = e.caseRec(kase.caseId);
+    var res = [];
+    rec.suspects.forEach(function (sus) {
+      var sc = e.revealSuspect(rec, null, { key: sus.key });
+      if (!sc) return;
+      e.tableCards().filter(function (c) { return c.def === 'focus' || c.def === 'spent_focus'; }).forEach(function (c) { e.remove(c); });
+      var wit = e.create('focus');
+      assert.ok(e.autoSlot('interrogate', sc.uid) && e.autoSlot('interrogate', wit.uid));
+      assert.strictEqual(e.currentRecipe('interrogate').recipe.id, 'int_suspect');
+      assert.ok(e.start('interrogate'));
+      e.tick(e.verb('interrogate').duration + 0.01);
+      var v = e.verb('interrogate');
+      var out = v.out.map(function (u) { return e.card(u); }).filter(function (c) { return c.def === 'clue'; });
+      var title = v.story ? v.story.title : '';
+      e.collect('interrogate');
+      var kind = out.some(function (c) { return c.data.alibi; }) ? 'alibi' : out.some(function (c) { return /^Motive: /.test(c.label); }) ? 'motive' : /^Cleared/.test(title) ? 'cleared' : 'other';
+      res.push({ guilty: sus.guilty, kind: kind });
+    });
+    return res;
+  }
+  for (var seed = 0; seed < 40; seed++) {
+    first(3000 + seed, 1).forEach(function (r) {
+      seen++;
+      if (!r.guilty && r.kind === 'motive') innocentMotive++;
+      if (r.guilty && r.kind === 'alibi') culpritAlibi++;
+      if ((r.guilty && r.kind === 'motive') || (!r.guilty && r.kind === 'alibi')) matched++;
+    });
+  }
+  assert.ok(innocentMotive >= 5, 'an innocent sometimes gives a reason first: ' + innocentMotive + ' of ' + seen);
+  assert.ok(culpritAlibi >= 5, 'a culprit sometimes gives a story first: ' + culpritAlibi + ' of ' + seen);
+  assert.ok(matched < seen, 'the kind of answer does not match guilt every time');
+  // Rank 0: as before.
+  for (var s0 = 0; s0 < 10; s0++) first(3100 + s0, 0).forEach(function (r) {
+    if (r.guilty) assert.strictEqual(r.kind, 'motive', 'at rank 0 the culprit gives a reason');
+    else assert.ok(r.kind === 'cleared' || r.kind === 'other', 'at rank 0 the innocent is taken at their word: ' + r.kind);
+  });
+  console.log('first examination: innocent reasons ' + innocentMotive + ', culprit stories ' + culpritAlibi + ' of ' + seen + ': ok');
+})();

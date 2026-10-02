@@ -64,7 +64,8 @@ function step(e, temper) {
 
   // Rest first.
   var restCard = of(e, 'burnout')[0] || of(e, 'tunnel')[0] || (fatigue >= 1 ? of(e, 'fatigue')[0] : null) || (of(e, 'obsession').length >= 2 ? of(e, 'obsession')[0] : null);
-  if (restCard) tryRun(e, 'reflect', [restCard]);
+  // A Coin buys the quick night when there is silver to spare, as a player would pay.
+  if (restCard) tryRun(e, 'reflect', funds.length >= 3 ? [restCard, funds[0]] : [restCard]);
   // Spent Health, Wit or Instinct: a moment in Rest brings it back.
   var spent = of(e, 'spent_focus')[0] || of(e, 'spent_health')[0] || of(e, 'spent_instinct')[0];
   if (spent && !of(e, spent.def === 'spent_focus' ? 'focus' : spent.def === 'spent_health' ? 'health' : 'instinct').length) tryRun(e, 'reflect', [spent]);
@@ -93,11 +94,15 @@ function step(e, temper) {
   if (temper === 'corrupt') {
     if (of(e, 'writsale')[0]) tryRun(e, 'duty', [of(e, 'writsale')[0]]);
     if (of(e, 'tribute')[0]) tryRun(e, 'duty', [of(e, 'tribute')[0]]);
+    // The corrupt road is walked through the Thief-takers' Office: petition for it first.
+    var tto = of(e, 'order').filter(function (o) { return o.data.order === 'thieftakers'; })[0];
+    if (tto && funds.length >= CF.costOf(tto)) tryRun(e, 'duty', [tto].concat(funds.slice(0, CF.costOf(tto))));
     if (s.rooms.thieftakers && funds.length >= 4) { var urgent = of(e, 'case').sort(function (a, b) { return a.life - b.life; })[0]; if (urgent && urgent.life < 90) tryRun(e, 'duty', [urgent, funds[0], funds[1]]); }
     if (of(e, 'syndicate')[0] && !(s.court && s.court.stance) && s.rank >= 2) tryRun(e, 'investigate', [of(e, 'syndicate')[0], of(e, 'focus')[0]]);
   }
   var dagger = of(e, 'dagger')[0];
-  if (dagger) tryRun(e, 'reflect', funds.length >= 4 ? [dagger, funds[0], funds[1]] : [dagger]);
+  // Rest busy: the second door, a watchman doubling the guard in Attend.
+  if (dagger && !tryRun(e, 'reflect', funds.length >= 4 ? [dagger, funds[0], funds[1]] : [dagger]) && team[0]) tryRun(e, 'duty', [dagger, team[0]]);
 
   // Duty: career, then money.
   var career = of(e, 'promotion')[0] || of(e, 'promo_inspector')[0] || of(e, 'promo_chief')[0] || of(e, 'chair')[0];
@@ -189,7 +194,7 @@ var GAMES = +process.argv[2] || 45;
 var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
-var earlyCoquille = 0;
+var earlyCoquille = 0, drifts = {};
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
@@ -209,6 +214,11 @@ for (var g = 0; g < GAMES; g++) {
       !e.s.journal.some(function (j) { return j.title === 'The Coquille' && /^The bands have stopped/.test(j.text); })) early = true;
   }
   if (early) earlyCoquille++;
+  // The calling drifts only when the work has really changed: Power no longer grows from promotions and calm
+  // weeks for a run that does not want it.
+  drifts[calling] = drifts[calling] || { runs: 0, drifted: 0 };
+  drifts[calling].runs++;
+  if (e.s.journal.some(function (j) { return j.title === 'Your Calling Changes'; })) drifts[calling].drifted++;
   insights += Object.keys(e.s.insights || {}).length;
   needsMet += e.s.stats.needsMet || 0;
   if (reached2) rank2By20++;
@@ -249,6 +259,7 @@ console.log('by origin', JSON.stringify(byWho));
 console.log('counts per game', JSON.stringify(Object.keys(counts).reduce(function (o, k) { o[k] = +(counts[k] / GAMES).toFixed(2); return o; }, {})));
 console.log('recipes never run:', CF.RECIPES.map(function (r) { return r.id; }).filter(function (id) { return !seen[id]; }).join(', ') || 'none');
 console.log('insights earned', insights, '| bands formed', bands.length, '| Bailiff by week 20 in', rank2By20, 'games');
+console.log('callings drifted', JSON.stringify(drifts));
 console.log('per game: needs met', (needsMet / GAMES).toFixed(2), '| abilities lost', (lost / GAMES).toFixed(2), '| choices answered', (choices / GAMES).toFixed(2));
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
 // The city teaches: Insights are earned in play.
@@ -273,6 +284,10 @@ assert.ok(dismissed < GAMES / 2, 'dismissed in ' + dismissed + ' of ' + GAMES);
 // bands build it themselves), and no calling is dismissed by the Crowd in most of its games. The
 // bot never goes in Disguise, so the bound is a loose one.
 assert.strictEqual(earlyCoquille, 0, 'a Crusader met the Coquille below Bailiff in ' + earlyCoquille + ' games');
+// The calling holds: at most one run in eight drifts away from what the player chose.
+Object.keys(drifts).forEach(function (cl) {
+  assert.ok(drifts[cl].drifted * 8 <= Math.max(8, drifts[cl].runs), cl + ' drifted in ' + drifts[cl].drifted + ' of ' + drifts[cl].runs);
+});
 ['comm', 'mast', 'crus'].forEach(function (cl) {
   var played = Object.keys(endings).reduce(function (n, k) { return n + (k.indexOf(cl + ':') === 0 ? endings[k] : 0); }, 0);
   var out = endings[cl + ':dismissed'] || 0;

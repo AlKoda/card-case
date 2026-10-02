@@ -68,18 +68,22 @@
     if (this.countOf('dagger') || this.rng() >= Soc.MOUNTAIN.chance) return lines;
     this.create('dagger', {
       label: 'A Dagger on the Pillow',
-      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Rest it with Coin to buy a season; contemplate it alone to endure. Let it lie and they come back.',
+      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Rest it with two Coin to buy six weeks, or alone to endure; or Attend it with a watchman to double the guard. Let it lie and they come back.',
       data: { week: s.week },
     });
     lines.push('There was a dagger on your pillow this morning. The door was barred. Somebody wants you to know what they can do.');
     return lines;
   };
-  // The warning ignored.
+  // The warning ignored. The first time they come for blood, not a life, and
+  // say so; only a dagger ignored after that may be the end (warned, then ended).
   P.mountainStrikes = function () {
     var s = this.s;
-    if (this.rng() < 0.5) { this.gameOver('dagger'); return; }
+    if (s.flags.mountainIgnored && this.rng() < 0.5) { this.gameOver('dagger'); return; }
+    var first = !s.flags.mountainIgnored;
+    s.flags.mountainIgnored = true;
     this.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts. The Order of the Mountain keeps its word.');
     this.meter('dread', 1);
+    if (first && !s.over) this.story('They Came Anyway', 'The Order of the Mountain kept its word, and let you live to hear it. The next time they will not leave a dagger.', 'danger');
   };
 
   // ---- The Eumenides --------------------------------------------------------------

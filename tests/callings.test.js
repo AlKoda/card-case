@@ -69,17 +69,50 @@ var g = game(84, 'master');
 g.s.meters.reputation = CF.RANK_REP[1]; g.checkThresholds();
 var board = byDef(g, 'promotion')[0];
 g.autoSlot('duty', board.uid); g.start('duty'); g.tick(46);
-assert.strictEqual(g.s.paths.commissioner, 1, 'a promotion is Power');
+assert.strictEqual(g.s.paths.commissioner, 0, 'a promotion is not Power for a Master Detective');
+assert.strictEqual(g.s.paths.master, CF.Callings.SEED + 1, 'it feeds the path the calling walks');
 g.s.rooms.locker = false;
 g.addOrdersForRank(0);
 var order = byDef(g, 'order').filter(function (o) { return o.data.order === 'locker'; })[0];
 g.autoSlot('duty', order.uid); byDef(g, 'funds').slice(0, 4).forEach(function (f) { g.autoSlot('duty', f.uid); });
 for (var f = byDef(g, 'funds').length; f < 4; f++) g.autoSlot('duty', g.create('funds').uid);
-if (!g.preview('duty').blocked) { g.start('duty'); g.tick(11); assert.strictEqual(g.s.paths.commissioner, 2, 'a room is Power'); }
+if (!g.preview('duty').blocked) { g.start('duty'); g.tick(11); assert.strictEqual(g.s.paths.commissioner, 1, 'a room is Power'); }
 g.s.rank = 1; g.s.meters.pressure = 0; g.s.meters.scrutiny = 0;
 var pw = g.s.paths.commissioner;
 g.tick(CF.WEEK); g.tick(CF.WEEK);
-assert.strictEqual(g.s.paths.commissioner, pw + 1, 'two calm weeks under a senior officer are Power');
+assert.strictEqual(g.s.paths.commissioner, pw, 'calm weeks are not Power for one who does not want it');
+var b = game(87, 'commissioner');
+b.s.rank = 1; b.s.meters.pressure = 0; b.s.meters.scrutiny = 0;
+var bw = b.s.paths.commissioner;
+b.tick(CF.WEEK); b.tick(CF.WEEK);
+assert.strictEqual(b.s.paths.commissioner, bw + 1, 'two calm weeks under a senior officer are the Burgomaster\'s Power');
+// A Crusader promoted: Justice, not Power.
+var cr = game(88, 'crusader');
+cr.promote();
+assert.strictEqual(cr.s.paths.crusader, CF.Callings.SEED + 1, 'the office serves what you want');
+assert.strictEqual(cr.s.paths.commissioner, 0);
+// Justice in the everyday loop: a culprit who walked before, and a violent one.
+var justice = null;
+for (var jx = 0; jx < 10 && !justice; jx++) {
+  var jg = game(89, 'crusader'), jk = byDef(jg, 'case')[0], jr = jg.caseRec(jk.caseId);
+  var jc = jr.suspects.filter(function (x) { return x.guilty; })[0];
+  var rec0 = jg.criminalEscapes(jr, jc, 'acquitted');
+  rec0.traits = ['violent'];
+  var j0 = jg.s.paths.crusader;
+  jr.status = 'trial';
+  var jt = jg.create('trial', { data: { caseId: jr.id, name: jc.name, guilty: true, solid: true, tier: 'strong', real: 9, need: 5, coerced: 0, planted: 0, illegal: 0, contradictions: 0 } });
+  jg.rng.setState(11 * (jx + 1));
+  jg.verdict(jt);
+  if (jr.status === 'closed') justice = jg.s.paths.crusader - j0;
+}
+assert.strictEqual(justice, 2, 'a culprit with a record, and a violent one: Justice +2');
+// A purse left to lie: Justice, once a month at most.
+var pg = game(90, 'crusader'), p0 = pg.s.paths.crusader;
+pg.expire(pg.create('bribe')); pg.expire(pg.create('bribe'));
+assert.strictEqual(pg.s.paths.crusader, p0 + 1, 'a purse left to lie is Justice, once');
+assert.ok(pg.s.journal.some(function (j) { return j.title === 'The Purse Is Gone' && /Justice \+1\./.test(j.text); }), 'and the story says so');
+pg.s.week += 4; pg.expire(pg.create('bribe'));
+assert.strictEqual(pg.s.paths.crusader, p0 + 2, 'and again a month on');
 
 // A Crusader nudged toward the Chair by promotions still ends as the Crusader when the Syndicate falls.
 var n = game(85, 'crusader');

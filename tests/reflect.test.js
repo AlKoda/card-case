@@ -159,3 +159,40 @@ console.log('reflect: identification (possible/confirmed), conflict, theories, t
   assert.strictEqual(made.data.points, cul2.key, 'it points at the one not in the Hole');
   console.log('two confessions: ok');
 })();
+
+// One Sleep for every Weariness on the table (two without Coin), one Let It Go for every Obsession:
+// the upkeep is one run, not one run a card.
+(function restAll() {
+  var g = CF.Engine.newGame({ seed: 41, calling: 'master' });
+  function on(d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function sleep(cards) {
+    cards.forEach(function (c) { assert.ok(g.autoSlot('reflect', c.uid), 'reflect took ' + g.labelOf(c)); });
+    var pv = g.preview('reflect');
+    assert.ok(pv && !pv.blocked, 'a rest starts');
+    assert.ok(g.start('reflect'));
+    g.tick(g.verb('reflect').duration + 0.01);
+    g.collect('reflect');
+    return pv;
+  }
+  on('fatigue').forEach(function (c) { g.remove(c); });
+  on('obsession').forEach(function (c) { g.remove(c); });
+  for (var i = 0; i < 3; i++) g.create('fatigue');
+  g.autoSlot('reflect', on('fatigue')[0].uid);
+  var pv = g.preview('reflect');
+  assert.ok(/Coin takes every one/.test(pv.text || pv.preview || JSON.stringify(pv)), 'unpaid, the preview says two and what Coin buys: ' + JSON.stringify(pv));
+  g.clearSlots('reflect');
+  sleep([on('fatigue')[0]]);
+  assert.strictEqual(on('fatigue').length, 1, 'an unpaid Sleep takes two Weariness');
+  for (var j = 0; j < 3; j++) g.create('fatigue');
+  var coin = on('funds')[0] || g.create('funds');
+  pv = sleep([on('fatigue')[0], coin]);
+  assert.ok(/Every Weariness on the table/.test(JSON.stringify(pv)), 'paid, every Weariness: ' + JSON.stringify(pv));
+  assert.strictEqual(on('fatigue').length, 0, 'a paid Sleep takes every one');
+  for (var k = 0; k < 3; k++) g.create('obsession');
+  sleep([on('obsession')[0]]);
+  assert.strictEqual(on('obsession').length, 0, 'Let It Go takes every Obsession on the table');
+  g.create('burnout'); g.create('burnout');
+  sleep([on('burnout')[0]]);
+  assert.strictEqual(on('burnout').length, 1, 'A Long Rest is still one Fever at a time');
+  console.log('rest takes every like card: ok');
+})();

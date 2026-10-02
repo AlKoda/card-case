@@ -182,6 +182,9 @@
     if (!s.weekSnap) s.weekSnap = { convictions: s.stats.convictions || 0, acquittals: s.stats.acquittals || 0, cold: s.stats.cold || 0 };
     // The Crusader's word of the Coquille came with round 8: a save already past its week has had its warning.
     if (s.flags.coquilleWord === undefined) s.flags.coquilleWord = (s.week || 0) > 6;
+    // The Thief-taker General and the Mountain warn before they end a run (round 8): an older save has had neither warning.
+    if (s.flags.thieftakerWarned === undefined) s.flags.thieftakerWarned = false;
+    if (s.flags.mountainIgnored === undefined) s.flags.mountainIgnored = false;
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
@@ -800,10 +803,28 @@
   P.sameCaseAs = function (primary, card) {
     return !primary || !primary.caseId || !card.caseId || card.caseId === primary.caseId;
   };
+  // Where a case's trail goes next, for the search preview and the advisor:
+  //   searchedOut  the scene has given up every item (another search is an Obsession)
+  //   neighbour    a young office's re-search can still bring a name from the gate
+  //   canvass      { district: uid, quarter: label } when the case's own Quarter
+  //                lies on the table and someone there has not yet been met
+  P.trailFor = function (rec) {
+    if (!rec) return null;
+    var unnamed = rec.suspects.some(function (x) { return !x.revealed && !x.cleared; });
+    var d = this.tableCards().filter(function (c) { return c.def === 'district' && c.data && c.data.district === rec.district; })[0];
+    return {
+      searchedOut: rec.found >= rec.items.length,
+      neighbour: rec.found >= rec.items.length && this.s.rank <= 1 && unnamed,
+      canvass: d && ((rec.witnesses || []).length || unnamed) ? { district: d.uid, quarter: CF.DISTRICTS[rec.district] ? CF.DISTRICTS[rec.district].label : this.labelOf(d) } : null,
+    };
+  };
+
   // The magnet: fill the verb's empty slots from the table with cards that
   // fit them. The subject (the primary slot) is always the player's choice.
-  // Its own case's tokens come first, the ones that point at the Accused
-  // before the rest; then the oldest card. Returns what it pulled, in the
+  // Its own case's tokens come first. Against an Accused it leaves every
+  // token that speaks for somebody else (an alibi, another's mark, trait or
+  // words), and takes first what fills a row of the charge still empty, then
+  // what points at them, then the oldest. Returns what it pulled, in the
   // order it pulled it.
   P.magnetCandidates = function (verbId) {
     verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
@@ -812,18 +833,38 @@
     var taken = {}, out = [];
     var primary = this.card(v.slots[this.primaryKey(verbId)]);
     var accused = primary && primary.def === 'suspect' ? this.suspectOf(primary) : null;
+    var rec = accused && this.caseRec(primary.caseId);
+    var profile = rec && CF.Charge ? CF.Charge.profileOf(rec) : null;
+    // What the slots already hold counts toward the rows.
+    var have = {};
+    var add = function (c) { if (!c || c.def !== 'clue') return; var a = CF.clueAspects(c); for (var k in a) have[k] = (have[k] || 0) + a[k]; };
+    if (profile) for (var sk in v.slots) if (sk !== this.primaryKey(verbId)) add(this.card(v.slots[sk]));
+    var fills = function (x) {
+      if (!profile || x.def !== 'clue') return 0;
+      var a = CF.clueAspects(x), n = 0;
+      for (var k in profile) if (a[k] && (have[k] || 0) < profile[k]) n++;
+      return n;
+    };
+    var elsewhere = function (x) {
+      var d = x.data || {};
+      if (!accused || x.def !== 'clue') return false;
+      return !!(d.alibi || (d.points && d.points !== accused.key) || (d.about && d.about !== accused.key) || (d.trait && d.trait !== accused.trait));
+    };
     var order = function (x) {
       var same = primary && primary.caseId && x.caseId === primary.caseId ? 0 : 2;
       var aims = accused && x.data && ((x.data.points && x.data.points === accused.key) || (x.data.trait && x.data.trait === accused.trait)) ? 0 : 1;
       return same + aims;
     };
-    var cards = this.tableCards().filter(function (x) { return self.sameCaseAs(primary, x); })
-      .sort(function (a, b) { return order(a) - order(b) || a.uid - b.uid; });
+    var cards = this.tableCards().filter(function (x) { return self.sameCaseAs(primary, x) && !elsewhere(x); });
     this.visibleSlots(verbId).forEach(function (sl) {
       if (sl.primary || v.slots[sl.key]) return;
       // Your own faculties and your Coin are choices, not requirements: the magnet leaves them.
-      var c = cards.filter(function (x) { var k = self.kindOf(x); return k !== 'ability' && k !== 'funds' && !taken[x.uid] && self.slotAccepts(sl, x) && !self.unavailableReason(x); })[0];
-      if (c) { taken[c.uid] = true; out.push({ uid: c.uid, slot: sl.key }); }
+      var c = cards.filter(function (x) { var k = self.kindOf(x); return k !== 'ability' && k !== 'funds' && !taken[x.uid] && self.slotAccepts(sl, x) && !self.unavailableReason(x); })
+        .sort(function (a, b) {
+          var sa = order(a) >= 2 ? 1 : 0, sb = order(b) >= 2 ? 1 : 0;
+          return (sa - sb) || (fills(b) - fills(a)) || (order(a) - order(b)) || (a.uid - b.uid);
+        })[0];
+      if (c) { taken[c.uid] = true; out.push({ uid: c.uid, slot: sl.key }); add(c); }
     });
     return out;
   };
@@ -1322,7 +1363,10 @@
       // With a Band or the Coquille in the city, the purse had owners who keep a tally.
       var organized = this.countOf('gang') > 0 || (this.countOf('syndicate') > 0 && !this.s.flags.syndicateFallen);
       if (organized) this.meter('retaliation', 1);
-      this.story('The Purse Is Gone', 'Somebody came back for it. They will remember you left it alone.' + (organized ? ' The people who left it remember.' : ''), 'minor');
+      // Left to lie, it is Justice; once a month at most, so refusing is not a trade.
+      var just = !this.s.flags.purseLeftWeek || this.s.week - this.s.flags.purseLeftWeek >= 4;
+      if (just) { this.s.flags.purseLeftWeek = this.s.week; this.pathGain('crusader', 1, 'left a purse to lie'); }
+      this.story('The Purse Is Gone', 'Somebody came back for it. They will remember you left it alone.' + (organized ? ' The people who left it remember.' : '') + (just ? ' Justice +1.' : ''), 'minor');
     }
     // The King's purse left to lie: he counts the times (see coquilleWeek).
     if (card.def === 'tribute' && this.court) { var court = this.court(); court.ignoredTribute = (court.ignoredTribute || 0) + 1; }
@@ -1437,10 +1481,10 @@
       lines.push('A letter of service lands on your desk: ' + CF.PERSONNEL[pk].label + '.');
     }
 
-    // A calm city under a senior officer is Power; it counts every other calm week.
+    // A calm city under a senior officer is Power for one who wants Power; it counts every other calm week.
     if (s.rank >= 1 && s.meters.pressure <= 3 && s.meters.scrutiny <= 3) {
       s.calmWeeks = (s.calmWeeks || 0) + 1;
-      if (s.calmWeeks % 2 === 0) this.pathGain('commissioner', 1, 'a calm fortnight');
+      if (s.calmWeeks % 2 === 0 && s.calling === 'commissioner') this.pathGain('commissioner', 1, 'a calm fortnight');
     }
     // Fear fades, slowly, and while it lasts the Stews keep their heads down.
     // The count endings are judged before fear fades, so the thresholds mean what they say.
@@ -1865,7 +1909,8 @@
     });
     this.layoutVerbs();
     this.addOrdersForRank(s.rank);
-    this.pathGain('commissioner', 1, 'promoted');
+    // The office serves what you want: a promotion feeds the path you walk.
+    this.pathGain(s.calling || 'commissioner', 1, 'promoted');
     return unlocked;
   };
 
@@ -2413,7 +2458,11 @@
         var caught = this.criminalCaught(d.name);
         var alc = caught && this.atLargeCardFor(caught);
         if (alc) { this.remove(alc); notes.push('Their name comes off the wall.'); }
-        if (caught && caught.crimes >= 2) this.pathGain('crusader', 1, 'put away a repeat offender');
+        // Justice in the everyday loop: a culprit with a real record (one who walked, went cold,
+        // was settled for, or let another hang), and one who hurts people.
+        var record = caught && (caught.crimes >= 2 || (caught.history || []).some(function (h) { return h.how === 'acquitted' || h.how === 'cold' || h.how === 'settled' || h.how === 'wrongful'; }));
+        if (record) this.pathGain('crusader', 1, 'put away a repeat offender');
+        if (caught && (caught.traits || []).indexOf('violent') >= 0) this.pathGain('crusader', 1, 'put away a violent man');
         if (d.solid && rec.identified === rec.culprit && !rec.special) this.pathGain('master', 1, 'reasoned to the right name');
       }
       this.meter('reputation', 1 + (d.solid ? 1 : 0) + (hp ? 1 : 0) + (rec.special ? 2 : 0) + (rec.major ? 1 : 0));

@@ -179,7 +179,7 @@
     tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
       desc: 'The Court of Miracles pays its Examiner while the Treaty stands. Put it in Attend to take it; every week taken is Purse +1. Let it lie and the King notes that too.' },
     dagger: { label: 'A Dagger on the Pillow', kind: 'threat', tags: ['warning'], aspects: { dagger: 1 }, decay: 100, onExpire: 'mountain',
-      desc: 'The Order of the Mountain warns once. Rest it with Coin to buy a season; alone, to endure. Let it lie and they come back.' },
+      desc: 'The Order of the Mountain warns once. Rest it with two Coin to buy six weeks, or alone to endure; or Attend it with a watchman to double the guard. Let it lie and they come back.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 

@@ -107,7 +107,15 @@ function setup(seed) {
   e.s.rank = 1;
   // The hours in the Hole tire you; a long night of questions needs sleep between.
   function rested() { byDef(e, 'fatigue').concat(byDef(e, 'burnout')).forEach(function (c) { e.remove(c); }); }
+  // From rank 1 an innocent may give their own reason first (it is about them, and names nobody else);
+  // the story comes on the next examination.
   var r = run(e, 'interrogate', [g.scI, e.create('focus')]);
+  if (!r.out.some(function (c) { return c.data.alibi; })) {
+    var why = r.out.filter(function (c) { return /^Motive: /.test(c.label); })[0];
+    assert.ok(r.story.title === 'A Reason' && why && why.data.about === g.innocent.key, 'the first answer is the alibi or their own reason: ' + r.story.title);
+    rested();
+    r = run(e, 'interrogate', [g.scI, e.create('focus')]);
+  }
   var al = r.out.filter(function (c) { return c.data.alibi; })[0];
   assert.ok(al, 'an innocent questioned with Wit gives an alibi');
   assert.strictEqual(e.labelOf(al), 'Alibi: ' + g.innocent.name);
@@ -128,13 +136,16 @@ function setup(seed) {
   assert.ok(g.innocent.cleared, 'cleared');
   assert.ok(!e.card(g.scI.uid), 'the suspect card is gone');
   assert.ok(!e.card(al.uid) && !e.card(hours.uid), 'the tokens fold into the check');
-  // The culprit, asked again, has a story too; the bells do not agree.
-  rested();
-  run(e, 'interrogate', [g.scG, e.create('focus')]);
+  // The culprit has a story too, told first or when asked again; the bells do not agree.
   rested();
   var r3 = run(e, 'interrogate', [g.scG, e.create('focus')]);
+  if (!r3.out.some(function (c) { return c.data.alibi; })) {
+    assert.strictEqual(r3.story.title, 'A Reason', 'otherwise the reason comes first');
+    rested();
+    r3 = run(e, 'interrogate', [g.scG, e.create('focus')]);
+  }
   var lie = r3.out.filter(function (c) { return c.data.alibi; })[0];
-  assert.ok(lie && lie.data.alibi === g.culprit.key, 'the culprit gives an alibi the second time');
+  assert.ok(lie && lie.data.alibi === g.culprit.key, 'the culprit gives an alibi by the second time');
   var r4 = run(e, 'reflect', [lie, e.create('clue', { label: 'The Tide', caseId: g.rec.id, aspects: { opportunity: 2 } })]);
   assert.strictEqual(r4.story.title, 'A Lie About the Night');
   var made = r4.out.filter(function (c) { return c.def === 'clue'; })[0];
@@ -150,14 +161,16 @@ function setup(seed) {
   assert.ok(/^Cleared: /.test(r5.story.title) && h.innocent.cleared && !f.card(h.scI.uid), 'cleared on the spot at rank 0');
   assert.ok(!r5.out.some(function (c) { return c.data.alibi; }), 'and no token is left for the magnet to carry into a charge');
   // A bluff on an innocent: the alibi sometimes, the shut door otherwise.
-  var got = { alibi: 0, fail: 0 };
+  var got = { alibi: 0, reason: 0, fail: 0 };
   for (var i = 0; i < 20; i++) {
     var k = setup(40 + i), ke = k.e;
     ke.s.rank = 1;
     var rb = run(ke, 'interrogate', [k.scI, ke.create('instinct')]);
-    if (rb.out.some(function (c) { return c.data.alibi; })) got.alibi++; else if (rb.story.title === 'Nothing Shaken Loose') got.fail++;
+    if (rb.out.some(function (c) { return c.data.alibi; })) got.alibi++;
+    else if (rb.story.title === 'A Reason' && rb.out.some(function (c) { return c.data.about === k.innocent.key; })) got.reason++;
+    else if (rb.story.title === 'Nothing Shaken Loose') got.fail++;
   }
-  assert.ok(got.alibi >= 3 && got.fail >= 6 && got.alibi + got.fail === 20, 'bluff: ' + JSON.stringify(got));
+  assert.ok(got.alibi >= 3 && got.reason >= 1 && got.fail >= 6 && got.alibi + got.reason + got.fail === 20, 'bluff: ' + JSON.stringify(got));
   console.log('alibi: ok');
 })();
 
@@ -283,6 +296,39 @@ function setup(seed) {
   assert.strictEqual(loaded.s.meters.dread, 0);
   assert.deepStrictEqual(loaded.s.counts, { cruelty: 0, mercy: 0, purse: 0, debt: 0 });
   console.log('dread: ok');
+})();
+
+// ---- The magnet leaves what speaks for somebody else -------------------------------
+// An innocent's alibi, another's confession, a token that names someone else: none of it is pulled
+// into the culprit's charge. What fills an empty row of the charge comes before a second of the same.
+(function magnetLeavesOthers() {
+  var g = setup(21), e = g.e, rec = g.rec;
+  e.tableCards().filter(function (c) { return c.def === 'clue'; }).forEach(function (c) { e.remove(c); });
+  var alibi = e.create('clue', e.clueSpec(rec, { label: 'Alibi: ' + g.innocent.name, text: 'x', aspects: { testimony: 1 }, trait: g.innocent.trait, alibi: g.innocent.key, about: g.innocent.key }, [], { noMisread: true }));
+  var conf = e.create('clue', e.clueSpec(rec, { label: 'Confession Under the Question: ' + g.innocent.name, text: 'x', aspects: { testimony: 4 }, about: g.innocent.key }, [], { confession: 'question', falseConfession: true, noMisread: true }));
+  var named = e.create('clue', e.clueSpec(rec, { label: 'Named', text: 'x', aspects: { testimony: 2 } }, [], { points: g.innocent.key, noMisread: true }));
+  var profile = CF.Charge.profileOf(rec), rows = Object.keys(profile);
+  var first = rows[0], second = rows[1] || rows[0];
+  // One token meets the first row whole; a second of that kind would only pile up; a third meets another row.
+  var a1 = {}; a1[first] = profile[first]; var a2 = {}; a2[first] = 1; var a3 = {}; a3[second] = 1;
+  var t1 = e.create('clue', e.clueSpec(rec, { label: 'One', text: 'x', aspects: a1 }, [], { noMisread: true }));
+  var t2 = e.create('clue', e.clueSpec(rec, { label: 'Two', text: 'x', aspects: a2 }, [], { noMisread: true }));
+  var t3 = e.create('clue', e.clueSpec(rec, { label: 'Three', text: 'x', aspects: a3 }, [], { noMisread: true }));
+  [t1, t2, t3].forEach(function (c) { delete c.data.trait; delete c.data.points; });
+  assert.ok(second !== first, 'the case has two rows: ' + JSON.stringify(profile));
+  assert.ok(e.autoSlot('arrest', g.scG.uid));
+  var list = e.magnetCandidates('arrest').map(function (it) { return it.uid; });
+  assert.ok(list.indexOf(alibi.uid) < 0, 'an innocent\'s alibi is not pulled into the culprit\'s charge');
+  assert.ok(list.indexOf(conf.uid) < 0, 'nor another\'s confession');
+  assert.ok(list.indexOf(named.uid) < 0, 'nor a token that names somebody else');
+  assert.deepStrictEqual(list.slice(0, 3), [t1.uid, t3.uid, t2.uid], 'the empty row is filled before a second of the same: ' + JSON.stringify(list));
+  e.magnet('arrest');
+  assert.strictEqual(alibi.loc.t, 'table', 'the alibi stays on the table');
+  // The player may still lay it by hand: the magnet only leaves it.
+  e.clearSlots('arrest');
+  assert.ok(e.autoSlot('arrest', g.scG.uid) && e.autoSlot('arrest', alibi.uid), 'a hand can still place it');
+  e.clearSlots('arrest');
+  console.log('magnet leaves others\' tokens: ok');
 })();
 
 console.log('court: stakes, fingerpost, scene only, alibi, names, the question, verdicts, dread all OK');

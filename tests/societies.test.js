@@ -85,8 +85,35 @@ function run(e, verb, cards) {
   assert.ok(/Endured|Came Anyway/.test(r2.story.title));
   var struck = 0, dead = 0;
   // The coin is tossed from spread RNG states: twenty neighbouring seeds at one draw land correlated.
-  for (var m = 0; m < 20; m++) { var g = game(100 + m, 'commissioner'); g.s.rank = 2; g.rng.setState((m + 1) * 7919); var dg = g.create('dagger'); g.expire(dg); if (g.s.over) dead++; else if (g.countOf('wound')) struck++; }
-  assert.ok(dead >= 3 && struck >= 3, 'ignored: death or a wound: ' + dead + '/' + struck);
+  // The first dagger ignored is blood, never the end, and the city says the next one will be.
+  for (var m = 0; m < 20; m++) {
+    var g = game(100 + m, 'commissioner'); g.s.rank = 2; g.rng.setState((m + 1) * 7919);
+    var dg = g.create('dagger'); g.expire(dg);
+    assert.ok(!g.s.over, 'one ignored dagger never ends the game (seed ' + (100 + m) + ')');
+    assert.ok(g.cardsOf('wound', true).length && g.s.flags.mountainIgnored, 'it leaves a Wound and is remembered');
+    assert.ok(g.s.journal.some(function (j) { return j.title === 'They Came Anyway' && /will not leave a dagger/.test(j.text); }), 'and says the next will not be a warning');
+    // Ignored again: now the coin is tossed.
+    g.create('health'); // strength enough to survive a blade, so the toss is what decides
+    var dg2 = g.create('dagger'); g.expire(dg2);
+    if (g.s.over && g.s.over.id === 'dagger') dead++; else if (!g.s.over) struck++;
+  }
+  assert.ok(dead >= 3 && struck >= 3, 'ignored twice: death or a wound: ' + dead + '/' + struck);
+  // An old save without the flag: its first ignored dagger is the warning too.
+  var old = JSON.parse(game(120, 'commissioner').save()); delete old.flags.mountainIgnored; delete old.flags.thieftakerWarned;
+  var lo = CF.Engine.load(JSON.stringify(old));
+  assert.ok(lo.s.flags.mountainIgnored === false && lo.s.flags.thieftakerWarned === false, 'an older save starts with neither warning given');
+  lo.s.rank = 2; lo.expire(lo.create('dagger'));
+  assert.ok(!lo.s.over && lo.s.flags.mountainIgnored, 'a loaded save is warned first as well');
+  // The second door: Attend the dagger with a watchman to double the guard, with no blow.
+  var a = game(121, 'commissioner'); a.s.rank = 2;
+  var ad = a.create('dagger');
+  a.autoSlot('duty', ad.uid);
+  assert.ok(a.preview('duty').blocked, 'a dagger in Attend wants a watchman');
+  var tm = byDef(a, 'teammate')[0] || a.create('teammate', a.personnelSpec('rookie'));
+  var ra = run(a, 'duty', [tm]);
+  assert.strictEqual(ra.recipe, 'duty_dagger_guard');
+  assert.strictEqual(a.countOf('dagger'), 0, 'the dagger is answered');
+  assert.ok(!a.cardsOf('wound', true).length && byDef(a, 'teammate').length, 'no blow, and the watchman comes back');
   var q = game(8, 'master'); q.s.rank = 3; q.s.week = 20;
   for (var i3 = 0; i3 < 40; i3++) q.mountainWeek();
   assert.strictEqual(q.countOf('dagger'), 0, 'the Order only meets those on the way to the Seat');

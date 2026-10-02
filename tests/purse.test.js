@@ -108,10 +108,29 @@ function run(e, verb, cards) {
 
 // ---- The two ends of the road ---------------------------------------------------
 (function endings() {
+  // The Thief-taker General is a road: a Magistrate, a name in the chamber, the thief-takers'
+  // settlements walked twice. The old counts (Purse 6 and a Bailiff) no longer make one.
+  var old = game(8);
+  old.s.counts.purse = 6; old.s.stats.wrongful = 1; old.s.meters.reputation = 7; old.s.rank = 2;
+  old.checkPurseEndings(); old.checkPurseEndings();
+  assert.ok(!old.s.over && !old.s.flags.thieftakerWarned, 'six purses and a Bailiff are not the General');
   var e = game(9);
-  e.s.counts.purse = 6; e.s.stats.wrongful = 1; e.s.meters.reputation = 7; e.s.rank = 2;
+  e.s.counts.purse = 9; e.s.stats.wrongful = 1; e.s.meters.reputation = 12; e.s.rank = 3; e.s.stats.settled = 1;
+  e.checkPurseEndings();
+  assert.ok(!e.s.over && !e.s.flags.thieftakerWarned, 'the road has to be walked: two settlements');
+  e.s.stats.settled = 2;
+  e.checkPurseEndings();
+  assert.ok(!e.s.over && e.s.flags.thieftakerWarned, 'told a week before it lands');
+  assert.ok(e.s.journal.some(function (j) { return /call you General/.test(j.text); }), 'the fences call you General');
   e.checkPurseEndings();
   assert.ok(e.s.over && e.s.over.id === 'thieftaker' && e.s.over.win, 'corrupt and working: the Thief-taker General');
+  // Warned, and the counts no longer hold: no ending.
+  var e2 = game(14);
+  e2.s.counts.purse = 9; e2.s.stats.wrongful = 1; e2.s.meters.reputation = 12; e2.s.rank = 3; e2.s.stats.settled = 2;
+  e2.checkPurseEndings();
+  e2.s.stats.wrongful = 2;
+  e2.checkPurseEndings();
+  assert.ok(!e2.s.over, 'the ending waits on the counts still holding');
   var f = game(10);
   f.s.counts.purse = 6; f.s.stats.wrongful = 3;
   f.checkPurseEndings();
