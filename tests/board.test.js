@@ -1280,3 +1280,103 @@ console.error = function (err) { throw err; };
   assert.ok(!plainHp.data.mark, 'an unmarked card stays unmarked');
   console.log('the blow takes the idle Health, the Mark stays: ok');
 })();
+
+// ---- The second ring of Insights: each office's own work teaches ----------------------------
+(function secondRing() {
+  var g = CF.Engine.newGame({ seed: 71, calling: 'master' });
+  function ids(ab) { return CF.growthWays(g, ab).map(function (w) { return w.id; }); }
+  assert.deepStrictEqual(ids('health'), ['fencing', 'iron'], 'an Examiner sees only the first ring');
+  ['writ', 'nightdoor', 'whitestaff', 'crier', 'eyes', 'muster'].forEach(function (id) {
+    var sp = CF.INSIGHTS[id];
+    assert.ok(sp.rank >= 1 && sp.how && sp.perk && sp.perkText && sp.lesson && sp.faster.every(function (r) { return CF.RECIPES_BY_ID[r]; }), id + ': opens with an office, says how, and speeds real work');
+    assert.ok(g.perkId(id), id + ': a perk');
+  });
+  g.s.stats.recipes = { undercover_op: 2, warrant_search: 2 };
+  g.s.rank = 1; g.growthTick();
+  assert.ok(g.s.insights.writ && !g.s.insights.whitestaff, 'the Writ teaches a Sworn Examiner; Disguise waits for the Bailiff');
+  assert.ok(ids('focus').indexOf('writ') >= 0 && ids('health').indexOf('whitestaff') < 0);
+  g.s.rank = 2; g.growthTick();
+  assert.ok(g.s.insights.whitestaff, 'the staff, and the Insight it was owed');
+  // Kept as a trick: that work goes a third quicker.
+  var R = CF.RECIPES_BY_ID.taskforce_run;
+  var d0 = g.durationOf(R, { verb: 'duty' });
+  g.s.perks = { column: true };
+  assert.strictEqual(g.perkPace('taskforce_run'), 2 / 3);
+  assert.strictEqual(g.perkPace('duty_beat'), 1, 'only its own work');
+  assert.ok(g.durationOf(R, { verb: 'duty' }) < d0, 'Calling Out the Watch is quicker');
+  // The promotion says the office's lessons.
+  var p = CF.Engine.newGame({ seed: 72, calling: 'master' });
+  p.s.rank = 1; p.promote();
+  var told = p.s.journal.filter(function (j) { return j.title === 'The Office Teaches'; })[0];
+  assert.ok(told && told.text.indexOf('The Night Door') >= 0 && told.text.indexOf('The White Staff') >= 0, 'the Bailiff is told what his office teaches');
+  console.log('the second ring of Insights: ok');
+})();
+
+// ---- Informers: no two of a name; the Bench cools them and seats a new one; their Quarter counts ----
+(function informers() {
+  var g = CF.Engine.newGame({ seed: 73, calling: 'master' });
+  g.cardsOf('informant', true).forEach(function (c) { g.remove(c); });
+  var names = [];
+  for (var i = 0; i < 9; i++) names.push(g.create('informant', g.informantSpec('market')).data.name);
+  assert.strictEqual(names.slice(0, 8).filter(function (n, k) { return names.indexOf(n) === k; }).length, 8, 'eight nicknames, no two alike: ' + names.join(', '));
+  assert.ok(/ the Younger$/.test(names[8]) && names.indexOf(names[8]) === 8, 'the ninth is somebody\'s junior: ' + names[8]);
+  // The Bench: heat falls at the Bell, and a Compromised informer comes back.
+  var b = CF.Engine.newGame({ seed: 74, calling: 'master' });
+  b.cardsOf('informant', true).forEach(function (c) { b.remove(c); });
+  var inf = b.create('informant', b.informantSpec('market'));
+  b.heatInformant(inf, 3);
+  assert.strictEqual(b.informantStatus(inf), 'compromised');
+  assert.deepStrictEqual(b.benchWeek(), [], 'no Bench, nothing');
+  b.s.rooms.intel = true;
+  b.s.week = 5;
+  var lines = b.benchWeek();
+  assert.ok(inf.data.heat === 2 && b.informantStatus(inf) === 'safe' && /^Informer: /.test(inf.label) && lines.length === 1, 'the Bench cools them');
+  b.s.week = 8;
+  b.benchWeek();
+  assert.strictEqual(b.cardsOf('informant', true).length, 2, 'every fourth week, a new face on the Bench');
+  assert.ok(b.s.journal.some(function (j) { return j.title === 'A New Face on the Bench'; }));
+  assert.deepStrictEqual(b.roomUseText('intel'), { text: 'One front named or informer seated', vars: { n: 1 }, n: 1 }, 'the Bench is credited');
+  b.create('informant', b.informantSpec('market')); b.s.week = 12; b.benchWeek();
+  assert.strictEqual(b.cardsOf('informant', true).length, 3, 'three seated: no more');
+  assert.ok(/cool off here every week/.test(CF.ROOMS.intel.desc) && !/Coquille/.test(CF.ROOMS.intel.desc), 'the Bench says what it does');
+  // A rumour is three times as likely from the informer's own Quarter.
+  var own = 0, cases = [{ district: 'docks' }, { district: 'market' }];
+  for (var r = 0; r < 400; r++) if (b.pickByQuarter(cases, 'docks').district === 'docks') own++;
+  assert.ok(own > 260 && own < 340, 'their own Quarter weighs three to one: ' + own + ' of 400');
+  // Met in their own Quarter: Word +1, and no heat.
+  var m = CF.Engine.newGame({ seed: 75, calling: 'master' });
+  m.cardsOf('informant', true).forEach(function (c) { m.remove(c); });
+  var rec = m.caseRec(m.spawnCase('burglary', { quiet: true }).caseId);
+  var mi = m.create('informant', m.informantSpec('docks'));
+  var dk = m.giveDistrict('docks'), coin = m.create('funds');
+  m.verb('investigate').unlocked = true;
+  [mi, coin, dk].forEach(function (c) { assert.ok(m.autoSlot('investigate', c.uid), 'slots ' + m.labelOf(c)); });
+  assert.strictEqual(m.currentRecipe('investigate').recipe.id, 'patrol_informant');
+  assert.ok(/In their own Quarter/.test(m.preview('investigate').text || JSON.stringify(m.preview('investigate'))));
+  assert.ok(m.start('investigate'));
+  for (var t = 0; t < 100 && m.verb('investigate').status === 'running'; t++) m.tick(1);
+  assert.strictEqual(mi.data.heat, 0, 'no heat met at home');
+  var word = m.verb('investigate').out.map(function (u) { return m.card(u); }).filter(function (c) { return c && c.def === 'clue' && c.caseId === rec.id; })[0];
+  assert.ok(word, 'a word about the case'); assert.strictEqual(CF.clueAspects(word).testimony, 3, 'and their word is worth more');
+  console.log('informers: one of each name, the Bench, the Quarter: ok');
+})();
+
+// ---- What the rooms did for you: counted where they work, kept in the save -------------------
+(function roomUse() {
+  var g = CF.Engine.newGame({ seed: 76, calling: 'master' });
+  g.roomUsed('suite');
+  assert.strictEqual(g.roomUseText('suite'), null, 'a room not built is not credited');
+  g.s.rooms.suite = true;
+  var rec = g.caseRec(g.spawnCase('burglary', { quiet: true }).caseId);
+  var w = g.create('witness', g.witnessSpec(rec)), wit = g.create('focus');
+  g.verb('interrogate').unlocked = true;
+  assert.ok(g.autoSlot('interrogate', w.uid) && g.autoSlot('interrogate', wit.uid) && g.start('interrogate'));
+  for (var t = 0; t < 100 && g.verb('interrogate').status === 'running'; t++) g.tick(1);
+  assert.deepStrictEqual(g.roomUseText('suite'), { text: 'One questioning with more Word', vars: { n: 1 }, n: 1 }, 'the Hole: a questioning with more Word');
+  g.roomUsed('suite', 5);
+  assert.strictEqual(g.roomUseText('suite').text, '{n} questionings with more Word');
+  CF.ROOM_ORDER.forEach(function (k) { assert.ok(CF.ROOM_USE[k] && CF.ROOM_USE[k].length === 2, k + ': one and many'); });
+  var old = JSON.parse(g.save()); delete old.roomUse;
+  assert.deepStrictEqual(CF.Engine.load(old).s.roomUse, {}, 'an older save counts from now');
+  console.log('what the rooms did: ok');
+})();

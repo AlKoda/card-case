@@ -318,3 +318,63 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   assert.ok(!d.heresyWatch(hrec).kept, 'the Inquisitor here: the Bishop cannot keep him off');
   console.log('the Bishop keeps the Dominicans off: ok');
 })();
+
+// ---- A patron's seal: a favour called in once, at the cost of 2 Favour --------------------
+(function seals() {
+  var g = game(91);
+  var steps = g.favourSteps();
+  assert.ok(steps.length === 3 && steps.every(function (x) { return x.word === 'Neutral' && x.up && x.icon; }), 'the three patrons, neutral, with the next step up');
+  assert.ok(steps[1].down === 'At -2: the Inquisitor comes.' && steps[2].down === null, 'the Bishop has a step down; the Guilds none');
+  function seal(k) { return g.cardsOf('seal', true).filter(function (c) { return c.data.patron === k; }); }
+  function callIn(card) {
+    assert.ok(g.autoSlot('duty', card.uid));
+    assert.strictEqual(g.currentRecipe('duty').recipe.id, 'duty_seal');
+    assert.ok(g.start('duty'));
+    for (var i = 0; i < 100 && g.verb('duty').status === 'running'; i++) g.tick(1);
+    var story = g.verb('duty').story;
+    g.collect('duty');
+    return story;
+  }
+  g.favourGain('bishop', 2);
+  assert.strictEqual(seal('bishop').length, 0, 'no seal below 3');
+  g.favourGain('bishop', 1);
+  assert.strictEqual(seal('bishop').length, 1, 'the first time the Bishop reaches 3, his seal');
+  assert.ok(g.s.journal.some(function (j) { return j.title === 'The Bishop\'s Seal'; }), 'and the journal says so');
+  g.favourGain('bishop', 1);
+  assert.strictEqual(seal('bishop').length, 1, 'one seal at a time');
+  assert.ok(g.favourSteps()[1].word === 'Your patron' && g.favourSteps()[1].up === null && g.favourSteps()[1].seal, 'the Bishop is your patron, and his seal is out');
+  g.s.flags.inquisitor = true;
+  var st = callIn(seal('bishop')[0]);
+  assert.ok(!g.s.flags.inquisitor && /Inquisitor/.test(st.text), 'the Bishop recalls the Inquisitor');
+  assert.strictEqual(g.favour().bishop, 2, 'calling it in costs 2 favour');
+  assert.strictEqual(seal('bishop').length, 0, 'and the seal is spent');
+  g.favourGain('bishop', 1);
+  assert.strictEqual(seal('bishop').length, 1, 'climbing back to 3 sends it again');
+  // The Guilds: three Coin. The Council: Suspicion -2.
+  var coins = g.cardsOf('funds').length;
+  g.favourGain('guild', 3);
+  callIn(seal('guild')[0]);
+  assert.strictEqual(g.cardsOf('funds').length, coins + 3, 'the guild chest: 3 Coin');
+  assert.strictEqual(g.favour().guild, 1);
+  g.favour().council = 3; g.patronsWeek(); // favour moved by a beat, found at the Bell
+  assert.strictEqual(seal('council').length, 1, 'a favour set by a choice is found at the Bell');
+  g.s.meters.scrutiny = 4;
+  callIn(seal('council')[0]);
+  assert.strictEqual(g.s.meters.scrutiny, 2, 'the Council: Suspicion -2');
+  // An older save has been sent none.
+  var old = JSON.parse(game(92).save()); delete old.seals;
+  var l = CF.Engine.load(old);
+  assert.deepStrictEqual(l.s.seals, {}, 'an older save loads with no seal sent');
+  l.favourGain('council', 3);
+  assert.strictEqual(l.cardsOf('seal', true).length, 1, 'and gets one when the Council next reaches 3');
+  // Unasked, a sentence of their kind as they would wish it warms a neutral patron, to 1 and no further.
+  var u = game(93), urec = u.caseRec(u.spawnCase('fraud', { quiet: true }).caseId), un = [];
+  urec.commission = null;
+  u.commissionSentence(urec, 'pillory', un);
+  assert.ok(u.favour().guild === 1 && un.length === 1, 'a cheat shamed in the square warms the Guilds');
+  u.commissionSentence(urec, 'fine', un);
+  assert.strictEqual(u.favour().guild, 1, 'but only to 1');
+  u.commissionSentence(urec, 'banish', un);
+  assert.strictEqual(u.favour().guild, 1, 'a sentence they would not wish is not noticed');
+  console.log('a patron\'s seal, called in: ok');
+})();

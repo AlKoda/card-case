@@ -236,6 +236,11 @@
         caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res,
           trait: g.echoes && cul && cul.trait === g.echoes ? g.echoes : null } } });
     }
+    // The Vanished, found alive: their own word, with nothing to gain by it.
+    if (g.type === 'witness' && g.victim) {
+      return ctx.give('witness', { label: 'Witness: ' + rec.victim, desc: U.fill('{victim}, found alive. Knows who put them in the cellar, and will swear to it. (Witness in: {title})', { victim: rec.victim, title: rec.title }),
+        caseId: rec.id, data: { knows: true, stake: 'none', who: 'the vanished', victim: true } });
+    }
     if (g.type === 'witness') {
       var spec = e.witnessSpec(rec, g.who ? fill(g.who) : undefined);
       if (g.who) spec.desc = spec.label.replace('Witness: ', '') + ', ' + fill(g.who) + '. Saw something near ' + rec.scene + '. (Witness in: ' + rec.title + ')';

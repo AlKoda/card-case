@@ -186,6 +186,9 @@
     // --- Office ----------------------------------------------------------
     promotion: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The Council has noticed you. Attend on them.' },
+    // A patron's favour you can call in once (patrons.js, Pat.SEAL): the instance carries its patron.
+    seal: { label: 'A Patron\'s Seal', kind: 'career', tags: ['career', 'letter'], aspects: { seal: 1 },
+      desc: 'A favour owed you. Put it in Attend to call it in, at the cost of the patron\'s favour.' },
     // Kept for older saves; the generic `promotion` card replaced them.
     promo_inspector: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The Council has noticed you. Attend on them.' },
@@ -235,7 +238,7 @@
     locker: { label: 'Strongroom', order: 'locker', desc: 'Tokens and raw proof keep twice as long behind an iron door.' },
     suite: { label: 'The Hole', order: 'suite', desc: 'A cell under the Watch-house with a table and one candle. Questioning is faster and draws out more Word.' },
     archive: { label: 'The Rolls', order: 'archive', desc: 'The court\'s old books, shelved and indexed. Unanswered cases can be opened again in Study.' },
-    intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. A token that points at a front names it at once; the Coquille shows itself.' },
+    intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. Your informers cool off here every week, and now and then a new one takes a seat. A token that points at a front names it at once.' },
     training: { label: 'The Drill Yard', order: 'training', desc: 'Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.' },
     lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, no raw proof needs a special instrument, a token goes back to the bench without the Key, and what the body says reads one point stronger.' },
     survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you, and every week the belfry sees who uses a known front.' },

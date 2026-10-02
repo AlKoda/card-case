@@ -41,9 +41,55 @@
       text: 'An informer trusts you now, which in this city is rarer than gold. They tell you which tapster to buy, and which to be seen buying.',
       lesson: 'Your Instinct is more than it was.',
       perkText: 'Informers bring word sooner.' },
+    // The second ring: each office's own work teaches, and opens only with
+    // that office (rank). Kept as a trick, the work itself goes quicker
+    // (faster: the recipes a third shorter).
+    writ: { label: 'The Writ\'s Weight', trains: 'focus', perk: 'The Sealed Hand', rank: 1, faster: ['warrant_search'],
+      how: 'Serve the Writ (an Accused with cause, in Explore), twice.', need: 2, count: function (e) { return recipeCount(e, 'warrant_search'); },
+      text: 'Two houses searched under seal, and you have learned what a Writ is: not leave to look, but leave to be wrong in public. You read the cause twice now before you sign.',
+      lesson: 'Your Wit is more than it was.',
+      perkText: 'Serving a Writ takes a third less time.' },
+    nightdoor: { label: 'The Night Door', trains: 'instinct', perk: 'Owl', rank: 2, faster: ['stakeout_watch', 'stakeout_front'],
+      how: 'Watch a door through the night (Explore), three times.', need: 3, count: function (e) { return recipeCount(e, 'stakeout_watch') + recipeCount(e, 'stakeout_front'); },
+      text: 'Three nights in doorways, and you can tell a man going home from a man going out by the way he shuts the door behind him.',
+      lesson: 'Your Instinct is more than it was.',
+      perkText: 'Watching a door takes a third less time.' },
+    whitestaff: { label: 'The White Staff', trains: 'health', perk: 'A Borrowed Coat', rank: 2, faster: ['undercover_op', 'undercover_parley', 'undercover_trial', 'undercover_throne'],
+      how: 'Go among them in Disguise (Explore), twice.', need: 2, count: function (e) { return recipeCount(e, 'undercover_op') + recipeCount(e, 'undercover_parley') + recipeCount(e, 'undercover_trial') + recipeCount(e, 'undercover_throne'); },
+      text: 'Twice among them in another man\'s coat, and back with all your teeth. The body learns to stand like somebody else\'s, and to run like your own.',
+      lesson: 'Your Health is more than it was.',
+      perkText: 'Disguise takes a third less time.' },
+    crier: { label: 'The Crier\'s Voice', trains: 'focus', perk: 'The Proclamation', rank: 3, faster: ['major_declare'],
+      how: 'Have a case cried (a Case with Wit and Coin in Attend), twice.', need: 2, count: function (e) { return recipeCount(e, 'major_declare'); },
+      text: 'Twice the crier has sung your words in the squares, and you have learned to write them for the ear: short, with the name last.',
+      lesson: 'Your Wit is more than it was.',
+      perkText: 'Having a case cried takes a third less time.' },
+    eyes: { label: 'The City\'s Eyes', trains: 'instinct', perk: 'Where to Look', rank: 3, faster: ['major_focus'],
+      how: 'Turn the Watch\'s Eyes on a Quarter (Attend), twice.', need: 2, count: function (e) { return recipeCount(e, 'major_focus'); },
+      text: 'Twice you have sent the whole Watch to one Quarter, and twice you have read the city by what it hid while they looked.',
+      lesson: 'Your Instinct is more than it was.',
+      perkText: 'Turning the Watch\'s Eyes takes a third less time.' },
+    muster: { label: 'The Muster', trains: 'health', perk: 'At the Head of the Column', rank: 3, faster: ['taskforce_run'],
+      how: 'Call Out the Watch (a Case with two or three watchmen in Attend), twice.', need: 2, count: function (e) { return recipeCount(e, 'taskforce_run'); },
+      text: 'Twice at the head of the Watch through the night streets, and the men keep your pace now, not the sergeant\'s.',
+      lesson: 'Your Health is more than it was.',
+      perkText: 'Calling Out the Watch takes a third less time.' },
   };
   Object.keys(CF.INSIGHTS).forEach(function (id) { var sp = CF.INSIGHTS[id]; sp.when = function (e) { return sp.count(e) >= sp.need; }; });
-  CF.PERKS = { surefoot: 'fencing', longmemory: 'casebook', nose: 'ward', secondwind: 'sergeant', iron: 'iron', whisperer: 'ear' };
+  CF.PERKS = { surefoot: 'fencing', longmemory: 'casebook', nose: 'ward', secondwind: 'sergeant', iron: 'iron', whisperer: 'ear',
+    sealedhand: 'writ', owl: 'nightdoor', coat: 'whitestaff', proclamation: 'crier', lookhere: 'eyes', column: 'muster' };
+  // Is this Insight's office reached? The first ring is open from the start.
+  CF.insightOpen = function (e, id) { var sp = CF.INSIGHTS[id]; return !!sp && (e.s.rank || 0) >= (sp.rank || 0); };
+  // A kept trick from the second ring: that office work goes a third quicker.
+  P.perkPace = function (recipeId) {
+    for (var k in CF.PERKS) {
+      var sp = CF.INSIGHTS[CF.PERKS[k]];
+      if (sp && sp.faster && sp.faster.indexOf(recipeId) >= 0 && this.perkHas(k)) return 2 / 3;
+    }
+    return 1;
+  };
+  // The Insights an office opens, for the promotion's word.
+  CF.insightsAtRank = function (rank) { return Object.keys(CF.INSIGHTS).filter(function (id) { return (CF.INSIGHTS[id].rank || 0) === rank; }); };
 
   function recipeCount(e, id) { return (e.s.stats.recipes && e.s.stats.recipes[id]) || 0; }
 
@@ -52,7 +98,8 @@
   // (the Insight is out, take it to Rest), learned.
   CF.growthWays = function (e, ability) {
     var s = e.s, cards = s.cards || {};
-    return Object.keys(CF.INSIGHTS).filter(function (id) { return CF.INSIGHTS[id].trains === ability; }).map(function (id) {
+    // An office's Insights show once the office is yours, or once earned.
+    return Object.keys(CF.INSIGHTS).filter(function (id) { return CF.INSIGHTS[id].trains === ability && (CF.insightOpen(e, id) || (s.insights && s.insights[id])); }).map(function (id) {
       var sp = CF.INSIGHTS[id];
       var waiting = Object.keys(cards).some(function (u) { var c = cards[u]; return c.def === 'insight' && c.data && c.data.insight === id; });
       var earned = !!(s.insights && s.insights[id]);
@@ -66,7 +113,7 @@
     if (s.over || !s.stats) return;
     s.insights = s.insights || {};
     Object.keys(CF.INSIGHTS).forEach(function (id) {
-      if (s.insights[id]) return;
+      if (s.insights[id] || !CF.insightOpen(self, id)) return;
       var spec = CF.INSIGHTS[id];
       if (!spec.when(self)) return;
       s.insights[id] = true;

@@ -204,7 +204,7 @@ function setup(seed) {
   var r2 = run(e, 'analyze', [evidence(), e.create('prints')]);
   var named = r2.out.filter(function (c) { return c.def === 'clue'; })[0];
   assert.strictEqual(named.data.points, culprit.key);
-  assert.ok(named.desc.indexOf('It is ' + culprit.name + '\'s.') >= 0, named.desc);
+  assert.ok(named.desc.indexOf('It belongs to ' + culprit.name + '.') >= 0, named.desc);
   console.log('names: ok');
 })();
 

@@ -124,7 +124,7 @@
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
       version: 2, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 170, nextUid: 1,
-      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: { oldDebt: {} }, journal: [], criminals: {}, network: { fronts: {} }, askSeen: {},
+      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: { oldDebt: {} }, journal: [], criminals: {}, network: { fronts: {} }, askSeen: {}, seals: {}, roomUse: {},
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
       rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', who: opts.who || null, detective: opts.name || 'Examiner',
@@ -269,6 +269,16 @@
     if (!s.flags.oldDebt || typeof s.flags.oldDebt !== 'object') s.flags.oldDebt = {};
     // Mid-work asks are rationed per verb and week (round 8): an older save has asked nothing yet.
     if (!s.askSeen || typeof s.askSeen !== 'object') s.askSeen = {};
+    // The Vanished may be alive (round 8): an older save's cases were all as dead as they were written.
+    Object.keys(s.cases || {}).forEach(function (id) {
+      var vr = s.cases[id];
+      if (vr.template === 'missing' && vr.alive === undefined) vr.alive = false;
+      if (vr.foundAlive === undefined) vr.foundAlive = false;
+    });
+    // A patron's seal (round 8): an older save has been sent none, and gets one when Favour next reaches 3.
+    if (!s.seals || typeof s.seals !== 'object') s.seals = {};
+    // What each built room has done for you (round 8): an older save counts from now.
+    if (!s.roomUse || typeof s.roomUse !== 'object') s.roomUse = {};
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
@@ -355,6 +365,12 @@
     return e;
   };
 
+  // A small steady hash of a string, for a choice that must not draw on the rng.
+  Engine.nameHash = function (str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 1000003;
+    return h;
+  };
   // The answers a question shows, as offerChoice stores them in the save.
   Engine.choiceOptions = function (spec) {
     return (spec.options || []).map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; });
@@ -1165,7 +1181,7 @@
   };
   P.durationOf = function (rec, ctx) {
     var d = typeof rec.duration === 'function' ? rec.duration(ctx) : rec.duration;
-    var perk = ctx.verb === 'investigate' && this.perkHas('nose') ? 0.8 : 1;
+    var perk = (ctx.verb === 'investigate' && this.perkHas('nose') ? 0.8 : 1) * (this.perkPace ? this.perkPace(rec.id) : 1);
     return Math.max(3, Math.round((d || 10) * perk * this.strainFactor(ctx.verb) * (this.originFactor ? this.originFactor(rec.src || ctx.verb) : 1)));
   };
 
@@ -1722,6 +1738,7 @@
     if (this.rivalWeek) lines = lines.concat(this.rivalWeek());
     this.settleStacks(); // a token tampered with in its stack is no longer its twin
     if (s.rooms.survroom) lines = lines.concat(this.belfryWeek());
+    if (s.rooms.intel && this.benchWeek) lines = lines.concat(this.benchWeek());
     // The Pattern: once a run, for a Bailiff (or a Sworn Examiner from week twelve), and every week it is open another girl.
     if (s.week >= 6 && (s.rank >= 2 || (s.rank >= 1 && s.week >= 12)) && !s.flags.patternSeen && this.rng() < 0.2 && this.openCases().length < this.maxOpenCases()) {
       s.flags.patternSeen = true;
@@ -1816,6 +1833,7 @@
         aspects: { opportunity: 2 }, link: fid }, [], { noMisread: true });
       spec.tags = ['watching'];
       self.create('clue', spec);
+      self.roomUsed('survroom');
       self.revealSuspect(rec, null);
       lines.push(U.fill('From the Belfry: {title}.', { title: rec.title }));
     });
@@ -2453,7 +2471,14 @@
   };
   P.informantSpec = function (district) {
     var name = this.newName();
-    var nick = U.pick(this.rng, ['Whistle', 'Two-Coats', 'Sparrow', 'Lucky', 'The Deacon', 'Moth', 'Rattle', 'Penny']);
+    // One Moth on the table at a time: a nickname already in use is passed
+    // over, and when all eight are taken the newcomer is that one's junior.
+    var all = ['Whistle', 'Two-Coats', 'Sparrow', 'Lucky', 'The Deacon', 'Moth', 'Rattle', 'Penny'];
+    var used = {};
+    this.cardsOf('informant', true).forEach(function (c) { if (c.data && c.data.name) used[c.data.name] = true; });
+    var free = all.filter(function (n) { return !used[n]; });
+    var nick = free.length ? U.pick(this.rng, free) : U.pick(this.rng, all) + ' the Younger';
+    if (used[nick]) nick = name.split(' ')[0] + ' ' + nick;
     return {
       label: 'Informer: ' + nick,
       desc: name + ', known in the taverns as ' + nick + '. Works ' + CF.DISTRICTS[district].label + '. Meet them on the Ward with Coin for a word.',
@@ -2531,6 +2556,9 @@
     this.addOrdersForRank(s.rank);
     // The office serves what you want: a promotion feeds the path you walk.
     this.pathGain(s.calling || 'commissioner', 1, 'promoted');
+    // The office teaches as well as pays: its own Insights open now.
+    var ways = CF.insightsAtRank ? CF.insightsAtRank(s.rank) : [];
+    if (ways.length) this.story('The Office Teaches', U.fill('New work, new lessons: {list}. The Health, Wit and Instinct cards say how each is earned.', { list: ways.map(function (id) { return CF.INSIGHTS[id].label; }).join(', ') }), 'minor');
     return unlocked;
   };
 
@@ -2580,6 +2608,31 @@
 
   // ---- The Intelligence Office ------------------------------------------------
   // A clue that points at a front reveals the front as soon as it is found.
+  // What each built room has done for you, counted where its effect lands
+  // (s.roomUse = { room: n }), so the Watch-house board can say it paid:
+  // the UI reads roomUseText(room) for the tile's foot ({one|many} with {n}).
+  CF.ROOM_USE = {
+    locker: ['One token kept past its time', '{n} tokens kept past their time'],
+    suite: ['One questioning with more Word', '{n} questionings with more Word'],
+    archive: ['One case opened again', '{n} cases opened again'],
+    intel: ['One front named or informer seated', '{n} fronts named or informers seated'],
+    training: ['One Coin saved at the drill', '{n} Coin saved at the drill'],
+    thieftakers: ['One case settled', '{n} cases settled'],
+    lab: ['One reading made stronger', '{n} readings made stronger'],
+    survroom: ['One token from the belfry', '{n} tokens from the belfry'],
+  };
+  P.roomUsed = function (room, n) {
+    var s = this.s;
+    if (!s.rooms[room]) return;
+    if (!s.roomUse || typeof s.roomUse !== 'object') s.roomUse = {};
+    s.roomUse[room] = (s.roomUse[room] || 0) + (n || 1);
+  };
+  // { text, vars } for a room that has done something (through tr), or null.
+  P.roomUseText = function (room) {
+    var n = (this.s.roomUse || {})[room] || 0, t = CF.ROOM_USE[room];
+    if (!n || !t) return null;
+    return { text: n === 1 ? t[0] : t[1], vars: { n: n }, n: n };
+  };
   P.tickIntelOffice = function () {
     var self = this, fronts = this.fronts();
     for (var k in this.s.cards) {
@@ -2588,6 +2641,7 @@
       var f = fronts[c.data.link];
       if (f && !f.known) {
         self.revealFront(f);
+        self.roomUsed('intel');
         self.story('The Informers\' Bench', 'Someone on the bench knows ' + self.labelOf(c) + ' at once: ' + f.name + '. ' + f.gang.replace(/^the /, 'The ') + ' works through it.', 'major');
       }
     }
@@ -2847,6 +2901,9 @@
       structure: structure ? structure.id : null, front: front ? front.id : null,
     };
     rec.week = s.week;
+    // The Vanished may be alive (round 8): only where they left or never got home, never on the
+    // rng's stream (a fixed quarter of names), so the city's other draws stay as they were.
+    if (tid === 'missing') rec.alive = (rec.structure === 'own_accord' || rec.structure === 'never_home') && Engine.nameHash(id + '|' + victim) % 4 === 0;
     // A title no redraw could change (a fixed one, the Scriptorium's) on a desk that already holds it.
     if (!from && openTitles.indexOf(rec.title) >= 0) {
       var again = U.fill('{title}, Again', { title: rec.title });
@@ -2927,7 +2984,8 @@
     return hs.length ? hs[hs.length - 1].title : null;
   };
   // What a conviction says the accused was convicted of.
-  P.convictedOf = function (rec) { return rec.crimeTitle || rec.title; };
+  // The Vanished found alive: the charge is the lesser crime, the taking.
+  P.convictedOf = function (rec) { return rec.crimeTitle || (rec.foundAlive ? U.fill('the abduction of {victim}', { victim: rec.victim }) : rec.title); };
   // A citizen you once sent home who may come back as a witness: reformed,
   // not the case's own criminal, and nobody come that way in six weeks.
   P.oldDebtor = function (exceptId) {
@@ -3497,6 +3555,12 @@
       var rvName = rv && rv.data && rv.data.name ? rv.data.name : 'The Harbourmaster\'s examiner';
       if (th) this.story('Quicker than the Customs House', U.fill('{name} was working {title} from the other side, and the Blood Court heard yours first.', { name: rvName, title: rec.title }) + ' ' +
         (th.exposed ? th.text : 'A thread on them: they were seen at it, and the Council saw who was quicker.'), th.exposed ? 'major' : 'minor');
+    }
+    // The Vanished, found alive, sees it done: the city is glad of it.
+    if (rec.foundAlive && d.guilty) {
+      this.meter('reputation', 1);
+      this.meter('pressure', -1);
+      notes.push(U.fill('{victim} is in the gallery to hear it. Standing +1, and the Crowd eases.', { victim: rec.victim }));
     }
     // Reopened cases and manhunts put an at-large criminal away.
     if (rec.atLargeUid && this.card(rec.atLargeUid) && d.guilty) {

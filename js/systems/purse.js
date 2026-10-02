@@ -53,6 +53,7 @@
       this.count('purse', 1);
       this.create('funds'); this.create('funds');
       s.stats.settled = (s.stats.settled || 0) + 1;
+      if (this.roomUsed) this.roomUsed('thieftakers');
       this.emit('resolved', this.caseRecord(rec, 'settled', null));
       var c = this.criminalEscapes(rec, culprit, 'settled');
       this.abroadCard(c, 'Named by the thief-takers, never charged. The goods came back; they did not.');

@@ -294,6 +294,32 @@
         { type: 'evidence', label: 'A Commonplace Book', text: 'Written in a private cipher.', needs: null,
           result: { label: 'The Cipher Broken', text: 'Read out, the last leaves speak of being followed, and name the person they feared in everything but name.', aspects: { testimony: 2, motive: 1 } } },
       ],
+      // Three written threads beside the scene, so the Writ need not wait on
+      // the Apothecary: the ferry's book (with the Harbour's Quarter), the
+      // parish register (with Wit, once the scene is searched), and, where
+      // they left or never got home, the cellars (with Instinct, after both).
+      leads: [
+        { id: 'ferry', verb: 'investigate', label: 'The Ferryman\'s Book', duration: 30,
+          needs: { aspects: ['district'], when: function (ctx) { var d = ctx.first('district'); return !!d && d.data.district === 'docks'; } },
+          preview: 'The ferry keeps a book of who crosses, and the ferryman can read.',
+          gives: [
+            { type: 'clue', label: 'Crossed at Dusk', text: '{victim} is in the book on the night they went, and under the name, in the same hand, a second fare paid by someone who did not cross.', aspects: { digital: 2, opportunity: 1 } },
+          ],
+          story: { title: 'The Ferryman\'s Book', text: 'The ferryman licks his thumb and turns back the leaves. {victim} is there, and the fare beneath is the one that matters.' } },
+        { id: 'register', verb: 'investigate', label: 'The Parish Register', duration: 20,
+          needs: { aspects: ['focus'], when: function (ctx, rec) { return rec.searches > 0; } },
+          preview: 'The parish clerk keeps the banns, the burials and the debts of the soul. Read back a month.',
+          gives: [
+            { type: 'clue', label: 'The Banns Struck', text: 'Banns read for {victim} three Sundays running, and struck through on the fourth.', aspects: { digital: 1, motive: 1 } },
+          ],
+          story: { title: 'The Parish Register', text: 'The clerk finds the leaf for you. Somebody wanted {victim} married, and somebody wanted it stopped.' } },
+        { id: 'cellars', verb: 'investigate', label: 'Search the Cellars', duration: 40,
+          needs: { aspects: ['instinct'], after: ['ferry', 'register'], when: function (ctx, rec) { return !!rec.alive; } },
+          preview: 'The book and the banns point the same way: under the Stews. Go down with a lantern.',
+          gives: [{ type: 'witness', victim: true }],
+          set: { foundAlive: true }, reveal: 'culprit', fatigue: 0.5,
+          story: { title: 'Alive', kind: 'major', text: 'Behind a door in the bathhouse cellar, thin, filthy and furious, is {victim}. They know exactly who put them there, and they will say it in front of the sworn men.' } },
+      ],
       witnesses: ['the neighbour with the cat', 'the tapster at the corner alehouse', 'a ballad-seller'],
       hints: [{ text: 'They quarrelled with someone on the stair. A man or a woman, I couldn\'t say. They sounded like they knew each other.' }, { text: 'They were frightened. They kept looking at the door.' }, { text: 'They told me they were coming into money. Then they said they were leaving the city.' }],
     },

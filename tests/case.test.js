@@ -437,3 +437,79 @@ function jointure(d) {
   assert.ok(!(vb.status === 'done' && !vb.out.length), 'the verb is not left Ready and empty');
   console.log('case clock in the outputs, empty verb freed: ok');
 })();
+
+// ---- The Vanished: a written thread to Writ without the Apothecary, and the twist ----------
+(function vanished() {
+  var d = new Detective(5), e = d.e;
+  e.s.rank = 1; e.s.flags.marketOpen = true;
+  var rec = d.rec0 = e.caseRec(e.spawnCase('missing', { quiet: true }).caseId);
+  var kase = e.caseCard(rec.id);
+  assert.ok(!e.s.rooms.lab, 'no Apothecary');
+  // The Ferryman's Book: the case with the Harbour's Quarter.
+  d.run('investigate', [kase]);
+  var harbour = e.giveDistrict('docks');
+  assert.strictEqual((e.autoSlot('investigate', kase.uid), e.autoSlot('investigate', harbour.uid), e.currentRecipe('investigate').recipe.id), 'lead_missing_ferry');
+  e.clearSlots('investigate');
+  d.run('investigate', [kase, harbour]);
+  var ferry = d.byLabel(/^Crossed at Dusk$/)[0];
+  assert.ok(ferry && CF.clueAspects(ferry).digital === 2, 'the ferry gives Writ 2');
+  // The Parish Register: the case with Wit, once the scene is searched.
+  d.run('investigate', [kase, d.give('focus')]);
+  var banns = d.byLabel(/^The Banns Struck$/)[0];
+  assert.ok(banns && CF.clueAspects(banns).digital === 1 && CF.clueAspects(banns).motive === 1, 'the register gives Writ and Motive');
+  // A witness from the Quarter, and their word.
+  var home = d.cards(function (c) { return c.def === 'district' && c.data.district === rec.district; })[0] || e.giveDistrict(rec.district);
+  d.run('investigate', [kase, home]);
+  var w = d.cards(function (c) { return c.def === 'witness' && c.caseId === rec.id; })[0];
+  assert.ok(w, 'a witness from door to door');
+  d.run('interrogate', [w, d.give('focus')]);
+  var dep = d.byLabel(/^Deposition: /)[0];
+  assert.ok(dep && /^The witness says: "/.test(e.descOf(dep)) && e.descOf(dep).indexOf('(') < 0, 'the deposition is the witness\'s words; the stake is the dossier\'s own line');
+  // Without the cellars (they are dead in this one, or not found), Instinct searches as ever.
+  rec.alive = false;
+  var ins = d.give('instinct');
+  e.autoSlot('investigate', kase.uid); e.autoSlot('investigate', ins.uid);
+  assert.notStrictEqual(e.currentRecipe('investigate').recipe.id, 'lead_missing_cellars', 'the cellars never open on a victim who is dead');
+  e.clearSlots('investigate'); e.remove(ins);
+  // A fourth token from the scene, then the charge: Writ from the ferry, not the Apothecary.
+  var sc5 = d.suspectCard(rec.culprit);
+  if (!sc5) { e.revealSuspect(rec, null, { key: rec.culprit }); sc5 = d.suspectCard(rec.culprit); }
+  var fourth = d.cards(function (c) { return c.def === 'clue' && c.caseId === rec.id && [ferry, dep, banns].indexOf(c) < 0 && e.assessCharge(sc5, [ferry, dep, banns, c]).tier === 'strong'; })[0];
+  assert.ok(fourth, 'a fourth token from the scene makes it full proof');
+  var a = d.charge([ferry, dep, banns, fourth]);
+  assert.ok(a.have.digital >= 2, 'Writ from the ferry and the register');
+  console.log('the Vanished by the ferry: ok (' + d.log.slice(-6).map(function (l) { return l.split(' -> ')[0]; }).join('; ') + ')');
+
+  // The twist: alive, behind a cellar door, after both threads.
+  var d2 = new Detective(9), e2 = d2.e;
+  e2.s.rank = 1; e2.s.flags.marketOpen = true;
+  var r2 = d2.rec0 = e2.caseRec(e2.spawnCase('missing', { quiet: true }).caseId);
+  r2.alive = true;
+  var k2 = e2.caseCard(r2.id);
+  d2.run('investigate', [k2]);
+  d2.run('investigate', [k2, e2.giveDistrict('docks')]);
+  d2.run('investigate', [k2, d2.give('focus')]);
+  d2.run('investigate', [k2, d2.give('instinct')]);
+  assert.ok(r2.foundAlive, 'found alive');
+  var vic = d2.cards(function (c) { return c.def === 'witness' && c.data.victim; })[0];
+  assert.ok(vic && vic.label === 'Witness: ' + r2.victim && vic.data.stake === 'none' && vic.data.knows, 'the Vanished is a witness with nothing to gain');
+  assert.ok(d2.suspectCard(r2.culprit), 'and the one who took them is in the casebook');
+  d2.run('interrogate', [vic, d2.give('focus')]);
+  var vd = d2.byLabel(/^Deposition: /)[0];
+  assert.ok(vd.data.points === r2.culprit && vd.data.againstInterest, 'their word names the culprit, and counts double');
+  assert.strictEqual(e2.convictedOf(r2), 'the abduction of ' + r2.victim, 'the charge is the lesser crime');
+  // An older save: every Vanished as dead as it was written.
+  var old = JSON.parse(e2.save());
+  delete old.cases[r2.id].alive; delete old.cases[r2.id].foundAlive;
+  var l = CF.Engine.load(old);
+  assert.ok(l.caseRec(r2.id).alive === false && l.caseRec(r2.id).foundAlive === false, 'an older save loads with nobody alive');
+  // Only where they left or never got home, about one in four.
+  var alive = 0, wrong = 0;
+  for (var i = 0; i < 80; i++) {
+    var g = CF.Engine.newGame({ seed: 500 + i, calling: 'master' });
+    var gr = g.caseRec(g.spawnCase('missing', { quiet: true }).caseId);
+    if (gr.alive) { alive++; if (gr.structure === 'walked_out') wrong++; }
+  }
+  assert.ok(alive > 5 && alive < 30 && !wrong, 'alive in ' + alive + ' of 80, never where they walked out');
+  console.log('the Vanished alive: ok (' + alive + ' of 80)');
+})();

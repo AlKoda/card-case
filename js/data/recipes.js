@@ -30,7 +30,7 @@
     return keys.map(function (k) { return CF.ASPECTS[k].label; }).join(', ').replace(/, ([^,]*)$/, ' and $1');
   }
   function suiteBonus(e, spec) {
-    if (e.s.rooms.suite && spec.aspects) spec.aspects.testimony = (spec.aspects.testimony || 0) + 1;
+    if (e.s.rooms.suite && spec.aspects) { spec.aspects.testimony = (spec.aspects.testimony || 0) + 1; e.roomUsed('suite'); }
     return spec;
   }
   function needsLabel(need) {
@@ -120,6 +120,19 @@
       { story: { title: 'Pocketed', text: 'Three weeks\' stipend in worn silver. It sits in your coat like a stone. Somewhere, somebody writes your name in a ledger.' } },
     ],
   });
+  // A patron's seal: the favour called in, at the cost of 2 of their Favour.
+  R.push({
+    id: 'duty_seal', verb: 'duty', label: 'Call In the Favour', duration: 10,
+    preview: function (ctx) { var P = CF.Patrons.SEAL[ctx.primary.data.patron]; return P ? P.gives : ''; },
+    danger: 'Favour -2',
+    requires: ['seal'],
+    run: function (ctx) {
+      var e = ctx.e, card = ctx.primary, P = CF.Patrons.SEAL[card.data.patron];
+      ctx.consume(card);
+      var text = e.callInSeal(card);
+      return { title: P ? P.label : 'A Patron\'s Seal', text: text || 'The seal is broken, and nobody answers it.' };
+    },
+  });
   R.push({
     id: 'duty_writsale', verb: 'duty', label: 'Sell a Writ', duration: 10,
     preview: function (ctx) { var d = ctx.primary.data; return 'Find cause where there is none and have ' + d.rival + '\'s house turned over at first light. Three Coin, and a patrician who owes you.' + (d.council ? ' The rival is a Council family; the Council will hear of it.' : ''); },
@@ -162,6 +175,7 @@
     run: function (ctx) {
       var e = ctx.e, t = ctx.primary;
       ctx.with('funds').slice(0, e.s.rooms.training ? 1 : 2).forEach(ctx.consume);
+      e.roomUsed('training');
       var a = t.aspects;
       var best = Object.keys(a).sort(function (x, y) { return a[y] - a[x]; })[0];
       a[best]++;
@@ -302,7 +316,9 @@
         : offer.kind === 'sighting' ? U.fill('{nick} may know where someone Abroad sleeps.', { nick: nick })
         : offer.kind === 'warning' ? U.fill('{nick} may know what the city will do next.', { nick: nick })
         : offer.kind === 'quarter' ? U.fill('{nick} knows where the next case will come from.', { nick: nick }) : '';
-      return (head ? head + ' ' : '') + 'Every meeting puts them at more risk.';
+      // Met in their own Quarter (its card beside them): Word +1, and nobody sees them with you.
+      var home = ctx.first('district'), own = !!home && home.data.district === ctx.primary.data.district;
+      return (head ? head + ' ' : '') + (own ? 'In their own Quarter: Word +1, and no risk to them.' : 'Every meeting puts them at more risk.');
     },
     blocked: function (ctx) { return ctx.e.informerOffer().kind ? null : U.fill('{nick} has nothing for you this week. Keep your Coin.', { nick: ctx.primary.data.name }); },
     requires: { primary: 'informant', aspects: ['funds'] },
@@ -312,7 +328,8 @@
       var offer = e.informerOffer();
       if (!offer.kind) return { title: 'Nothing Tonight', text: U.fill('{nick} has nothing for you this week, and takes nothing.', { nick: nick }) };
       ctx.consume(ctx.first('funds'));
-      e.heatInformant(inf, 1);
+      var home = ctx.first('district'), own = !!home && home.data.district === inf.data.district;
+      if (!own) e.heatInformant(inf, 1);
       e.trustInformant(inf, 1);
       var open = offer.open, al = offer.atlarge, next = e.s.nextCase;
       var word = function (rec) {
@@ -320,7 +337,7 @@
         ctx.give('clue', e.clueSpec(rec, {
           label: 'Word from ' + nick,
           text: nick + ' says, about ' + rec.title + ': "' + CF.TRAIT_SEEN[cul.trait] + '"',
-          aspects: { testimony: 2, motive: 1 },
+          aspects: { testimony: own ? 3 : 2, motive: 1 },
           trait: cul.trait,
         }));
         return { title: 'A Word', text: nick + ' counts the coin twice before talking. It is worth it. They know something about ' + rec.title + '.' };
@@ -608,13 +625,13 @@
       }
       // The apothecary's bench: what the body says reads one point stronger.
       var bench = !!e.s.rooms.lab && CF.itemTags(item).indexOf('biology') >= 0;
-      if (bench) { spec.aspects.forensic = (spec.aspects.forensic || 0) + 1; spec.text += ' At the apothecary\'s bench it reads one point stronger.'; }
+      if (bench) { spec.aspects.forensic = (spec.aspects.forensic || 0) + 1; spec.text += ' At the apothecary\'s bench it reads one point stronger.'; e.roomUsed('lab'); }
       // Proof that promises a name gives one: the culprit's, if they are in
       // the casebook; otherwise a hand to hold against a name later.
       var flags = {};
       if (res.names && ok) {
         var cul = culpritOf(rec);
-        if (cul.revealed && !cul.cleared) { flags.points = rec.culprit; flags.noMisread = true; spec.text += ' It is ' + cul.name + '\'s.'; }
+        if (cul.revealed && !cul.cleared) { flags.points = rec.culprit; flags.noMisread = true; spec.text += ' ' + U.fill('It belongs to {name}.', { name: cul.name }); }
         else { spec.trait = cul.trait; spec.names = true; spec.text += ' Nobody in the casebook yet has this hand. Keep it.'; }
       }
       ctx.consume(ev);
@@ -686,6 +703,7 @@
       e.spawnCase(tid, { ctx: ctx, culpritName: d.culpritName, culpritTrait: d.culpritTrait, atLargeUid: d.atLargeUid, reopened: true, from: d.from || null,
         criminalId: (alCard && alCard.data.criminalId) || (e.criminalByName(d.culpritName) || {}).id || null,
         lifetime: 320, headline: 'Opened Again', lead: 'The old book on ' + (d.title || 'an old case') + ' is open on your desk again.' });
+      e.roomUsed('archive');
       return { title: 'Opened Again', text: 'Dust, faded ink, a witness list with half the names crossed out. But the answer was always in here somewhere.' };
     },
   });
@@ -756,9 +774,11 @@
       var P = CF.PROSE, fillCap = CF.fillCap;
       var aspects = { testimony: 2 };
       if (w.data.knows) aspects.opportunity = 1;
-      var spec = { label: 'Deposition: ' + name, text: '"' + hint + '"' + (w.data.stake ? ' (' + CF.STAKES[w.data.stake].label + '.)' : ''), aspects: aspects, trait: w.data.knows ? cul.trait : null };
+      var spec = { label: 'Deposition: ' + name, text: U.fill('The witness says: "{hint}"', { hint: hint }), aspects: aspects, trait: w.data.knows ? cul.trait : null };
+      // The Vanished, found alive, names the one who took them, and is believed.
+      if (w.data.victim) points = cul.key;
       // One you once sent home speaks against their own interest: a pardoned thief at the Watch-house door risks everything.
-      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.reformed || (w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against)), points: points };
+      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.reformed || w.data.victim || (w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against)), points: points };
       if (ctx.has('instinct')) {
         if (!e.teamHas(ctx, 'empathetic') && ctx.rng() < 0.4) {
           w.life = Math.max(20, (w.life || 60) - 60);
@@ -1575,6 +1595,8 @@
       var sus = e.suspectOf(sc);
       var clues = slotClues(ctx, ['c1', 'c2', 'c3', 'c4']);
       var a = e.assessCharge(sc, clues);
+      // The Strongroom kept them: a token past half its life, at half the fading, would have gone without it.
+      if (e.s.rooms.locker) clues.forEach(function (c) { if (c.maxLife && c.life !== undefined && c.maxLife - c.life > c.maxLife / 2) e.roomUsed('locker'); });
       rec.status = 'trial';
       if ((rec.template === 'syndicate' || rec.template === 'gang') && e.breakTreaty) e.breakTreaty('You have indicted one of the Court\'s own.');
       e.releaseDelegate(rec);
