@@ -59,6 +59,18 @@
       }
     });
   });
+  // The effects and the whole: let go of the slider and a card lands, at the level just set (music is heard already).
+  var tasteAt = 0;
+  ['sfx', 'master'].forEach(function (k) {
+    var el = $('s-' + k);
+    if (!el) return;
+    el.addEventListener('change', function () {
+      var now = Date.now();
+      if (!CF.Audio.ready || now - tasteAt < 150) return;
+      tasteAt = now;
+      CF.Audio.play('drop');
+    });
+  });
   // The pile's cell outlines follow the card pitch: the stylesheet reads --cell-px.
   function cellPitch() {
     var gap = +CF.Settings.get('gap') || CF.TABLE.GAP;

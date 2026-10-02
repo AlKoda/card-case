@@ -2655,5 +2655,66 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the Council\'s count, the Petitions\' board, Standing past the last office, the Roads, the epilogue, a card\'s way out, the music hushed and dark, felt cues by name');
 })();
 
+(function lane2r8d() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var screens = fs.readFileSync(path.join(__dirname, '..', 'js/screens.js'), 'utf8');
+  var uisrc = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+  var e = CF.Engine.newGame({ calling: 'master', seed: 6 });
+  UI.attach(e);
+  render(e);
+
+  // Item 115: a chit names the same door as another case's chit on the table, and its dossier says so, no more.
+  var f = e.newFront('the Quiet Men', 'market');
+  while (e.openCases().length < 2) e.spawnCase();
+  var r1 = e.openCases()[0], r2 = e.openCases()[1];
+  var chit = function (rec) { return e.create('clue', e.clueSpec(rec, e.linkItem(f))); };
+  var c1 = chit(r1);
+  var cue = 'Another token on the table names the same door';
+  assert.ok(UI.dossierLines(c1).indexOf(cue) < 0, 'alone, the chit says nothing of a door');
+  var c2 = chit(r2);
+  assert.ok(UI.dossierLines(c1).indexOf(cue) >= 0 && UI.dossierLines(c2).indexOf(cue) >= 0, 'two cases\' chits for one door: each says another names it');
+  assert.ok(!UI.dossierLines(c1).some(function (l) { return l.indexOf(f.name) >= 0 && l !== e.labelOf(c1) && l.indexOf('chit') < 0 && l.indexOf('token') < 0 && l.indexOf('tally') < 0; }), 'and does not name the door');
+  e.remove(c2);
+  var c3 = chit(r1);
+  assert.ok(UI.dossierLines(c1).indexOf(cue) < 0, 'two chits of one case make no thread, and no cue');
+  e.remove(c1); e.remove(c3);
+
+  // Item 116: the two new crimes have their pictures, whole tiles that are loaded.
+  var cards = fs.readFileSync(path.join(__dirname, '..', 'css/art/cm-cards.css'), 'utf8'), icons = fs.readFileSync(path.join(__dirname, '..', 'css/art/cm-icons.css'), 'utf8');
+  ['cplace3-04', 'cplace2-06'].forEach(function (k) { assert.ok(cards.indexOf('--art-' + k + ':') >= 0, k + ' is loaded'); });
+  ['iplace2-04', 'iplace2-14'].forEach(function (k) { assert.ok(icons.indexOf('--art-' + k + ':') >= 0, k + ' is loaded'); });
+  assert.ok(/weights: \['cplace3-04', 'iplace2-04'\], searchers: \['cplace2-06', 'iplace2-14'\]/.test(uisrc), 'False Weights and the Searchers have their cards');
+
+  // Item 117: letting go of the effects or the whole volume plays a card landing; the music needs nothing.
+  assert.ok(/\['sfx', 'master'\]\.forEach[\s\S]{0,200}addEventListener\('change'[\s\S]{0,200}now - tasteAt < 150[\s\S]{0,80}CF\.Audio\.play\('drop'\)/.test(screens), 'the SFX and Master sliders sound on release, 150 ms apart');
+
+  // Item 118: the season, where the rules keep one, on the week bar and first in the Bell; nothing without one.
+  var wb = $('#weekbar');
+  if (!wb) { wb = new El('div'); wb.id = 'weekbar'; var sh = new El('div'); sh.className = 'wb-shade'; wb.appendChild(sh); body.appendChild(wb); }
+  e.s.week = 27;
+  assert.strictEqual(UI.seasonNow(e), null, 'no seasons in the rules: none shown');
+  var oldSeasons = CF.SEASONS;
+  CF.SEASONS = [{ id: 'lent', label: 'Lent', from: 1, to: 13 }, { id: 'plague', label: 'The Plague Summer', line: 'the Abbey cart goes round twice a day.', from: 27, to: 39 }];
+  assert.strictEqual(UI.seasonNow(e).id, 'plague', 'week 27 is the Plague Summer');
+  e.s.week = 53;
+  assert.strictEqual(UI.seasonNow(e).id, 'lent', 'and the year comes round');
+  e.s.week = 27;
+  render(e);
+  assert.strictEqual(wb.title, 'Week 27. The Plague Summer', 'the week bar names it: ' + wb.title);
+  e.verb('time').unlocked = true;
+  if (e.verb('time').x === undefined) e.layoutVerbs();
+  UI.openWindow('time');
+  render(e);
+  var first = $('#windows').querySelector('.vw-season');
+  assert.ok(first && first.textContent === 'Week 27. The Plague Summer: the Abbey cart goes round twice a day.', 'the Bell\'s first line: ' + (first && first.textContent));
+  while (UI.openVerbs.length) UI.back();
+  assert.ok(/\.vwin \.vw-desc\.vw-season \{/.test(css), 'the season line has its style');
+  CF.SEASONS = oldSeasons;
+  // The Long Service ending has its picture.
+  assert.ok(/longservice: 'cherald-05'/.test(main), 'the Long Service: the rose');
+  console.log('ui: a chit\'s door, the new crimes\' cards, the sliders heard, the season on the week and the Bell');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

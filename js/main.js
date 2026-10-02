@@ -116,7 +116,9 @@
   // snake for the Council's sergeants, the burning street for the Crowd, the skull for death alone, the dagger, the rope; the sun
   // for mercy, the key for the Treaty, the lion for the King of Thunes.
   var ENDING_ART = { dismissed: 'cherald2-06', burnout: 'cmyst-01', collapse: 'cmyst-03', consumed: 'cmyst-04', corruption: 'cmyst-06',
-    death: 'cback-04', riot: 'ccrime-03', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cherald2-01', treatycity: 'cherald2-05', merciful: 'cmyst-02', hangmans: 'citem-07', stake: 'cback-01', dagger: 'citem2-07', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
+    death: 'cback-04', riot: 'ccrime-03', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cherald2-01', treatycity: 'cherald2-05', merciful: 'cmyst-02', hangmans: 'citem-07', stake: 'cback-01', dagger: 'citem2-07', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05',
+    // A year served out to the end: the rose, for the pension and the line in the Rolls in red ink.
+    longservice: 'cherald-05', long_service: 'cherald-05' };
   UI.ENDING_ART = ENDING_ART;
 
   // What would have saved you, under a losing ending: one line with the threat's seal. The rules' own lesson

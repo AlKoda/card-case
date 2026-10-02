@@ -68,6 +68,45 @@ assert.strictEqual(CF.bidi('1600-1610'), '1600-1610', 'a range is left be');
 // The go plate's seconds are Arabic seconds.
 var plate = CF.T('{label} · {n}s', { label: 'Search the Scene', n: 30 });
 assert.ok(!/[A-Za-z]/.test(plate) && /30 ث/.test(plate), 'the plate reads its seconds in Arabic: ' + plate);
+// A count takes the noun's Arabic form: one, two, 3-10, 11-99, 100 and up each read their own way, asked with its
+// value or met inside a composed line; no count is dodged with 'من ال...'.
+assert.strictEqual(CF.T('{n} days', { n: 1 }), 'يوم واحد', 'one day');
+assert.strictEqual(CF.T('{n} days', { n: 2 }), 'يومان', 'two days');
+assert.strictEqual(CF.T('{n} days', { n: 5 }), '5 أيام', '3-10 days take the plural');
+assert.strictEqual(CF.T('{n} days', { n: 12 }), '12 يومًا', '11-99 days take the singular in the accusative');
+assert.strictEqual(CF.T('{n} days', { n: 100 }), '100 يوم', '100 days');
+assert.strictEqual(CF.T('12 days for the Council'), '12 يومًا للمجلس', 'a composed line picks its form: ' + CF.T('12 days for the Council'));
+assert.strictEqual(CF.T('11 cards'), '11 بطاقةً', '11 cards: ' + CF.T('11 cards'));
+assert.strictEqual(CF.T('2 convictions'), 'إدانتان', 'two convictions');
+assert.ok(/يومًا/.test(CF.T('The Body at the Crane has 14 days left. Charge Hans Weber with what you have, or let it go.')), 'the count is the {d} it names');
+var bellDues = CF.T('Coin on the table: 3. Every week the Council pays 1 in stipend and the Bell draws 1 in dues (lodging 1); miss it and you sleep on the Watch-house bench.');
+assert.ok(/راتبًا قدره 1/.test(bellDues) && !/راتباً/.test(bellDues), 'the Bell\'s dues line is Arabic: ' + bellDues);
+assert.strictEqual(CF.I18N.pick({ one: 'a', other: 'b' }, 7), 'b', 'a form not written falls to the general one');
+(function () {
+  var forms = 0, dodges = [];
+  ['{n} days', '{n} days left', '{n} cards', '{n} Coin', '{n} sworn', '{n} crimes on the record.', 'Costs {n} Coin.'].forEach(function (k) {
+    if (typeof d[k] === 'object') forms++;
+    [1, 2, 7, 23, 104].forEach(function (n) { var r = CF.T(k, { n: n }); if (/من ال/.test(r) || r.indexOf('{') >= 0) dodges.push(k + ' ' + n + ': ' + r); });
+  });
+  assert.strictEqual(forms, 7, 'the counts are written in their forms');
+  assert.deepStrictEqual(dodges, [], 'no count is dodged');
+  // A key in forms is not undone by a plain value for it loaded later.
+  CF.addStrings('ar', { '{n} cards': '{n} من البطاقات' });
+  assert.strictEqual(CF.T('{n} cards', { n: 2 }), 'بطاقتان', 'the forms keep their place');
+})();
+// A woman is written as a woman: the line about her takes its '#f' form; a man's stays the plain one.
+assert.ok(/فعلتها/.test(CF.T('Margery Tanner has done it again: The Body at the Crane.')), 'she did it again: ' + CF.T('Margery Tanner has done it again: The Body at the Crane.'));
+assert.ok(/فعلها/.test(CF.T('Hans Weber has done it again: The Body at the Crane.')), 'he did it again');
+assert.ok(/فعلتها/.test(CF.T('{name} has done it again: {title}.', { name: 'Els Vos', title: 'The Body at the Crane' })), 'asked with her name as a value');
+var talks = function (who) { return CF.T(who + ' talks for an hour. Most of it is about their late husband. Then, almost as an afterthought: "{hint}"'); };
+assert.ok(/^تتحدث .*زوجها الراحل/.test(talks('Grete Bicker')), 'a widow talks of her late husband: ' + talks('Grete Bicker'));
+assert.ok(/^يتحدث .*زوجته الراحلة/.test(talks('Gregory Bicker')), 'a widower of his late wife: ' + talks('Gregory Bicker'));
+// Her card's words open on her name, and her mark reads in her form; the same mark on a man's card stays his.
+var herDesc = CF.T('Grete Welser, a journeyman turned off. Has ink-black fingers; works a printer\'s press.');
+assert.ok(/أصابعها .*تعمل/.test(herDesc), 'her mark: ' + herDesc);
+assert.ok(/أصابعه .*يعمل/.test(CF.T('Hans Welser, a journeyman turned off. Has ink-black fingers; works a printer\'s press.')), 'his mark');
+assert.ok(/أصابعه /.test(CF.T('Has ink-black fingers; works a printer\'s press.')), 'and the mark alone is read plain, not from her line');
+assert.strictEqual(CF.T('Witness: Kathrin Barker'), 'الشاهدة: ' + CF.T('Kathrin Barker'), 'her card names her a witness in the feminine');
 CF.setLang('en');
 assert.strictEqual(CF.T('Body +1'), 'Body +1', 'English is left alone');
 assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');

@@ -25,7 +25,12 @@ function drift(lang) {
   fs.readdirSync(dir).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(dir, f), 'utf8'), { filename: f }); });
   var d = globalThis.CF.I18N.dicts[lang] || {}, out = [];
   Object.keys(d).forEach(function (k) {
-    TERMS.forEach(function (t) { if (t[0].test(k) && d[k].indexOf(t[1]) < 0) out.push({ key: k, term: String(t[0]), want: t[1], got: d[k] }); });
+    // A value in forms by count (js/i18n.js) holds the term in every form.
+    var forms = typeof d[k] === 'object' ? Object.keys(d[k]).map(function (f) { return d[k][f]; }) : [d[k]];
+    TERMS.forEach(function (t) {
+      if (!t[0].test(k.replace(/#f$/, ''))) return;
+      forms.forEach(function (v) { if (v.indexOf(t[1]) < 0) out.push({ key: k, term: String(t[0]), want: t[1], got: v }); });
+    });
   });
   return out;
 }

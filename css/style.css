@@ -601,6 +601,7 @@ html.cf-cover #app { visibility: hidden; }
 /* Under a verb's first words: the offices' powers, one short dim line each; the ones still to come dimmer. */
 .vwin .vw-desc.vw-power { font-size: 12.5px; margin: -6px 0 6px; padding-inline-start: 10px; border-inline-start: 2px solid rgba(90, 79, 58, 0.35); opacity: 0.85; }
 .vwin .vw-desc.vw-power.locked { opacity: 0.55; }
+.vwin .vw-desc.vw-season { font-style: italic; font-size: 13px; margin: 0 0 8px; }
 /* The story reads on the panel's own paper, with a rule under it. */
 .story { color: var(--paper-ink); padding: 2px 0 10px; margin: 0 0 12px; border-bottom: 1px solid rgba(60, 40, 10, 0.25); }
 .story h5 { margin: 0 0 6px; font-family: var(--display); letter-spacing: 0.04em; font-size: 13px; }

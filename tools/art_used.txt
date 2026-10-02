@@ -76,6 +76,7 @@ charb2-02
 charb2-03
 charb2-05
 charb2-06
+cherald-05
 cherald2-01
 cherald2-04
 cherald2-05
@@ -176,8 +177,10 @@ cplace-03
 cplace-04
 cplace-05
 cplace-06
+cplace2-06
 cplace3-01
 cplace3-03
+cplace3-04
 cplace3-06
 cplace3-07
 cplace3-08
@@ -358,6 +361,8 @@ imyst-09
 imyst-19
 iplace-10
 iplace-16
+iplace2-04
+iplace2-14
 irole-03
 irole-04
 irole-05

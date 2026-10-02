@@ -36,14 +36,17 @@
     fraud: ['ccrime-07', 'icrime-07'], extortion: ['ccrime-01', 'icrime-08'], poison: ['ccrime-04', 'icrime-04'], coining: ['citem-03', 'icrime-21'],
     scriptorium: ['citem2-02', 'ilaw-12'], witch: ['coccult-07', 'icrime-19'], highway: ['citem-01', 'icrime-16'], contract: ['citem2-07', 'icrime-01'],
     eumenides: ['coccult-03', 'imyst-07'], pattern: ['coccult-06', 'icrime-05'], threedays: ['csign-06', 'icrime-02'], manhunt: ['ccrime-08', 'ilaw-18'],
-    gang: ['ccrime-05', 'icrime-22'], syndicate: ['cherald2-07', 'icrime-19'], architect: ['csign-04', 'icrime-16'] };
+    gang: ['ccrime-05', 'icrime-22'], syndicate: ['cherald2-07', 'icrime-19'], architect: ['csign-04', 'icrime-16'],
+    // The weigh-house and its scales; the churchyard and the stone the searchers' cart goes to.
+    weights: ['cplace3-04', 'iplace2-04'], searchers: ['cplace2-06', 'iplace2-14'] };
   var CASE_DEFAULT = ['csign-01', 'imark-16'];
   // The Harbourmaster's own case, where the rules open one: a ship at the quay and the harbour's stamp.
   var HARBOUR_CASE_ART = ['charb2-01', 'icrime-03'];
   function caseArtOf(tpl) { return CASE_ART[tpl] || (harbourTemplate(tpl) ? HARBOUR_CASE_ART : CASE_DEFAULT); }
   // Tokens about the body: an icon of the case's kind of death.
   var BODY_ART = { harbor: ['icrime-03', 'iev-21'], poison: ['icrime-04', 'iev-07'], contract: ['icrime-01', 'iev-21'], highway: ['icrime-16', 'iev-21'], eumenides: ['icrime-05', 'iev-20'],
-    pattern: ['icrime-13', 'iev-21'], threedays: ['icrime-02', 'iev-21'], scriptorium: ['iev-21', 'iev-03'], missing: ['imark-09', 'iev-21'], witch: ['icrime-02', 'iev-20'], manhunt: ['iev-21', 'icrime-13'] };
+    pattern: ['icrime-13', 'iev-21'], threedays: ['icrime-02', 'iev-21'], scriptorium: ['iev-21', 'iev-03'], missing: ['imark-09', 'iev-21'], witch: ['icrime-02', 'iev-20'], manhunt: ['iev-21', 'icrime-13'],
+    searchers: ['icrime-13', 'iplace2-14'] };
   var BODY_WORDS = /body|corpse|wound|blood|dead|drown|hang|poison|shot|stab|bruise|throat|lungs|stitched|cut\b|marks on/i;
   // The ladder: each rung has its picture.
   var RUNG_ART = { pardon: 'ccourt-06', fine: 'citem-03', pillory: 'ccourt-07', banish: 'cverb-05', brand: 'citem2-04', sword: 'ccourt-08', rope: 'citem-07', wheel: 'ccourt-05' };
@@ -2508,6 +2511,31 @@
     });
   }
 
+  // The season of the year, where the rules keep one: e.season() ({ id, label, line }), else CF.SEASONS
+  // ([{ id, label, line, from, to }], weeks of the year 1-52). Nothing until the rules have seasons.
+  function seasonNow(e) {
+    var se = null;
+    try { se = typeof e.season === 'function' ? e.season() : null; } catch (err) { se = null; }
+    if (!se && CF.SEASONS && CF.SEASONS.length) {
+      var wk = ((Math.max(1, e.s.week || 1) - 1) % 52) + 1;
+      se = CF.SEASONS.filter(function (x) { return wk >= x.from && wk <= x.to; })[0] || null;
+    }
+    return se && se.label ? se : null;
+  }
+  UI.seasonNow = seasonNow;
+  // The week bar's tooltip names the week, and the season with it.
+  var weekTitleSig = '';
+  function weekTitle() {
+    var wb = document.querySelector('#weekbar'), e = UI.e;
+    if (!wb || !e) return;
+    var se = seasonNow(e), sig = e.s.week + '|' + (se ? se.label : '') + '|' + CF.lang();
+    if (sig === weekTitleSig) return;
+    weekTitleSig = sig;
+    var en = se ? 'Week ' + e.s.week + '. ' + se.label : 'Week ' + e.s.week;
+    // The page's own walk translates a title from its English (js/i18n.js); this one is kept there too.
+    wb.__en_title = en;
+    wb.title = se ? tr('Week {n}. {season}', { n: e.s.week, season: se.label }) : tr('Week {n}', { n: e.s.week });
+  }
   // The sun-to-moon bar: the shade draws back from the sun as the week passes.
   // It is anchored at the moon end and scaled, written only when it has moved.
   var weekShade = null, weekScale = -1;
@@ -2520,6 +2548,7 @@
       weekShade.style.transformOrigin = 'right center';
       weekShade.style.transition = 'transform 0.5s linear';
     }
+    weekTitle();
     var p = Math.min(1, UI.e.s.weekT / CF.WEEK);
     var sc = Math.round((81 - 62 * p) / 81 * 200) / 200;
     if (Math.abs(sc - weekScale) < 0.005) return;
@@ -2692,6 +2721,9 @@
     var def = CF.VERBS[vid];
 
     if (def.auto) {
+      // The season first, where the rules keep one: the week, the season's name and its line.
+      var season = seasonNow(e);
+      if (season) pane.appendChild(h('p', 'vw-desc vw-season', season.line ? tr('Week {n}. {season}: {line}', { n: e.s.week, season: season.label, line: season.line }) : tr('Week {n}. {season}', { n: e.s.week, season: season.label })));
       pane.appendChild(h('p', 'vw-desc', def.desc));
       var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
       if (wk) pane.appendChild(storyBox(wk));
@@ -3264,6 +3296,9 @@
     return r !== null && CF.RANKS && CF.RANKS[r] ? r : null;
   }
   UI.wayRank = wayRank;
+  function sameDoor(e, card) {
+    return e.tableCards().some(function (c) { return c !== card && !c.hidden && c.def === 'clue' && c.data && c.data.link === card.data.link && c.caseId !== card.caseId; });
+  }
   function dossierNotes(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, lines = [];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
@@ -3314,6 +3349,8 @@
       if (card.data.stake && CF.STAKES[card.data.stake]) lines.push(CF.STAKES[card.data.stake].label + (card.data.againstInterest ? ' · against interest' : '') + (card.data.coerced ? ' · not credible' : ''));
       if (card.data.confession) lines.push(card.data.confession === 'free' ? 'Confessed freely' : 'Under the question');
       else if (card.data.falseConfession) lines.push('A false confession');
+      // A chit that names the same door as another case's token on the table: a quiet cue, not which door or why.
+      if (card.data.link && sameDoor(e, card)) lines.push('Another token on the table names the same door');
       if (card.data.tampered) lines.push('Spoiled by the Rival');
       if (card.data.bribed) lines.push('Paid to forget');
       if (card.data.frame) lines.push('The thief-takers\' men');

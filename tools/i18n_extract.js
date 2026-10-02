@@ -103,7 +103,8 @@ function missing(lang) {
   if (fs.existsSync(dir)) fs.readdirSync(dir).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(dir, f), 'utf8'), { filename: f }); });
   var d = globalThis.CF.I18N.dicts[lang] || {}, miss = {}, n = 0, total = 0;
   Object.keys(byFile).forEach(function (f) {
-    var m2 = byFile[f].filter(function (k) { total++; return d[k] === undefined; });
+    // A value in forms by count ({ one, two, few, many, other }, see js/i18n.js) is an entry when it has its general form.
+    var m2 = byFile[f].filter(function (k) { total++; return d[k] === undefined || (typeof d[k] === 'object' && (!d[k] || typeof d[k].other !== 'string')); });
     if (m2.length) { miss[f] = m2; n += m2.length; }
   });
   return { missing: miss, count: n, total: total };
