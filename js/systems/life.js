@@ -1080,6 +1080,17 @@
         { label: 'Dine with the other side', cost: 'focus', gain: 'Council favour 1, whoever wins; no Suspicion; Bishop -1', text: 'A long dinner on the Hill with the men who want his seat. The Bishop dines elsewhere and hears of it.',
           effect: function (e) { e.favour().bishop -= 1; e.s.flags.election = 'dine'; } },
       ] },
+    // Put to you at the Assize (offerAssize), never by the clock: the Rolls read aloud, then what you ask for.
+    { id: 'assize', when: function () { return false; },
+      title: 'The Assize', text: '{year}', fill: function (e) { return { year: CF.Story.assize(e) }; },
+      options: [
+        { label: 'Ask for a pension', gain: 'Two Coin', text: 'The clerk writes it into the Rolls and counts out the first of it.',
+          effect: function (e) { e.create('funds'); e.create('funds'); } },
+        { label: 'Ask for more men', gain: 'A Letter of Service', text: 'The Council finds you a man, and the letter comes under its seal.',
+          effect: function (e) { e.create('personnel', e.personnelSpec(['rookie', 'tech', 'interviewer', 'veteran'][e.s.rank] || 'veteran')); } },
+        { label: 'Ask for nothing', gain: 'Standing +2', text: 'You ask for nothing. The benches remember it longer than the rest.',
+          effect: function (e) { e.meter('reputation', 2); } },
+      ] },
   ];
   // ---- The Council Elects ------------------------------------------------------------
   // Every twelve weeks (CF.Patrons.ELECTION_EVERY) the Council may turn. The week before, with a
@@ -1126,6 +1137,48 @@
     this.story(E.title, U.fill(E.told[how][loses ? 'loses' : 'holds'], { n: n }), how === 'stand' && loses ? 'danger' : 'event');
     lines.push(loses ? E.loses : E.holds);
     return lines;
+  };
+  // ---- The Year ------------------------------------------------------------------------
+  // The season's words are story.js's (Story.season, Story.seasonBell). Here: the Assize put
+  // as a question halfway through each year, and the Long Service, the pension that ends a run
+  // at its rank cap that nothing else has ended, told four weeks before (CF.LONG_SERVICE).
+  // For the engine: at the Bell, lines = this.yearWeek().concat(lines), so the season comes
+  // first; after the week is told, this.longServiceDue() ends the run when its week has come.
+  // Both keep their state in s.flags (assize: the year asked; pension: the week it comes), so
+  // an older save needs nothing new and is asked at its next Bell in the window.
+  CF.ASSIZE_WEEKS = { from: 26, to: 39 };
+  if (CF.ENDINGS && !CF.ENDINGS.longservice) {
+    CF.ENDINGS.longservice = { win: true, title: CF.LONG_SERVICE.title, text: CF.ENDING_VARIANTS.longservice[CF.ENDING_VARIANTS.longservice.length - 1].text };
+  }
+  function atCap(e) { return (e.s.rank || 0) >= (e.rankCap ? e.rankCap() : CF.TOP_RANK); }
+  // The Assize, once a year, in its window and when no other question is open. False if not asked.
+  P.offerAssize = function () {
+    var s = this.s, se = CF.Story.season(s.week), at = (s.week - 1) % 52 + 1;
+    if (s.over || s.choice || (s.intro && !s.intro.finished)) return false;
+    if (at < CF.ASSIZE_WEEKS.from || at > CF.ASSIZE_WEEKS.to || (s.flags.assize || 0) >= se.year) return false;
+    s.flags.assize = se.year;
+    this.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'assize'; })[0]);
+    return true;
+  };
+  // The year's part of the Bell: its lines (the season's opening line, the pension's warning).
+  P.yearWeek = function () {
+    var s = this.s, L = CF.LONG_SERVICE, lines = [], bell = CF.Story.seasonBell(s.week);
+    if (s.over) return lines;
+    if (bell) lines.push(bell);
+    this.offerAssize();
+    if (!s.flags.pension && atCap(this) && s.week >= L.week - L.warn) {
+      s.flags.pension = Math.max(L.week, s.week + L.warn);
+      this.story(L.warnTitle, L.warnText, 'major');
+      lines.push(L.warnText);
+    }
+    return lines;
+  };
+  // The Long Service, when its week has come and nothing else has ended the run. True if it ended.
+  P.longServiceDue = function () {
+    var s = this.s;
+    if (s.over || !s.flags.pension || s.week < s.flags.pension || !atCap(this)) return false;
+    this.gameOver('longservice');
+    return !!s.over;
   };
   // The informer somebody has been asking after: the first one Compromised.
   function compromisedInformer(e) {

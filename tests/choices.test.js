@@ -779,3 +779,83 @@ console.log('choices: all OK');
   ['lamplighter', 'pawnbroker', 'confessor', 'tapster'].forEach(function (id) { assert.ok(spec(id).again, id + ' has a second wording'); });
   console.log('the late questions: ok');
 })();
+
+// ---- The Year: seasons, the Assize, the Long Service ----------------------------------------
+(function year() {
+  var S = CF.Story;
+  // A quarter of fifty-two weeks to a season, the Bell's line on each season's first week.
+  [[1, 'lent'], [13, 'lent'], [14, 'fair'], [26, 'fair'], [27, 'plague'], [39, 'plague'], [40, 'winter'], [52, 'winter'], [53, 'lent']].forEach(function (p) {
+    assert.strictEqual(S.season(p[0]).id, p[1], 'week ' + p[0]);
+  });
+  assert.strictEqual(S.season(53).year, 2);
+  var bells = [];
+  for (var w = 1; w <= 60; w++) if (S.seasonBell(w)) bells.push(w);
+  assert.deepStrictEqual(bells, [1, 14, 27, 40, 53]);
+  assert.strictEqual(S.seasonBell(27), 'Week 27. The Plague Summer: the Abbey cart goes round twice a day.');
+
+  function ready(seed) { var e = game(seed); if (e.s.intro) e.s.intro.finished = true; e.s.choice = null; return e; }
+  // The Assize: put once a year, from week 26, never over another question, never by the clock.
+  var as = spec('assize');
+  assert.ok(!as.when(game(1)), 'never put by the clock');
+  var e = ready(150);
+  e.s.week = 25; assert.ok(!e.offerAssize(), 'not before week 26');
+  e.s.week = 26; e.offerChoice(spec('beggar'));
+  assert.ok(!e.offerAssize() && e.s.choice.id === 'beggar', 'another question is open');
+  e.s.choice = null; e.s.week = 27;
+  e.s.stats.cases = 9; e.s.stats.convictions = 5; e.s.stats.wrongful = 1;
+  var lines = e.yearWeek();
+  assert.deepStrictEqual(lines, [S.seasonBell(27)], 'the season first');
+  assert.strictEqual(e.s.choice.id, 'assize', 'asked at the next Bell');
+  assert.ok(/9 cases/.test(e.s.choice.text) && /5 ended in a conviction/.test(e.s.choice.text) && /wrong one/.test(e.s.choice.text), 'the year read from the stats');
+  e.choose(2);
+  assert.ok(!e.offerAssize(), 'once a year');
+  e.s.week = 78; assert.ok(e.offerAssize(), 'and again the next year'); e.s.choice = null;
+  e = ready(151); e.s.week = 40; assert.ok(!e.offerAssize(), 'not after its window');
+  // Each answer gives what it says.
+  function answered(i) { var g = ready(152); g.s.week = 26; g.offerAssize(); var pv = g.choicePreview(i); g.choose(i); return { g: g, pv: pv }; }
+  var a = answered(0); assert.strictEqual(a.pv.cards.funds, 2, 'a pension: two Coin');
+  a = answered(1); assert.strictEqual(a.pv.cards.personnel, 1, 'more men: a Letter of Service');
+  a = answered(2); assert.strictEqual(a.pv.meters.reputation, 2, 'nothing: Standing +2');
+  // The told year, by its shape.
+  function told(st) { var g = ready(153); for (var k in st) g.s.stats[k] = st[k]; return S.assize(g); }
+  assert.ok(/Not one has ended/.test(told({ cases: 1, convictions: 0 })) && /one case with your name on it/.test(told({ cases: 1 })));
+  assert.ok(/applause/.test(told({ cases: 8, convictions: 5 })), 'a clean year is applauded');
+  assert.ok(/benches are quiet/.test(told({ cases: 8, convictions: 1, cold: 4 })) && /4 gone cold/.test(told({ cases: 8, convictions: 1, cold: 4 })));
+  assert.ok(/stair twice/.test(told({ cases: 8, convictions: 4, attacks: 2 })) && /sent 4 home/.test(told({ cases: 8, convictions: 4, sentHome: 4 })));
+  // An old save with no year in its flags is asked at its next Bell in the window; a save with the Assize open is answered after a load.
+  var old = JSON.parse(ready(154).save()); delete old.flags.assize; delete old.flags.pension; old.week = 30;
+  var ol = CF.Engine.load(JSON.stringify(old)); ol.yearWeek();
+  assert.ok(ol.s.choice && ol.s.choice.id === 'assize', 'an old save is asked');
+  var ld = CF.Engine.load(ol.save());
+  assert.ok(ld.s.choice.id === 'assize' && ld.choose(2) && ld.s.flags.assize === 1, 'answered after a load');
+
+  // The Long Service: at the rank cap, told four weeks before, then the pension.
+  e = ready(155); e.s.week = 48; e.s.flags.assize = 1;
+  assert.deepStrictEqual(e.yearWeek(), [], 'below the cap: no pension');
+  e.s.rank = CF.TOP_RANK;
+  assert.deepStrictEqual(e.yearWeek(), [CF.LONG_SERVICE.warnText], 'told four weeks before');
+  assert.strictEqual(e.s.flags.pension, 52);
+  e.s.week = 51; assert.ok(!e.longServiceDue() && !e.s.over);
+  e.s.week = 52; assert.ok(e.longServiceDue(), 'pensioned at week 52');
+  assert.ok(e.s.over.id === 'longservice' && e.s.over.win && e.s.over.title === 'The Long Service');
+  assert.ok(e.s.over.text.indexOf(CF.ENDINGS.longservice.text) === 0, 'the plain telling');
+  // Reached late, still four weeks of warning; the hangman's cap is lower.
+  e = ready(156); e.s.flags.assize = 1; e.s.rank = CF.TOP_RANK; e.s.week = 60; e.yearWeek();
+  assert.strictEqual(e.s.flags.pension, 64);
+  e = ready(157); e.s.flags.assize = 1; e.s.who = 'hangman'; e.s.rank = 2; e.s.week = 49; e.yearWeek();
+  assert.strictEqual(e.s.flags.pension, 53, 'the hangman is at his cap');
+  e.s.week = 53; e.s.stats.wrongful = 1; e.longServiceDue();
+  assert.ok(/One name in your casebook/.test(e.s.over.text), 'a wrong name goes to the Close with you');
+
+  // Every word of it in Arabic.
+  fs.readdirSync(path.join(__dirname, '..', 'js/lang/ar')).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js/lang/ar', f), 'utf8'), { filename: f }); });
+  CF.setLang('ar');
+  var texts = [told({ cases: 1 }), told({ cases: 9, convictions: 5, wrongful: 3 }), told({ cases: 12, convictions: 2, cold: 5 }), told({ cases: 20, convictions: 9, sentHome: 4 }), told({ cases: 7, convictions: 4, attacks: 3 }), told({ cases: 7, convictions: 4, attacks: 2 }), CF.LONG_SERVICE.warnText, CF.LONG_SERVICE.title, CF.LONG_SERVICE.warnTitle, CF.ASSIZE.title];
+  CF.SEASON_WORDS.forEach(function (sw) { texts.push(sw.name); });
+  bells.forEach(function (bw) { texts.push(S.seasonBell(bw)); });
+  CF.ENDING_VARIANTS.longservice.forEach(function (v) { texts.push(v.text); });
+  as.options.forEach(function (o) { texts.push(o.label, o.gain, o.text); });
+  texts.forEach(function (t) { assert.ok(!/[A-Za-z]{2}/.test(CF.T(t)), 'Arabic for: ' + t + ' => ' + CF.T(t)); });
+  CF.setLang('en');
+  console.log('the year: ok');
+})();

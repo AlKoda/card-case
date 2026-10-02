@@ -328,4 +328,77 @@
     var s = e.s;
     return [epiPattern(s), epiKing(s), epiRival(s), epiAbroad(s), epiWatch(s)].filter(function (l) { return !!l; }).slice(0, 4);
   };
+
+  // ---- The Year ---------------------------------------------------------------------
+  // Fifty-two weeks to a year, a quarter to a season, read from (week - 1) % 52. These are the
+  // words only: the season's name (the week bar's tooltip) and the Bell's first line on the
+  // season's first week. Which crimes a season brings is the engine's (casePool).
+  CF.SEASON_WORDS = [
+    { id: 'lent', name: 'Lent', bell: 'Week {n}. Lent: the Bishop preaches mercy every Sunday, and the fish-market is full.' },
+    { id: 'fair', name: 'The Michaelmas Fair', bell: 'Week {n}. The Michaelmas Fair: booths on the Market, strangers in every inn, and light coin in every till.' },
+    { id: 'plague', name: 'The Plague Summer', bell: 'Week {n}. The Plague Summer: the Abbey cart goes round twice a day.' },
+    { id: 'winter', name: 'Winter', bell: 'Week {n}. Winter: the river smokes at dawn, and the Warrens burn their doors for warmth.' },
+  ];
+  CF.SEASON_WEEKS = 13;
+  // The season of a week: { id, name, first (its first week, this year), year (1, 2...) }.
+  Story.season = function (week) {
+    var w = Math.max(1, week || 1), at = (w - 1) % 52, i = Math.floor(at / CF.SEASON_WEEKS);
+    var sw = CF.SEASON_WORDS[i];
+    return { id: sw.id, name: sw.name, first: w - at % CF.SEASON_WEEKS, year: Math.floor((w - 1) / 52) + 1 };
+  };
+  // The Bell's first line in a season's first week, else null.
+  Story.seasonBell = function (week) {
+    var se = Story.season(week);
+    if (se.first !== week) return null;
+    return U.fill(CF.SEASON_WORDS.filter(function (x) { return x.id === se.id; })[0].bell, { n: week });
+  };
+
+  // The Assize: halfway through the year the Council sits as a court and its clerk reads your
+  // service aloud. Story.assize tells it from s.stats, one sentence per thing the Rolls hold, so
+  // every sentence is a key of its own (none opens on a count): the cases, how many were answered, the one thing the
+  // chamber remembers, and how the benches take it. The question that follows is life.js's.
+  CF.ASSIZE = {
+    title: 'The Assize',
+    open: 'The Council sits for the Assize, and its clerk reads your service aloud from the Rolls.',
+    cases: { one: 'He reads out one case with your name on it.', many: 'He reads out {n} cases with your name on them.' },
+    convictions: { none: 'Not one has ended in a conviction yet.', one: 'Of these, one ended in a conviction.', many: 'Of these, {n} ended in a conviction.' },
+    // The first that fits is read.
+    remembered: [
+      { when: function (st) { return st.wrongful === 1; }, text: 'One name was the wrong one, and the chamber is quiet while it is read.' },
+      { when: function (st) { return st.wrongful >= 2; }, text: 'There were {n} wrong names among them, and the chamber is quiet while they are read.', n: 'wrongful' },
+      { when: function (st) { return st.sentHome >= 3; }, text: 'You sent {n} home from the Bench instead of to the Ravenstone.', n: 'sentHome' },
+      { when: function (st) { return st.cold >= 3; }, text: 'The clerk reads the {n} gone cold more slowly.', n: 'cold' },
+      { when: function (st) { return st.attacks === 2; }, text: 'Somebody came for you on the stair twice, and you are still here.' },
+      { when: function (st) { return st.attacks >= 3; }, text: 'Somebody came for you on the stair {n} times, and you are still here.', n: 'attacks' },
+    ],
+    praised: 'The benches knock on the wood. That is the Council\'s applause.',
+    quiet: 'The benches are quiet.',
+    murmur: 'The benches murmur, and the clerk ties the Rolls up again.',
+    ask: 'The Burgomaster asks what you want for it.',
+  };
+  Story.assize = function (e) {
+    var A = CF.ASSIZE, st = e.s.stats || {}, out = [A.open];
+    var cases = st.cases || 0, conv = st.convictions || 0, cold = st.cold || 0, wrong = st.wrongful || 0;
+    if (cases) out.push(cases === 1 ? A.cases.one : U.fill(A.cases.many, { n: cases }));
+    out.push(!conv ? A.convictions.none : conv === 1 ? A.convictions.one : U.fill(A.convictions.many, { n: conv }));
+    var mem = A.remembered.filter(function (r) { return r.when(st); })[0];
+    if (mem) out.push(mem.n ? U.fill(mem.text, { n: st[mem.n] }) : mem.text);
+    out.push(conv >= 3 && !wrong && conv >= cold ? A.praised : cold > conv ? A.quiet : A.murmur);
+    out.push(A.ask);
+    return out.join(' ');
+  };
+
+  // The Long Service: a run at its rank cap that has not otherwise ended is pensioned at the
+  // year's end, told four weeks before. The ending's words are CF.ENDING_VARIANTS.longservice.
+  CF.LONG_SERVICE = {
+    week: 52, warn: 4,
+    title: 'The Long Service',
+    warnTitle: 'Your Pension',
+    warnText: 'The Council is drawing up your pension. Four more weeks.',
+  };
+  CF.ENDING_VARIANTS.longservice = [
+    { when: function (st) { return st.wrongful > 0; }, text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. One name in your casebook should not be there, and you go to the Close with it. You never caught them all. Nobody does.' },
+    { when: function (st) { return st.convictions >= 12 && !st.wrongful; }, text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. The scriveners copy your casebook for the next one under the stair. You never caught them all. Nobody does.' },
+    { text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. You never caught them all. Nobody does.' },
+  ];
 })(typeof window !== 'undefined' ? window : globalThis);

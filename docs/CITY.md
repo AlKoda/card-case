@@ -510,6 +510,7 @@ Mercy, Cruelty, Purse, Underworld Debt, Dread, and the stance.
 | **The Riot** | Dread 10 at an execution [Perfume] | new (a death or a flight, by choice) |
 | **The Stake** | The Inquisitor's charge lands on *you* (heresy accusation from a patron you crossed, with Bishop Favour ≤ −2) | new |
 | **The Dagger on the Pillow** | The Order of the Mountain, warned once and ignored | Death (variant) |
+| **The Long Service** | At your rank cap at week 52, with nothing else ended: a pension, a house by the Abbey Close and a line in the Rolls in red ink; told four weeks before | new |
 | **Dismissed / Burnout / Collapse / Death** | as now | as now |
 
 The endings say what happened, not what usually happens. A death names who
@@ -544,7 +545,29 @@ Abbey Takes You In. The strain goes, the week runs out to the Bell, and
 it costs a Standing and a Coin, or a debt for the bed. The story says it
 is once. The second time is the ending.
 
-Thirteen endings, plus the variant texts each already has. The user asked
+The year has a shape. Fifty-two weeks, four seasons of thirteen: Lent,
+the Michaelmas Fair, the Plague Summer, Winter. The week bar names the
+season, and the Bell opens each one with a line of its own (*Week 27.
+The Plague Summer: the Abbey cart goes round twice a day.*). Two of them
+change the case mix: the Fair brings fraud, coining and extortion, the
+Plague Summer poison and the missing. No season adds a need.
+
+Halfway through each year comes *The Assize*: the Council sits as a
+court and its clerk reads your service aloud, told from the run's own
+numbers (the cases with your name on them, how many ended in a
+conviction, the one thing the chamber remembers: a wrong name, the
+spared, the cases gone cold, the stair), and the benches take it as they
+take it. Then the Burgomaster asks what you want for it: a pension (two
+Coin), more men (a Letter of Service), or nothing (Standing +2). If
+another question is open, it waits for the next Bell.
+
+A long, honest career has a destination. At the rank cap, with nothing
+else ended, the Council draws up your pension: *Four more weeks.* At
+week 52 comes *The Long Service*: Fifty-two weeks under the stair and in
+the chamber, and the city is still standing. You never caught them all.
+Nobody does.
+
+Fourteen endings, plus the variant texts each already has. The user asked
 for as many as possible; the counts above make more cheap to add (a
 *Sanctuary* ending for the Monk who shelters the wrong man; a *Banished*
 ending for an Examiner the Council flogs out of town).
