@@ -1,7 +1,7 @@
 // Endings from the counts, and the two late societies (docs/CITY.md §8, §10).
 //
 //   The Merciful Judge      Mercy 8, Cruelty at most 1, three reformed citizens
-//   The Hangman's Examiner  Cruelty 8: the Council keeps you, the city fears you
+//   The Hangman's Examiner  Cruelty 12 and Dread 5: the Council keeps you, the city fears you
 //   The Stake               the Inquisitor's charge lands on you
 //   The Dagger on the Pillow  the Order of the Mountain, warned once and ignored
 //
@@ -20,7 +20,7 @@
 
   var Soc = (CF.Societies = {});
   Soc.MERCIFUL = { mercy: 12, cruelty: 1, reformed: 4 };
-  Soc.HANGMANS = { cruelty: 14, dread: 5 };
+  Soc.HANGMANS = { cruelty: 12, dread: 5 };
   Soc.MOUNTAIN = { week: 8, rank: 2, chance: 0.12, grace: 6 };
   Soc.EUMENIDES = { week: 8, chance: 0.2 };
 

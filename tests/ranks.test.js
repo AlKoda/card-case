@@ -122,6 +122,19 @@ function run(e, verb, cards) {
   c.s.week = cd; c.checkThresholds();
   assert.strictEqual(c.cardsOf('chair', true).length, 1, 'six weeks on, another vote');
   assert.strictEqual(c.s.flags.chairCooldown, 0, 'the wait is over');
+  // A Seat waiting in Attend's slot is still the one Seat.
+  var seat = byDef(c, 'chair')[0];
+  assert.ok(c.autoSlot('duty', seat.uid) && seat.loc.t === 'slot');
+  c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 1, 'one Seat, slotted or not');
+  // The Council hears only an officer with the Standing for the Seat: Passed Over must earn it back first.
+  c.s.meters.reputation = CF.COMMISSIONER_REP - 4;
+  var pb = c.preview('duty');
+  assert.ok(pb && pb.blocked === 'The Council hears only an officer of Standing ' + CF.COMMISSIONER_REP + '. You have ' + (CF.COMMISSIONER_REP - 4) + '.', 'the gap is named: ' + (pb && pb.blocked));
+  assert.ok(!c.start('duty'), 'no vote without the Standing');
+  c.s.meters.reputation = CF.COMMISSIONER_REP;
+  assert.ok(!c.preview('duty').blocked, 'with it, the vote can be called');
+  c.clearSlots('duty');
   // An older save never wrote the wait.
   var old = JSON.parse(c.save()); delete old.flags.chairCooldown;
   var lo = CF.Engine.load(old);

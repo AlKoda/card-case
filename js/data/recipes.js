@@ -85,6 +85,11 @@
   R.push({
     id: 'duty_chair', verb: 'duty', label: 'Stand Before the Council', duration: 60,
     preview: 'The Council will weigh your Standing, and look hard at the Crowd and at Suspicion. Both should be 4 or lower.',
+    // The Council hears only an officer with the Standing for the Seat: a vote lost costs Standing, and it must be earned back first.
+    blocked: function (ctx) {
+      var rep = ctx.e.s.meters.reputation || 0;
+      return rep >= CF.COMMISSIONER_REP ? null : U.fill('The Council hears only an officer of Standing {need}. You have {have}.', { need: CF.COMMISSIONER_REP, have: rep });
+    },
     requires: ['chair'],
     run: function (ctx) {
       var e = ctx.e, m = e.s.meters;
@@ -1413,6 +1418,32 @@
       return { title: th.title, text: th.text + ' You know what kind of person. Not yet which.' };
     },
   });
+  // Known to the Watch: one who walked strikes again, and their Abroad card
+  // laid beside the new case gives the old record. A name, not a proof.
+  function knownAbroad(ctx) {
+    var rec = openRec(ctx, ctx.primary);
+    if (!rec || !rec.criminalId || rec.known) return null;
+    var cul = culpritOf(rec);
+    var al = ctx.with('atlarge').filter(function (c) { return c.data.criminalId ? c.data.criminalId === rec.criminalId : (cul && c.data.name === cul.name); })[0];
+    return al && !(al.data.hunted && al.data.hunted === rec.id) ? al : null;
+  }
+  R.push({
+    id: 'ref_known', verb: 'reflect', priority: 1, label: 'Known to the Watch', duration: 20,
+    preview: 'Their old record beside their new crime. You know this hand.',
+    requires: { primary: 'case', when: function (ctx) { return !!knownAbroad(ctx); } },
+    run: function (ctx) {
+      var e = ctx.e, rec = openRec(ctx, ctx.primary);
+      if (!rec) return closed();
+      var al = knownAbroad(ctx), cul = culpritOf(rec);
+      if (!al || !cul) return closed();
+      rec.known = true;
+      e.caseWork(rec, ctx);
+      var sc = e.revealSuspect(rec, ctx, { key: rec.culprit });
+      ctx.give('clue', e.clueSpec(rec, { label: 'Their Old Record', text: U.fill('What the Watch already knows of {name}: the old crime, the old haunts, the way they work.', { name: cul.name }), aspects: { testimony: 1, opportunity: 1 }, trait: cul.trait }, [], { points: rec.culprit, noMisread: true }));
+      return { title: 'Known to the Watch', text: U.fill('You read the old record against the new crime. The same hand, the same hours. {name} again.', { name: cul.name }) +
+        (sc ? ' ' + U.fill('A name for the casebook: {name}.', { name: e.labelOf(sc) }) : '') };
+    },
+  });
   R.push({
     id: 'ref_mull', verb: 'reflect', label: 'Mull It Over', duration: 15,
     preview: 'Sit with the case. What kind of case is it? What will it take?',
@@ -1440,7 +1471,10 @@
       var rec = ctx.caseOf(ctx.primary);
       if (!rec) return '';
       var a = e.assessCharge(ctx.primary, slotClues(ctx, ['c1', 'c2', 'c3', 'c4']));
-      return 'The charge is ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '. ' + CF.Charge.TIERS[a.tier].text;
+      // Work still running on this case ends when the charge clears it: say so before, not after.
+      var busy = e.busyOnCase ? e.busyOnCase(rec.id).filter(function (id) { return id !== 'arrest'; }) : [];
+      var still = busy.length ? ' ' + U.fill('Still at work on this case: {verbs}. A charge now ends that work.', { verbs: busy.map(function (id) { return CF.VERBS[id].label; }).join(', ') }) : '';
+      return 'The charge is ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '. ' + CF.Charge.TIERS[a.tier].text + still;
     },
     // The first case of the office teaches the tiers: a charge on Indicia walks.
     danger: function (ctx) {

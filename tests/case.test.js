@@ -82,13 +82,16 @@ function fresh(seed) {
   var d = fresh(11), e = d.e;
   var kase = d.byDef('case')[0];
   d.give('kit'); d.give('prints');
+  assert.strictEqual(d.rec().structure, 'rear_window', 'this house was broken into');
   var out = d.run('investigate', [kase]);
-  assert.ok(out.some(function (c) { return /Pried Shutter/.test(e.labelOf(c)); }), 'the scene gives the shutter');
+  assert.ok(out.some(function (c) { return /Forced Frame/.test(e.labelOf(c)); }), 'the scene gives the forced way in');
   assert.ok(out.some(function (c) { return /Inventory/.test(e.labelOf(c)); }), 'and the inventory');
+  var told = e.s.journal.filter(function (j) { return j.title === 'At the Scene'; })[0].text;
+  assert.ok(told.indexOf('They came in by ' + d.rec().vars.entry) >= 0, 'the scene names the way in the brief gave: ' + told);
   assert.ok(d.byDef('suspect').length >= 1, 'a first suspect');
-  var toolmark = d.run('analyze', [d.byLabel(/Pried Shutter/)[0], d.byDef('kit')[0]]);
+  var toolmark = d.run('analyze', [d.byLabel(/Forced Frame/)[0], d.byDef('kit')[0]]);
   assert.strictEqual(e.labelOf(toolmark[0]), 'The Blade Read');
-  assert.ok(!d.byLabel(/Pried Shutter/).length, 'the raw proof was consumed');
+  assert.ok(!d.byLabel(/Forced Frame/).length, 'the raw proof was consumed');
   d.run('investigate', [kase, d.byDef('prints')[0]]);
   var print = d.byLabel(/Half a Hand/)[0];
   assert.ok(print, 'dusting gives a partial print');
@@ -117,6 +120,39 @@ function fresh(seed) {
   d.run('investigate', [kase]);
   d.charge([d.byLabel(/Blade Read/)[0], d.byLabel(/Hand Matched/)[0], d.byLabel(/The Hours/)[0]]);
   console.log('forensic route: convicted\n  ' + d.log.join('\n  '));
+})();
+
+// ---- The way in follows the structure: a house opened with a key shows no forcing --
+(function keyedEntry() {
+  [7, 8].forEach(function (seed) {
+    var d = fresh(seed), e = d.e, rec = d.rec();
+    assert.ok(['inside_key', 'quiet_safe'].indexOf(rec.structure) >= 0, 'seed ' + seed + ' was opened, not forced: ' + rec.structure);
+    d.give('kit');
+    var kase = d.byDef('case')[0];
+    var out = d.run('investigate', [kase]);
+    var story = e.s.journal.filter(function (j) { return j.title === 'At the Scene'; })[0];
+    assert.strictEqual(e.verb('investigate').recipe, 'lead_burglary_scene_key');
+    assert.ok(!/forced with|shutter/i.test(story.text) && /Nothing at .* was forced/.test(story.text), 'no forced shutter in a house opened with a key: ' + story.text);
+    assert.ok(out.some(function (c) { return e.labelOf(c) === 'The Lock Unmarked'; }) && !out.some(function (c) { return /Forced Frame/.test(e.labelOf(c)); }), 'the lock, not a forced frame');
+    assert.ok(rec.leads.scene && rec.leads.scene_key, 'the keyed scene stands in for the scene');
+    // The forced search never follows it, and the leads after the scene open.
+    kase = d.byDef('case')[0];
+    e.autoSlot('investigate', kase.uid);
+    assert.ok(['lead_burglary_scene', 'lead_burglary_scene_key'].indexOf(e.currentRecipe('investigate').recipe.id) < 0, 'searched once');
+    e.clearSlots('investigate');
+    var wards = d.run('analyze', [d.byLabel(/Lock Unmarked/)[0], d.byDef('kit')[0]]);
+    assert.strictEqual(e.labelOf(wards[0]), 'The Wards Read');
+    assert.strictEqual(e.verb('analyze').recipe, 'lead_burglary_wards');
+    var hours = d.run('investigate', [d.byDef('case')[0]]);
+    var h = hours.filter(function (c) { return /The Hours/.test(e.labelOf(c)); })[0];
+    assert.ok(h && h.desc.indexOf('come in by ' + rec.vars.entry) >= 0 && !/shutter/.test(h.desc), 'the hours name the same way in: ' + (h && h.desc));
+  });
+  // A burglary from before the structures still searches as it was written.
+  var o = fresh(11), orec = o.rec();
+  orec.structure = null; delete orec.vars.entry;
+  var oo = o.run('investigate', [o.byDef('case')[0]]);
+  assert.ok(oo.some(function (c) { return /Forced Frame/.test(o.e.labelOf(c)); }) && /by the back shutter/.test(o.e.s.journal.filter(function (j) { return j.title === 'At the Scene'; })[0].text), 'an old case keeps its shutter');
+  console.log('keyed entry: the lock, the wards and the hours agree with the brief');
 })();
 
 // ---- Route 2: the witness (testimony → opportunity) ----------------------------

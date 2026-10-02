@@ -168,4 +168,35 @@ function run(e, verb, cards) {
   console.log('eumenides: ok');
 })();
 
+// ---- The city remembers: Dread fades, but not below what you have done -----------------
+(function dreadFloor() {
+  var e = CF.Engine.newGame({ seed: 90, calling: 'master' });
+  assert.strictEqual(e.dreadFloor(), 0);
+  e.s.meters.dread = 6;
+  for (var i = 0; i < 6; i++) e.weekTick();
+  assert.strictEqual(e.s.meters.dread, 0, 'without cruelty, fear fades to nothing');
+  var c = CF.Engine.newGame({ seed: 91, calling: 'master' });
+  c.s.counts.cruelty = 11;   // short of the Hangman's twelve
+  assert.strictEqual(c.dreadFloor(), 3, 'every three cruelties keep it a step higher');
+  c.s.meters.dread = 9;
+  var crowd = [];
+  for (var j = 0; j < 8 && !c.s.over; j++) { c.weekTick(); crowd.push(c.s.meters.dread); assert.ok(c.s.meters.dread >= 3, 'never below the floor: ' + crowd); }
+  assert.ok(!c.s.over);
+  assert.strictEqual(c.s.meters.dread, 3, 'and it settles there');
+  c.s.counts.cruelty = 40;
+  assert.strictEqual(c.dreadFloor(), CF.DREAD_FLOOR.max, 'up to seven');
+  // Fear that is only remembered does not keep the Stews down.
+  var q = CF.Engine.newGame({ seed: 92, calling: 'master' });
+  q.s.counts.cruelty = 21; q.s.meters.dread = 7; q.s.meters.pressure = 5;
+  q.weekTick();
+  assert.strictEqual(q.s.meters.dread, 7);
+  assert.ok(!q.s.journal.some(function (l) { return /The Stews are quiet/.test(l.text); }), 'held fear quiets nobody');
+  // The Hangman's warning comes at ten, the ending at twelve with Dread five.
+  assert.strictEqual(CF.Societies.HANGMANS.cruelty, 12);
+  var h = CF.Engine.newGame({ seed: 93, calling: 'master' });
+  h.s.counts.cruelty = 10; h.checkCountEndings();
+  assert.ok(h.s.flags.hangmanWarned, 'warned at ten');
+  console.log('dread floor: ok');
+})();
+
 console.log('societies: endings, mountain, eumenides all OK');

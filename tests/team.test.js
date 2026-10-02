@@ -59,7 +59,7 @@ function officer(e, key, traits) {
 
   // The camera: photograph the scene, and what you found stops degrading.
   run(e, 'investigate', [kase]);
-  var frame = byLabel(e, /Pried Shutter/)[0];
+  var frame = byLabel(e, /Forced Frame|Lock Unmarked/)[0];
   assert.ok(frame.maxLife, 'evidence decays');
   var cam = e.create('camera');
   var r = run(e, 'investigate', [kase, cam]);
@@ -154,7 +154,7 @@ function officer(e, key, traits) {
   var h = game(32);
   var kh = byDef(h, 'case')[0];
   run(h, 'investigate', [kh]);
-  var ev = byLabel(h, /Pried Shutter/)[0];
+  var ev = byLabel(h, /Forced Frame|Lock Unmarked/)[0];
   h.autoSlot('analyze', ev.uid);
   var slow = h.preview('analyze').duration;
   h.autoSlot('analyze', officer(h, 'tech', ['patient']).uid);

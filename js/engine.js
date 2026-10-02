@@ -120,7 +120,7 @@
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
       version: 2, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 170, nextUid: 1,
-      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} },
+      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} }, askSeen: {},
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
       rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', who: opts.who || null, detective: opts.name || 'Examiner',
@@ -209,6 +209,10 @@
       var hc = s.criminals[k];
       if (hc.hidden && hc.wrongfulAlibi === undefined && CF.Criminals) hc.wrongfulAlibi = CF.Criminals.alibiFor(hc.name + '|' + (hc.wrongfulTitle || ''));
     });
+    // The Merciful Judge counts the ones sent home (round 7): an older save counts its pardons, fines and reformed from the records.
+    s.stats.sentHome = Math.max(s.stats.sentHome || 0, Engine.sentHomeOf(s));
+    // Mid-work asks are rationed per verb and week (round 8): an older save has asked nothing yet.
+    if (!s.askSeen || typeof s.askSeen !== 'object') s.askSeen = {};
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
@@ -266,6 +270,11 @@
     });
     // A question the city no longer asks, or a hook left from an older hour, is dropped.
     if (s.choice && !(CF.CHOICES || []).some(function (c) { return c.id === s.choice.id; })) s.choice = null;
+    // A question still asked: its answers as the city words them now (a free way out added since is shown, and choose(i) runs what is shown).
+    if (s.choice) {
+      var cspec = CF.CHOICES.filter(function (c) { return c.id === s.choice.id; })[0];
+      s.choice.options = Engine.choiceOptions(cspec);
+    }
     if (s.choiceHook && !(s.t - s.choiceHook.t <= 6)) s.choiceHook = null;
     var e = new Engine(s);
     e.initPaths();
@@ -281,6 +290,22 @@
     });
     e.tableCards().forEach(function (c) { var q = e.clampToTable(c.loc.x, c.loc.y, T.CW, T.CH); c.loc.x = q.x; c.loc.y = q.y; });
     return e;
+  };
+
+  // The answers a question shows, as offerChoice stores them in the save.
+  Engine.choiceOptions = function (spec) {
+    return (spec.options || []).map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; });
+  };
+  // How many the Examiner has sent home, from the criminal records: a pardon
+  // or a fine in their history, or a citizen now.
+  Engine.sentHomeOf = function (s) {
+    var n = 0, crim = s.criminals || {};
+    Object.keys(crim).forEach(function (k) {
+      var c = crim[k];
+      var home = (c.history || []).filter(function (h) { return h.how === 'sentence:pardon' || h.how === 'sentence:fine'; }).length;
+      n += Math.max(home, c.status === 'reformed' ? 1 : 0);
+    });
+    return n;
   };
 
   P.save = function () {
@@ -694,6 +719,10 @@
   P.remove = function (card) {
     if (typeof card === 'number') card = this.card(card);
     if (!card || !this.s.cards[card.uid]) return;
+    // A card taken out of a running verb's hands (a charge clears its case, a case goes cold):
+    // the verb remembers what it lost, to say so when it finishes.
+    var hv = card.loc && card.loc.t === 'held' && this.s.verbs[card.loc.verb];
+    if (hv && hv.status === 'running' && !hv.lost) hv.lost = { label: this.labelOf(card), caseId: card.caseId || null };
     this.detach(card);
     delete this.s.cards[card.uid];
     this.dirty = true;
@@ -723,6 +752,13 @@
     if (name === 'scrutiny' && this.s.origin === 'crusader') return 12;
     if (name === 'reputation') return 99;
     return 10;
+  };
+  // The city remembers: Dread fades at the Bell, but not below one step for
+  // every three Cruelties, up to seven (the UI's Dread info reads this).
+  CF.DREAD_FLOOR = { per: 3, max: 7 };
+  P.dreadFloor = function () {
+    var cruelty = (this.s.counts && this.s.counts.cruelty) || 0;
+    return Math.min(CF.DREAD_FLOOR.max, Math.floor(cruelty / CF.DREAD_FLOOR.per));
   };
   P.meter = function (name, delta) {
     var m = this.s.meters;
@@ -1062,6 +1098,7 @@
     v.status = 'running';
     v.ask = null;
     v.askSkipped = false;
+    v.lost = null;
     v.recipe = r.recipe.id;
     v.recipeLabel = typeof r.recipe.label === 'function' ? r.recipe.label(r.ctx) : r.recipe.label;
     v.duration = this.durationOf(r.recipe, r.ctx);
@@ -1090,6 +1127,10 @@
     // is only a question when you have someone to put a shoulder to it.
     var self = this, probe = { key: 'ask', label: spec.label, accepts: spec.accepts };
     if (!this.tableCards().some(function (c) { return self.slotAccepts(probe, c); })) { v.askSkipped = true; return; }
+    // Rationed: a verb puts the same question once a week at most. The rest of the week's work runs without it.
+    var seen = this.s.askSeen || (this.s.askSeen = {}), seenKey = spec.label + '|' + vid;
+    if (seen[seenKey] === this.s.week) { v.askSkipped = true; return; }
+    seen[seenKey] = this.s.week;
     v.ask = { label: spec.label, text: spec.text, accepts: spec.accepts, filled: null };
     this.dirty = true;
     this.emit('ask', { verb: vid, label: spec.label, text: spec.text });
@@ -1138,6 +1179,29 @@
     v.ask = null;
   };
 
+  // What an interrupted job says: the case that went to the Court or went
+  // cold while you were at it, else the card that went, else the work itself.
+  P.interruptedText = function (v) {
+    var lost = v.lost, rec = lost && lost.caseId && this.caseRec(lost.caseId);
+    if (rec && rec.status !== 'open') {
+      if (rec.status === 'trial' || rec.status === 'closed') return U.fill('{case} went to the Court while you were at it.', { case: rec.title });
+      if (rec.status === 'cold') return U.fill('{case} went cold while you were at it.', { case: rec.title });
+      return U.fill('{case} was taken out of your hands while you were at it.', { case: rec.title });
+    }
+    if (lost && lost.label) return U.fill('{card} was gone before you finished. The city does not wait.', { card: lost.label });
+    if (v.recipeLabel) return U.fill('{way}: what you were working on is gone before you finish. The city does not wait.', { way: v.recipeLabel });
+    return 'Whatever you were working on is gone before you finish. The city does not wait.';
+  };
+  // The running verbs that hold a card of this case: a charge or a cold trail ends their work.
+  P.busyOnCase = function (caseId) {
+    var s = this.s, out = [];
+    CF.VERB_ORDER.forEach(function (id) {
+      var v = s.verbs[id];
+      if (v && v.status === 'running' && (v.held || []).some(function (u) { return s.cards[u] && s.cards[u].caseId === caseId; })) out.push(id);
+    });
+    return out;
+  };
+
   P.complete = function (verbId) {
     var v = this.verb(verbId);
     var rec = CF.RECIPES_BY_ID[v.recipe];
@@ -1145,7 +1209,7 @@
     var result;
     try {
       // The main card can vanish mid-recipe (burned informant, expired case...).
-      if (!rec || !ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: 'Whatever you were working on is gone before you finish. The city does not wait.', interrupted: true };
+      if (!rec || !ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: this.interruptedText(v), interrupted: true };
       else result = rec.run(ctx) || { title: rec.label, text: '' };
     } catch (err) {
       if (typeof console !== 'undefined') console.error(err);
@@ -1165,6 +1229,7 @@
     });
     v.held = [];
     v.ctxSlots = {};
+    v.lost = null;
     v.status = 'done';
     v.story = result;
     var sv = this.s.stats.verbs || (this.s.stats.verbs = {});
@@ -1551,9 +1616,12 @@
     // Fear fades, slowly, and while it lasts the Stews keep their heads down.
     // The count endings are judged before fear fades, so the thresholds mean what they say.
     if (this.checkCountEndings) { this.checkCountEndings(); if (s.over) return; }
-    if (s.meters.dread > 0) this.meter('dread', -1);
-    if (s.meters.dread > 0 && this.rng() < 0.5) this.meter('dread', -1);
-    if (s.meters.dread >= 6) { this.meter('pressure', -1); lines.push('The Stews are quiet. Nobody wants to be the next one you put to the question.'); }
+    // The city remembers: fear fades, but not below what you have done (every three cruelties keep it a step higher).
+    var dreadFloor = this.dreadFloor();
+    if (s.meters.dread > dreadFloor) this.meter('dread', -1);
+    if (s.meters.dread > dreadFloor && this.rng() < 0.5) this.meter('dread', -1);
+    // Only fear that is fresh keeps the Stews down: what is merely remembered does not quiet the Crowd.
+    if (s.meters.dread >= 6 && s.meters.dread > dreadFloor) { this.meter('pressure', -1); lines.push('The Stews are quiet. Nobody wants to be the next one you put to the question.'); }
     if (s.meters.dread >= 8) lines.push('Doors close as you pass. The city is afraid of you now, and fear does not stay quiet forever.');
     this.checkDrift();
     if (s.meters.scrutiny >= 7) lines.push('The Council\'s clerks have started asking your watchmen about you. They are not subtle about it.');
@@ -1833,6 +1901,8 @@
     if (s.over) return;
     var end = CF.ENDINGS[id];
     if (this.reformedCount) s.stats.reformed = this.reformedCount();
+    // Every citizen made was first sent home: the Merciful ending never counts fewer sent than reformed.
+    s.stats.sentHome = Math.max(s.stats.sentHome || 0, s.stats.reformed || 0);
     var text = CF.Story ? CF.Story.ending(this, id) : end.text;
     s.over = { id: id, win: end.win, title: end.title, text: text, week: s.week, origin: s.origin, calling: s.calling };
     this.story(end.title, text, end.win ? 'victory' : 'defeat');

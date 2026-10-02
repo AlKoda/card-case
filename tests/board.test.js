@@ -794,3 +794,126 @@ console.error = function (err) { throw err; };
   assert.ok(c.loc.x === a.loc.x && c.loc.y === a.loc.y, 'true twins stay together');
   console.log('settled stacks: ok');
 })();
+
+// Known to the Watch: one who walked strikes again, and their Abroad card laid
+// beside the new case in Rest names them and gives their old record (once).
+(function knownToTheWatch() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Known', seed: 71 });
+  var rec0 = e.openCases()[0];
+  e.goCold(rec0.id);
+  var al = e.cardsOf('atlarge')[0];
+  assert.ok(al && al.data.criminalId, 'the one who walked is Abroad');
+  var crim = e.criminal(al.data.criminalId);
+  var kc = e.spawnCase(e.criminalTrade(crim), { culpritName: crim.name, culpritTrait: crim.trait, criminalId: crim.id, headline: crim.name + ' Again: ', lead: 'The hand is familiar.' });
+  var rec = e.caseRec(kc.caseId);
+  assert.ok(e.autoSlot('reflect', kc.uid) && e.autoSlot('reflect', al.uid), 'the case and the Abroad card go into Rest');
+  var pv = e.preview('reflect');
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_known', 'not Mull It Over: ' + pv.label);
+  assert.ok(!pv.blocked && pv.label === 'Known to the Watch');
+  assert.ok(e.start('reflect'));
+  e.tick(e.verb('reflect').duration + 0.1);
+  var out = e.verb('reflect').out.map(function (u) { return e.card(u); });
+  var sc = out.filter(function (c) { return c.def === 'suspect'; })[0];
+  assert.ok(sc && sc.data.key === rec.culprit, 'the culprit is named');
+  var rc = out.filter(function (c) { return c.def === 'clue' && e.labelOf(c) === 'Their Old Record'; })[0];
+  assert.ok(rc && rc.data.points === rec.culprit && !rc.data.misread && rc.data.trait === crim.trait, 'the old record points at them');
+  assert.deepStrictEqual(rc.aspects, { testimony: 1, opportunity: 1 }, 'a name, not a proof');
+  assert.ok(e.card(al.uid), 'the Abroad card stays until the conviction');
+  e.collect('reflect');
+  // Once a case.
+  e.autoSlot('reflect', e.caseCard(rec.id).uid); e.autoSlot('reflect', al.uid);
+  assert.notStrictEqual(e.currentRecipe('reflect').recipe.id, 'ref_known', 'the record is read once');
+  e.clearSlots('reflect');
+  // Another one's Abroad card does nothing for this case.
+  var other = e.create('atlarge', { label: 'Abroad: Somebody Else', data: { name: 'Somebody Else', trait: 'lefty', criminalId: 'k999' } });
+  var kc2 = e.spawnCase(e.criminalTrade(crim), { culpritName: crim.name, culpritTrait: crim.trait, criminalId: crim.id });
+  e.autoSlot('reflect', kc2.uid); e.autoSlot('reflect', other.uid);
+  assert.notStrictEqual(e.currentRecipe('reflect').recipe.id, 'ref_known', 'a stranger\'s record names nobody');
+  console.log('known to the watch: ok');
+})();
+
+// A charge clears its case from the verbs at work on it: the Court says so before, and the verb says what went.
+(function chargeEndsWork() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Busy', seed: 73 });
+  var rec = e.openCases()[0], kase = e.caseCard(rec.id);
+  e.autoSlot('investigate', kase.uid);
+  assert.ok(e.start('investigate'), 'Explore works the case');
+  e.verb('investigate').duration = 200;   // a long search: the charge lands first
+  assert.deepStrictEqual(e.busyOnCase(rec.id), ['investigate']);
+  var sus = e.revealSuspect(rec, null, { key: rec.culprit });
+  e.autoSlot('arrest', sus.uid);
+  var pv = e.preview('arrest');
+  assert.ok(/Still at work on this case: Explore\. A charge now ends that work\./.test(pv.text), 'the Court warns: ' + pv.text);
+  assert.ok(e.start('arrest'));
+  e.tick(e.verb('arrest').duration + 0.1);
+  var v = e.verb('investigate');
+  assert.ok(v.lost && v.lost.caseId === rec.id, 'Explore knows what it lost');
+  e.tick(v.duration);
+  assert.strictEqual(v.story.title, 'Interrupted');
+  assert.strictEqual(v.story.text, rec.title + ' went to the Court while you were at it.');
+  assert.ok(!v.lost, 'and forgets it');
+  // Work gone for another reason names the card, else the way.
+  var g = CF.Engine.newGame({ calling: 'master', name: 'Gone2', seed: 74 });
+  var w = g.create('witness', { label: 'Witness: Anna', data: { name: 'Anna', knows: 1 } });
+  g.autoSlot('interrogate', w.uid); g.autoSlot('interrogate', g.cardsOf('focus')[0].uid);
+  assert.ok(g.start('interrogate'));
+  g.remove(w);
+  g.tick(g.verb('interrogate').duration + 0.1);
+  assert.strictEqual(g.verb('interrogate').story.text, 'Witness: Anna was gone before you finished. The city does not wait.');
+  console.log('charge ends work: ok');
+})();
+
+// Asks are rationed: the same question from the same verb once a game week.
+(function askRation() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Ration', seed: 75 });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  var v = e.verb('investigate');
+  e.autoSlot('investigate', kase.uid); e.start('investigate');
+  e.tick(v.duration * 0.4);
+  assert.ok(v.ask && v.ask.label === 'A locked door', 'the first search asks');
+  assert.strictEqual(e.s.askSeen['A locked door|investigate'], e.s.week);
+  e.tick(v.duration); e.collect('investigate');
+  e.autoSlot('investigate', e.caseCard(kase.caseId).uid);
+  assert.ok(e.start('investigate'));
+  e.tick(v.duration * 0.4);
+  assert.ok(!v.ask && v.askSkipped, 'not twice in one week');
+  e.tick(v.duration); e.collect('investigate');
+  assert.ok(!/stayed locked|wore you out/.test(v.story ? v.story.text : ''), 'and no miss for a question not put');
+  // A new week asks again.
+  e.s.week++;
+  e.autoSlot('investigate', e.caseCard(kase.caseId).uid);
+  assert.ok(e.start('investigate'));
+  e.tick(v.duration * 0.4);
+  assert.ok(v.ask, 'a week on, the door is locked again');
+  // An older save has asked nothing yet.
+  var old = JSON.parse(e.save()); delete old.askSeen;
+  assert.deepStrictEqual(CF.Engine.load(old).s.askSeen, {});
+  console.log('ask ration: ok');
+})();
+
+// An old save: the question on the table shows today's answers (the free one added since),
+// and the Merciful count backfills from the criminal records.
+(function oldSaveQuestionAndSentHome() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Swan', seed: 76, life: true });
+  var swan = CF.CHOICES.filter(function (c) { return c.id === 'swan'; })[0];
+  e.offerChoice(swan);
+  var old = JSON.parse(e.save());
+  old.choice.options = old.choice.options.slice(0, 2);   // written before 'Sleep at the desk'
+  old.stats.sentHome = 0; delete old.askSeen;
+  old.criminals.kA = { id: 'kA', name: 'Anna Pardoned', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [{ week: 2, how: 'sentence:pardon' }] };
+  old.criminals.kB = { id: 'kB', name: 'Bart Fined', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [{ week: 3, how: 'sentence:fine' }] };
+  old.criminals.kC = { id: 'kC', name: 'Cas Spared', trait: 'lefty', crimes: 2, heat: 0, organization: 'none', traits: ['spared'], status: 'at_large', history: [{ week: 3, how: 'sentence:pardon' }] };
+  old.criminals.kD = { id: 'kD', name: 'Dirk Reformed', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [] };
+  var l = CF.Engine.load(old);
+  assert.deepStrictEqual(l.s.choice.options.map(function (o) { return o.label; }), swan.options.map(function (o) { return o.label; }), 'the stored answers follow the question as asked now');
+  assert.ok(l.s.choice.options.some(function (o, i) { return !o.cost && l.canChoose(i); }), 'a free answer is shown');
+  assert.strictEqual(l.s.choice.title, e.s.choice.title, 'the wording asked is kept');
+  assert.strictEqual(l.s.stats.sentHome, 4, 'two pardons, a fine and a citizen with no record: four sent home');
+  // A live count already higher is kept; the ending never counts fewer sent than reformed.
+  old.stats.sentHome = 9;
+  assert.strictEqual(CF.Engine.load(old).s.stats.sentHome, 9);
+  var m = CF.Engine.load(old); m.s.stats.sentHome = 0; m.s.choice = null;
+  m.gameOver('merciful');
+  assert.ok(m.s.stats.sentHome >= m.s.stats.reformed && m.s.stats.reformed === 3, 'sent ' + m.s.stats.sentHome + ', reformed ' + m.s.stats.reformed);
+  console.log('old save question and sent home: ok');
+})();

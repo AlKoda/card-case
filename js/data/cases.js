@@ -186,7 +186,9 @@
       keyAspects: ['forensic', 'opportunity', 'financial'], districts: ['market', 'uptown', 'canal'],
       charge: { forensic: 2, opportunity: 2, financial: 2 },
       scenes: ['{last}\'s Pawnshop', 'the {last} House', '{last} the Goldsmith\'s'],
-      brief: '{victim} came down at prime to find the back shutter open and the strongbox empty. It was not a crocheteur\'s work, but it was not a nervous man\'s either.',
+      brief: '{victim} came down at prime to find the strongbox empty. Whoever it was came in by {entry}. It was not a crocheteur\'s work, but it was not a nervous man\'s either.',
+      // A case from before the structures has no way in of its own.
+      varDefaults: { entry: 'the back shutter' },
       roles: [
         { role: 'the night porter', motive: 'The porter was turned off last month and never paid his last wages.' },
         { role: 'a nephew of the house', motive: 'The nephew was cut out of the will a week ago, loudly, at table.' },
@@ -200,22 +202,34 @@
       witnesses: ['a baker lighting the ovens', 'the night-watchman crying the hours', 'the woman at the casement opposite'],
       hints: [{ text: 'I saw someone at the back gate with a sack. I did not see the face. I saw the hurry.' }, { text: 'There was a dray. I didn\'t see the beast, it was dark.' }, { text: 'The dog next door never barked. Never. It knew whoever it was.' }],
       // The written case (docs/DESIGN.md, "The first playable case"). Three
-      // threads leave the scene: the shutter (body), the neighbour (word)
-      // and the money (coin). Any two make a charge.
+      // threads leave the scene: the way in (body), the neighbour (word)
+      // and the money (coin). Any two make a charge. The way in follows the
+      // structure: forced (a blade's marks) or opened with a key (the wards).
       // Order matters: the first lead whose needs are met is the one that
       // runs, so the specific ones come before the catch-alls.
       leads: [
-        { id: 'scene', verb: 'investigate', label: 'Search the Scene', duration: 30,
-          preview: 'Go in past the beadle. Start at the shutter and work inwards.',
+        { id: 'scene_key', verb: 'investigate', label: 'Search the Scene', duration: 30, also: ['scene'],
+          needs: { structure: ['inside_key', 'quiet_safe'] },
+          preview: 'Go in past the beadle. Start at the way they came in and work inwards.',
           gives: [
-            { type: 'evidence', key: 'window', label: 'The Pried Shutter', text: 'Marks on the frame, a flat blade.', needs: 'bio',
+            { type: 'evidence', key: 'lock', label: 'The Lock Unmarked', text: 'Not a scratch on the wards.', needs: 'bio',
+              result: { label: 'The Wards Read', text: 'Wax in the keyhole takes the wards: a key cut new from a borrowed one, by a locksmith who did not ask.', aspects: { forensic: 2, opportunity: 1 } } },
+            { type: 'clue', label: 'The Inventory', text: 'What the house says was taken does not match the guild\'s inventory. Someone knew what was worth carrying.', aspects: { financial: 2 } },
+          ],
+          reveal: 'any', district: true, fatigue: 0.25,
+          story: { title: 'At the Scene', text: 'You go in past the beadle. Nothing at {scene} was forced. They came in by {entry}, and shut it again behind them. You come away with {found}.' } },
+        { id: 'scene', verb: 'investigate', label: 'Search the Scene', duration: 30,
+          needs: { structure: ['rear_window', 'smash_grab', null] },
+          preview: 'Go in past the beadle. Start at the way they came in and work inwards.',
+          gives: [
+            { type: 'evidence', key: 'window', label: 'The Forced Frame', text: 'Marks where they came in: a flat blade.', needs: 'bio',
               result: { label: 'The Blade Read', text: 'The blade was a chisel, chipped at one corner. Find the chisel, find the burglar.', aspects: { forensic: 2, opportunity: 1 } } },
             { type: 'clue', label: 'The Inventory', text: 'What the house says was taken does not match the guild\'s inventory. Someone knew what was worth carrying.', aspects: { financial: 2 } },
           ],
           reveal: 'any', district: true, fatigue: 0.25,
-          story: { title: 'At the Scene', text: 'You go in past the beadle at {scene}. The back shutter has been forced with something flat and patient, and the strongbox stands open like a mouth. You come away with {found}.' } },
+          story: { title: 'At the Scene', text: 'You go in past the beadle at {scene}. They came in by {entry}, and the strongbox stands open like a mouth. You come away with {found}.' } },
         { id: 'prints', verb: 'investigate', label: 'Read the Surfaces', duration: 25, needs: { tags: ['surfaces'], after: ['scene'] },
-          preview: 'Vinegar on the shutter frame, the strongbox lid, the door. Somebody touched all three.',
+          preview: 'Vinegar on the way in, the strongbox lid, the latch. Somebody touched all three.',
           gives: [
             { type: 'evidence', key: 'print', label: 'Half a Hand', text: 'Raised from the strongbox lid. Half a thumb, maybe. Needs a name to hold it against.', needs: 'prints',
               result: { label: 'Half a Hand', text: 'Half a thumb. Without the vinegar and the red umbrella it is only half a token.', aspects: { forensic: 1 } } },
@@ -234,14 +248,18 @@
         { id: 'timing', verb: 'investigate', label: 'Go Back Over It', duration: 30, needs: { after: ['scene'], without: ['district', 'tool'] },
           preview: 'Go back over {scene} inch by inch. The first pass never finds everything.',
           gives: [
-            { type: 'clue', label: 'The Hours', text: 'The watchman cried two, and the dog was quiet. He cried three, and the shutter was open. One hour, and they knew the house.', aspects: { opportunity: 2 } },
+            { type: 'clue', label: 'The Hours', text: 'The watchman cried two, and the dog was quiet. He cried three, and someone had come in by {entry}. One hour, and they knew the house.', aspects: { opportunity: 2 } },
           ],
           fatigue: 0.25,
-          story: { title: 'Back at the Scene', text: 'The night-watchman keeps his hours in his head. Two, quiet. Three, the shutter open. Somebody knew the house, and somebody was in and out between the bells.' } },
+          story: { title: 'Back at the Scene', text: 'The night-watchman keeps his hours in his head. Two, quiet. Three, and someone in by {entry}. Somebody knew the house, and somebody was in and out between the bells.' } },
         { id: 'toolmark', verb: 'analyze', label: 'Read the Blade', duration: 25, needs: { item: 'window', tool: 'bio' }, consume: true,
           preview: 'Take a wax cast of the marks, measure the blade, look for the flaw.',
           gives: [{ type: 'clue', label: 'The Blade Read', text: 'The blade was a chisel, chipped at one corner. Find the chisel, find the burglar.', aspects: { forensic: 2, opportunity: 1 } }],
           story: { title: 'The Cast', text: 'The wax shows a chisel, and a chip at one corner that will match exactly one chisel in the city. It is the kind of detail the sworn men like.' } },
+        { id: 'wards', verb: 'analyze', label: 'Read the Wards', duration: 25, needs: { item: 'lock', tool: 'bio' }, consume: true,
+          preview: 'Press wax into the keyhole and read the wards.',
+          gives: [{ type: 'clue', label: 'The Wards Read', text: 'Wax in the keyhole takes the wards: a key cut new from a borrowed one, by a locksmith who did not ask.', aspects: { forensic: 2, opportunity: 1 } }],
+          story: { title: 'The Wards', text: 'The wax comes out of the keyhole with the wards on it, sharp as the day they were cut. A new key, from a borrowed one. Some locksmith in the city cut it and did not ask.' } },
         { id: 'print_match', verb: 'analyze', label: 'Match the Hand', duration: 25, needs: { item: 'print', tool: 'prints', suspects: 1 }, consume: true,
           preview: 'Hold the half-hand against every name in the casebook.',
           gives: [{ type: 'clue', label: 'The Hand Matched: {culprit}', text: 'The scar across the thumb on the strongbox lid is {culprit}\'s. Not the owner, not the household. {culprit}.', aspects: { forensic: 3 }, points: 'culprit', noMisread: true }],
