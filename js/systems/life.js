@@ -1059,7 +1059,12 @@
       else if (pay.loc.t !== 'table') { this.detach(pay); this.placeOnTable(pay); }
       // An ability is spent, not lost (it comes back as it does after work), unless the option takes it for good. Coin is gone.
       var spends = CF.CARDS[pay.def].spends;
-      if (spends && !opt.forGood) this.transform(pay, spends, { decay: CF.CARDS[spends].decay / (this.perkHas('secondwind') ? 2 : 1) });
+      if (spends && !opt.forGood) {
+        var at = { x: pay.loc.x, y: pay.loc.y };
+        this.transform(pay, spends, { decay: CF.CARDS[spends].decay / (this.perkHas('secondwind') ? 2 : 1) });
+        // Spent out of a stack of its kind, it is not its neighbours' twin now: it takes its own place nearby.
+        this.placeOnTable(pay, at);
+      }
       else this.remove(pay, spends ? 'lost' : 'spent');
     }
     s.choice = null;

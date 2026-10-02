@@ -197,11 +197,12 @@
     e.pathGain('master', 2, 'found a connection');
     var extra = [];
     if (e.s.calling === 'master') {
-      e.casesAtFront(front.id).forEach(function (r) { var sc = e.revealSuspect(r, ctx); if (sc) extra.push(e.labelOf(sc) + ' (' + r.title + ')'); });
+      // Each a whole phrase of its own ('{name} (accused in {title})'), so a reader in any language reads it whole.
+      e.casesAtFront(front.id).forEach(function (r) { var sc = e.revealSuspect(r, ctx); if (sc) extra.push(U.fill('{name} (accused in {title})', { name: e.labelOf(sc), title: r.title })); });
     }
     var vars = { clues: clues.map(function (c) { return e.labelOf(c); }).join(', '), front: front.name };
     var d = CF.DEDUCTIONS.filter(function (x) { return x.id === 'connect'; })[0];
     return { title: U.fill(d.story.title, vars), kind: 'major',
-      text: U.fill(d.story.text, vars) + (extra.length ? ' And a name for each: ' + extra.join('; ') + '.' : '') };
+      text: extra.length ? U.fill('{text} And a name for each: {list}.', { text: U.fill(d.story.text, vars), list: extra.join('; ') }) : U.fill(d.story.text, vars) };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

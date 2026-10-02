@@ -127,6 +127,7 @@
     for (var k in d) out[k.toLowerCase()] = d[k];
     return (I.lower[lang] = out);
   }
+  var SURNAME = "((?:[a-z]+ ){0,2}[A-Z][A-Za-z'\u00C0-\u024F-]*)";
   function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
   // Keys with {placeholders} become anchored patterns; the ones with the
@@ -145,13 +146,17 @@
           tail.push(!/[A-Za-z{]/.test(parts.slice(idx + 1).join('')));
           // '{entry} {time}': two placeholders a space apart split ambiguously.
           adj.push(parts[idx + 1] === ' ' && /^\{\w+\}$/.test(parts[idx + 2] || ''));
+          // A surname ('Bader', 'de Witt', 'van der Meer') is one name, never a run of words.
+          if (part === '{last}') return SURNAME;
           return '([\\s\\S]+?)';
         }
         lit += part.length;
         return escapeRe(part);
       }).join('');
-      // Some words of its own ('It is {name}'s.'), not bare glue ('{a}: {b}', '{a} of {b}').
-      if (!keys.length || (k.replace(/\{\w+\}/g, '').match(/[A-Za-z]/g) || []).length < 4) continue;
+      // Some words of its own ('It is {name}'s.'), not bare glue ('{a}: {b}', '{a} of {b}'); a surname's
+      // place ('{last} Row') is enough, its capture being one name.
+      var bare = k.replace(/\{\w+\}/g, ''), letters = (bare.match(/[A-Za-z]/g) || []).length;
+      if (!keys.length || (letters < 4 && !(keys.indexOf('last') >= 0 && /[A-Za-z]{3}/.test(bare)))) continue;
       list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, k: k, lit: lit });
     }
     list.sort(function (a, b) { return b.lit - a.lit; });
@@ -170,7 +175,7 @@
     // 'the clerk of the court' for a label the code lower-cased.
     var lower = I.lower[I.lang] || lowerIndex(I.lang), lk = pick(lower[t.toLowerCase()]);
     if (lk !== undefined) return s.replace(t, lk);
-    if (depth > 5) { I.cutoffs++; return miss(s); }
+    if (depth > 7) { I.cutoffs++; return miss(s); }
     var fallback = null;
     // A pattern that reads every piece wins at once; one that leaves a piece in English is kept for last.
     var viaTpl = matchTemplate(t, depth, true);
@@ -232,13 +237,14 @@
         if (tr !== core) hit = true;
         return tr + ws;
       }).join('');
-      if (hit) return s.replace(t, joined);
+      // Read in part, a pattern that fit the whole string (its own words, a name left as written) reads better.
+      if (hit && (fallback === null || whollyRead(joined))) return s.replace(t, joined);
     }
     // A trailing full stop or bracket around a known string.
     var m2 = /^([("'“]?)([\s\S]*?)([.!?:;,)"'”]*)$/.exec(t);
     if (m2 && m2[2] !== t && m2[2]) {
       var inner = translate(m2[2], depth + 1);
-      if (inner !== m2[2]) return s.replace(t, m2[1] + inner + m2[3].replace(/,/g, '،').replace(/;/g, '؛'));
+      if (inner !== m2[2] && (fallback === null || whollyRead(inner))) return s.replace(t, m2[1] + inner + m2[3].replace(/,/g, '،').replace(/;/g, '؛'));
     }
     // A list, or a label and its text: 'Wit, Instinct', 'The Bell: The bell
     // in the tower.' One separator at a time, and every part must be known.
@@ -327,7 +333,8 @@
     return null;
   }
   function miss(s) { return s; }
-  function whollyRead(r) { return !/[A-Za-z]{3}/.test(r.replace(KEEP_LATIN, '')); }
+  // (A {placeholder} is a slot still to be filled, not English left behind: a key read before its values.)
+  function whollyRead(r) { return !/[A-Za-z]{3}/.test(r.replace(KEEP_LATIN, '').replace(/\{\w+\}/g, '')); }
   // Words that stay in Latin letters in every language: the names of keys.
   var KEEP_LATIN = /\b(Shift|Esc|Enter|Tab|Space|Ctrl|Alt)\b/g;
   // A text that opens on a woman's name is about her ('Grete Welser, a widow. Has a key to the house for years.'):

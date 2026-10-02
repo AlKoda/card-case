@@ -1058,7 +1058,8 @@
       var sp = CF.INSIGHTS[ctx.primary.data.insight];
       ctx.consume(ctx.primary);
       if (sp) ctx.give(sp.trains);
-      return { title: sp ? sp.lesson : 'A Lesson', text: sp ? sp.text.split('.')[0] + '. You are more than you were.' : '' };
+      // The Insight's own words, whole (each has its key), and what it made of you.
+      return { title: sp ? sp.lesson : 'A Lesson', text: sp ? U.fill('{text} You are more than you were.', { text: sp.text }) : '' };
     },
   });
 
