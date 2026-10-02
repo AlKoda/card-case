@@ -122,7 +122,6 @@
   Story.opening = function (e) {
     var list = CF.OPENINGS[e.s.origin] || CF.OPENINGS.master;
     var op = e.s.who && CF.OPENINGS_WHO[e.s.who] ? CF.OPENINGS_WHO[e.s.who] : list[e.s.seed % list.length];
-    if (e.s.legacyFrom) return { title: op.title, text: op.text + ' Your predecessor, ' + e.s.legacyFrom + ', left you their unanswered cases and their enemies.' };
     return op;
   };
   Story.beat = function (e, key) {

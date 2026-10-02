@@ -145,7 +145,7 @@
     else e.applyCalling(s.calling);
 
     if (e.applyOrigin) e.applyOrigin();
-    if (opts.legacy) e.applyLegacy(opts.legacy);
+    if (opts.legacy) e.applyLegacy(opts.legacy, !!(opts.opening && e.setupOpening));
 
     if (opts.opening && e.setupOpening) {
       // No office yet: Health and Attend, then the notice, the Watch, the desk.
@@ -1669,7 +1669,7 @@
     };
   };
 
-  P.applyLegacy = function (L) {
+  P.applyLegacy = function (L, quiet) {
     var self = this;
     (L.cold || []).slice(0, 4).forEach(function (c) { self.create('coldcase', c); });
     (L.criminals || []).forEach(function (c) { var copy = U.clone(c); copy.heat = 0; delete copy.hidden; delete copy.surfaceWeek; self.s.criminals[copy.id] = copy; });
@@ -1678,6 +1678,8 @@
     if (L.syndicate) this.create('syndicate');
     this.create('notes', { desc: 'The casebook of ' + L.predecessor + ' (' + L.ending + '). Half of it is water-stained. Read it in Rest.' });
     this.meter('retaliation', Math.min(4, (L.atlarge || []).length + (L.gangs || []).length * 2));
+    // In the opening the desk is not yours yet: openingHired (life.js) tells the inheritance.
+    if (quiet) { this.s.flags.legacy = { predecessor: L.predecessor, ending: L.ending, syndicate: !!L.syndicate }; return; }
     this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a cask of very good Rhenish, with the King\'s compliments.', 'major');
   };
 

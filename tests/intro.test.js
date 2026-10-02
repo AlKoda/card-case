@@ -476,3 +476,37 @@ console.log('intro: ok');
   assert.ok(lost && lost.kind === 'harm', 'an ability lost for good is harm: ' + (lost && lost.kind));
   console.log('harm kind: ok');
 })();
+
+// ---- A successor's desk: told once it is yours, never as nobody's dead man's ------------------
+(function successorDesk() {
+  var old = CF.Engine.newGame({ seed: 96, calling: 'master' });
+  old.s.detective = 'Kessler';
+  old.gameOver('dismissed');
+  var L = JSON.parse(JSON.stringify(old.s.legacy));
+  var e = CF.Engine.newGame({ seed: 97, who: 'clerk', name: 'Heir', opening: true, guided: true, legacy: L });
+  var texts = function () { return e.s.journal.map(function (j) { return j.title + ': ' + j.text; }).join('\n'); };
+  assert.ok(!/Inherited/.test(texts()), 'no inheritance before the desk is yours:\n' + texts());
+  assert.ok(!/when he died/.test(texts()) && /when they went/.test(texts()), 'the clerk\'s last Examiner went, not died:\n' + texts());
+  assert.ok(e.cardsOf('coldcase', true).length === L.cold.slice(0, 4).length, 'the cold cases are kept for later');
+  // A save from the opening carries the flag through load.
+  e = CF.Engine.load(JSON.stringify(e.s));
+  e.s.flags.stage = 'questioned';
+  var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles });
+  e.caseRec(c.caseId).opening = true;
+  e.openingHired();
+  var drawer = e.s.journal.filter(function (j) { return j.title === 'The Last Examiner\'s Drawer'; });
+  assert.strictEqual(drawer.length, 1, 'the drawer is told at the hire');
+  assert.ok(/was Kessler's, until the Council took the letter back/.test(drawer[0].text), drawer[0].text);
+  assert.strictEqual(/King's compliments/.test(drawer[0].text), !!L.syndicate, 'the King writes only if his Court came down with the desk');
+  // A save from before the flag (its inheritance already told) hires without a second telling.
+  var p = CF.Engine.newGame({ seed: 98, who: 'none', name: 'Plain', opening: true, guided: true });
+  var saved = JSON.parse(JSON.stringify(p.s)); delete saved.flags.legacy;
+  p = CF.Engine.load(saved);
+  p.s.flags.stage = 'questioned';
+  p.openingHired();
+  assert.ok(!p.s.journal.some(function (j) { return j.title === 'The Last Examiner\'s Drawer'; }), 'no legacy, no drawer');
+  // Without the opening the inheritance is told at once, as before.
+  var q = CF.Engine.newGame({ seed: 99, calling: 'master', legacy: L });
+  assert.ok(q.s.journal.some(function (j) { return j.title === 'Inherited'; }), 'a start without the opening inherits at once');
+  console.log('successor desk: ok');
+})();

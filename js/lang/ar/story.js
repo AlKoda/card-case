@@ -38,7 +38,6 @@
     "{text} Every conviction is a line in a book somebody in the Council chamber is reading.": "{text} كل إدانة سطرٌ في كتاب يقرؤه أحدهم في قاعة المجلس.",
     "{text} The casebook is where you will one day see what nobody else does.": "{text} دفتر القضايا هو حيث سترى يومًا ما لا يراه أحد غيرك.",
     "{text} Some of the people you indict will walk. Remember their names.": "{text} بعض من تتّهمهم سيخرجون أحرارًا. فاحفظ أسماءهم.",
-    "{text} Your predecessor, {name}, left you their unanswered cases and their enemies.": "{text} وقد ترك لك سلفك، {name}، قضاياه التي بلا جواب وأعداءه.",
     "The week turns. {text}": "ينقضي الأسبوع. {text}",
 
     "The city lost patience, and the wrong name on the gallows did the rest. The Burgomaster takes your letter of office back in front of the whole Watch-house and does not meet your eyes. Somewhere a man you sent to the rope is still saying, in the mouths of his friends, that he did not do it.": "نفد صبر المدينة، وأتمّ الاسمُ الخطأ على المشنقة الباقي. يستردّ العمدة كتاب تعيينك أمام دار الحرس كلها ولا يلاقي عينيك. وفي مكان ما، ما زال رجلٌ أرسلته إلى الحبل يقول، على ألسنة أصدقائه، إنه لم يفعلها.",

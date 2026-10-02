@@ -23,6 +23,8 @@
   CF.OPENING_SCENES = {
     clerk: { where: 'a rented room over the scriveners\' shop on the Market', work: 'copying deeds for whoever pays', missing: 'Endres', missingWho: 'the copyist who shares your bench',
       first: 'Six years you copied the last Examiner\'s day-book, and when he died the desk went to nobody and the copying went to you, at a rented bench over the scriveners\' shop. You know every form, fee and seal in the city, and have never once been in a fight.',
+      // A successor's run: the last Examiner did not die, they went (the drawer is told at the hire).
+      firstLegacy: 'Six years you copied the last Examiner\'s day-book, and when they went the desk went to nobody and the copying went to you, at a rented bench over the scriveners\' shop. You know every form, fee and seal in the city, and have never once been in a fight.',
       notice: 'Endres has not come to the bench in four days. The master scrivener says nothing, which is how he says things. Endres lodged in the Warrens; you know the door.',
       found: 'The Watch pulled Endres out of the mill-race this morning. A sergeant is at the shop before noon, and he wants to know why you were asking at that door before anyone knew there was a body.',
       hired: 'The sergeant listens longer than sergeants do. When you are finished he says the Watch-house on the Market has a desk under the stair and nobody at it, and that a man who reads a room like a deed is wasted on deeds. Junior examiner. No stipend until you have earned it.',
@@ -101,7 +103,19 @@
     // The opening case ended without a conviction: the desk is earned all the same.
     keepAcquitted: 'The sworn men did not convict, but the Council has seen you work: the desk is yours, and so is the Bell. Lodging and dues at every turn of the week, and the next case on the city\'s clock.',
     keepCold: 'The case went unanswered, but the Council has seen you work: the desk is yours, and so is the Bell. Lodging and dues at every turn of the week, and the next case on the city\'s clock.',
+    drawer: 'The Last Examiner\'s Drawer',
+    drawerText: 'The desk under the stair was {name}\'s, until {how}. Their unanswered cases are still in the drawer, and their enemies have already found the new name on the door.',
+    // The King's welcome, only when the Court of Thunes came down with the desk.
+    drawerKing: 'The desk under the stair was {name}\'s, until {how}. Their unanswered cases are still in the drawer, and their enemies have already found the new name on the door: a cask of very good Rhenish waits on the desk, with the King\'s compliments.',
     bellHint: 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.',
+  };
+  // How the predecessor left the desk, by the ending they came to.
+  CF.LEGACY_HOW = {
+    'Dismissed': 'the Council took the letter back',
+    'The Fever': 'one morning they did not come in',
+    'Killed in the Council\'s Service': 'the burial',
+    'The Council\'s Sergeants': 'the sergeants came at first light',
+    'Lost in the Case': 'they broke the study door',
   };
   P.openingScene = function () { return CF.OPENING_SCENES[this.s.who] || CF.OPENING_SCENES.none; };
   // Whose death began the casebook: kept at the first keep. A save from before
@@ -120,7 +134,8 @@
     s.verbs.time.unlocked = false;
     this.create('health');
     // The first morning in the origin's own words, then where you stand.
-    this.story('Before the Office', sc.first ? sc.first + ' ' + CF.OPENING_TEXT.startTold : U.fill(CF.OPENING_TEXT.start, { where: sc.where, work: sc.work }), 'major');
+    var first = s.flags.legacy && sc.firstLegacy || sc.first;
+    this.story('Before the Office', first ? first + ' ' + CF.OPENING_TEXT.startTold : U.fill(CF.OPENING_TEXT.start, { where: sc.where, work: sc.work }), 'major');
     this.dirty = true;
   };
   function hint(e, text) { if (e.s.intro && !e.s.intro.finished && !e.s.intro.silent) e.s.intro.hint = text; }
@@ -245,6 +260,13 @@
     if (this.introUnlock) this.introUnlock(['analyze', 'reflect']);
     if (this.introReveal) this.introReveal(['instinct', 'health', 'focus', 'personnel']);
     this.story(CF.OPENING_TEXT.hired, sc.hired + ' The case is yours now: find who did it. Raw proof speaks in Study; the Court opens when you have someone to charge.', 'major');
+    // A successor's desk: whose it was, now that it is yours. Told once.
+    var L = s.flags.legacy;
+    if (L && !L.told) {
+      L.told = true;
+      this.story(CF.OPENING_TEXT.drawer, U.fill(L.syndicate ? CF.OPENING_TEXT.drawerKing : CF.OPENING_TEXT.drawerText,
+        { name: L.predecessor, how: CF.LEGACY_HOW[L.ending] || 'they left it' }), 'major');
+    }
     var rec = this.openCases().filter(function (r) { return r.opening; })[0];
     var named = rec && rec.suspects.filter(function (x) { return x.revealed; })[0];
     var tb = this.tableCards();
@@ -477,7 +499,10 @@
       w.life = Math.min(w.life, 30);
       w.data = w.data || {};
       w.data.bribed = true;
-      this.story('A Witness Paid to Forget', this.labelOf(w) + ' has had a visit and a purse from ' + name2 + ', and is suddenly leaving the city. Half a minute, if you want their word.', 'danger');
+      // Counted in the city's days, as every clock is.
+      var gone = CF.daysLeft(w.life);
+      this.story('A Witness Paid to Forget', U.fill(gone > 1 ? '{label} has had a visit and a purse from {name}, and is suddenly leaving the city in {days} days. Go now, if you want their word.'
+        : '{label} has had a visit and a purse from {name}, and is leaving the city tomorrow. Go now, if you want their word.', { label: this.labelOf(w), name: name2, days: gone }), 'danger');
       lines.push(name2 + ' paid a witness of yours to forget.');
     }
     this.dirty = true;
@@ -560,7 +585,7 @@
         { label: 'Send the Watch as planned', gain: 'Standing rises; Vendetta', text: 'The brother is taken. Your informer stops meeting your eye.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); e.cardsOf('informant').forEach(function (c) { if (e.trustInformant) e.trustInformant(c, -1); }); } },
       ] },
     { id: 'bishop', when: function (e) { return e.s.week >= 3; },
-      title: 'The Bishop\'s Invitation', text: 'The Bishop would be glad to see the Examiner at the cathedral on Sunday, in the front pew, where the city can see him too.',
+      title: 'The Bishop\'s Invitation', text: 'The Bishop would be glad to see the Examiner at the cathedral on Sunday, in the front pew, where the whole city can see.',
       options: [
         { label: 'Go, and be seen', cost: 'health', gain: 'The Bishop\'s favour +2; Dread eases', text: 'The Bishop is pleased. The Council notes whose pew you sat in.', effect: function (e) { e.favour().bishop += 2; e.favour().council -= 1; e.meter('dread', -1); } },
         { label: 'Send your regrets', gain: 'The Council\'s favour', text: 'The Council is pleased. The Bishop\'s chaplain stops greeting you in the street.', effect: function (e) { e.favour().council += 1; e.favour().bishop -= 1; } },
@@ -666,7 +691,7 @@
       options: [
         { label: 'Put them up at the Watch-house', cost: 'funds', gain: 'Your informer is safe again', text: 'A bench in the Watch-house and a sergeant who asks no questions. By the week\'s end nobody is asking after them.',
           effect: function (e) { var c = compromisedInformer(e); if (c && e.heatInformant) e.heatInformant(c, -3); } },
-        { label: 'Send them out of the city', gain: 'Your informer goes; Dread eases', text: 'A cart at the Water-gate before dawn. The Warrens hear that the Examiner looks after his own.',
+        { label: 'Send them out of the city', gain: 'Your informer goes; Dread eases', text: 'A cart at the Water-gate before dawn. The Warrens hear that the Examiner does not forget a friend.',
           effect: function (e) { var c = compromisedInformer(e); if (c) e.remove(c); e.meter('dread', -1); } },
         { label: 'Turn them away', gain: 'Your informer\'s trust falls', text: 'You do not open the door. The bag goes down the stair slowly.',
           effect: function (e) { var c = compromisedInformer(e); if (c && e.trustInformant) e.trustInformant(c, -1); } },
