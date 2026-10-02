@@ -81,9 +81,19 @@
     [/clerk|scholar|scrivener|notary|librarian|tutor|schoolmaster|copyist|bookseller|printer|student|physician|surgeon|apothecar|barber|counting-house/i, 'clerk'],
     [/merchant|trader|dealer|broker|pawn|grocer|vintner|goldsmith|draper|mercer|shopkeeper|innkeeper|landlord|factor|moneychanger|miller|stallholder|carrier|perfumer|wool|tavern|bathhouse|owner/i, 'trader'],
   ];
-  function personArt(name, role) {
+  // The faces that are women's, wherever their sheet put them: a person whose sex is known gets a face
+  // of that sex from their trade's pool, or from all the faces of that sex when the trade has none.
+  var WOMEN = {};
+  ['cclerk-08', 'cfolk-03', 'cfolk-05', 'cink-01', 'cink-04', 'cnoble2-02', 'cnoble2-04', 'cnoble2-06', 'cnoble2-08', 'coutlaw-05', 'crogue-02', 'crogue-04', 'crogue-06', 'ctrade-07',
+    'cwoman-01', 'cwoman-02', 'cwoman-03', 'cwoman-04', 'cwoman-05', 'cwoman-06', 'cwoman-07', 'cwoman-08'].forEach(function (k) { WOMEN[k] = true; });
+  function ofSex(pool, sex) { return pool.filter(function (k) { return !!WOMEN[k] === (sex === 'f'); }); }
+  function personArt(name, role, sex) {
     var pool = POOL.any;
     for (var i = 0; i < ROLE_POOL.length && role; i++) if (ROLE_POOL[i][0].test(role)) { pool = POOL[ROLE_POOL[i][1]]; break; }
+    if (sex === 'f' || sex === 'm') {
+      var own = ofSex(pool, sex);
+      pool = own.length ? own : ofSex([].concat(POOL.any, POOL.watch), sex);
+    }
     return pool[hash(name || role || '') % pool.length];
   }
   // Evidence pictures, chosen by what a token is about: a painted card where
@@ -249,7 +259,8 @@
     if (card.def === 'suspect' || card.def === 'witness' || card.def === 'informant') {
       var srec = card.caseId && e.caseRec(card.caseId), sus = srec && card.data.key && srec.suspects.filter(function (x) { return x.key === card.data.key; })[0];
       var role = card.data.role || (sus && sus.role) || (card.def === 'informant' ? 'smuggler' : '');
-      return full(personArt(card.data.name || e.labelOf(card), role), /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
+      var who = card.data.name || e.labelOf(card), sex = card.data.sex || (sus && sus.sex) || (e.sexOf && (e.sexOf(role) || e.sexOfName(who)));
+      return full(personArt(who, role, sex), /Prime Suspect/.test(e.labelOf(card)) ? 'red' : tone);
     }
     if (card.def === 'rung') return full(RUNG_ART[card.data.rung] || 'ccourt-01', 'dark');
     if (FULLS[card.def]) return full(FULLS[card.def], tone);
@@ -268,6 +279,7 @@
     onGameOver: null, onSave: null,
   });
   UI.personArt = personArt;
+  UI.womansFace = function (k) { return !!WOMEN[k]; };
   UI.customsLeafDef = customsLeafDef;
   // A case's own crime card, the picture it wears on the table (the Rolls reuse it).
   UI.caseArt = function (tpl) { return caseArtOf(tpl)[0]; };
@@ -1557,7 +1569,7 @@
     if (!sus) return null;
     var plate = Object.keys(e.s.cards).map(function (u) { return e.s.cards[u]; })
       .filter(function (c) { return c.def === 'suspect' && c.caseId === card.caseId && c.data && c.data.key === sus.key; })[0];
-    return { sus: sus, art: plate ? cardPicture(plate).art : personArt(sus.name, sus.role) };
+    return { sus: sus, art: plate ? cardPicture(plate).art : personArt(sus.name, sus.role, sus.sex) };
   }
   UI.aboutOf = aboutOf;
   // A case whose scene has given all it had: another search only feeds an Obsession.

@@ -3486,7 +3486,7 @@
     var out = {
       id: rec.id + '-' + this.s.seed, caseId: rec.id, title: rec.title, template: rec.template, district: rec.district, scene: rec.scene,
       victim: rec.victim, outcome: outcome, charged: charged || null, week: this.s.week, highProfile: !!rec.highProfile,
-      culprit: cul ? { name: cul.name, role: cul.role, motive: cul.motive, trait: trait ? trait.desc : '' } : null,
+      culprit: cul ? { name: cul.name, role: cul.role, sex: cul.sex || null, motive: cul.motive, trait: trait ? trait.desc : '' } : null,
       detective: this.s.detective, calling: this.s.calling,
     };
     if (seat && seat.uid) { out.uid = seat.uid; out.at = seat.at || null; }

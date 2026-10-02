@@ -2846,5 +2846,38 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: after the merge, the rules\' own cues, sentences, roads, heresy, pictures, standing, outcomes, tally and record');
 })();
 
+// A face of the person's own sex: a woman named for a trade gets a woman's face, a man a man's,
+// and a suspect card wears the face its record's sex calls for.
+(function facesBySex() {
+  var names = ['Bess Welser', 'Anna Roth', 'Griet Haas', 'Tom Hobson', 'Piet Wieland', 'Cornelis Barker', 'Mergen Lutz', 'Hans Kopp'];
+  ['the die-cutter', 'the printer of her ballads', 'a councillor', 'the widow', 'a laundress', 'the gatekeeper', ''].forEach(function (role) {
+    names.forEach(function (n) {
+      assert.ok(UI.womansFace(UI.personArt(n, role, 'f')), 'a woman, ' + role + ': ' + UI.personArt(n, role, 'f'));
+      assert.ok(!UI.womansFace(UI.personArt(n, role, 'm')), 'a man, ' + role + ': ' + UI.personArt(n, role, 'm'));
+    });
+  });
+  assert.strictEqual(UI.personArt('Tom Hobson', 'the die-cutter'), UI.personArt('Tom Hobson', 'the die-cutter'), 'the same face each time');
+  var e = CF.Engine.newGame({ calling: 'master', seed: 11 });
+  UI.attach(e);
+  var rec = e.openCases()[0], sus = rec.suspects[0];
+  ['f', 'm'].forEach(function (sx) {
+    sus.sex = sx;
+    var card = e.create('suspect', { caseId: rec.id, label: sus.name, data: { key: sus.key, name: sus.name, role: sus.role } });
+    assert.strictEqual(UI.womansFace(UI.cardPicture(card).art), sx === 'f', 'the suspect card follows the record (' + sx + '): ' + UI.cardPicture(card).art);
+    e.remove(card);
+  });
+  // The roles whose motive says 'he' of the accused name a man.
+  var found = {};
+  (function walk(o) {
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.role === 'string' && typeof o.motive === 'string') found[o.role] = o;
+    Object.keys(o).forEach(function (k) { walk(o[k]); });
+  })(CF.CASE_TEMPLATES);
+  ['the die-cutter', 'a housebreaker of the Stews', 'the hospital\'s physician', 'a councillor', 'the customs searcher'].forEach(function (role) {
+    assert.ok(found[role] && found[role].sex === 'm', role + ' is a man');
+  });
+  console.log('ui: faces by sex');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

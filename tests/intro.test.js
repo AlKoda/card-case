@@ -199,6 +199,10 @@ console.log('intro: ok');
   h2.openingHired();
   assert.ok(/When your Wit comes back from the sergeant, question /.test(h2.introHint()), 'no Wit to hand: ' + h2.introHint());
   assert.ok(!/with Wit\./.test(h2.introHint()), 'and it does not ask for one now');
+  // Health and no Wit: the warning against Health in Question rides in this hint, so the aside does not later take its place.
+  assert.ok(/never with Health/.test(h2.introHint()), 'the hire hint carries the warning: ' + h2.introHint());
+  assert.ok(h2.s.intro.asides && h2.s.intro.asides.question, 'and the aside counts as told');
+  assert.ok(!(h.s.intro.asides || {}).question, 'with a Wit to hand the warning waits for its own time');
   assert.ok(h.s.flags.callingDue && !h.s.choice, 'the calling waits for openingTick');
   h.tick(0.1);
   assert.ok(h.s.choice && h.s.choice.id === 'calling', 'Explore idle: asked at once');

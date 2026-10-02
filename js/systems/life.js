@@ -52,7 +52,7 @@
       hired: 'You tell the sergeant what the body says, and the sergeant, who has heard a hundred physicians, hears something new. The Watch-house has a desk with nobody at it. Junior examiner. No stipend until you have earned it.',
       kept: 'Sebald goes into the Abbey\'s ground with his herbal on his chest. The Abbot reads the office himself and does not look at you once, which from him is thanks.',
       roles: [
-        { role: 'the cellarer', motive: 'The jar was in his keeping, and so was the key.' },
+        { role: 'the cellarer', sex: 'm', motive: 'The jar was in his keeping, and so was the key.' },
         { role: 'the man who bought the jar', motive: 'Somebody outside the walls wanted what the dispensary keeps locked.' },
         { role: 'a novice who envied him', motive: 'Sebald was to be sent to the scriptorium. The other was not.' },
       ] },
@@ -63,7 +63,7 @@
       hired: 'You tell him what the marks on her say, and he goes quiet. The Council will not like it, he says, but the desk under the stair is empty and you read a body better than the barber-surgeon. Junior examiner. No stipend until you have earned it.',
       kept: 'Nan is buried outside the wall, where the city buries what it does not want. On Tuesday the ballad-sellers sing her at the Ravenstone, with a verse that has your name in it.',
       roles: [
-        { role: 'the printer of her ballads', motive: 'Nan sang a verse he had not been paid for.' },
+        { role: 'the printer of her ballads', sex: 'm', motive: 'Nan sang a verse he had not been paid for.' },
         { role: 'the man she sang about', motive: 'A ballad names names. His was in Tuesday\'s.' },
         { role: 'the gatekeeper who took the basket in', motive: 'Knew she was not coming back before anyone else did.' },
       ] },
@@ -98,7 +98,7 @@
     hired: 'Junior Examiner',
     keep: 'Your First Keep',
     hiredWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. Or question {name} with Wit.',
-    hiredNoWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. When your Wit comes back from the sergeant, question {name} with it.',
+    hiredNoWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. When your Wit comes back from the sergeant, question {name} with it; never with Health, under which everybody confesses.',
     keepText: 'The Council pays a stipend to the examiner who answered a case, and the landlord, who has heard, sends up the bill. The Bell rings from today: lodging and dues at every turn of the week. You are an examiner now, and the cases will come on the city\'s clock.',
     // The opening case ended without a conviction: the desk is earned all the same. After an
     // acquittal the verdict has already said the desk is yours (engine.js), so the keep does not.
@@ -300,7 +300,12 @@
     var proof = tb.some(function (c) { return c.def === 'evidence'; });
     // The case with its tokens in Rest is what names someone; the sergeant has just had the Wit.
     var wit = tb.some(function (c) { return c.def === 'focus'; });
-    if (named && !proof) hint(this, U.fill(wit ? CF.OPENING_TEXT.hiredWit : CF.OPENING_TEXT.hiredNoWit, { name: named.name }));
+    if (named && !proof) {
+      hint(this, U.fill(wit ? CF.OPENING_TEXT.hiredWit : CF.OPENING_TEXT.hiredNoWit, { name: named.name }));
+      // Without Wit the hint carries the warning against Health in Question too, so that
+      // aside (intro.js) does not later take the slot from what to do next.
+      if (!wit && s.intro) (s.intro.asides || (s.intro.asides = {})).question = true;
+    }
     else if (!named && this.hasDistrict(rec ? rec.district : '')) hint(this, CF.OPENING_TEXT.doorHint);
     else hint(this, 'You have the desk. Study what you found, question who you meet, and build a charge. The Court opens when you have an accused and a token.');
     if (s.flags.callingOpen) s.flags.callingDue = true; // put to you from openingTick, once Explore is idle or ten seconds on

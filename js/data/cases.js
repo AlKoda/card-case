@@ -689,7 +689,7 @@
       brief: 'At the Trial of the Pyx the Mint\'s own coins were weighed against the city\'s standard before the Council, and every one was light. Not clipped, not worn: struck light, under the city\'s eagle. The Mint\'s warden, {victim}, has asked for the Watch, which is brave of a warden. The Council wants it answered quietly, before the Emperor hears.',
       roles: [
         { role: 'the Mint\'s assayer', motive: 'Weighs every melt alone, and signs for it.' },
-        { role: 'the die-cutter', motive: 'Cuts the dies, and keeps the old ones he was told to break.' },
+        { role: 'the die-cutter', sex: 'm', motive: 'Cuts the dies, and keeps the old ones he was told to break.' },
         { role: 'the Mintmaster\'s wife', sex: 'f', motive: 'Keeps a house on the Hill above the Mintmaster\'s salary.' },
         { role: 'a silver merchant', motive: 'Sells the Mint its silver, and buys back what it does not use.' },
       ],
@@ -715,7 +715,7 @@
       roles: [
         { role: 'the executioner\'s knecht', sex: 'm', motive: 'Cuts down the hanged for the pit, and is paid by the piece for what the pit does not need.' },
         { role: 'an apothecary', motive: 'Sells mandrake and poppy by the ounce, and asks nothing.' },
-        { role: 'a housebreaker of the Stews', motive: 'Breaks houses, and believes what the old thieves told him.' },
+        { role: 'a housebreaker of the Stews', sex: 'm', motive: 'Breaks houses, and believes what the old thieves told him.' },
         { role: 'a maidservant of the house', sex: 'f', motive: 'Mixed the household\'s posset that night, and nobody else touched it.' },
       ],
       items: [
@@ -828,7 +828,7 @@
       roles: [
         { role: 'the Brotherhood\'s almoner', motive: 'Chooses who is fed at the hospital door, and who is never seen again.' },
         { role: 'a patrician benefactor', motive: 'Founded the hospital. Uses the room behind it.' },
-        { role: 'the hospital\'s physician', motive: 'Signs the deaths, and never writes what he saw.' },
+        { role: 'the hospital\'s physician', sex: 'm', motive: 'Signs the deaths, and never writes what he saw.' },
       ],
       items: [
         { type: 'evidence', label: 'The Hospital Register', text: 'Admitted, admitted, admitted. Discharged less often than arithmetic allows.', needs: 'lab',
@@ -931,7 +931,7 @@
       brief: 'The ledger points under the Warrens, to a cellar where the lame walk and the blind see, and a man they call the King of Thunes sits on a barrel. Make it stick. You will not get a second chance.',
       roles: [
         { role: 'the King of Thunes', motive: 'Owns half the Warrens and rents out the other half.' },
-        { role: 'a councillor', motive: 'Seals whatever the Coquille puts in front of him.' },
+        { role: 'a councillor', sex: 'm', motive: 'Seals whatever the Coquille puts in front of him.' },
         { role: 'a respected goldsmith', motive: 'Makes the stolen silver into new silver.' },
       ],
       items: [
@@ -958,7 +958,7 @@
       roles: [
         { role: 'the Harbourmaster', motive: 'Wants the Council to need him, and the Watch to answer to the Customs House.' },
         { role: 'the Harbourmaster\'s clerk', motive: 'Keeps both sets of books, and is paid for one.' },
-        { role: 'the customs searcher', motive: 'Searches the ships he is told to search, and not the others.' },
+        { role: 'the customs searcher', sex: 'm', motive: 'Searches the ships he is told to search, and not the others.' },
       ],
       items: [
         { type: 'clue', label: 'Cargo Never Landed', text: 'Forty bales of English cloth on the books, cleared and taxed. No crane on the quay lifted them.', aspects: { digital: 2, opportunity: 1 } },

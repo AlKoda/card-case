@@ -268,7 +268,7 @@
     if (!opened) truth = '<i>' + esc('Sealed. Break the seal to learn the truth.') + '</i>';
     else if (rec.outcome === 'wrongful') truth = tr('<b>{name}</b>, {role}, did it, and someone else went to the rope for it.', { name: esc(cul.name), role: esc(cul.role) }) + ' ' + esc(cul.motive || '');
     else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
-    var portrait = CF.UI.personArt(cul.name || rec.title, cul.role || '');
+    var portrait = CF.UI.personArt(cul.name || rec.title, cul.role || '', cul.sex || (cul.name ? CF.Engine.prototype.sexOf(cul.role) || CF.Engine.prototype.sexOfName(cul.name) : null));
     // The portrait floats on the corner and the title and rows run beside it, in either direction, at any width.
     box.innerHTML = '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
       '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
