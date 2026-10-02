@@ -139,7 +139,7 @@ console.log('reflect: identification (possible/confirmed), conflict, theories, t
   assert.strictEqual(res.label, 'Two Men, One Knife');
   assert.strictEqual(res.story.title, 'Two Men, One Knife');
   assert.strictEqual(res.story.kind, 'major');
-  var made = res.out.filter(function (c) { return g.labelOf(c) === 'The Confessions Do Not Agree'; })[0];
+  var made = res.out.filter(function (c) { return g.labelOf(c) === 'Two Confessions'; })[0];
   assert.ok(made, 'the pattern makes a token: ' + res.out.map(function (c) { return g.labelOf(c); }));
   assert.deepStrictEqual(CF.clueAspects(made), { testimony: 1, motive: 2 });
   assert.ok(!made.data.points, 'nobody to point at yet');
@@ -154,7 +154,7 @@ console.log('reflect: identification (possible/confirmed), conflict, theories, t
   // With the culprit in the casebook, the token points at them.
   g.revealSuspect(r2, null, { key: cul2.key });
   res = rest([conf(inn[0]), conf(inn[1])]);
-  made = res.out.filter(function (c) { return g.labelOf(c) === 'The Confessions Do Not Agree'; })[0];
+  made = res.out.filter(function (c) { return g.labelOf(c) === 'Two Confessions'; })[0];
   assert.ok(made);
   assert.strictEqual(made.data.points, cul2.key, 'it points at the one not in the Hole');
   console.log('two confessions: ok');

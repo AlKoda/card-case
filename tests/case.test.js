@@ -260,7 +260,7 @@ function jointure(d) {
   var d = poisoned(41), e = d.e;
   var n = needle(d), b = book(d);
   d.run('investigate', [d.kase]); // the kitchen
-  var dish = d.byLabel(/Dish Nobody Else Had/)[0];
+  var dish = d.byLabel(/^The Pears$/)[0];
   assert.ok(dish && CF.clueAspects(dish).opportunity >= 2, 'the dish nobody else had');
   d.charge([n, b, dish, d.byLabel(/Physician's Note/)[0]]);
   console.log('poison, the Needle and the Book: convicted\n  ' + d.log.join('\n  '));
@@ -269,7 +269,7 @@ function jointure(d) {
   var d = poisoned(43), e = d.e;
   var n = needle(d), j = jointure(d);
   d.run('investigate', [d.kase, d.byDef('focus')[0]]); // the kitchen maid
-  var who = d.byLabel(/Who Ate, Who Did Not/)[0];
+  var who = d.byLabel(/^The Table$/)[0];
   assert.ok(who && who.data.trait === d.rec().suspects.filter(function (x) { return x.guilty; })[0].trait, 'the maid describes the culprit');
   // The jointure beside the physician's note: who profits. Coin with a reason behind it.
   d.run('reflect', [j, d.byLabel(/Physician's Note/)[0]]);
@@ -282,7 +282,7 @@ function jointure(d) {
   var d = poisoned(47), e = d.e;
   var b = book(d), j = jointure(d);
   d.run('investigate', [d.kase, d.byDef('focus')[0]]); // the kitchen maid
-  var who = d.byLabel(/Who Ate, Who Did Not/)[0];
+  var who = d.byLabel(/^The Table$/)[0];
   assert.ok(who, 'the maid talks');
   d.charge([b, j, who, d.byLabel(/Physician's Note/)[0]]);
   console.log('poison, the Book and the Jointure: convicted\n  ' + d.log.join('\n  '));

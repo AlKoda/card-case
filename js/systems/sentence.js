@@ -253,6 +253,7 @@
         text = 'The staff is broken, and ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ' follows, before the whole city. It takes most of the morning. The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
         break;
     }
+    if (!d.guilty && rec.id) this.wrongfulSentenced(rec, rung);
     if (!d.guilty && Sen.DEATH.indexOf(rung) >= 0) {
       this.meter('dread', 1);
       notes.push('Somebody in the crowd shouts that the wrong one is dying. Somebody always does. This time they are right.');

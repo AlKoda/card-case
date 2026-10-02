@@ -31,7 +31,7 @@
         { role: 'the man whose bond it was', motive: 'A deed in the Warrens, and a name on it that should not be there.' },
         { role: 'a lodger on Endres\'s stair', motive: 'Owed Endres a month\'s rent and a great deal of silence.' },
       ] },
-    watchman: { where: 'the Watch-house bench, where you have slept since the round ended', work: 'hired out as a night-guard to whoever has a warehouse', missing: 'Old Bartel', missingWho: 'who walked the round beside you for twenty years',
+    watchman: { where: 'the Watch-house bench, where you have slept since the round ended', work: 'guarding warehouses by night for whoever has one', missing: 'Old Bartel', missingWho: 'who walked the round beside you for twenty years',
       first: 'Twenty years you cried the hours with a cudgel and a lantern, and the round ended in the spring with the Council\'s thanks and nothing else. You sleep on the Watch-house bench and guard warehouses for whoever has one.',
       notice: 'Old Bartel has missed three rounds. His halberd is still on its hook. His landlady says he went out on Thursday to meet somebody about money.',
       found: 'They find Bartel in a lock-up at the Harbour with his skull broken. The sergeant, who was Bartel\'s friend before he was yours, wants to know what you know.',
@@ -83,6 +83,8 @@
     ] };
   CF.OPENING_TEXT = {
     start: 'No office, no stipend, no name the crier would sing. You lodge at {where}, and you live by {work}. Health in Attend earns a Coin; so does Wit, more slowly. The city has not noticed you yet.',
+    // After an origin's own first morning, which has already said where you lodge and what you do.
+    startTold: 'No office, no stipend, no name the crier would sing. Health in Attend earns a Coin; so does Wit, more slowly. The city has not noticed you yet.',
     notice: 'A Notice',
     body: 'The Watch Has a Body',
     hired: 'Junior Examiner',
@@ -99,7 +101,7 @@
     s.verbs.time.unlocked = false;
     this.create('health');
     // The first morning in the origin's own words, then where you stand.
-    this.story('Before the Office', (sc.first ? sc.first + ' ' : '') + U.fill(CF.OPENING_TEXT.start, { where: sc.where, work: sc.work }), 'major');
+    this.story('Before the Office', sc.first ? sc.first + ' ' + CF.OPENING_TEXT.startTold : U.fill(CF.OPENING_TEXT.start, { where: sc.where, work: sc.work }), 'major');
     this.dirty = true;
   };
   function hint(e, text) { if (e.s.intro && !e.s.intro.finished && !e.s.intro.silent) e.s.intro.hint = text; }
@@ -300,11 +302,19 @@
       if (s.flags.rivalGone && s.flags.rivalGone > s.week) return lines;
       if (s.flags.rivalSeen && this.rng() > 0.25) return lines;
       if (!s.flags.rivalSeen && this.rng() > 0.4 && s.week < 8) return lines;
-      var name = U.pick(this.rng, CF.RIVAL_NAMES);
+      // The second time, a different name, and the office needs no introduction.
+      var again = !!s.flags.rivalSeen, last = s.flags.rivalName;
+      var name = U.pick(this.rng, CF.RIVAL_NAMES.filter(function (n) { return n !== last; }));
       s.flags.rivalSeen = true;
+      s.flags.rivalName = name;
       this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
-      this.story('The Harbourmaster\'s Examiner', name + ' has the Harbourmaster\'s letter and a desk in the Customs House. The Harbourmaster wants the Council to see it has a choice. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice and the Council sends them home.', 'danger');
-      lines.push('The Harbourmaster has sent an examiner of his own.');
+      if (again) {
+        this.story('Another Examiner', 'The Harbourmaster has found another: ' + name + ', with the same letter and the same desk in the Customs House. They will work your cases from the other side as the last one did. Find their weakness twice and the Council sends them home too.', 'danger');
+        lines.push('The Harbourmaster has sent another examiner.');
+      } else {
+        this.story('The Harbourmaster\'s Examiner', name + ' has the Harbourmaster\'s letter and a desk in the Customs House. The Harbourmaster wants the Council to see it has a choice. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice and the Council sends them home.', 'danger');
+        lines.push('The Harbourmaster has sent an examiner of his own.');
+      }
       return lines;
     }
     if (r.data.stalled && r.data.stalled >= s.week) return lines;

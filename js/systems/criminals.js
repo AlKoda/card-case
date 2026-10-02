@@ -112,12 +112,29 @@
 
   // The real culprit behind a wrongful conviction keeps their head down for
   // a few weeks: no Abroad card until the city hears the wrong name hanged.
-  P.hideCriminal = function (c, rec) {
+  // 'how' is what became of the wrong name: a sentence rung, 'burned' when
+  // the Inquisitor took the case, nothing while the Hole still holds them.
+  P.hideCriminal = function (c, rec, how) {
     c.hidden = true;
     c.surfaceWeek = this.s.week + U.randInt(this.rng, 2, 4);
     c.wrongfulTitle = rec.title;
+    c.wrongfulCase = rec.id;
+    c.wrongfulHow = how || null;
     c.district = rec.district;
     return c;
+  };
+  // The sentence passed on the wrong name, kept on the real culprit's record.
+  P.wrongfulSentenced = function (rec, rung) {
+    var s = this.s.criminals;
+    for (var k in s) if (s[k].hidden && (s[k].wrongfulCase === rec.id || (!s[k].wrongfulCase && s[k].wrongfulTitle === rec.title))) s[k].wrongfulHow = rung;
+  };
+  // What the ballad says the wrong name got: hanged, burned, the Ravenstone, or nothing yet.
+  Crim.wrongfulFate = function (c) {
+    var how = c.wrongfulHow;
+    if (how === 'rope') return 'hanged for';
+    if (how === 'burned') return 'burned for';
+    if (how === 'sword' || how === 'wheel') return 'died on the Ravenstone for';
+    return 'answered for';
   };
   // The hidden record surfaces: the card, the Crowd, and unless a new crime
   // tells it first, the ballad.
@@ -125,9 +142,10 @@
     delete c.hidden;
     var title = c.wrongfulTitle || 'an old case';
     var dl = CF.DISTRICTS[c.district] ? CF.DISTRICTS[c.district].label : 'the Warrens';
-    this.abroadCard(c, 'Someone else went to the rope for ' + title + '.');
+    this.abroadCard(c, 'Someone else ' + Crim.wrongfulFate(c) + ' ' + title + '.');
     this.meter('pressure', 1);
-    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': the one you sent down was in the Hole for drunkenness that night. The Warrens have known for a week. Now the Market does.', 'danger');
+    var who = c.wrongfulHow === 'burned' ? 'the one the Inquisitor burned' : 'the one you sent down';
+    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': ' + who + ' was in the Hole for drunkenness that night. The Warrens have known for a week. Now the Market does.', 'danger');
   };
 
   // The crime a record keeps coming back to: their trade, when the city
@@ -176,7 +194,7 @@
       if (c.traits.indexOf('spared') >= 0 && !self.s.nextCase && self.rng() < 0.5) { lines.push(self.sparedWarning(c)); return; }
       c.crimes++;
       c.heat++;
-      var spec = { template: self.criminalTrade(c), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again', lead: surfaced ? 'The hand is familiar. It should be: somebody else hanged for it.' : 'The hand is familiar.' };
+      var spec = { template: self.criminalTrade(c), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again', lead: surfaced ? 'The hand is familiar. It should be: somebody else ' + Crim.wrongfulFate(c) + ' it.' : 'The hand is familiar.' };
       self.refreshAtLarge(c);
       if (room) {
         var card = self.spawnCase(spec.template, spec);

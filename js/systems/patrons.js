@@ -175,7 +175,7 @@
     this.clearCaseCards(rec.id);
     var named = U.pick(this.rng, rec.suspects);
     s.stats.inquisitor = (s.stats.inquisitor || 0) + 1;
-    if (!named.guilty) { s.stats.wrongful++; var cul = rec.suspects.filter(function (x) { return x.guilty; })[0]; var c = this.criminalEscapes(rec, cul, 'wrongful'); if (this.atLargeCardFor(c)) this.refreshAtLarge(c); else this.hideCriminal(c, rec); }
+    if (!named.guilty) { s.stats.wrongful++; var cul = rec.suspects.filter(function (x) { return x.guilty; })[0]; var c = this.criminalEscapes(rec, cul, 'wrongful'); if (this.atLargeCardFor(c)) this.refreshAtLarge(c); else this.hideCriminal(c, rec, 'burned'); }
     this.meter('dread', 2);
     this.meter('pressure', -1);
     this.emit('resolved', this.caseRecord(rec, 'inquisitor', named.name));

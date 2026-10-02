@@ -139,6 +139,7 @@ function setup(seed) {
   assert.strictEqual(r4.story.title, 'A Lie About the Night');
   var made = r4.out.filter(function (c) { return c.def === 'clue'; })[0];
   assert.ok(made && e.labelOf(made) === 'A Lie About the Night' && made.data.points === g.culprit.key && CF.clueAspects(made).opportunity === 2, 'a token against them');
+  assert.ok(made.desc.indexOf(CF.PROSE.alibiLies[g.culprit.alibi]) > 0 && r4.story.text === made.desc, 'the lie answers the alibi it refutes: ' + made.desc);
   assert.ok(!g.culprit.cleared && e.card(g.scG.uid));
   rested();
   assert.ok(!run(e, 'interrogate', [g.scG, e.create('focus')]).out.some(function (c) { return c.data.alibi; }), 'the culprit\'s story is told once');

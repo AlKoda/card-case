@@ -143,9 +143,11 @@
       for (var k in e.s.cards) { var c = e.s.cards[k]; if (c.def === 'suspect' && c.caseId === rec.id && c.data.key === sus.key) e.remove(c); }
       return { title: 'The Night Accounted For', text: sus.name + ' was where they said. Strike the name from the casebook.' };
     }
-    var made = ctx.give('clue', { label: 'A Lie About the Night', desc: 'The bells do not agree with ' + sus.name + '. Nobody at the crane remembers them.',
+    // The lie answers the alibi it refutes: the crane, the hospital, the Hole.
+    var lie = 'The bells do not agree with ' + sus.name + '. ' + (CF.PROSE.alibiLies[sus.alibi] || CF.PROSE.alibiLie);
+    var made = ctx.give('clue', { label: 'A Lie About the Night', desc: lie,
       aspects: { opportunity: 2 }, caseId: rec.id, data: { misread: false, coerced: false, planted: false, corroborated: false, trait: sus.trait, points: sus.key, deduction: d.id } });
-    return { title: 'A Lie About the Night', kind: 'major', text: 'The bells do not agree with ' + sus.name + '. Nobody at the crane remembers them.', made: made };
+    return { title: 'A Lie About the Night', kind: 'major', text: lie, made: made };
   };
   // Two cases, one front: a Thread, the Front on the table, and (for the
   // Master Detective) a name in each connected case.

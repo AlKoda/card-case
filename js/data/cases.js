@@ -119,6 +119,16 @@
     ],
     alibis: ['a night at the Harbour crane with a dozen porters', 'a bed in the Abbey hospital', 'a game of tables with a sergeant of the Watch',
       'a carrier\'s chit stamped two days\' ride away', 'a wedding, and forty guests who remember the dancing', 'a night in the Hole for drunkenness'],
+    // What the hours say when an alibi is a lie: one answer for each alibi above, by its text.
+    alibiLies: {
+      'a night at the Harbour crane with a dozen porters': 'Nobody at the crane remembers them.',
+      'a bed in the Abbey hospital': 'The infirmarian\'s book has no bed for them.',
+      'a game of tables with a sergeant of the Watch': 'The sergeant was on the wall that night, and says so.',
+      'a carrier\'s chit stamped two days\' ride away': 'The chit is stamped. The carrier never saw them.',
+      'a wedding, and forty guests who remember the dancing': 'Forty guests remember the dancing. None of them remembers them.',
+      'a night in the Hole for drunkenness': 'The gaoler\'s roll has no such name that night.',
+    },
+    alibiLie: 'Nobody remembers them where they say they were.',
     suspectEmpathy: [
       'You let {suspect} talk about {victim}. Their voice changes when they do. {motive}',
       'A gentle question, then another. {suspect} is angry about something, and it comes out sideways. {motive}',
@@ -390,7 +400,7 @@
         { id: 'dish', verb: 'investigate', label: 'Ask the Kitchen', duration: 30, needs: { after: ['scene'], without: ['district', 'tool', 'focus'] },
           preview: 'Down to the kitchen. The cook remembers every dish, and who ate it.',
           gives: [
-            { type: 'clue', label: 'The Dish Nobody Else Had', text: 'Eels for the table, and one dish of stewed pears for {victim} alone. Whoever seasoned the pears knew the habits of the house.', aspects: { opportunity: 2 } },
+            { type: 'clue', label: 'The Pears', text: 'Eels for the table, and one dish of stewed pears for {victim} alone. Whoever seasoned the pears knew the habits of the house.', aspects: { opportunity: 2 } },
           ],
           fatigue: 0.25,
           story: { title: 'The Kitchen', text: 'The cook remembers every dish and who ate it. One dish went to one plate.' } },
@@ -411,7 +421,7 @@
           story: { title: 'Half a Name', text: 'Half a name and nobody to hold it against. Find an accused first.' } },
         { id: 'table', verb: 'investigate', label: 'Ask the Kitchen Maid', duration: 25, needs: { aspects: ['focus'], after: ['scene'] },
           preview: 'The kitchen maid talks once the cook is out of the room. Wit keeps her talking.',
-          gives: [{ type: 'clue', label: 'Who Ate, Who Did Not', text: 'The kitchen maid remembers who sent the eels back and who watched the pears being eaten: "{seen}"', aspects: { testimony: 1, motive: 1 }, trait: true }],
+          gives: [{ type: 'clue', label: 'The Table', text: 'The kitchen maid remembers who sent the eels back and who watched the pears being eaten: "{seen}"', aspects: { testimony: 1, motive: 1 }, trait: true }],
           story: { title: 'The Maid', text: 'The kitchen maid talks once the cook is out of the room. She watched the table. "{seen}"' } },
         { id: 'jointure', verb: 'analyze', label: 'Read the Jointure', duration: 20, needs: { item: 'settlement' }, consume: true,
           preview: 'Clause by clause. Somebody is very comfortable now.',

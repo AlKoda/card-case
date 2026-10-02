@@ -669,6 +669,17 @@ console.error = function (err) { throw err; };
   assert.strictEqual(e.cardsOf('rival', true).length, 0, 'exposed and sent home');
   assert.strictEqual(e.s.meters.reputation, rep + 2);
   assert.ok(e.s.flags.rivalGone > e.s.week);
+  // The next one needs no introduction, and is not the same person.
+  var sent = e.s.flags.rivalName;
+  e.s.week = e.s.flags.rivalGone + 1;
+  var again = [];
+  for (var w2 = 0; w2 < 40 && !e.cardsOf('rival', true).length; w2++) again = e.rivalWeek();
+  var r2 = e.cardsOf('rival', true)[0];
+  assert.ok(r2 && r2.data.name !== sent, 'another examiner, with another name');
+  assert.deepStrictEqual(again, ['The Harbourmaster has sent another examiner.']);
+  var told = e.s.journal.filter(function (j) { return j.title === 'Another Examiner'; })[0];
+  assert.ok(told && told.text.indexOf(r2.data.name) > 0 && !/wants the Council to see/.test(told.text), 'told as the second, not the first');
+  assert.strictEqual(e.s.journal.filter(function (j) { return j.title === 'The Harbourmaster\'s Examiner'; }).length, 1, 'the first story is told once');
   console.log('rivalry: ok');
 })();
 

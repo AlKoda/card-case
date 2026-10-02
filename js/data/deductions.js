@@ -30,7 +30,7 @@
     // stay on the table as false, and the lie points at whoever they shield.
     { id: 'two_confessions', label: 'Two Men, One Knife', duration: 20,
       needs: { min: 2, confessions: 2 },
-      gives: { label: 'The Confessions Do Not Agree', text: 'The wrong day in one, the wrong knife in the other, and each of them looking at the door when the other is named.', aspects: { testimony: 1, motive: 2 } },
+      gives: { label: 'Two Confessions', text: 'The wrong day in one, the wrong knife in the other, and each of them looking at the door when the other is named.', aspects: { testimony: 1, motive: 2 } },
       consume: false,
       story: { title: 'Two Men, One Knife', text: 'Two men cannot both have done one thing alone. Lay the confessions side by side and neither survives the other: one is lying for love, one for shame, and somebody they both know is not in the Hole.', kind: 'major' } },
     // Two tokens that describe the same person: an identification. Confirmed

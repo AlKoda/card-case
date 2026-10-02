@@ -37,7 +37,7 @@ function dur(e, verb, cards) {
     var sc = o.openingScene(), first = o.s.journal.filter(function (j) { return j.title === 'Before the Office'; })[0];
     assert.ok(sc.first && first, who + ' has a first morning');
     assert.strictEqual(first.text.indexOf(sc.first), 0, who + ' begins with it');
-    assert.ok(first.text.indexOf(sc.where) > sc.first.length, 'and goes on to where you lodge');
+    assert.strictEqual(first.text, sc.first + ' ' + CF.OPENING_TEXT.startTold, who + ' says its lodging and trade once');
   });
   var a = game('advocate');
   assert.strictEqual(byDef(a, 'focus').length, 2, 'the Advocate: Wit ×2');

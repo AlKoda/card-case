@@ -296,14 +296,44 @@ function run(e, verb, cards) {
   assert.strictEqual(byDef(g, 'atlarge').length, 0, 'no Abroad card the same tick');
   g.criminalsAct();
   assert.strictEqual(byDef(g, 'atlarge').length, 0, 'nor the same week');
+  // The wrong name's end goes on the real culprit's record: nothing yet, then the rung.
+  assert.strictEqual(crim.wrongfulHow, null, 'no sentence yet');
+  var hidden = g.save();
+  var cond = byDef(g, 'condemned')[0];
+  assert.ok(cond && cond.data.caseId === rec.id && !cond.data.guilty, 'the innocent waits in the Hole');
+  g.passSentence(cond, 'rope', null, {});
+  assert.strictEqual(crim.wrongfulHow, 'rope', 'the rope, on the record');
   var pr0 = g.s.meters.pressure;
   for (var wk = 0; wk < 4; wk++) { g.s.week++; g.criminalsAct(); }
   assert.ok(!crim.hidden, 'surfaced');
   var al = byDef(g, 'atlarge')[0];
-  assert.ok(al && al.data.criminalId === crim.id && /went to the rope for/.test(al.desc), 'the Abroad card, after four weeks');
+  assert.ok(al && al.data.criminalId === crim.id && al.desc.indexOf('Someone else hanged for ' + rec.title + '.') > 0, 'the Abroad card, after four weeks: ' + al.desc);
   assert.strictEqual(g.s.meters.pressure, pr0 + 1, 'the Crowd hears the ballad');
   var story = g.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
-  assert.ok(story && story.text.indexOf(culprit.name) === 0 && story.text.indexOf(rec.title) > 0, 'the ballad names them');
+  assert.ok(story && story.text.indexOf(culprit.name) === 0 && story.text.indexOf(rec.title) > 0 && /the one you sent down/.test(story.text), 'the ballad names them');
+  // Pardoned, nobody hanged, and the ballad does not say so.
+  var g2 = CF.Engine.load(hidden), crim2 = g2.criminalByName(culprit.name);
+  g2.passSentence(byDef(g2, 'condemned')[0], 'pardon', null, {});
+  assert.strictEqual(crim2.wrongfulHow, 'pardon');
+  for (var wk2 = 0; wk2 < 4; wk2++) { g2.s.week++; g2.criminalsAct(); }
+  var al2 = byDef(g2, 'atlarge').filter(function (c) { return c.data.criminalId === crim2.id; })[0];
+  assert.ok(al2 && al2.desc.indexOf('Someone else answered for ' + rec.title + '.') > 0, 'pardoned: answered for, not hanged: ' + al2.desc);
+  // Taken by the Inquisitor: the wrong one burned, and the player sent nobody down.
+  var inq = null;
+  for (var k = 0; k < 20 && !inq; k++) {
+    var gi = CF.Engine.load(saved); gi.s.flags.inquisitor = true; gi.rng.setState(k * 13 + 1);
+    gi.inquisitorSeizes(gi.caseRec(rec.id));
+    var ci = gi.criminalByName(culprit.name);
+    if (ci && ci.hidden) inq = gi;
+  }
+  assert.ok(inq, 'the Inquisitor names the wrong one');
+  var crim3 = inq.criminalByName(culprit.name);
+  assert.strictEqual(crim3.wrongfulHow, 'burned');
+  for (var wk3 = 0; wk3 < 4; wk3++) { inq.s.week++; inq.criminalsAct(); }
+  var al3 = byDef(inq, 'atlarge').filter(function (c) { return c.data.criminalId === crim3.id; })[0];
+  var story3 = inq.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
+  assert.ok(al3 && al3.desc.indexOf('Someone else burned for ' + rec.title + '.') > 0, 'burned: ' + al3.desc);
+  assert.ok(story3 && /the one the Inquisitor burned/.test(story3.text) && !/sent down/.test(story3.text), 'the ballad does not blame you: ' + story3.text);
   // The staff: a death sentence breaks it.
   CF.Criminals.WEEKLY_CRIME = p0;
   console.log('wrongful: ok');
