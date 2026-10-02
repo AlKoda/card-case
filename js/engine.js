@@ -241,6 +241,7 @@
     var e = new Engine(s);
     e.initPaths();
     e.layoutVerbs();
+    if (s.choice && e.refreshChoice) e.refreshChoice(); // the answers shown are the spec's own (life.js)
     // Verbs and cards from older saves may sit off the table, or on each other: bring them back onto it.
     CF.VERB_ORDER.forEach(function (id) {
       var v = s.verbs[id];

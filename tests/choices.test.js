@@ -338,4 +338,44 @@ assert.strictEqual(m2.s.over.text.indexOf('3 times you sent a poor sinner home')
 CF.ENDING_VARIANTS.master.forEach(function (v) { assert.ok(/your own lintel, and you rub them out with your thumb\.$/.test(v.text), 'the Scholar ends at the lintel'); });
 console.log('the ending\'s numbers: ok');
 
+// ---- A save from before the swan's free answer: the window shows the spec's answers --------
+(function oldSwan() {
+  var o = game(31);
+  o.s.flags.firstCase = true;
+  o.offerChoice(spec('swan'));
+  // No Coin on the table, and the Wit spent: neither of the old two answers can be paid.
+  o.cardsOf('funds', true).forEach(function (c) { o.remove(c); });
+  o.cardsOf('focus', true).forEach(function (c) { o.remove(c); });
+  var raw = JSON.parse(o.save());
+  raw.choice.options = raw.choice.options.slice(0, 2); // as the build before the free answer saved it
+  raw.choice.title = 'A Room at the Swan'; raw.choice.text = 'The text the old build wrote.';
+  var l = CF.Engine.load(JSON.stringify(raw));
+  assert.strictEqual(l.s.choice.options.length, spec('swan').options.length, 'the answers are read again from the spec');
+  assert.strictEqual(l.s.choice.options[2].label, 'Sleep at the desk', 'the free way out is shown');
+  assert.strictEqual(l.s.choice.text, 'The text the old build wrote.', 'the question keeps its stored words');
+  var payable = l.s.choice.options.map(function (op, i) { return l.canChoose(i); });
+  assert.ok(payable.indexOf(true) >= 0, 'some shown answer can be taken: ' + JSON.stringify(payable));
+  var t0 = l.s.t;
+  assert.ok(l.choose(2), 'the free answer is taken');
+  for (var i = 0; i < 20; i++) l.tick(0.5);
+  assert.ok(l.s.t > t0, 'and the clock moves again');
+  // A fresh save is left as it is.
+  var f = game(32); f.s.flags.firstCase = true; f.offerChoice(spec('swan'));
+  assert.ok(!f.refreshChoice(), 'a question asked by this build needs no refresh');
+  console.log('an old swan question loads with its free answer: ok');
+})();
+
+// ---- An old save's Merciful ending counts the pardoned rogues as sent home ---------------
+(function oldMercy() {
+  var g = game(33);
+  delete g.s.stats.sentHome;
+  g.criminalFor('Citizen A', null).status = 'reformed';
+  var sp = g.criminalFor('Rogue B', null); sp.traits.push('spared');
+  var sp2 = g.criminalFor('Rogue C', null); sp2.traits.push('spared');
+  g.gameOver('merciful');
+  assert.strictEqual(g.s.over.text.indexOf('3 times you sent a poor sinner home'), 0, 'reformed and spared both went home: ' + g.s.over.text);
+  assert.ok(g.s.over.text.indexOf('and 1 of them are citizens now') > 0, 'one is a citizen');
+  console.log('an old save\'s mercy counted: ok');
+})();
+
 console.log('choices: all OK');

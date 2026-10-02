@@ -133,11 +133,13 @@
   // A won run looks back, at the end, to the death it began with (the opening's victim).
   CF.ENDING_FIRST_CASE = 'The first case in your casebook is still the death of {victim}. You never needed to read it again.';
   // The run's numbers for an ending. A save from before the count of those sent home still
-  // knows the reformed (each of them was sent home), so the count is never fewer than they.
-  function endingCounts(st) {
-    var out = {};
+  // knows who was: every reformed citizen, and every rogue spared by a pardon, went home from
+  // the bench. So the count is never fewer than they.
+  function endingCounts(st, crim) {
+    var out = {}, home = 0;
     for (var k in st) out[k] = st[k];
-    out.sentHome = Math.max(st.sentHome || 0, st.reformed || 0);
+    for (var id in crim || {}) { var c = crim[id]; if (c && (c.status === 'reformed' || (c.traits || []).indexOf('spared') >= 0)) home++; }
+    out.sentHome = Math.max(st.sentHome || 0, st.reformed || 0, home);
     out.reformed = st.reformed || 0;
     return out;
   }
@@ -150,7 +152,7 @@
       var fit = list.filter(function (v) { return v.when && v.when(e.s.stats, e.s); });
       var plain = list.filter(function (v) { return !v.when; });
       var pool = plain.length ? plain : [list[list.length - 1]];
-      text = U.fill(fit.length ? fit[0].text : pool[e.s.seed % pool.length].text, endingCounts(e.s.stats || {}));
+      text = U.fill(fit.length ? fit[0].text : pool[e.s.seed % pool.length].text, endingCounts(e.s.stats || {}, e.s.criminals));
     }
     var victim = e.firstVictim ? e.firstVictim() : null;
     if (victim && CF.ENDINGS[id] && CF.ENDINGS[id].win) text += ' ' + U.fill(CF.ENDING_FIRST_CASE, { victim: victim });

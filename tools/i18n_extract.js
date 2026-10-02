@@ -25,6 +25,13 @@ function isText(s) {
   if (!/\s/.test(s) && !/^[A-Z]/.test(s)) return false;
   return true;
 }
+// A piece of a string built in code, not a whole one. A literal that starts lowercase is
+// usually a piece ('the lane behind ...'), but one with three words or more that ends on a
+// stop is a sentence the player reads ('or drop a card on the token. ...'), and is kept.
+function fragment(s) {
+  if (/[<>="]|^[#.)%,:;]|^\s|\s$/.test(s) || !/[A-Za-z]{2}.*[A-Za-z]/.test(s)) return true;
+  return /^[a-z]/.test(s) && !/^[a-z][\s\S]*\s\S+\s\S+[.!?]$/.test(s);
+}
 function walk(v, out, seen, depth) {
   if (depth > 12 || v === null) return;
   if (typeof v === 'string') { if (isText(v)) out[v] = 1; return; }
@@ -59,7 +66,7 @@ CODE.forEach(function (f) {
     if (!isText(s) || all[s]) continue;
     if (!/\s/.test(s) && !/^[A-Z][a-z]+$/.test(s)) continue;
     if (/^(BUTTON|SELECT|TEXTAREA|A)$|^[A-Z][a-z]+(Sans|Serif|Prime|One|English)/.test(s)) continue;
-    if (/[<>="]|^[#.)%,:;]|^\s|\s$|^[a-z]/.test(s) || !/[A-Za-z]{2}.*[A-Za-z]/.test(s)) { frags.push(s); continue; }
+    if (fragment(s)) { frags.push(s); continue; }
     all[s] = 1; keys.push(s);
   }
   if (keys.length) byFile[f] = (byFile[f] || []).concat(keys);
@@ -96,7 +103,7 @@ function missing(lang) {
   });
   return { missing: miss, count: n, total: total };
 }
-module.exports = { keys: byFile, fragments: fragments, missing: missing };
+module.exports = { keys: byFile, fragments: fragments, missing: missing, fragment: fragment };
 if (require.main === module) cli();
 function cli() {
 var args = process.argv.slice(2);

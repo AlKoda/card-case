@@ -841,6 +841,20 @@
     if (!open.length) return;
     this.offerChoice(U.pick(this.rng, open), null);
   };
+  // What the window shows of a question's answers: read from its spec, so a save holds a copy.
+  function choiceView(spec) {
+    return spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; });
+  }
+  // A save keeps the answers as they were when it was written, while choose() runs the spec's own.
+  // On load the shown answers are read again from the spec (its title and text stay), so an answer
+  // added since, like the free way out of the swan, is there to take. Returns true if they changed.
+  P.refreshChoice = function () {
+    var c = this.s.choice, spec = c && CF.CHOICES.filter(function (x) { return x.id === c.id; })[0];
+    if (!spec) return false;
+    var now = choiceView(spec), was = JSON.stringify(c.options || []);
+    c.options = now;
+    return JSON.stringify(now) !== was;
+  };
   P.offerChoice = function (spec, ctx) {
     var s = this.s;
     // Asked before: the second wording, if it has one.
@@ -850,8 +864,7 @@
     if (spec.fill) text = U.fill(text, spec.fill(this, ctx || null));
     (s.choicesSeen || (s.choicesSeen = {}))[spec.id] = s.week;
     s.choiceLast = s.t;
-    s.choice = { id: spec.id, title: spec.title, text: text, ctx: ctx || null,
-      options: spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; }) };
+    s.choice = { id: spec.id, title: spec.title, text: text, ctx: ctx || null, options: choiceView(spec) };
     this.story(spec.title, text + ' (The clock waits for your answer.)', 'major');
     this.emit('choice', s.choice);
     this.dirty = true;

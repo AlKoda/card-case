@@ -26,6 +26,12 @@ Object.keys(CF.LANGS).forEach(function (lang) {
   });
 });
 
+// A lowercase sentence the player reads is a key, not a piece: the coverage sees it.
+assert.ok(!extract.fragment('or drop a card on the token. Ignore it and the work still finishes, but it finds less.'), 'a lowercase sentence is a key');
+assert.ok(extract.fragment('the lane behind the Red Ox'), 'a lowercase phrase is a piece');
+assert.ok(extract.fragment('and {n} more'), 'a short lowercase piece stays a piece');
+assert.ok(!extract.fragment('Ask the Watch.'), 'a capitalised sentence is a key');
+
 // The lookup: exact, template, trailing stop, sentence run, list, name.
 CF.setLang('ar');
 var d = CF.I18N.dicts.ar;
