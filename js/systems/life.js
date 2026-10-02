@@ -151,7 +151,19 @@
     health: 'You have no office yet. Drag Health onto Attend and press what it offers: a day\'s labour, a Coin.',
     focus: 'Winded. Health comes back in a moment; meanwhile Wit keeps the day-book in Attend for a Coin.',
     none: 'Both spent. They come back on their own; the clock is running.',
+    // In Attend's slot with the plate not yet pressed: nothing is spent until it is.
+    press: 'Now press {recipe}.',
   };
+  // Which of them. Health is still to hand while it lies on the table or waits in an idle verb's
+  // slot; laid in Attend with the plate unpressed, the hint says to press it, not that it worked.
+  function workHint(e) {
+    var s = e.s, duty = e.verb('duty');
+    var pv = duty.status === 'idle' ? e.preview('duty') : null;
+    if (pv && pv.label && !pv.blocked) return U.fill(WORK_HINTS.press, { recipe: pv.label });
+    var idle = function (c) { return c.loc.t === 'table' || (c.loc.t === 'slot' && s.verbs[c.loc.verb] && s.verbs[c.loc.verb].status !== 'running'); };
+    if (e.cardsOf('health', true).some(idle)) return WORK_HINTS.health;
+    return e.cardsOf('focus', true).some(idle) ? WORK_HINTS.focus : WORK_HINTS.none;
+  }
   // The body is found: the case takes its true name, on the record and on every card of it.
   function retitle(e, rec, title) {
     var old = rec.title;
@@ -204,8 +216,7 @@
     var worked = (s.stats.verbs && s.stats.verbs.duty) || 0;
     if (s.flags.stage === 'work') {
       if (worked < 2) {
-        var tb = this.tableCards();
-        hint(this, tb.some(function (c) { return c.def === 'health'; }) ? WORK_HINTS.health : tb.some(function (c) { return c.def === 'focus'; }) ? WORK_HINTS.focus : WORK_HINTS.none);
+        hint(this, workHint(this));
         return;
       }
       s.flags.stage = 'search';

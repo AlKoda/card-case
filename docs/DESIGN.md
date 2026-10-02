@@ -371,6 +371,21 @@ becomes *The Abbey Takes You In* instead (`s.flags.abbey`). `Story.lesson(e,
 id)` (story.js, `CF.ENDING_LESSONS`) gives a losing ending its line and
 icon for the end paper; `s.over.cause.restIdle` puts the empty Rest first.
 
+The opening path skips the guided start's beats 0-2 (`skipIf`), so
+intro.js keeps them as `ASIDES` (`P.introAsides()`), checked before the
+steps on every intro tick after the hire, each once (`s.intro.asides`,
+defaulted when missing, so an old save mid-opening hears them too). Each
+posts its beat's prose as a `minor` story (journal only) and leaves the
+pace alone. The `question` aside alone sets the hint
+(`CF.INTRO_ASIDE_QUESTION`), paced like a beat (eight seconds after the
+last, and a verb run since or half a minute), and only with an accused
+and Health available on the table and no Wit. `P.introTaughtControls()` is
+true on the opening path: the hint bar's plain how-to line (ui.js
+`PLAIN_HINT`) is for a plain start, and after the Bell's tail the advisor
+takes the bar. The opening's labour hint (`workHint`, life.js) reads Health
+on the table or in an idle verb's slot as to hand, and Attend idle with a
+recipe ready as *Now press {recipe}.*
+
 Harm is told apart from bad news. A story of kind `harm` (a watchman dead
 or hurt, a wound, a beating, the Fever, an ability lost for good) shakes the
 table; the rest of the bad news (`danger`: a need arriving, the Rival, a

@@ -131,3 +131,25 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   assert.strictEqual(bad.length, 0, 'entries that drift from the glossary:\n  ' + bad.join('\n  '));
   console.log('i18n: ' + terms.length + ' house terms hold in every entry');
 })();
+
+// A deposition with its stake reads whole, in guillemets; the will's and the wage-roll's verdicts
+// read after a partial result; the harbour's case named for its scene; a second informer's nickname.
+(function composedLeftovers() {
+  CF.setLang('ar');
+  var dep = CF.T('"They were rolling a die over their knuckles." (Wants the reward.)');
+  assert.ok(dep.indexOf('«' + CF.T('They were rolling a die over their knuckles.') + '»') === 0 && dep.indexOf(CF.T('Wants the reward')) > 0 && !/[A-Za-z]/.test(dep), 'a deposition and its stake: ' + dep);
+  Object.keys(CF.STAKES).forEach(function (k) {
+    var t = CF.T('"They were rolling a die over their knuckles." (' + CF.STAKES[k].label + '.)');
+    assert.ok(!/[A-Za-z]/.test(t), 'every stake: ' + t);
+  });
+  var will = CF.T('Without the apothecary\'s key, you only get part of it. A signature that leans the wrong way. The clerk is certain: it was not signed by the person it says it was.');
+  assert.ok(!/[A-Za-z]{3}/.test(will), 'a partial will reads whole: ' + will);
+  var roll = CF.T('Without the apothecary\'s key, you only get part of it. A ghost on the wage-roll. The clerk finds the thread and pulls it: one signature, over and over.');
+  assert.ok(!/[A-Za-z]{3}/.test(roll), 'a partial wage-roll reads whole: ' + roll);
+  ['The Body at Berth 4', 'The Body at the Harbour Steps', 'Informer: Moth the Younger', 'Now press A Day\'s Labour.'].forEach(function (s) {
+    assert.ok(!/[A-Za-z]{3}/.test(CF.T(s)), s + ' => ' + CF.T(s));
+  });
+  assert.ok(!/[A-Za-z]{3}/.test(CF.T(CF.INTRO_ASIDE_QUESTION)), 'the question\'s warning reads in Arabic');
+  CF.setLang('en');
+  console.log('i18n: depositions, partial verdicts and new names read whole');
+})();

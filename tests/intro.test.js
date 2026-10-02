@@ -150,7 +150,8 @@ console.log('intro: ok');
   assert.ok(e.choose(1));
   var hireT = e.s.intro.lastBeatT, journalAt = e.s.journal.length; // the hire itself: the calling is put a tick after its answer is taken
   assert.strictEqual(e.s.intro.step, 3, 'the lessons the opening gave are skipped: ' + e.s.intro.step);
-  assert.ok(!e.s.journal.some(function (j) { return j.title === 'What the Scene Gives' || j.title === 'People' || j.title === 'The Casebook'; }), 'no lesson told twice');
+  // Their prose may reach the journal as a quiet aside (intro.js ASIDES), never as a lesson told again.
+  assert.ok(!e.s.journal.some(function (j) { return (j.title === 'What the Scene Gives' || j.title === 'People' || j.title === 'The Casebook') && j.kind !== 'minor'; }), 'no lesson told twice');
   // The table is ripe for the Charge; the beat still waits eight seconds and a verb.
   var rec = e.openCases()[0];
   if (!tbl(e, 'suspect').length) e.revealSuspect(rec, null);
@@ -587,4 +588,107 @@ console.log('intro: ok');
   old.tick(0.1);
   assert.strictEqual(old.cardsOf('district', true).length, 1, 'once');
   console.log('the opening quarter: ok');
+})();
+
+// ---- The labour's hint tells the truth: Health laid in Attend is not yet Winded -------------
+(function workHintTruth() {
+  var e = CF.Engine.newGame({ seed: 21, who: 'clerk', name: 'Plate', opening: true, guided: true });
+  var hp = byDef(e, 'health')[0];
+  assert.ok(e.autoSlot('duty', hp.uid), 'Health goes into Attend');
+  assert.strictEqual(e.verb('duty').status, 'idle', 'and the plate is not pressed');
+  e.tick(0.1);
+  assert.strictEqual(e.introHint(), 'Now press A Day\'s Labour.', 'not started: press it, not Winded: ' + e.introHint());
+  assert.ok(e.start('duty'));
+  e.tick(0.1);
+  assert.ok(/^Winded\. Health comes back/.test(e.introHint()), 'started: Winded: ' + e.introHint());
+  // The labour done, Wit laid in Attend and not pressed: the same word, with its own plate.
+  e.tick(e.verb('duty').duration); e.collect('duty'); e.tick(0.1);
+  assert.ok(e.autoSlot('duty', byDef(e, 'focus')[0].uid), 'Wit goes into Attend');
+  e.tick(0.1);
+  assert.strictEqual(e.introHint(), 'Now press ' + e.preview('duty').label + '.', 'Wit unpressed: ' + e.introHint());
+  assert.ok(e.start('duty'));
+  e.tick(0.1);
+  assert.ok(/^Both spent\./.test(e.introHint()), 'both at work: ' + e.introHint());
+  console.log('work hint truth: ok');
+})();
+
+// ---- The plain start's first beats come back on the opening path as asides, each once --------
+(function openingAsides() {
+  function hired(seed, who) {
+    var g = CF.Engine.newGame({ seed: seed, who: who, name: 'Aside', opening: true, guided: true });
+    g.s.flags.stage = 'hired'; g.s.flags.firstCase = true; g.s.intro.step = 3;
+    g.introUnlock(['interrogate', 'analyze', 'reflect']);
+    g.introReveal(['health', 'instinct']);
+    var c = g.spawnCase('missing', { quiet: true }), rec = g.caseRec(c.caseId);
+    rec.opening = true;
+    g.s.intro.lastBeatT = g.s.t - 31; g.s.intro.lastBeatVerbs = 0;
+    return { e: g, rec: rec };
+  }
+  function told(g, title) { return g.s.journal.filter(function (j) { return j.title === title; }); }
+  function noWit(g) {
+    g.cardsOf('focus', true).forEach(function (c) { g.remove(c); });
+    g.s.intro.stash = g.s.intro.stash.filter(function (it) { return it.def !== 'focus'; });
+  }
+  // A hire with Health and no Wit: once an accused is on the table, the question is named before it is used.
+  var a = hired(81, 'watchman'), e = a.e;
+  noWit(e);
+  e.tick(0.1);
+  assert.notStrictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'nobody to question yet');
+  e.revealSuspect(a.rec, null);
+  assert.ok(byDef(e, 'health').length && byDef(e, 'suspect').length && !byDef(e, 'focus').length);
+  e.tick(0.1);
+  assert.strictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'the question is named: ' + e.introHint());
+  e.tick(0.1);
+  var people = told(e, 'People');
+  assert.ok(people.length === 1 && people[0].kind === 'minor', 'the beat\'s prose goes to the journal, quietly');
+  assert.strictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'the quiet prose leaves the hint alone');
+  // A token too: the Charge waits its pace behind the aside, then comes.
+  e.create('clue', { label: 'x', caseId: a.rec.id, aspects: { testimony: 1 } });
+  e.tick(0.1);
+  assert.ok(!e.verb('arrest').unlocked, 'the Charge waits its turn behind the aside');
+  e.tick(31);
+  assert.ok(e.verb('arrest').unlocked, 'and then follows');
+  e.revealSuspect(a.rec, null);
+  e.tick(31);
+  assert.strictEqual(told(e, 'People').length, 1, 'once');
+  assert.notStrictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'the warning is not given twice');
+  // Two tokens of one case: the Casebook's prose in the journal, the hint left alone.
+  assert.strictEqual(told(e, 'The Casebook').length, 0, 'one token is not yet a casebook');
+  var hint = e.introHint();
+  e.create('clue', { label: 'y', caseId: a.rec.id, aspects: { testimony: 1 } });
+  e.tick(0.1);
+  assert.ok(told(e, 'The Casebook').length === 1 && told(e, 'The Casebook')[0].kind === 'minor', 'the Casebook, quietly');
+  assert.strictEqual(e.introHint(), hint, 'a quiet aside does not take the hint');
+  // With a Wit to hand the question is not pressed on anyone, but the prose still reaches the journal.
+  var b = hired(82, 'clerk'), g = b.e;
+  g.revealSuspect(b.rec, null);
+  assert.ok(byDef(g, 'focus').length, 'a Wit on the table');
+  g.tick(0.1); g.tick(0.1);
+  assert.notStrictEqual(g.introHint(), CF.INTRO_ASIDE_QUESTION, 'a Wit to listen with: no warning');
+  assert.strictEqual(told(g, 'People').length, 1, 'the prose is not lost');
+  // An old save in the middle of the opening (no record of asides) loads and hears them.
+  var o = hired(83, 'watchman'), oe = o.e;
+  noWit(oe);
+  oe.revealSuspect(o.rec, null);
+  var raw = JSON.parse(oe.save()); delete raw.intro.asides;
+  var l = CF.Engine.load(raw);
+  l.tick(0.1);
+  assert.strictEqual(l.introHint(), CF.INTRO_ASIDE_QUESTION, 'an old save hears it too');
+  assert.ok(l.s.intro.asides && l.s.intro.asides.question, 'and keeps the record from then on');
+  // A plain start is taught by its own steps: no asides there.
+  var p = CF.Engine.newGame({ seed: 84, who: 'clerk', name: 'Plain', guided: true });
+  assert.ok(!p.s.flags.opening && !p.s.flags.stage);
+  for (var i = 0; i < 20; i++) p.tick(1);
+  assert.strictEqual(Object.keys(p.s.intro.asides || {}).length, 0, 'no asides on a plain start');
+  console.log('opening asides: ok');
+})();
+
+// ---- The plain how-to line is for a plain start: the opening taught the table as it went -----
+(function controlsTaught() {
+  var e = CF.Engine.newGame({ seed: 85, who: 'clerk', name: 'Taught', opening: true, guided: true });
+  assert.strictEqual(e.introTaughtControls(), true, 'the opening teaches the handling');
+  var p = CF.Engine.newGame({ seed: 85, who: 'clerk', name: 'Plain', guided: true });
+  assert.strictEqual(p.introTaughtControls(), false, 'a plain start keeps the how-to line');
+  assert.strictEqual(CF.Engine.load(e.save()).introTaughtControls(), true, 'and a save keeps it');
+  console.log('controls taught: ok');
 })();

@@ -91,7 +91,7 @@ the Hole (the prison) beneath it. Its rooms:
 | Evidence Locker | **Strongroom** | Clues and evidence keep twice as long. |
 | Interview Room | **The Hole** | Questioning is faster; +1 Testimony; *the question* may be applied here (§5). |
 | Archive | **The Rolls** | Cold cases reopened in Study. |
-| Intelligence Office | **The Informers' Bench** | A clue that points at a front reveals it at once. |
+| Intelligence Office | **The Informers' Bench** | Informers meet you indoors: each one's heat falls at every Bell, and now and then a new one takes a seat, from a Quarter you hold. A clue that points at a front reveals it at once. |
 | Training Room | **The Drill Yard** | Training a watchman costs 1; at level 3 a new trait. |
 | Crime Lab | **The Apothecary** | Study is faster; no evidence needs special tools [Cadfael, Song Ci]. |
 | Surveillance Room | **The Belfry** | Watching takes half the night and never tires you. |
@@ -146,6 +146,23 @@ The hire gives the first case its own Quarter, and only that one; the
 rest of the city waits for the keep. Door to door with the case and its
 Quarter finds the people who saw, so the Word a charge wants can be
 earned honestly on the first case.
+
+The opening teaches as it goes, so the plain start's first three lessons
+come back as asides, each once, when the table first calls for one. Their
+prose goes quietly to the journal: *What the Scene Gives* with the first
+raw proof, *People* with the first accused, *The Casebook* with two
+tokens of one case. One speaks on the table, because it guards against
+harm. A hangman or a watchman is hired with Health and nothing to listen
+with, and Health in Question is the question; so when an accused and
+Health are to hand and no Wit, the hint says: *everybody confesses, true
+or not, and without indicia it is a crime. Wit listens; Instinct bluffs.*
+
+While you work for bread the hint says what is true: Health laid in
+Attend with the plate unpressed is told to press it, not that it is
+spent. Once the Bell's lesson has had its week, the advisor speaks; the
+lesson on dragging cards is for a start without the opening, and the
+advisor names a Quarter only when you hold it (otherwise: search the
+scene again, or ask an informer).
 
 The Court window repeats what you have already worked out. If your own
 reasoning in Rest named a Prime Suspect and the charge names someone
@@ -418,6 +435,32 @@ has friends: the next examiner is told as his.
 so before you pay: the meeting names what they have (a word on a case
 without a name, a sighting, a warning), or tells you to keep your Coin.
 
+An informer's Quarter is where they work, and it counts. Their word runs
+three times as often to an open case in their own Quarter, and a meeting
+with their Quarter's card laid beside them brings a Word more and no
+heat: they are on their own streets. While the Informers' Bench stands
+they meet you indoors, so every informer cools by one at each Bell and a
+Compromised one can come back without a guard. Every four weeks, if fewer
+than three sit at your table, *A New Face on the Bench*: somebody from a
+Quarter you hold, who has heard you pay.
+
+No two informers share a nickname, and no two open cases share a title:
+the harbour's dead are found at a berth, a warehouse or the Harbour
+Steps, and a second case of the same name carries its victim's.
+
+**9.4 Favour you can call in.** Favour runs from cold to your patron.
+Standing's popover shows each power with its seal, the word for where you
+stand, and the next step either way: at 3 the Council loses a leaf of the
+clerks' list each week, the Abbey hospital keeps you a bed, the guilds
+send their fee for a quiet Market; at −2 the Bishop sends for the
+Inquisitor, and a cold Council holds your letter of office. The first time
+a power reaches 3 it sends its **seal** (*The Council's Seal*, *The
+Bishop's Seal*, *The Guilds' Seal*), a card of icons, not words. Laid in
+Attend it calls in one favour, and costs two Favour: the Council, Suspicion
+−2; the Bishop, the Inquisitor recalled or a Fever lifted; the Guilds, 3
+Coin. The seal comes again when Favour climbs back to 3. Nobody has to use
+it; it is a choice with a return you can see.
+
 ## 10. Endings
 
 Every current ending survives, re-dressed. New ones come from the counts:
@@ -548,6 +591,33 @@ Council's eye); Retaliation → **Vendetta**; Reputation → **Standing**; new:
 
 **Callings:** the Commissioner → **the Burgomaster**; the Master Detective
 → **the Scholar**; the Crusader → **the Reformer**.
+
+**Words of the city.** The Help ends on these, one line each, the word in
+bold and its gloss beside it. Each gloss is its own string, so the Arabic
+reads it whole.
+
+| Word | Gloss |
+|---|---|
+| The Carolina | The Emperor's law. The Blood Court judges every charge by it: the kinds of proof, and how much of each. |
+| Indicia | Signs that point but do not prove. Enough of them allows the question; alone they never convict. |
+| The Blood Court | The city's court for blood and theft: a judge, the sworn men, and the ladder of sentences. |
+| The sworn men | Citizens who sit with the judge and give the verdict. They take as long as they take. |
+| The Hole | The cells under the Watch-house, where the accused are questioned and the Condemned wait. |
+| Quarter | A district of the city. Its card with a case in Explore goes door to door. |
+| Writ | Proof on paper: a ledger, a letter, a signature. |
+| Abroad | Walked free, and still inside the walls. Fresh proof can take them again. |
+| Dues | Lodging and fees, paid in Coin at every Bell. |
+| Standing | What the Council thinks of your work. Enough of it brings the next letter of office. |
+| Token | A worked piece of proof, its kind on its face. Tokens and an accused make a charge. |
+| Aspect | The kind of proof a card carries: Body, Word, Motive, Presence, Writ, Coin. |
+
+The Help's own facts, for whoever edits it: the Rival is *the
+Harbourmaster's Examiner* (never the Provost's); the Watch-house button is
+a painted round icon among the controls, not a ⌂; besides the Bell there
+are five verbs of work (Attend, Explore, Study, Question, Rest) and the
+Court; and the first case runs
+labour for a Coin, the notice, Explore, the sergeant's questions, the
+hire, then Study, Question (Confront with a token), Rest and the Court.
 
 ## 12. What the art needs from you
 

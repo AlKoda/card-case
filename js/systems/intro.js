@@ -3,7 +3,7 @@
 // handed every card and verb at once. Cards that are not yet part of the
 // story wait in a stash; verbs open as the work calls for them.
 //
-//   s.intro = { step, stash: [{def, spec}], done: {verb: true}, hint, finished }
+//   s.intro = { step, stash: [{def, spec}], done: {verb: true}, hint, finished, asides: {id: true} }
 (function (G) {
   var CF = G.CF;
   var P = CF.Engine.prototype;
@@ -22,7 +22,7 @@
   // Focus away, close every verb but Investigate, and tell the opening.
   P.setupIntro = function (silent) {
     var self = this, s = this.s;
-    s.intro = { step: 0, stash: [], done: {}, hint: null, finished: false, silent: !!silent };
+    s.intro = { step: 0, stash: [], done: {}, hint: null, finished: false, silent: !!silent, asides: {} };
     this.tableCards().forEach(function (c) {
       if (STASHED[c.def]) { s.intro.stash.push({ def: c.def, spec: spec(c) }); self.remove(c); }
     });
@@ -125,21 +125,64 @@
     return Object.keys(cs).some(function (k) { return cs[k].status === 'acquitted'; });
   }
 
+  // After the hire the beats come one at a time: eight seconds after the
+  // last, and once a verb has finished since (or half a minute has passed).
+  function paced(e) {
+    var s = e.s;
+    if (s.intro.lastBeatT === undefined) return true;
+    var since = s.t - s.intro.lastBeatT;
+    if (since < 8) return false;
+    return verbsRun(e) > (s.intro.lastBeatVerbs || 0) || since >= 30;
+  }
+
+  // The plain start's first three beats, which the opening path passes over, come back there as
+  // asides, each once, when the table first calls for it. Their prose goes quietly to the journal.
+  // One speaks on the table, because it guards against harm: an accused and Health to hand with no
+  // Wit (a hire from the gallows or the Watch has Health and nothing to listen with), and Health in
+  // Question is the question. s.intro.asides holds what has been told; a save without it has told none.
+  function avail(e, d) { return e.tableCards().some(function (c) { return c.def === d && !e.unavailableReason(c); }); }
+  function accused(e) { return e.verb('interrogate').unlocked && avail(e, 'suspect'); }
+  function twoTokens(e) {
+    var n = {};
+    return e.tableCards().some(function (c) { return c.def === 'clue' && c.caseId && (n[c.caseId] = (n[c.caseId] || 0) + 1) >= 2; });
+  }
+  CF.INTRO_ASIDE_QUESTION = 'Health in Question is the question: everybody confesses, true or not, and without indicia it is a crime. Wit listens; Instinct bluffs.';
+  var ASIDES = [
+    { id: 'question', hint: CF.INTRO_ASIDE_QUESTION, cue: function (e) { return accused(e) && avail(e, 'health') && !avail(e, 'focus'); } },
+    { id: 'people', beat: 1, cue: accused },
+    { id: 'scene', beat: 0, cue: function (e) { return avail(e, 'evidence'); } },
+    { id: 'casebook', beat: 2, cue: twoTokens },
+  ];
+  // Tells the first aside whose time has come; true when it took the hint (the steps wait a beat).
+  function asides(e) {
+    var s = e.s;
+    if (!openingPath(e)) return false;
+    var told = s.intro.asides || (s.intro.asides = {});
+    for (var i = 0; i < ASIDES.length; i++) {
+      var a = ASIDES[i];
+      if (told[a.id] || (a.hint && (s.intro.silent || !paced(e))) || !a.cue(e)) continue;
+      told[a.id] = true;
+      var beat = a.beat !== undefined ? CF.Story.beat(e, a.beat) : null;
+      if (beat) e.story(beat.title, beat.text, 'minor');
+      e.dirty = true;
+      if (!a.hint) return false;
+      s.intro.hint = a.hint; s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(e);
+      return true;
+    }
+    return false;
+  }
+  P.introAsides = function () { return ASIDES; };
+
   P.introSteps = function () { return STEPS; };
   P.introTick = function () {
     var s = this.s;
     if (s.flags.opening && s.flags.stage !== 'hired' && s.flags.stage !== 'keep') return; // the opening tells its own story
+    if (asides(this)) return; // one lesson at a time
     var steps = this.introSteps(), step = steps[s.intro.step];
     while (step && step.skipIf && step.skipIf(this)) { s.intro.step++; step = steps[s.intro.step]; }
     if (!step) { this.introFinish(); return; }
     if (!step.cue(this)) return;
-    // After the hire the beats come one at a time: eight seconds after the
-    // last, and once a verb has finished since (or half a minute has passed).
-    if (step.beat !== undefined && openingPath(this) && s.intro.lastBeatT !== undefined) {
-      var since = s.t - s.intro.lastBeatT;
-      if (since < 8) return;
-      if (verbsRun(this) <= (s.intro.lastBeatVerbs || 0) && since < 30) return;
-    }
+    if (step.beat !== undefined && openingPath(this) && !paced(this)) return;
     var key = typeof step.beat === 'function' ? step.beat(this) : step.beat;
     var beat = key !== undefined && key !== null ? CF.Story.beat(this, key) : null;
     var res = step.run(this);
@@ -167,6 +210,11 @@
     this.story(beat.title, (why ? why + ' ' : '') + beat.text, 'major');
     this.dirty = true;
   };
+
+  // The opening teaches the table's handling as it goes (the labour, the notice, the sergeant), so
+  // the plain how-to line (drag onto the verbs, tap a slot) is for a plain start only: on the
+  // opening path, once the Bell's lesson has had its week, the advisor speaks. For the hint bar.
+  P.introTaughtControls = function () { return !!(this.s.intro && openingPath(this)); };
 
   // A lesson never stands over the one card whose clock ends the file: while a Fever runs,
   // the hint says so instead (and the lesson comes back once it is slept off).
