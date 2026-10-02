@@ -331,4 +331,37 @@ function setup(seed) {
   console.log('magnet leaves others\' tokens: ok');
 })();
 
+// ---- The opening case does not gamble -------------------------------------------
+// Full proof against the guilty in the first case of the office always holds;
+// lost all the same (a weak charge, an innocent), the desk and the Bell are
+// kept and a case comes soon.
+(function openingVerdict() {
+  for (var i = 0; i < 120; i++) {
+    var o = CF.Engine.newGame({ seed: 3000 + i, who: 'clerk', name: 'Sure', opening: true, guided: true });
+    var r = o.caseRec(o.spawnCase('missing', { quiet: true }).caseId);
+    r.opening = true; r.status = 'trial';
+    o.verdict(o.create('trial', { data: { caseId: r.id, name: 'X', guilty: true, solid: true, tier: 'strong', real: 6, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
+    assert.strictEqual(r.status, 'closed', 'seed ' + (3000 + i) + ': full proof in the opening holds');
+  }
+  var lost = null;
+  for (var j = 0; j < 20 && !lost; j++) {
+    var g = CF.Engine.newGame({ seed: 3200 + j, who: 'clerk', name: 'Lost', opening: true, guided: true });
+    var gr = g.caseRec(g.spawnCase('missing', { quiet: true }).caseId);
+    gr.opening = true; gr.status = 'trial';
+    var gc = g.caseCard(gr.id); if (gc) g.remove(gc);
+    g.verdict(g.create('trial', { data: { caseId: gr.id, name: 'Y', guilty: false, solid: false, tier: 'weak', real: 1, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
+    if (gr.status === 'acquitted') lost = g;
+  }
+  assert.ok(lost, 'a weak charge in the opening can be lost');
+  assert.ok(!lost.s.flags.opening && !lost.s.flags.bellSilent && lost.s.flags.stage === 'keep', 'the desk and the Bell are kept');
+  assert.ok(lost.s.flags.openingAcquitted, 'the engine says how the opening ended');
+  var ng = lost.s.journal.filter(function (j2) { return /^Not Guilty: /.test(j2.title); })[0];
+  assert.ok(/the Council has seen you work: the desk is yours, and so is the Bell\.$/.test(ng.text), ng.text);
+  assert.ok(lost.s.dispatchT <= 20, 'a case comes soon');
+  // An older save starts with the flag down.
+  var old = JSON.parse(lost.save()); delete old.flags.openingAcquitted;
+  assert.strictEqual(CF.Engine.load(old).s.flags.openingAcquitted, false);
+  console.log('the opening verdict: ok');
+})();
+
 console.log('court: stakes, fingerpost, scene only, alibi, names, the question, verdicts, dread all OK');

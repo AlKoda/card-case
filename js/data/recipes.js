@@ -94,8 +94,9 @@
         return { title: 'The Vote', text: 'The Council votes.', kind: 'victory' };
       }
       e.meter('reputation', -4);
+      e.s.flags.chairCooldown = e.s.week + 6;
       return { title: 'Passed Over', kind: 'danger',
-        text: 'The Council thanks you for your service and chooses someone else. ' + (m.pressure > 4 ? 'The city is too restless. ' : '') + (m.scrutiny > 4 ? 'There are rumours about your methods. ' : '') + 'There will be another vote, if you earn it again.' };
+        text: 'The Council thanks you for your service and chooses someone else. ' + (m.pressure > 4 ? 'The city is too restless. ' : '') + (m.scrutiny > 4 ? 'There are rumours about your methods. ' : '') + 'There will be another vote in six weeks, if you earn it again.' };
     },
   });
   R.push({
@@ -268,20 +269,30 @@
     blocked: 'Add Coin to pay them.',
     requires: { primary: 'informant' }, forbids: ['funds'],
   });
+  // What they have is said before the Coin is paid (informerOffer); with
+  // nothing to give, the meeting is refused and neither Coin nor risk is spent.
   R.push({
     id: 'patrol_informant', verb: 'investigate', src: 'patrol', label: 'Meet an Informer', duration: 15,
-    preview: 'A quiet word in a back booth of the Red Ox, and a purse passed under the table. Every meeting puts them at more risk.',
+    preview: function (ctx) {
+      var nick = ctx.primary.data.name, offer = ctx.e.informerOffer();
+      var head = offer.kind === 'word' ? (offer.open.length === 1 ? U.fill('{nick} has heard talk of {title}.', { nick: nick, title: offer.open[0].title }) : U.fill('{nick} has heard talk of your cases with no name yet.', { nick: nick }))
+        : offer.kind === 'sighting' ? U.fill('{nick} may know where someone Abroad sleeps.', { nick: nick })
+        : offer.kind === 'warning' ? U.fill('{nick} may know what the city will do next.', { nick: nick })
+        : offer.kind === 'quarter' ? U.fill('{nick} knows where the next case will come from.', { nick: nick }) : '';
+      return (head ? head + ' ' : '') + 'Every meeting puts them at more risk.';
+    },
+    blocked: function (ctx) { return ctx.e.informerOffer().kind ? null : U.fill('{nick} has nothing for you this week. Keep your Coin.', { nick: ctx.primary.data.name }); },
     requires: { primary: 'informant', aspects: ['funds'] },
     run: function (ctx) {
       var e = ctx.e, inf = ctx.primary;
+      var nick = inf.data.name;
+      var offer = e.informerOffer();
+      if (!offer.kind) return { title: 'Nothing Tonight', text: U.fill('{nick} has nothing for you this week, and takes nothing.', { nick: nick }) };
       ctx.consume(ctx.first('funds'));
       e.heatInformant(inf, 1);
       e.trustInformant(inf, 1);
-      var nick = inf.data.name;
-      var open = e.openCases().filter(function (r) { return !r.identified && !r.special; });
-      var al = e.cardsOf('atlarge').filter(function (c) { return !c.data.hunted || !e.caseRec(c.data.hunted) || e.caseRec(c.data.hunted).status !== 'open'; });
-      if (open.length && ctx.rng() < 0.7) {
-        var rec = U.pick(ctx.rng, open);
+      var open = offer.open, al = offer.atlarge, next = e.s.nextCase;
+      var word = function (rec) {
         var cul = culpritOf(rec);
         ctx.give('clue', e.clueSpec(rec, {
           label: 'Word from ' + nick,
@@ -290,8 +301,10 @@
           trait: cul.trait,
         }));
         return { title: 'A Word', text: nick + ' counts the coin twice before talking. It is worth it. They know something about ' + rec.title + '.' };
-      }
-      if (al.length && ctx.rng() < 0.5 && e.roomForCase(1)) {
+      };
+      if (open.length && ctx.rng() < 0.7) return word(U.pick(ctx.rng, open));
+      // A sighting when one can be had; certain when it is all they have.
+      if (offer.sight && (ctx.rng() < 0.5 || (!open.length && next))) {
         var target = U.pick(ctx.rng, al);
         var hunt = e.spawnCase('manhunt', { ctx: ctx, culpritName: target.data.name, culpritTrait: target.data.trait, atLargeUid: target.uid, criminalId: target.data.criminalId,
           headline: 'Sighting: ' + target.data.name, lead: nick + ' has seen ' + target.data.name + '.' });
@@ -299,24 +312,21 @@
         return { title: 'A Sighting', text: nick + ' leans in. "' + target.data.name + '. I know where they sleep."' };
       }
       // A word ahead: the next case is queued, and comes even to a full desk. One at a time.
-      if (!e.s.nextCase) {
+      if (!next) {
         var warn = e.warnOfCase(inf, 90);
         warn.desc += ' It will come even to a full desk.';
         ctx.give('intel', warn);
         return { title: 'Ahead of the Crier', text: '"Something is going to happen," says ' + nick + '. "Soon." Keep the warning on the table: when it comes, you will be ready for it.' };
       }
-      if (open.length) {
-        var rec2 = U.pick(ctx.rng, open);
-        var cul2 = culpritOf(rec2);
-        ctx.give('clue', e.clueSpec(rec2, {
-          label: 'Word from ' + nick,
-          text: nick + ' says, about ' + rec2.title + ': "' + CF.TRAIT_SEEN[cul2.trait] + '"',
-          aspects: { testimony: 2, motive: 1 },
-          trait: cul2.trait,
-        }));
-        return { title: 'A Word', text: nick + ' counts the coin twice before talking. It is worth it. They know something about ' + rec2.title + '.' };
-      }
-      return { title: 'Nothing Tonight', text: nick + ' takes the coin and has nothing for it. "Next week," they say.' };
+      if (open.length) return word(U.pick(ctx.rng, open));
+      // Where the queued case will come from: its Quarter, told once, and the Quarter's card if you lack it.
+      var T = CF.CASE_TEMPLATES[next.template];
+      if (!next.district || !CF.DISTRICTS[next.district]) next.district = U.pick(ctx.rng, (T && T.districts) || ['market']);
+      next.told = true;
+      var dl = CF.DISTRICTS[next.district].label;
+      var had = e.hasDistrict(next.district) || !e.s.flags.marketOpen;
+      if (!had) e.giveDistrict(next.district, ctx);
+      return { title: 'The Next Door', text: U.fill('{nick} names the Quarter: {quarter}. Whatever comes next comes from there.', { quarter: dl, nick: nick }) + (had ? '' : ' ' + U.fill('You will need to know {quarter}.', { quarter: dl })) };
     },
   });
   R.push({
@@ -397,9 +407,19 @@
   });
 
   // ============================================================== INVESTIGATE
+  // The right Quarter, and nothing left in it: no witness to find, nobody to name.
+  function canvassedOut(ctx, rec) {
+    var d = ctx.first('district');
+    return !!(rec && d && d.data.district === rec.district && ctx.e.trailFor(rec).canvassedOut);
+  }
   R.push({
     id: 'inv_canvass', verb: 'investigate', label: 'Go Door to Door', duration: function (ctx) { return ctx.has('teammate') ? 45 : 60; },
-    preview: 'Door to door, asking who saw what. Witnesses, and the names of people with reasons.',
+    preview: function (ctx) {
+      var rec = ctx.caseOf(ctx.primary);
+      return canvassedOut(ctx, rec) ? U.fill('Every door near {scene} has been knocked. Another round only feeds your Obsession.', { scene: rec.scene })
+        : 'Door to door, asking who saw what. Witnesses, and the names of people with reasons.';
+    },
+    danger: function (ctx) { return canvassedOut(ctx, ctx.caseOf(ctx.primary)) ? 'Obsession +1' : null; },
     requires: ['case', 'district'],
     run: function (ctx) {
       var e = ctx.e;
@@ -555,6 +575,8 @@
       var res = item.result;
       var ok = e.hasTool(ctx, item.needs);
       var spec = { label: res.label, text: res.text, aspects: U.clone(res.aspects) };
+      // Raw proof whose words describe the culprit's mark carries it.
+      if (item.trait) spec.trait = item.trait;
       if (!ok) {
         for (var k in spec.aspects) spec.aspects[k] = Math.max(1, Math.floor(spec.aspects[k] / 2));
         spec.label = 'Partial: ' + res.label;
@@ -861,26 +883,48 @@
   });
 
   // ==================================================================== RIVAL
-  // The Provost's Examiner: find their weakness (twice to expose them), buy
-  // them off, frighten them, or shadow them.
+  // The Harbourmaster's Examiner: find their weakness twice to expose them,
+  // or buy them off, or frighten them. Exposure is a short hunt: one thread a
+  // week (they are careful after the first), and the second by the other road
+  // (Question with Wit, then Shadow with Instinct, or the reverse), so they act
+  // at least once before they go. The first thread tells you what they are
+  // after (data.eyes, the case they have been asking about).
   function rivalStall(ctx, weeks) { var r = ctx.primary; r.data.stalled = ctx.e.s.week + weeks; }
-  function rivalHeat(ctx, how) {
+  // Why another thread cannot be pulled now, or null.
+  function rivalWait(ctx, how) {
+    var d = ctx.primary.data, week = ctx.e.s.week;
+    if (typeof d.heatWeek === 'number' && d.heatWeek >= week) return 'They are careful this week. Try again after the Bell.';
+    if ((d.heat || 0) >= 1 && d.heatHow === how) return how === 'question' ? 'They have learnt your questions. Shadow them with Instinct.' : 'They know your face in the doorways now. Question them with Wit.';
+    return null;
+  }
+  // The case of yours they have their eye on: one you have opened and held a week, or any open one.
+  function rivalTarget(e) {
+    var s = e.s, open = e.openCases().filter(function (x) { return !x.rival && !x.special; });
+    var held = open.filter(function (x) { return x.searches > 0 && s.week - (x.week || 0) >= 1; });
+    return (held.length ? held : open).sort(function (a, b) { return (a.week || 0) - (b.week || 0); })[0] || null;
+  }
+  function rivalHeat(ctx, how, text) {
     var e = ctx.e, r = ctx.primary;
     r.data.heat = (r.data.heat || 0) + 1;
+    r.data.heatWeek = e.s.week;
+    r.data.heatHow = how;
     if (r.data.heat >= 2) {
       e.remove(r);
       e.s.flags.rivalGone = e.s.week + 8;
       e.meter('reputation', 2);
       e.favour().council += 1;
-      return { title: 'The Rival Exposed', text: how + ' The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
+      return { title: 'The Rival Exposed', text: text + ' The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
     }
-    rivalStall(ctx, 1);
-    return { title: 'A Weakness Found', text: how + ' They will be careful for a week. One more, and you will have them.', kind: 'verb' };
+    var rec = rivalTarget(e);
+    r.data.eyes = rec ? rec.id : null;
+    return { title: 'A Weakness Found', kind: 'verb',
+      text: text + (rec ? ' ' + U.fill('They have been asking about {title}.', { title: rec.title }) : '') + ' ' + (how === 'question' ? 'After the Bell, shadow them with Instinct, and you will have them.' : 'After the Bell, question them with Wit, and you will have them.') };
   }
   R.push({ id: 'int_rival_weakness', verb: 'interrogate', label: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'Expose Them' : 'Find Their Weakness'; }, duration: 30,
     preview: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'You have one thread. Pull it in front of the Council.' : 'Everyone has something. Find theirs.'; },
+    blocked: function (ctx) { return rivalWait(ctx, 'question'); },
     requires: { primary: 'rival', aspects: ['focus'] },
-    run: function (ctx) { return rivalHeat(ctx, 'Two hours of polite questions, and a name they did not want spoken: a moneylender, a widow, a file of their own.'); } });
+    run: function (ctx) { return rivalHeat(ctx, 'question', 'Two hours of polite questions, and a name they did not want spoken: a moneylender, a widow, a file of their own.'); } });
   R.push({ id: 'int_rival_buy', verb: 'interrogate', label: 'Buy a Quiet Fortnight', duration: 8,
     preview: 'A Coin, and they find other things to do for two weeks.', requires: { primary: 'rival', aspects: ['funds'] },
     effects: [{ consume: 'funds', n: 1 }, { call: function (ctx) { rivalStall(ctx, 2); } }, { story: { title: 'Bought', text: 'They take it without counting it. Two weeks, they say, and then the Harbourmaster will ask why nothing is happening.' } }] });
@@ -890,9 +934,11 @@
   R.push({ id: 'int_rival_none', verb: 'interrogate', label: 'A Polite Conversation', duration: 5,
     preview: 'Without Wit, Coin or Health, this is a chat about the weather.', requires: { primary: 'rival' },
     effects: [{ story: { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' } }] });
-  R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: 'Shadow Them', duration: 30,
-    preview: 'Follow the Harbourmaster\'s Examiner through a night. See where they go, and who pays.', requires: { primary: 'rival', aspects: ['instinct'] },
-    run: function (ctx) { return rivalHeat(ctx, 'A night in doorways, and at the end of it a door you can name and a purse you saw change hands.'); } });
+  R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'Expose Them' : 'Shadow Them'; }, duration: 30,
+    preview: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 ? 'You have one thread. Follow it to a door the Council cannot ignore.' : 'Follow the Harbourmaster\'s Examiner through a night. See where they go, and who pays.'; },
+    blocked: function (ctx) { return rivalWait(ctx, 'shadow'); },
+    requires: { primary: 'rival', aspects: ['instinct'] },
+    run: function (ctx) { return rivalHeat(ctx, 'shadow', 'A night in doorways, and at the end of it a door you can name and a purse you saw change hands.'); } });
 
   // ================================================================== REFLECT
   // Ways around the needs: what you have on the table instead of Coin. These

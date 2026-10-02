@@ -159,6 +159,55 @@ function run(e, verb, cards) {
   console.log('informants: ok');
 })();
 
+// ---- A paid meeting says what the informer has, and costs nothing when they have nothing ----
+(function informerOffer() {
+  var e = game(49, 'crusader');
+  var inf = byDef(e, 'informant')[0];
+  var coin = function () { return byDef(e, 'funds').length; };
+  while (coin() < 3) e.create('funds');
+  e.s.flags.marketOpen = true;
+  // An unnamed case on the desk: they have heard talk of it.
+  var open = e.openCases().filter(function (r) { return !r.special; });
+  open.slice(1).forEach(function (r) { r.identified = r.suspects[0].key; });
+  e.cardsOf('atlarge', true).forEach(function (c) { e.remove(c); });
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  var pv = e.preview('investigate');
+  assert.strictEqual(e.currentRecipe('investigate').recipe.id, 'patrol_informant');
+  assert.ok(pv.text.indexOf(inf.data.name + ' has heard talk of ' + open[0].title + '.') === 0, pv.text);
+  e.clearSlots('investigate');
+  // Every case named and a warning queued: where it will come from, once.
+  open[0].identified = open[0].suspects[0].key;
+  e.s.nextCase = { template: 'arson', district: 'canal', extraTime: 0 };
+  var heat0 = inf.data.heat, coin0 = coin();
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  assert.ok(/knows where the next case will come from\./.test(e.preview('investigate').text));
+  var r = run(e, 'investigate', []);
+  assert.strictEqual(r.story.title, 'The Next Door');
+  assert.ok(r.story.text.indexOf(CF.DISTRICTS.canal.label) >= 0, r.story.text);
+  assert.ok(e.s.nextCase.told && e.s.nextCase.district === 'canal');
+  assert.strictEqual(coin(), coin0 - 1, 'the Coin was paid for a real answer');
+  assert.ok(e.hasDistrict('canal'), 'and the Quarter is yours to walk');
+  // Nothing more to give: the meeting is refused before anything is spent.
+  heat0 = inf.data.heat; coin0 = coin();
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  var none = e.preview('investigate');
+  assert.strictEqual(none.blocked, inf.data.name + ' has nothing for you this week. Keep your Coin.');
+  assert.ok(!e.start('investigate'));
+  e.clearSlots('investigate');
+  assert.strictEqual(coin(), coin0); assert.strictEqual(inf.data.heat, heat0);
+  // Someone Abroad and room on the desk: a sighting is certain when it is all they have.
+  var al = e.create('atlarge', { label: 'Abroad: Vance Zorn', data: { name: 'Vance Zorn', trait: 'limp' } });
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  assert.ok(/may know where someone Abroad sleeps\./.test(e.preview('investigate').text));
+  assert.ok(e.roomForCase(1), 'room on the desk');
+  assert.strictEqual(run(e, 'investigate', []).story.title, 'A Sighting');
+  void al;
+  // An older save's queued case has not been told.
+  var old = JSON.parse(e.save()); old.nextCase = { template: 'arson', district: 'canal', extraTime: 0 };
+  assert.strictEqual(CF.Engine.load(old).s.nextCase.told, false);
+  console.log('informer offer: ok');
+})();
+
 // ---- Criminals persist -------------------------------------------------------------
 (function criminals() {
   var e = game(51);

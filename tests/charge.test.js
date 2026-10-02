@@ -205,4 +205,33 @@ var hb = halfGame.s.meters.pressure;
 halfGame.verdict(halfGame.create('trial', { data: { caseId: hr.id, name: 'X', guilty: false, solid: false, tier: 'weak', real: 0, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
 if (hr.status === 'acquitted') assert.strictEqual(halfGame.s.meters.pressure, hb + 1, 'an ordinary acquittal still raises the Crowd');
 
+// The Court repeats what the player has already worked out: the Prime Suspect
+// their reasoning named, and a free confession whose words admit the lie.
+// The tier stands; only the window speaks.
+var pg = CF.Engine.newGame({ seed: 3, calling: 'master' });
+var pk = pg.tableCards().filter(function (c) { return c.def === 'case'; })[0], prec = pg.caseRec(pk.caseId);
+var pcul = prec.suspects.filter(function (x) { return x.guilty; })[0], pinn = prec.suspects.filter(function (x) { return !x.guilty; })[0];
+var pOn = function (key) { return pg.make('suspect', { caseId: prec.id, data: { key: key } }); };
+var pClues = [pg.make('clue', { caseId: prec.id, aspects: { forensic: 2 } }), pg.make('clue', { caseId: prec.id, aspects: { opportunity: 2 } })];
+assert.strictEqual(pg.assessCharge(pOn(pinn.key), pClues).prime, null, 'nobody named yet');
+prec.identified = pcul.key;
+var pElse = pg.assessCharge(pOn(pinn.key), pClues);
+assert.strictEqual(pElse.prime, pcul.name);
+assert.strictEqual(pElse.primeKey, pcul.key);
+assert.ok(CF.Charge.describe(pElse).notes.some(function (n) { return n.kind === 'bad' && n.text === 'Your own reasoning named ' + pcul.name + '. This charge names someone else.'; }), 'the Court names the Prime Suspect');
+var pSame = pg.assessCharge(pOn(pcul.key), pClues);
+assert.strictEqual(pSame.prime, null, 'charging the Prime Suspect says nothing');
+assert.ok(!CF.Charge.describe(pSame).notes.some(function (n) { return /Your own reasoning/.test(n.text); }));
+var lie = pg.make('clue', { caseId: prec.id, aspects: { testimony: 3, motive: 1 }, data: { confession: 'free', falseConfession: true, about: pinn.key, trait: pinn.trait } });
+var pLie = pg.assessCharge(pOn(pinn.key), [lie]);
+assert.strictEqual(pLie.tier, 'strong', 'a false confession nothing contradicts is still full proof (Carolina)');
+assert.ok(pLie.falseFree);
+var dLie = CF.Charge.describe(pLie);
+assert.ok(dLie.notes.some(function (n) { return n.kind === 'bad' && n.text === 'This confession says too much: the wrong day, the wrong knife.'; }), 'the Court reads the lie');
+assert.ok(!dLie.notes.some(function (n) { return /king of proofs/.test(n.text); }), 'and does not call it the king of proofs');
+var truth = pg.make('clue', { caseId: prec.id, aspects: { testimony: 3, motive: 1 }, data: { confession: 'free', about: pcul.key } });
+assert.ok(!pg.assessCharge(pOn(pcul.key), [truth]).falseFree, 'a true confession is not flagged');
+var qLie = pg.make('clue', { caseId: prec.id, aspects: { testimony: 4 }, data: { confession: 'question', falseConfession: true, about: pinn.key } });
+assert.ok(!pg.assessCharge(pOn(pinn.key), [qLie]).falseFree, 'a confession under the question never gives away who is innocent');
+
 console.log('charge: profiles, diversity, corroboration, contradictions, illegal evidence, tiers, court all OK');

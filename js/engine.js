@@ -185,6 +185,20 @@
     // The Thief-taker General and the Mountain warn before they end a run (round 8): an older save has had neither warning.
     if (s.flags.thieftakerWarned === undefined) s.flags.thieftakerWarned = false;
     if (s.flags.mountainIgnored === undefined) s.flags.mountainIgnored = false;
+    // Round 8: the opening case may be lost and the desk kept; a failed vote waits six weeks.
+    if (s.flags.openingAcquitted === undefined) s.flags.openingAcquitted = false;
+    if (typeof s.flags.chairCooldown !== 'number') s.flags.chairCooldown = 0;
+    // A queued case says once where it will come from (an informer's word, round 8).
+    if (s.nextCase && s.nextCase.told === undefined) s.nextCase.told = false;
+    // The Harbourmaster's Examiner keeps the week and the road of the last thread pulled (round 8).
+    Object.keys(s.cards).forEach(function (u) {
+      var rc = s.cards[u];
+      if (rc.def !== 'rival') return;
+      rc.data = rc.data || {};
+      if (typeof rc.data.heatWeek !== 'number') rc.data.heatWeek = -1;
+      if (rc.data.heatHow === undefined) rc.data.heatHow = null;
+      if (rc.data.eyes === undefined) rc.data.eyes = null;
+    });
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
@@ -814,6 +828,8 @@
     var d = this.tableCards().filter(function (c) { return c.def === 'district' && c.data && c.data.district === rec.district; })[0];
     return {
       searchedOut: rec.found >= rec.items.length,
+      // Every door knocked: no witness left to find and nobody left to name.
+      canvassedOut: !(rec.witnesses || []).length && !unnamed,
       neighbour: rec.found >= rec.items.length && this.s.rank <= 1 && unnamed,
       canvass: d && ((rec.witnesses || []).length || unnamed) ? { district: d.uid, quarter: CF.DISTRICTS[rec.district] ? CF.DISTRICTS[rec.district].label : this.labelOf(d) } : null,
     };
@@ -1684,6 +1700,10 @@
       return self.cardsOf(def).filter(function (c) { return c.loc.t === 'table' || c.loc.t === 'out'; });
     };
 
+    // A strain card never waits without its cure: Rest opens with the first one.
+    var rest = s.verbs.reflect;
+    if (rest && !rest.unlocked && this.introUnlock && ['fatigue', 'obsession', 'burnout', 'tunnel'].some(function (d) { return self.cardsOf(d, true).length; })) this.introUnlock(['reflect']);
+
     var fat = free('fatigue');
     if (fat.length >= 3) {
       if (this.countOf('burnout')) { this.gameOver('collapse'); return; }
@@ -1717,7 +1737,9 @@
         this.story('The Council Takes Notice', 'A letter on heavy paper under the city\'s seal: the Council will see you about the office of ' + next.label + '. Attend on them, in a clean collar.', 'major');
       }
     }
-    if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && s.meters.reputation >= CF.COMMISSIONER_REP && !this.countOf('chair') && !s.flags.chairCooldown) {
+    // The Seat: one at a time (a Seat held by the vote counts), and a failed vote waits six weeks.
+    if (s.flags.chairCooldown && s.week >= s.flags.chairCooldown) s.flags.chairCooldown = 0;
+    if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && s.meters.reputation >= CF.COMMISSIONER_REP && !this.cardsOf('chair', true).length && !(s.flags.chairCooldown > s.week)) {
       this.create('chair');
       this.story('The Seat Is Empty', 'The Burgomaster is dead of a stone. The Council will choose a successor, and your name is on the list.', 'major');
     }
@@ -2003,6 +2025,17 @@
     return out;
   }
 
+  // The marks a case's own words describe: the `echoes` of its structure's
+  // items, its template's items and what its leads give.
+  CF.caseEchoes = function (T, structure) {
+    var out = [];
+    var add = function (it) { if (it && it.echoes && out.indexOf(it.echoes) < 0) out.push(it.echoes); };
+    ((structure && structure.items) || []).forEach(add);
+    ((T && T.items) || []).forEach(add);
+    ((T && T.leads) || []).forEach(function (l) { (l.gives || []).forEach(add); });
+    return out;
+  };
+
   // Generate a case record and put its card on the table (or into ctx output).
   // The crimes an office is sent: the tiers up to your rank, the first tier
   // always; a new tier joins a week after the promotion that opened it.
@@ -2057,6 +2090,18 @@
         traits = traits.filter(function (x) { return x.id !== tr.id; }).slice(0, nSus - 1);
         traits.splice(guiltyIdx, 0, tr);
       }
+    }
+    // A token whose words describe a mark (a key, pipe ash, a left hand) never
+    // points at an innocent: an innocent who drew that mark is given another.
+    var echoed = from ? [] : CF.caseEchoes(T, structure);
+    if (echoed.length) {
+      var usedT = traits.map(function (x) { return x.id; });
+      traits = traits.map(function (t, i) {
+        if (i === guiltyIdx || echoed.indexOf(t.id) < 0) return t;
+        var nt = U.pick(rng, CF.TRAITS.filter(function (x) { return echoed.indexOf(x.id) < 0 && usedT.indexOf(x.id) < 0; }));
+        usedT.push(nt.id);
+        return nt;
+      });
     }
     var self = this;
     var suspects = roles.map(function (r, i) {
@@ -2120,6 +2165,8 @@
       if (front) picked = [this.linkItem(front)].concat(picked.slice(0, 1));
       items = [traitItem].concat(picked, [generic]);
     }
+    // On the culprit, the words are a mark: the token says whose.
+    items.forEach(function (it) { if (it.echoes && it.echoes === trait.id && !it.trait) it.trait = it.echoes; });
     items = U.shuffle(rng, items);
     if (items.length > 4) items.length = 4; // a scene gives four things at most: what matters, not everything
     if (from) {
@@ -2440,6 +2487,8 @@
       }
     }
     p = U.clamp(p, 0.02, 0.98);
+    // The opening case teaches the Court; it does not gamble. Full proof against the guilty holds.
+    if (rec.opening && d.guilty && d.solid && !struck) p = 1;
     var convicted = rng() < p;
     // Full proof that fails anyway: the city saw the proof, and the week says what turned the sworn men.
     var unlucky = !convicted && d.guilty && !struck && (d.solid || (d.confession === 'free' && !d.contradictions));
@@ -2531,8 +2580,17 @@
         }
       }
       if (rec.template === 'architect') s.flags.architect = false;
+      // The opening case lost: the Council has seen you work all the same. The desk,
+      // the Bell and the city's clock are yours, and a case comes soon (openingKeep).
+      var keepAnyway = !!(s.flags.opening && this.openingKeep);
       this.story('Not Guilty: ' + d.name, (notes.length ? notes.join(' ') + ' ' : '') + 'The sworn men acquit. ' + d.name +
-        ' walks down the court steps into the crowd\'s cheering and looks straight at you.', 'danger');
+        ' walks down the court steps into the crowd\'s cheering and looks straight at you.' +
+        (keepAnyway ? ' The sworn men did not convict, but the Council has seen you work: the desk is yours, and so is the Bell.' : ''), 'danger');
+      if (keepAnyway) {
+        s.flags.openingAcquitted = true;
+        this.openingKeep('acquitted');
+        if (!this.openCases().length) s.dispatchT = Math.min(s.dispatchT, 20);
+      }
     }
   };
 

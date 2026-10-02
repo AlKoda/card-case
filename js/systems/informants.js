@@ -96,6 +96,22 @@
     return 'warning';
   };
 
+  // What a paid meeting with an informer can give now, for the preview and
+  // the run: 'word' (a case on the desk with no name yet), 'sighting'
+  // (someone Abroad, and room on the desk), 'warning' (nothing queued yet),
+  // 'quarter' (where the queued case will come from, once), or null when
+  // they have nothing: the meeting is refused and nothing is spent.
+  // { kind, open: [unnamed case records], sight: bool }.
+  P.informerOffer = function () {
+    var e = this;
+    var open = this.openCases().filter(function (r) { return !r.identified && !r.special; });
+    var al = this.cardsOf('atlarge').filter(function (c) { return !c.data.hunted || !e.caseRec(c.data.hunted) || e.caseRec(c.data.hunted).status !== 'open'; });
+    var sight = al.length > 0 && this.roomForCase(1);
+    var next = this.s.nextCase;
+    var kind = open.length ? 'word' : sight ? 'sighting' : !next ? 'warning' : !next.told ? 'quarter' : null;
+    return { kind: kind, open: open, sight: sight, atlarge: al };
+  };
+
   // Queue the next case on an informer's word (it comes sooner, and with
   // `extraTime` it comes even to a full desk) and build the Warning card.
   P.warnOfCase = function (inf, extraTime) {

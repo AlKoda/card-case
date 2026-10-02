@@ -217,14 +217,17 @@
     var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
     if (g.type === 'clue') {
       var flags = { points: g.points === 'culprit' ? rec.culprit : g.points || null, noMisread: !!g.noMisread };
-      var item = { label: fill(g.label), text: fill(g.text), aspects: g.aspects, tags: g.tags, trait: g.trait && cul ? cul.trait : null };
+      // `echoes`: words that describe a mark are the culprit's mark when it is theirs.
+      var echo = g.echoes && cul && cul.trait === g.echoes ? g.echoes : null;
+      var item = { label: fill(g.label), text: fill(g.text), aspects: g.aspects, tags: g.tags, trait: g.trait && cul ? cul.trait : echo };
       return ctx.give('clue', e.clueSpec(rec, item, e.helpers(ctx), flags));
     }
     if (g.type === 'evidence') {
       var needs = g.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[g.needs] + ' to analyse properly.' : '';
       var res = g.result ? { label: fill(g.result.label), text: fill(g.result.text), aspects: g.result.aspects } : null;
       return ctx.give('evidence', { label: fill(g.label), desc: fill(g.text) + ' Take it to Study.' + needs + ' (Raw proof in: ' + rec.title + ')',
-        caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res } } });
+        caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res,
+          trait: g.echoes && cul && cul.trait === g.echoes ? g.echoes : null } } });
     }
     if (g.type === 'witness') {
       var spec = e.witnessSpec(rec, g.who ? fill(g.who) : undefined);

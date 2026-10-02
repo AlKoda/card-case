@@ -653,22 +653,52 @@ console.error = function (err) { throw err; };
   var before = e.openCases().length, lines = e.rivalWeek();
   assert.ok(lines.length === 1, 'they act: ' + lines);
   void before; void seen;
-  // Wit twice: exposed.
+  // Exposure is a short hunt: one thread a week, the second by the other road.
+  if (!e.openCases().some(function (x) { return !x.rival; })) e.spawnCase('burglary', { quiet: true });
   var wit = e.tableCards().filter(function (c) { return c.def === 'focus'; })[0];
   e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
   assert.strictEqual(e.currentRecipe('interrogate').recipe.id, 'int_rival_weakness');
   assert.ok(e.start('interrogate')); e.tick(e.verb('interrogate').duration + 0.01);
-  assert.strictEqual(r.data.heat, 1); assert.ok(r.data.stalled >= e.s.week, 'they lie low');
-  assert.deepStrictEqual(e.rivalWeek(), [], 'nothing while they lie low');
+  assert.strictEqual(r.data.heat, 1);
+  assert.ok(!(r.data.stalled >= e.s.week), 'the first thread does not stall them');
+  assert.strictEqual(r.data.heatHow, 'question');
+  var found = e.verb('interrogate').story;
+  assert.strictEqual(found.title, 'A Weakness Found');
+  var eyed = r.data.eyes && e.caseRec(r.data.eyes);
+  assert.ok(eyed && found.text.indexOf('They have been asking about ' + eyed.title + '.') >= 0, 'the first thread says what they are after: ' + found.text);
+  assert.ok(/shadow them with Instinct/.test(found.text), 'and which road is left');
   e.collect('interrogate');
   assert.strictEqual(wit.def, 'spent_focus', 'Wit comes back spent');
-  var rep = e.s.meters.reputation;
+  // The same week, by either road: they are careful. Nothing is spent.
+  var inst = e.tableCards().filter(function (c) { return c.def === 'instinct'; })[0] || e.create('instinct');
+  e.autoSlot('investigate', r.uid); e.autoSlot('investigate', inst.uid);
+  assert.strictEqual(e.currentRecipe('investigate').recipe.id, 'inv_rival_shadow');
+  assert.ok(/careful this week/.test(e.preview('investigate').blocked), 'careful for a week: ' + e.preview('investigate').blocked);
+  assert.ok(!e.start('investigate'));
+  e.clearSlots('investigate');
+  // They act at the Bell all the same.
+  e.s.week++;
+  e.openCases().forEach(function (x) { x.searches = 1; x.week = Math.min(x.week || 0, e.s.week - 1); });
+  assert.ok(e.rivalWeek().length >= 1, 'they act before they can be exposed');
+  // The same road twice teaches them nothing.
   wit = e.create('focus');
   e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
-  assert.ok(e.start('interrogate')); e.tick(e.verb('interrogate').duration + 0.01);
+  assert.ok(/Shadow them with Instinct/.test(e.preview('interrogate').blocked), e.preview('interrogate').blocked);
+  e.clearSlots('interrogate');
+  var rep = e.s.meters.reputation;
+  e.autoSlot('investigate', r.uid); e.autoSlot('investigate', inst.uid);
+  assert.ok(!e.preview('investigate').blocked);
+  assert.ok(e.start('investigate')); e.tick(e.verb('investigate').duration + 0.01);
   assert.strictEqual(e.cardsOf('rival', true).length, 0, 'exposed and sent home');
   assert.strictEqual(e.s.meters.reputation, rep + 2);
   assert.ok(e.s.flags.rivalGone > e.s.week);
+  e.collect('investigate');
+  // An older save's examiner carries no week or road yet.
+  var oe = CF.Engine.newGame({ calling: 'crusader', name: 'Old Rival' });
+  oe.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 1, stalled: 0 } });
+  var ol = CF.Engine.load(JSON.parse(oe.save()));
+  var or = ol.cardsOf('rival', true)[0];
+  assert.ok(or.data.heatWeek === -1 && or.data.heatHow === null && or.data.eyes === null, 'an older examiner is defaulted');
   // The next one needs no introduction, and is not the same person.
   var sent = e.s.flags.rivalName;
   e.s.week = e.s.flags.rivalGone + 1;

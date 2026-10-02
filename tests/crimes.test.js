@@ -345,3 +345,47 @@ console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, name
   assert.strictEqual(r4.preview.label, 'Regret');
   console.log('same book: ok');
 })();
+
+// ---- Words that describe a mark --------------------------------------------------
+// A token whose words describe one of the marks (a key, pipe ash, a cut hand,
+// a left-handed letter, a Lombard's chit, attar) never points at an innocent:
+// no innocent of the case carries that mark, and on the culprit it is a mark.
+(function echoes() {
+  var tids = ['burglary', 'extortion', 'highway', 'pattern'];
+  var hits = 0, marked = 0;
+  for (var seed = 1; seed <= 300; seed++) {
+    var e = game(seed);
+    var tid = tids[seed % tids.length];
+    var rec = e.caseRec(e.spawnCase(tid, { quiet: true }).caseId);
+    var T = CF.CASE_TEMPLATES[tid];
+    var st = (CF.STRUCTURES[tid] || []).filter(function (x) { return x.id === rec.structure; })[0] || null;
+    var echoed = CF.caseEchoes(T, st);
+    assert.ok(echoed.length, tid + ' has words that describe a mark');
+    var ids = rec.suspects.map(function (x) { return x.trait; });
+    assert.strictEqual(ids.filter(function (t, i) { return ids.indexOf(t) === i; }).length, ids.length, 'every accused has their own mark');
+    rec.suspects.forEach(function (x) {
+      if (!x.guilty) assert.ok(echoed.indexOf(x.trait) < 0, 'seed ' + seed + ' ' + tid + ': innocent ' + x.name + ' carries ' + x.trait + ', which a token of the case describes');
+    });
+    var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+    rec.items.forEach(function (it) {
+      if (!it.echoes) return;
+      hits++;
+      if (it.echoes === cul.trait) { marked++; assert.strictEqual(it.trait, cul.trait, 'on the culprit the words are a mark: ' + it.label); }
+      else assert.ok(!it.trait, 'otherwise the token marks nobody: ' + it.label);
+    });
+  }
+  assert.ok(hits > 20, 'the echoing tokens turn up (' + hits + ')');
+  // A culprit whose mark the case describes: the scene item and the raw proof read from it carry it.
+  var e2 = game(5);
+  var rec2 = e2.caseRec(e2.spawnCase('extortion', { quiet: true, culpritTrait: 'lefty' }).caseId);
+  var letter = CF.CASE_TEMPLATES.extortion.items.filter(function (it) { return it.echoes === 'lefty'; })[0];
+  assert.ok(letter, 'the threatening letter echoes a left hand');
+  rec2.suspects.forEach(function (x) { if (!x.guilty) assert.notStrictEqual(x.trait, 'lefty'); });
+  e2.s.verbs.analyze.unlocked = true;
+  var item = JSON.parse(JSON.stringify(letter));
+  item.trait = 'lefty';
+  var ev = e2.create('evidence', { label: item.label, caseId: rec2.id, data: { item: item } });
+  var read = run(e2, 'analyze', [ev]).out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.ok(read && read.data.trait === 'lefty', 'the letter read carries the left hand');
+  console.log('words that describe a mark: ok (' + hits + ' tokens, ' + marked + ' on the culprit)');
+})();

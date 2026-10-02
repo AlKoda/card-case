@@ -160,6 +160,14 @@
     var profileRows = Object.keys(profile);
     res.rowsMet = profileRows.length > 0 && profileRows.every(function (k) { return (res.have[k] || 0) >= profile[k]; });
     res.wordWanted = res.rowsMet && res.tier !== 'strong' && res.contradictions === 0;
+    // What the player has already worked out, for the Court to repeat: the
+    // Prime Suspect their own reasoning named (when this charge names another),
+    // and a free confession whose own words say it is a lie. The tier stands
+    // (a false confession nothing contradicts convicts); only the window speaks.
+    var prime = sus && rec.identified && rec.identified !== sus.key ? rec.suspects.filter(function (x) { return x.key === rec.identified && !x.cleared; })[0] : null;
+    res.prime = prime ? prime.name : null;
+    res.primeKey = prime ? prime.key : null;
+    res.falseFree = !!sus && own.some(function (c) { return c.data.confession === 'free' && c.data.falseConfession && (!c.data.about || c.data.about === sus.key); });
     return res;
   };
 
@@ -194,7 +202,9 @@
     var notes = [];
     var extra = Object.keys(a.have).filter(function (k) { return !a.profile[k]; });
     if (extra.length) notes.push({ kind: 'dim', text: extra.map(function (k) { return CF.ASPECTS[k].label + ' ' + a.have[k]; }).join(', ') + ': not what this case turns on. Counts for little.' });
-    if (a.confession === 'free') notes.push({ kind: 'good', text: 'A confession, freely given: the king of proofs. Full proof unless something contradicts it.' });
+    if (a.prime) notes.push({ kind: 'bad', text: U.fill('Your own reasoning named {prime}. This charge names someone else.', { prime: a.prime }) });
+    if (a.falseFree) notes.push({ kind: 'bad', text: 'This confession says too much: the wrong day, the wrong knife.' });
+    else if (a.confession === 'free') notes.push({ kind: 'good', text: 'A confession, freely given: the king of proofs. Full proof unless something contradicts it.' });
     if (a.confession === 'question') notes.push({ kind: a.checked ? 'good' : 'bad', text: a.checked ? 'A confession under the question, and Body or Writ that agrees with it. The Court will take it.' : 'A confession under the question and nothing of Body or Writ to check it against. Half proof, until it is repeated freely.' });
     if (a.fingerpost) notes.push({ kind: 'good', text: 'Two witnesses who agree for different reasons: a fact. +1.5' });
     if (a.sameStake) notes.push({ kind: 'bad', text: 'Your witnesses all want the same thing. Together they prove no more than one.' });

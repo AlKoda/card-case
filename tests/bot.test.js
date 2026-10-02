@@ -70,9 +70,10 @@ function step(e, temper) {
   var spent = of(e, 'spent_focus')[0] || of(e, 'spent_health')[0] || of(e, 'spent_instinct')[0];
   if (spent && !of(e, spent.def === 'spent_focus' ? 'focus' : spent.def === 'spent_health' ? 'health' : 'instinct').length) tryRun(e, 'reflect', [spent]);
   if (of(e, 'looseend').length >= 3) tryRun(e, 'reflect', of(e, 'looseend').slice(0, 3));
-  // The Provost's Examiner: find their weakness with Wit, twice, and the Council sends them home.
+  // The Harbourmaster's Examiner: a thread with Wit, and a week later one with Instinct, and the Council sends them home.
   var rival = of(e, 'rival')[0];
-  if (rival && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0]]);
+  if (rival && rival.data.heatHow === 'question') { if (of(e, 'instinct')[0]) tryRun(e, 'investigate', [rival, of(e, 'instinct')[0]]); }
+  else if (rival && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0]]);
 
   // Sentence, by temperament: merciful takes the lightest rung, brutal the
   // heaviest, custom what the Council would do, corrupt whatever a purse asks.
@@ -250,6 +251,28 @@ CF.ORIGIN_ORDER.forEach(function (who, i) {
   assert.ok(o.s.stats.verbs.interrogate >= 1 && !o.cardsOf('watchq', true).length, who + ': the sergeant was answered');
   assert.ok(answered !== null && o.s.journal.some(function (j) { return /^What You Want: /.test(j.title); }), who + ': the calling was put and answered');
 });
+// The opening case lost in Court: the desk and the Bell are kept, and the bot
+// has a case on the desk again within two minutes.
+(function openingLost() {
+  var done = false;
+  for (var i = 0; i < 6 && !done; i++) {
+    var o = CF.Engine.newGame({ seed: 950 + i, who: CF.ORIGIN_ORDER[i % CF.ORIGIN_ORDER.length], name: 'Lost', opening: true, guided: true });
+    for (var t = 0; t < 500 && !o.s.over && o.s.flags.stage !== 'hired'; t++) { step(o, 'custom'); o.tick(1); }
+    var rec = o.openCases().filter(function (r) { return r.opening; })[0];
+    if (!rec) continue;
+    var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+    rec.status = 'trial';
+    var cc = o.caseCard(rec.id); if (cc) o.remove(cc);
+    o.verdict(o.create('trial', { data: { caseId: rec.id, name: innocent.name, guilty: false, solid: false, tier: 'weak', real: 1, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
+    if (rec.status !== 'acquitted') continue;
+    done = true;
+    assert.ok(!o.s.flags.opening && o.s.flags.stage === 'keep' && !o.s.flags.bellSilent, 'the desk and the Bell are kept after the opening is lost');
+    var at = null;
+    for (var u = 0; u < 120 && at === null && !o.s.over; u++) { step(o, 'custom'); o.tick(1); if (o.openCases().length) at = u; }
+    assert.ok(at !== null, 'a case comes to the desk within two minutes of losing the opening');
+  }
+  assert.ok(done, 'the opening was lost in one of the seeds');
+})();
 console.log('bot: ' + GAMES + ' games, and the opening for every origin');
 console.log('endings', JSON.stringify(endings));
 console.log('final rank [Det, Senior, Insp, ChiefInsp]', JSON.stringify(ranks), 'avg week', (weeks.reduce(function (a, b) { return a + b; }, 0) / GAMES).toFixed(1));

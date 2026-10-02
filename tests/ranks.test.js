@@ -104,6 +104,28 @@ function run(e, verb, cards) {
   assert.strictEqual(c.countOf('chair'), 0);
   c.s.rank = 3; c.checkThresholds();
   assert.strictEqual(c.countOf('chair'), 1);
+  // A Seat held by the vote is still the one Seat; a failed vote waits six weeks.
+  c.s.meters.reputation = 30; c.s.meters.pressure = 6;
+  var told = function () { return c.s.journal.filter(function (l) { return l.title === 'The Seat Is Empty'; }).length; };
+  var empties = told();
+  var vote = run(c, 'duty', [byDef(c, 'chair')[0]]);
+  assert.strictEqual(vote.id, 'duty_chair');
+  assert.strictEqual(told(), empties, 'no second Seat while the first is held');
+  assert.ok(/another vote in six weeks/.test(vote.story.text), vote.story.text);
+  assert.strictEqual(c.cardsOf('chair', true).length, 0, 'passed over: no Seat waiting');
+  var cd = c.s.flags.chairCooldown;
+  assert.ok(cd >= c.s.week + 5 && cd <= c.s.week + 6, 'six weeks from the vote: ' + cd + ' at week ' + c.s.week);
+  c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 0);
+  c.s.week = cd - 1; c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 0, 'not before six weeks');
+  c.s.week = cd; c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 1, 'six weeks on, another vote');
+  assert.strictEqual(c.s.flags.chairCooldown, 0, 'the wait is over');
+  // An older save never wrote the wait.
+  var old = JSON.parse(c.save()); delete old.flags.chairCooldown;
+  var lo = CF.Engine.load(old);
+  assert.strictEqual(lo.s.flags.chairCooldown, 0);
   console.log('ranks: ok');
 })();
 

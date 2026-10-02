@@ -65,7 +65,7 @@
     var s = this.s, lines = [];
     if (s.calling !== 'commissioner' || s.rank < Soc.MOUNTAIN.rank || s.week < Soc.MOUNTAIN.week) return lines;
     if (s.flags.mountainPaidUntil && s.week <= s.flags.mountainPaidUntil) return lines;
-    if (this.countOf('dagger') || this.rng() >= Soc.MOUNTAIN.chance) return lines;
+    if (this.cardsOf('dagger', true).length || this.rng() >= Soc.MOUNTAIN.chance) return lines;
     this.create('dagger', {
       label: 'A Dagger on the Pillow',
       desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Rest it with two Coin to buy six weeks, or alone to endure; or Attend it with a watchman to double the guard. Let it lie and they come back.',

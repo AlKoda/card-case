@@ -337,3 +337,32 @@ function jointure(d) {
   });
   console.log('first examination: innocent reasons ' + innocentMotive + ', culprit stories ' + culpritAlibi + ' of ' + seen + ': ok');
 })();
+
+// ---- A dry scene says so, and a strain card never waits without Rest ----------
+(function dryAndRest() {
+  var e = CF.Engine.newGame({ seed: 61, calling: 'master' });
+  var rec = e.caseRec(e.spawnCase('arson', { quiet: true }).caseId), card = e.caseCard(rec.id);
+  var d = e.giveDistrict(rec.district);
+  e.autoSlot('investigate', card.uid); e.autoSlot('investigate', d.uid);
+  assert.strictEqual(e.currentRecipe('investigate').recipe.id, 'inv_canvass');
+  var pv = e.preview('investigate');
+  assert.ok(!pv.danger && /^Door to door/.test(pv.text), 'a fresh Quarter: ' + JSON.stringify(pv));
+  e.clearSlots('investigate');
+  rec.witnesses = [];
+  rec.suspects.forEach(function (x) { x.revealed = true; });
+  assert.ok(e.trailFor(rec).canvassedOut, 'every door knocked');
+  e.autoSlot('investigate', card.uid); e.autoSlot('investigate', d.uid);
+  pv = e.preview('investigate');
+  assert.strictEqual(pv.danger, 'Obsession +1');
+  assert.ok(/has been knocked\. Another round only feeds your Obsession\.$/.test(pv.text), pv.text);
+  e.clearSlots('investigate');
+  // The opening locks Rest until the hire; Weariness or Obsession before it opens it.
+  ['fatigue', 'obsession'].forEach(function (def) {
+    var o = CF.Engine.newGame({ seed: 62, who: 'clerk', name: 'Strain', opening: true, guided: true });
+    assert.ok(!o.verb('reflect').unlocked, 'Rest is shut on the first morning');
+    o.create(def);
+    o.tick(0.1);
+    assert.ok(o.verb('reflect').unlocked, def + ' opens Rest, its cure');
+  });
+  console.log('dry Quarter and Rest with its strain: ok');
+})();
