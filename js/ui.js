@@ -235,6 +235,7 @@
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
     UI.introKey = null;
+    UI.keepWeek = null;
     UI.tidyUndo = null;
     UI.pick = null;
     UI.autoPaused = false;
@@ -578,6 +579,7 @@
       var cases = UI.e.tableCards().filter(function (c) { return CF.CARDS[c.def].kind === 'case'; }).sort(function (a, b) { return b.uid - a.uid; });
       if (cases[0]) UI.notice({ uid: cases[0].uid, label: cardTitle(cases[0]), fresh: true, kind: 'case' });
     }
+    if (type === 'story' && CF.OPENING_TEXT && payload.title === CF.OPENING_TEXT.keep) UI.keepWeek = UI.e.s.week;
     if (type === 'story' && /^An Insight/.test(payload.title)) {
       var ins = UI.e.tableCards().filter(function (c) { return c.def === 'insight'; }).sort(function (a, b) { return b.uid - a.uid; });
       if (ins[0]) UI.notice({ uid: ins[0].uid, label: cardTitle(ins[0]), fresh: true, kind: 'insight' });
@@ -590,9 +592,11 @@
       var fc = UI.e.card(payload.uid), need = fc && CF.NEEDS && CF.NEEDS[fc.def];
       // A token under a charge that would stand at half proof or better says whom to take to the Court.
       var fch = fc && fc.def === 'clue' && UI.e.verb('arrest').unlocked ? chargeable(UI.e, fc.caseId, fc) : null;
-      var ftext = need ? 'Half a minute before it takes its due. Into Rest, now: Coin, or what you have.'
+      // The time left in the city's days, read off the card and the week's length.
+      var fdays = CF.daysLeft(fc ? fc.life : 0), fleft = fdays <= 1 ? tr('A day') : tr('{n} days', { n: fdays });
+      var ftext = need ? tr('{left} before it takes its due. Into Rest, now: Coin, or what you have.', { left: fleft })
         : fch ? tr('Into The Court with {accused} now, or lay it in a verb: a card\'s clock stops while a verb works on it.', { accused: UI.e.labelOf(fch.card) })
-        : 'Half a minute before it is gone. A card\'s clock stops while a verb works on it.';
+        : tr('{left} before it is gone. A card\'s clock stops while a verb works on it.', { left: fleft });
       toast({ title: (need ? 'Pressing: ' : 'Fading: ') + payload.label, text: ftext, kind: 'danger', uid: payload.uid, verb: payload.verb });
     }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
@@ -849,13 +853,23 @@
     else UI.hintGo = UI.adviceGo || null; // the word's target, kept with it
     return UI.adviceCache;
   }
+  // The first Bell's lesson: the opening's first conviction sets it, and the
+  // lessons after it may cover it in the same moment, so it stands once they
+  // are done until that week's Bell rings and its own toast takes over. The
+  // week it was set is the engine's (intro.keepWeek) where it keeps one, else
+  // the one this page saw the keep arrive in.
+  var BELL_LESSON = 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.';
+  function bellLesson(e) {
+    var s = e.s, kw = s.intro && typeof s.intro.keepWeek === 'number' ? s.intro.keepWeek : UI.keepWeek;
+    return s.flags.stage === 'keep' && !s.over && kw !== undefined && kw !== null && s.week === kw ? BELL_LESSON : null;
+  }
   function renderHint() {
     var e = UI.e, hint = $('#hint');
     if (UI.hintHidden) return;
     // A finished verb or an unanswered ask comes before any lesson: the guided start waits until it clears.
     var pressing = e.s.over ? null : pressingLine();
     if (pressing) { UI.hintGo = null; showAdvice(hint, pressing); return; }
-    var text = e.introHint ? e.introHint() : null;
+    var text = (e.introHint ? e.introHint() : null) || bellLesson(e);
     if (text) {
       // A lesson whose cue is long met gives way to the advisor while the player sits idle: the beat is twenty
       // seconds old, the same words have stood twenty seconds, and the advisor has something to say.
@@ -877,8 +891,9 @@
     if (UI.hintMode === 'advice') { hint.classList.add('gone'); hint.classList.remove('advice', 'go'); UI.hintMode = 'gone'; adviceShown = null; return; }
     if (UI.hintMode === 'plain' || UI.hintMode === 'gone') return;
     UI.hintMode = 'plain';
-    var seen = false;
-    try { seen = !!localStorage.getItem('casefile.hinted'); } catch (err) { /* ignore */ }
+    // A player who came through the opening has dragged cards already: no lesson in it.
+    var seen = !!e.s.flags.stage;
+    try { seen = seen || !!localStorage.getItem('casefile.hinted'); } catch (err) { /* ignore */ }
     hint.textContent = tr(PLAIN_HINT);
     hint.classList.toggle('gone', seen);
   }
@@ -1648,7 +1663,7 @@
         var tok = h('div', 'v-token');
         tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'cvtok-investigate');
         tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 248 248"><rect class="track" x="4" y="4" width="240" height="240" rx="20" /><rect class="glow" x="4" y="4" width="240" height="240" rx="20" /><rect class="line" x="4" y="4" width="240" height="240" rx="20" /></svg>');
-        if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
+        if (vid === 'time') tok.appendChild(h('div', 'v-week', tr('Wk {n}', { n: e.s.week })));
         tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
         el.appendChild(tok);
         el.appendChild(h('div', 'v-status'));
@@ -1992,7 +2007,7 @@
           ans.addEventListener('click', function () { UI.answerAsk(vid); });
           ab.appendChild(ans);
           var pen = askPenalty(vid);
-          ab.appendChild(h('div', 'vw-desc', pen === 'fatigue' ? 'or drop a card on the token. Ignore it and the work still finishes, but wearier.' : pen === 'thin' ? 'or drop a card on the token. Ignore it and the work still finishes, but it finds less.' : 'or drop a card on the token. Ignore it and the work finishes as it would have.'));
+          ab.appendChild(h('div', 'vw-desc', pen === 'fatigue' ? 'Or drop a card on the token. Ignore it and the work still finishes, but wearier.' : pen === 'thin' ? 'Or drop a card on the token. Ignore it and the work still finishes, but it finds less.' : 'Or drop a card on the token. Ignore it and the work finishes as it would have.'));
         } else ab.appendChild(h('div', 'vw-desc', 'Answered with ' + cardTitle(e.card(v.ask.filled)) + '.'));
         pane.appendChild(ab);
       }
@@ -2294,8 +2309,11 @@
 
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
+  var TIER_GLOSS = { weak: 'Suspicion, not proof: it will not convict', reasonable: 'Half the proof the Carolina asks: it may hold' };
   function chargeHtml(d, firstCase) {
     var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
+    // The Court's words, glossed where they stand: what the tier means.
+    if (TIER_GLOSS[d.tier]) html += '<div class="ch-gloss">' + esc(TIER_GLOSS[d.tier]) + '</div>';
     if (firstCase && d.tier === 'weak') html += '<div class="ch-note bad ch-first">' + esc('The first case of your office. On Indicia the Court will let them go.') + '</div>';
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
@@ -2304,6 +2322,14 @@
     });
     d.notes.forEach(function (n) { html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
     return html + '</div>';
+  }
+
+  // What an instrument's tags mean to a reader: the kinds of find it sharpens.
+  var TAG_WORDS = { biology: 'Bodies and traces', physical: 'Bodies and traces', records: 'Papers', surfaces: 'Surfaces', watching: 'Watching' };
+  function tagWords(tags) {
+    var out = [];
+    tags.forEach(function (t) { var w = TAG_WORDS[t] ? tr(TAG_WORDS[t]).toLowerCase() : t; if (out.indexOf(w) < 0) out.push(w); });
+    return out.join(' / ');
   }
 
   // Short handwritten notes for the inspector's dossier.
@@ -2379,7 +2405,7 @@
       if (card.data.level) lines.push('Level ' + card.data.level);
     } else if (k === 'equipment') {
       var m = def.mods || {};
-      if (m.boost) lines.push(Object.keys(m.boost.aspects).map(function (x) { return CF.ASPECTS[x].label + ' +' + m.boost.aspects[x]; }).join(', ') + ' on ' + m.boost.tags.join('/'));
+      if (m.boost) lines.push(tr('{boosts} on {tags}', { boosts: Object.keys(m.boost.aspects).map(function (x) { return tr(CF.ASPECTS[x].label) + ' +' + m.boost.aspects[x]; }).join(', '), tags: tagWords(m.boost.tags) }));
       if (m.gate) lines.push('Reads raw proof that needs it');
       if (m.extraEvidence) lines.push('Finds more at a scene');
       if (m.unlocks) lines.push('Opens: ' + ((CF.RECIPES_BY_ID[m.unlocks] || {}).label || m.unlocks));
@@ -2392,20 +2418,27 @@
       e.initPaths();
       lines.push(CF.Callings.summary(e));
       var cnt = e.s.counts || {};
-      lines.push('Cruelty ' + (cnt.cruelty || 0) + ' · Mercy ' + (cnt.mercy || 0) + ' · Purse ' + (cnt.purse || 0) + (cnt.debt ? ' · Debt ' + cnt.debt : ''));
+      // Near either ending, the counts say how near: Mercy m of 12, Cruelty c of 14.
+      var Soc = CF.Societies || {}, mercyAt = (Soc.MERCIFUL || {}).mercy || 12, cruelAt = (Soc.HANGMANS || {}).cruelty || 14;
+      var nearEnd = mercyAt - (cnt.mercy || 0) <= 3 || cruelAt - (cnt.cruelty || 0) <= 3;
+      lines.push([nearEnd ? tr('Cruelty {c} (Hangman at {at})', { c: cnt.cruelty || 0, at: cruelAt }) : tr('Cruelty {n}', { n: cnt.cruelty || 0 }),
+        nearEnd ? tr('Mercy {m} of {at}', { m: cnt.mercy || 0, at: mercyAt }) : tr('Mercy {n}', { n: cnt.mercy || 0 }),
+        tr('Purse {n}', { n: cnt.purse || 0 })].concat(cnt.debt ? [tr('Debt {n}', { n: cnt.debt })] : []).join(' · '));
       if (e.s.court && e.s.court.stance) lines.push(e.s.court.stance === 'treaty' ? 'A Treaty with the Court' : 'Inside the Court, week ' + e.s.court.insideWeeks);
       var fv = e.favour();
       lines.push('Favour: Council ' + fv.council + ' · Bishop ' + fv.bishop + ' · Guilds ' + fv.guild);
       lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
-      var notes = (e.s.pathNotes || []).slice(-2);
+      var notes = (e.s.pathNotes || []).slice(-1);
       if (notes.length) lines.push(tr('Lately: {list}', { list: notes.map(function (n) { return tr('{path} +{n} ({why})', { path: tr((CF.PATHS[n.path] || {}).label || n.path), n: n.n || 1, why: tr(n.why) }); }).join(', ') }));
       var paths = e.s.paths || {}, lead = null;
       Object.keys(paths).forEach(function (k) { if (k !== e.s.calling && PATH_HINTS[k] && (!lead || paths[k] > paths[lead])) lead = k; });
       if (lead && paths[lead] > 0) lines.push(tr('{path}: {how}', { path: tr((CF.PATHS[lead] || {}).label || lead), how: tr(PATH_HINTS[lead]) }));
-      var Soc = CF.Societies || {}, mercyAt = (Soc.MERCIFUL || {}).mercy || 12, cruelAt = (Soc.HANGMANS || {}).cruelty || 14;
-      if (mercyAt - (cnt.mercy || 0) <= 3 || cruelAt - (cnt.cruelty || 0) <= 3) lines.push(tr('Mercy {m} of {mercyAt} · Cruelty {c} (Hangman at {cruelAt})', { m: cnt.mercy || 0, mercyAt: mercyAt, c: cnt.cruelty || 0, cruelAt: cruelAt }));
-      if (e.s.origin !== e.s.calling) lines.push('Set out as ' + CF.CALLINGS[e.s.origin].label);
-      if (e.s.who && CF.ORIGINS[e.s.who]) lines.push('Once ' + CF.ORIGINS[e.s.who].label.toLowerCase());
+      // Where you came from, in one line: the life before, and the calling you set out in.
+      var once = e.s.who && CF.ORIGINS[e.s.who] ? CF.ORIGINS[e.s.who].label.toLowerCase() : null;
+      var setOut = e.s.origin !== e.s.calling && CF.CALLINGS[e.s.origin] ? CF.CALLINGS[e.s.origin].label : null;
+      if (once && setOut) lines.push(tr('Once {origin}; set out as {calling}', { origin: once, calling: setOut }));
+      else if (once) lines.push(tr('Once {origin}', { origin: once }));
+      else if (setOut) lines.push(tr('Set out as {calling}', { calling: setOut }));
     } else if (card.def === 'condemned') {
       lines.push(card.data.role ? card.data.role.charAt(0).toUpperCase() + card.data.role.slice(1) : 'Convicted');
       lines.push('Custom: ' + CF.Sentence.rungLabel(card.data.template, card.data.custom));
@@ -2449,6 +2482,8 @@
           lines.push(band ? tr('Sworn of {band}', { band: tr(band.data.name.replace(/^the /, 'The ')) }) : crim.organization === 'syndicate' ? 'Of the Coquille' : 'Sworn of a band');
         }
         if (crim.heat) lines.push(tr('Heat {n}', { n: crim.heat }));
+        // Struck again: the old record answers the new case, where the rules have the recipe for it.
+        if (CF.RECIPES_BY_ID && CF.RECIPES_BY_ID.ref_known && e.openCases().some(function (r) { return r.criminalId === card.data.criminalId; })) lines.push('Their new crime: lay this beside it in Rest');
         lines.push('Hunt: Work the Quarter in Explore; Old Ghosts (their Unanswered case) or a Sighting in Rest; Disguise (Bailiff)');
       }
     } else if (card.def === 'dagger') {
@@ -2464,7 +2499,7 @@
     } else if (card.maxLife) {
       lines.push('Time left: ' + U.fmtTime(card.life));
     }
-    return lines.slice(0, k === 'case' ? 8 : 6);
+    return lines.slice(0, k === 'case' ? 8 : k === 'calling' ? 9 : 6);
   }
   // The rows a charge still lacks: each kind of proof with how much is wanting.
   function wantedList(rows) { return rows.length ? rows.map(function (r) { return tr(CF.ASPECTS[r.aspect].label) + ' ' + (r.need - r.have); }).join(', ') : tr(WORD_WANTED); }

@@ -80,6 +80,28 @@ assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
   CF.setLang('en');
 })();
 
+// Round 8, lane 2, items 25-32: the Bell's week spelled out, the keys kept as their caps, the ask box,
+// an instrument's kinds of find, the promotion's note and the city's days in Arabic.
+(function round8d() {
+  CF.setLang('ar');
+  assert.ok(/^أسبوع /.test(CF.T('Wk {n}', { n: 3 })), 'the week spelled out: ' + CF.T('Wk {n}', { n: 3 }));
+  assert.ok(/\(Esc\)/.test(CF.T('Close (Esc)')) && /\(Space\)/.test(CF.T('Pause (Space)')) && /\(Tab\)/.test(CF.T('Stack like cards together (Tab)')), 'the keys keep their caps');
+  ['Or drop a card on the token. Ignore it and the work still finishes, but wearier.', 'Or drop a card on the token. Ignore it and the work still finishes, but it finds less.',
+    'Or drop a card on the token. Ignore it and the work finishes as it would have.'].forEach(function (k) {
+    assert.ok(!/[A-Za-z]/.test(CF.T(k)), 'the ask box in Arabic: ' + CF.T(k));
+  });
+  var boost = CF.T('{boosts} on {tags}', { boosts: CF.T('Body') + ' +1', tags: CF.T('Bodies and traces') });
+  assert.ok(!/[A-Za-z]/.test(boost), 'an instrument\'s boost in Arabic: ' + boost);
+  var lately = CF.T('Lately: {list}', { list: CF.T('{path} +{n} ({why})', { path: 'Power', n: 1, why: 'promoted' }) });
+  assert.ok(!/[A-Za-z]/.test(lately), 'the promotion note in Arabic: ' + lately);
+  var fade = CF.T('{left} before it is gone. A card\'s clock stops while a verb works on it.', { left: CF.T('{n} days', { n: 4 }) });
+  assert.ok(!/[A-Za-z]/.test(fade), 'the days left in Arabic: ' + fade);
+  var origin = CF.T('Once {origin}; set out as {calling}', { origin: 'the physician-monk', calling: 'The Scholar' });
+  assert.ok(!/[A-Za-z]/.test(origin), 'the origin line in Arabic: ' + origin);
+  CF.setLang('en');
+  console.log('i18n: the Bell\'s week, the keys, the ask box, the instruments, the promotion and the days in Arabic');
+})();
+
 // A played game, read in Arabic: nothing the player could see stays English.
 CF.setLang('ar');
 CF.I18N.track = true;

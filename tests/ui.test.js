@@ -974,7 +974,9 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var lone = e.create('clue', e.clueSpec(rec, { label: 'A Stray Thread', text: 'Nothing much.', aspects: { motive: 1 } }));
   e.emit('expiring', { uid: lone.uid, label: e.labelOf(lone), verb: null });
   tb = $('#toasts').children[$('#toasts').children.length - 1].innerHTML;
-  assert.ok(/Half a minute before it is gone\. A card's clock stops while a verb works on it\./.test(tb) && !/Into The Court/.test(tb), 'a token under no charge says only how to keep it: ' + tb);
+  // The time left is told in the city's days, read off the card's own clock.
+  var loneDays = CF.daysLeft(lone.life);
+  assert.ok(tb.indexOf((loneDays <= 1 ? 'A day' : loneDays + ' days') + ' before it is gone. A card\'s clock stops while a verb works on it.') >= 0 && !/Into The Court|minute/.test(tb), 'a token under no charge says only how to keep it, in days: ' + tb);
   e.remove(lone);
   toks = proofs();
   // The Court's Charge plate: the plates share a row and the name sits in a span a narrow phone hides.
@@ -1202,6 +1204,97 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
   assert.ok(/\n#board > \* \{ position: absolute; left: 0; top: 0;/.test(css), 'every board child is pinned to left and top 0');
   console.log('ui: the Rival a thread a week, a swipe pans past a tile, the searched-out stamp, sounds that do not pile up, harm apart');
+})();
+
+// ---- Round 8, lane 2, items 25-32: an instrument's boosts in words, the Court's tier glossed, the Calling's
+// dossier with room for the endings and the origin, the first Bell's lesson kept until it rings, the Abroad card
+// pointed at its owner's new crime, the promotion's ceremony, and the windows in the period serif.
+(function round8d() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 37 });
+  UI.attach(e);
+  UI.view = UI.view || { x: 0, y: 0, z: 1 };
+  render(e);
+  function peekText(card) {
+    UI.selected = card.uid; render(e);
+    var t = $('#peek').innerHTML.replace(/<[^>]+>/g, '\n');
+    UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+    return t;
+  }
+  // An instrument names the kinds of find it sharpens, not the engine's tag ids.
+  var kit = e.create('kit'), lab = e.create('labpass');
+  var kt = peekText(kit), lt = peekText(lab);
+  assert.ok(/Body \+1 on bodies and traces/.test(kt) && !/biology|physical/.test(kt), 'the Physician\'s Case in words: ' + kt);
+  assert.ok(/Writ \+1 on papers/.test(lt) && !/records/.test(lt), 'the Apothecary\'s Key in words: ' + lt);
+  e.remove(kit); e.remove(lab);
+  // The Calling: near an ending the counts say how near, the origin is one line, only the latest note.
+  e.initPaths();
+  var calling = e.cardsOf('calling')[0] || e.create('calling_master');
+  e.s.counts = { mercy: 10, cruelty: 1, purse: 2 };
+  e.s.who = 'monk'; e.s.origin = 'commissioner'; e.s.calling = 'master';
+  e.s.paths = { commissioner: 2, master: 3, crusader: 1 };
+  e.s.pathNotes = [{ path: 'commissioner', n: 1, why: 'promoted' }, { path: 'master', n: 1, why: 'an identification' }];
+  var ct = peekText(calling);
+  assert.ok(/Mercy 10 of 12/.test(ct) && /Hangman at 14/.test(ct), 'the Merciful ending is in sight: ' + ct);
+  assert.ok(/Once the physician-monk; set out as The Burgomaster/.test(ct), 'the origin in one line: ' + ct);
+  assert.ok(/an identification/.test(ct) && !/promoted/.test(ct), 'only the latest note: ' + ct);
+  // The Court's tier carries its gloss.
+  e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  var tok = e.create('clue', e.clueSpec(rec, { label: 'A Small Thing', text: 'Little.', aspects: { motive: 1 } }));
+  e.autoSlot('arrest', sc.uid); e.autoSlot('arrest', tok.uid);
+  UI.openWindow('arrest');
+  render(e);
+  var wins = $('#windows').querySelectorAll('.vwin'), win = wins[wins.length - 1];
+  var gl = win.querySelector('.ch-gloss');
+  assert.ok(gl && /Suspicion, not proof: it will not convict/.test(gl.textContent || gl.innerHTML), 'Indicia glossed in the window');
+  win.querySelector('.vw-close').click();
+  e.clearSlots('arrest'); e.remove(tok);
+  render(e);
+  // The Abroad card points at its owner's new crime only where the rules have the recipe for it.
+  var crim = { id: 'c-test', name: 'Barent Tanner', crimes: 2, traits: [], organization: 'none', heat: 0, rank: 0 };
+  var oldCrim = e.criminal;
+  e.criminal = function (id) { return id === crim.id ? crim : oldCrim.call(e, id); };
+  var ab = e.create('atlarge', { label: 'Petty Thief: Barent Tanner', data: { criminalId: crim.id } });
+  rec.criminalId = crim.id;
+  assert.ok(!/Their new crime/.test(peekText(ab)), 'no promise without the recipe');
+  var hadRecipe = CF.RECIPES_BY_ID.ref_known;
+  if (!hadRecipe) CF.RECIPES_BY_ID.ref_known = { id: 'ref_known', label: 'Known to the Watch' };
+  assert.ok(/Their new crime: lay this beside it in Rest/.test(peekText(ab)), 'with it, the hint');
+  rec.criminalId = undefined;
+  assert.ok(!/Their new crime/.test(peekText(ab)), 'and only while their new case is open');
+  if (!hadRecipe) delete CF.RECIPES_BY_ID.ref_known;
+  e.remove(ab); e.criminal = oldCrim;
+  render(e);
+  // The first Bell's lesson stands once the lessons are done, until that week's Bell rings.
+  var bell = 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.';
+  e.s.flags.stage = 'keep';
+  e.s.intro = e.s.intro || {}; e.s.intro.finished = true; e.s.intro.hint = null;
+  UI.lastInput = performance.now();
+  e.story(CF.OPENING_TEXT.keep, CF.OPENING_TEXT.keepText, 'major');
+  render(e);
+  assert.strictEqual($('#hint').textContent, bell, 'the Bell lesson stands after the keep');
+  e.s.week++;
+  render(e);
+  assert.notStrictEqual($('#hint').textContent, bell, 'and gives way when the Bell has rung');
+  // A player who came through the opening is not taught to drag cards.
+  UI.hintMode = null;
+  UI.lastInput = performance.now();
+  render(e);
+  assert.ok($('#hint').classList.contains('gone') || $('#hint').textContent !== CF.T('Drag cards onto the verbs above, or tap an empty slot to pick a card for it. Drag the table to look around, pinch or scroll to zoom. Drag a stack by its number to move all of it.'), 'no dragging lesson after the opening');
+  // The promotion: the kicker over the rank, the wax stamped down, the powers dealt, the badge glows after.
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  assert.ok(/tr\('Promoted'\)/.test(main) && /lu-rank/.test(main) && !/'Promoted: ' \+/.test(main), 'the title is split');
+  assert.ok(/classList\.add\('cer'\)/.test(main) && /Audio\.play\('complete'\)/.test(main) && /rank-new/.test(main), 'the ceremony and the glow');
+  assert.ok(/\.dlg-levelup\.cer \.lu-badge \{ animation: stamp/.test(css) && /\.dlg-levelup\.cer \.lu-slot:not\(\.empty\) \{ animation: flipIn/.test(css), 'stamp and deal');
+  var badge = /\n\.lu-badge \{[^}]*\}/.exec(css)[0];
+  assert.ok(!/clip-path/.test(badge) && /border:/.test(badge), 'the wax is framed whole, not clipped');
+  assert.ok(/prefers-reduced-motion: reduce\) \{\n  \.dlg-levelup, \.dlg-levelup\.cer \.lu-badge/.test(css), 'and it holds still for less motion');
+  // The windows read in the period serif.
+  assert.ok(/\n\.vwin, \.picker, \.ask \{ font-family: var\(--serif\); \}/.test(css), 'windows in the serif');
+  console.log('ui: instruments in words, the tier glossed, the Calling\'s endings and origin, the Bell kept, the Abroad hint, the promotion, the serif');
 })();
 
 void realSetTimeout;

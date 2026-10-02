@@ -40,7 +40,11 @@
   // Promotion: rank badge, and the verbs the new rank unlocks.
   UI.onPromotion = function (rank) {
     $('promo-badge').style.backgroundImage = 'var(--art-' + (['cwax-01', 'cwax-03', 'cwax-02'][((CF.RANK_DEFS[rank] || {}).badge || 1) - 1] || 'cwax-01') + ')';
-    $('promo-title').textContent = tr('Promoted: ' + CF.RANKS[rank]);
+    // A small 'Promoted' over the rank alone, so the rank clears the plate's stars.
+    var title = $('promo-title'), kick = document.createElement('small'), rk = document.createElement('span');
+    kick.className = 'lu-kick'; kick.textContent = tr('Promoted');
+    rk.className = 'lu-rank'; rk.textContent = tr(CF.RANKS[rank]);
+    title.textContent = ''; title.appendChild(kick); title.appendChild(rk);
     var unlocked = Object.keys(CF.POWERS).filter(function (k) { return CF.POWERS[k].rank === rank; });
     var note = $('promo-note');
     note.textContent = unlocked.length ? tr(CF.POWERS[unlocked[0]].text) : '';
@@ -55,7 +59,22 @@
     });
     CF.Audio.play('victory');
     show('promo', true);
+    // The ceremony: the panel opens, the wax comes down on it, the powers are dealt one by one.
+    var box = $('promo-box'), dealt = 0;
+    box.classList.remove('cer'); void box.offsetWidth; box.classList.add('cer');
+    [1, 2, 3].forEach(function (i) { var el = $('promo-s' + i); el.style.animationDelay = el.classList.contains('empty') ? '' : (0.75 + 0.12 * dealt++) + 's'; });
+    clearTimeout(promoStamp);
+    promoStamp = setTimeout(function () { if (!$('promo').classList.contains('hidden')) CF.Audio.play('complete'); }, 650);
   };
+  var promoStamp = null;
+  // The new rank's wax glows in the top bar for a moment once the dialog is put away.
+  function closePromo() {
+    show('promo', false);
+    var rb = document.getElementById('rank-badge');
+    if (!rb) return;
+    rb.classList.remove('rank-new'); void rb.offsetWidth; rb.classList.add('rank-new');
+    setTimeout(function () { rb.classList.remove('rank-new'); }, 2000);
+  }
   // A tap on a power reads it out under the slots.
   $('promo-box').addEventListener('click', function (ev) {
     var slot = ev.target.closest('.lu-slot');
@@ -64,8 +83,8 @@
     $('promo-note').textContent = tr(CF.POWERS[k].text);
     document.querySelectorAll('#promo-box .lu-slot').forEach(function (el) { el.classList.toggle('on', el === slot); });
   });
-  click('promo-close', function () { show('promo', false); });
-  click('promo-precinct', function () { show('promo', false); if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } });
+  click('promo-close', closePromo);
+  click('promo-precinct', function () { closePromo(); if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } });
 
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
