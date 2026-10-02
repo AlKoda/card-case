@@ -139,13 +139,14 @@
     var text = over.lesson || end.lesson || (row && row[1]);
     if (!text) return null;
     var line = tr(text), cause = over.cause || {};
-    if (cause.restIdle) line += ' ' + tr('Rest stood idle the whole time.');
+    // The rules' own lesson already says it first (e.endingLesson); an older ending without one is told here.
+    if (cause.restIdle && !over.lesson) line += ' ' + tr('Rest stood idle the whole time.');
     return { art: end.lessonArt || (row && row[0]) || 'imed-10', text: line };
   }
   UI.endLesson = endLesson;
 
   // The epilogue's lines, read with care: a line is a sentence, or { text, vars, art, kind } (text a template with
-  // {placeholders} filled from vars). At most four; a line without a picture wears its kind's seal.
+  // {placeholders} filled from vars; a line's key, where it has one, is that template). At most four; a line without a picture wears its kind's seal.
   var EPI_ART = { pattern: 'cmyst-04', coquille: 'cherald2-01', king: 'cherald2-01', rival: 'cwax-02', rivals: 'cwax-02', abroad: 'cres-12', watch: 'cwit-03', watchman: 'cwit-03' };
   function endEpilogue(e) {
     var lines = [];
@@ -154,7 +155,7 @@
     return lines.map(function (x) {
       if (typeof x === 'string') return { text: tr(x), art: 'ccirc-01' };
       if (!x || typeof x.text !== 'string' || !x.text) return null;
-      return { text: tr(x.text, x.vars || undefined), art: (typeof x.art === 'string' && /^[a-z0-9-]+$/.test(x.art) && x.art) || EPI_ART[x.kind] || 'ccirc-01' };
+      return { text: tr(typeof x.key === 'string' && x.key ? x.key : x.text, x.vars || undefined), art: (typeof x.art === 'string' && /^[a-z0-9-]+$/.test(x.art) && x.art) || EPI_ART[x.kind] || 'ccirc-01' };
     }).filter(Boolean).slice(0, 4);
   }
   UI.endEpilogue = endEpilogue;

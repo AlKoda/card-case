@@ -5,6 +5,8 @@
 // template, and the captured part is translated on its own. A string that
 // no key matches is tried sentence by sentence, then as a list, then as a
 // run of translated words (a name), and stays English if nothing fits.
+// A value may be an object of plural forms, { one, two, few, many, other }
+// (and zero), picked by the count the string carries (see CF.pluralForm).
 (function (G) {
   var CF = G.CF;
 
@@ -68,12 +70,19 @@
     return v[f] !== undefined ? v[f] : v.other !== undefined ? v.other : v.many;
   }
   CF.I18N.pick = pick;
-  // The number a string counts: the placeholder named for it ({n}, {d}, {count}, {days}) when it holds a whole
-  // number, else the first that does.
+  I.form = pick;
+  // The form a count takes in a language (the current one by default): 'zero', 'one', 'two', 'few', 'many', 'other'.
+  CF.pluralForm = function (n, lang) {
+    var rule = CF.LANGS[lang || I.lang] && CF.LANGS[lang || I.lang].plural;
+    return rule ? rule(n) : n === 1 ? 'one' : 'other';
+  };
+  // The number a string counts: the placeholder the entry names ({ by: 'cases', ... }), else the one named for it
+  // ({n}, {d}, {count}, {days}) when it holds a whole number, else the first that does.
   var COUNT_KEYS = { n: 1, d: 1, count: 1, days: 1 };
-  function countOf(keys, valueOf) {
+  function countOf(keys, valueOf, by) {
     var first;
     for (var i = 0; i < keys.length; i++) {
+      if (by) { if (keys[i] !== by) continue; var bv = valueOf(keys[i], i); return /^\s*\d+\s*$/.test(String(bv)) ? +bv : undefined; }
       var v = valueOf(keys[i], i);
       if (typeof v === 'number' ? v % 1 !== 0 : !/^\s*\d+\s*$/.test(String(v))) continue;
       if (COUNT_KEYS[keys[i]]) return +v;
@@ -83,7 +92,7 @@
   }
   // The person a line is about, by the first of its person placeholders: a woman when her first name is one the
   // city gives women. Then 'Key#f', where written, is the line: 'تتحدث ... عن زوجها', not 'يتحدث'.
-  var PERSON_KEYS = { name: 1, witness: 1, who: 1, culprit: 1, nick: 1, suspect: 1, accused: 1, victim: 1 };
+  var PERSON_KEYS = { name: 1, witness: 1, who: 1, culprit: 1, nick: 1, suspect: 1, accused: 1, victim: 1, label: 1 };
   var WOMEN_EXTRA = ['Lucia', 'Margarethe', 'Carolina', 'Anna'];
   function isWoman(v) {
     if (typeof v !== 'string') return false;
@@ -93,9 +102,13 @@
       I.women = {};
       names.concat(WOMEN_EXTRA).forEach(function (w) { I.women[w] = 1; });
     }
-    var first = v.replace(/^[^A-Za-z\u00C0-\u024F]+/, '').split(' ')[0];
-    return !!I.women[first];
+    var bare = v.replace(/^[^A-Za-z\u00C0-\u024F]+/, ''), first = bare.replace(/^(the|a|an) /i, '').split(' ')[0];
+    if (I.women[first] || /^(Widow|Mother|Goodwife|Goody|Dame|Mistress|Sister)$/.test(first)) return true;
+    // A description ('the laundress', 'a market-woman'): the engine's own reading of a role.
+    var sexOf = CF.Engine && CF.Engine.prototype && CF.Engine.prototype.sexOf;
+    return !!sexOf && /^(the|a|an) /i.test(bare) && sexOf.call(null, bare) === 'f';
   }
+  I.woman = isWoman;
   function personAt(keys) { for (var i = 0; i < keys.length; i++) if (PERSON_KEYS[keys[i]]) return i; return -1; }
   function keysOf(k) { var out = [], m, re = /\{(\w+)\}/g; while ((m = re.exec(k))) out.push(m[1]); return out; }
   // A key's value for a line with these values in it: the woman's form where the line is about one, and the form
@@ -104,7 +117,7 @@
   function valueFor(k, keys, valueOf) {
     var d = I.dicts[I.lang], v = d[k], pi = personAt(keys);
     if (d[k + '#f'] !== undefined && (pi >= 0 ? isWoman(valueOf(keys[pi], pi)) : I.fem)) v = d[k + '#f'];
-    return pick(v, countOf(keys, valueOf));
+    return pick(v, countOf(keys, valueOf, v && typeof v === 'object' ? v.by : null));
   }
   // Whether a line's pieces read in a woman's form: its own person decides; a line with none follows the line it is in.
   function femFor(keys, valueOf) { var pi = personAt(keys); return pi >= 0 ? isWoman(valueOf(keys[pi], pi)) : !!I.fem; }

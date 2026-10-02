@@ -299,7 +299,7 @@ console.log('societies: endings, mountain, eumenides all OK');
   var grec = g.caseRec(g.s.flags.harbourCase);
   g.goCold(grec.id);
   assert.strictEqual(grec.status, 'cold');
-  assert.ok(g.s.journal.some(function (j) { return j.title === 'He Has Friends' && j.text === 'The Harbourmaster\'s books are back on their shelf, and another examiner has his desk.'; }));
+  assert.ok(g.s.journal.some(function (j) { return j.title === 'He Has Friends' && j.text.indexOf('The Harbourmaster\'s books are back on their shelf, and another examiner has his desk: ' + g.cardsOf('rival', true)[0].data.name + '.') === 0; }), 'He Has Friends, and names the new one');
   assert.strictEqual(g.countOf('rival'), 1, 'another examiner');
   assert.ok(!g.countOf('atlarge') || !byDef(g, 'atlarge').some(function (c) { return c.data.template === 'harbourmaster'; }), 'nobody walks laughing from the Customs House');
   // An older save: neither opened nor fallen.

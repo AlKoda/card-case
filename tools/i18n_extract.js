@@ -37,6 +37,8 @@ function literalKind(s) {
   if (/[<>="]|^[#.)%,:;]|^\s|\s$/.test(s) || (/^[a-z]/.test(s) && !sentence) || !/[A-Za-z]{2}.*[A-Za-z]/.test(s)) return 'fragment';
   return 'key';
 }
+// A piece of a string built in code, not a whole one the player reads.
+function fragment(s) { return literalKind(s) !== 'key'; }
 function walk(v, out, seen, depth) {
   if (depth > 12 || v === null) return;
   if (typeof v === 'string') { if (isText(v)) out[v] = 1; return; }
@@ -109,7 +111,7 @@ function missing(lang) {
   });
   return { missing: miss, count: n, total: total };
 }
-module.exports = { keys: byFile, fragments: fragments, missing: missing, literalKind: literalKind };
+module.exports = { keys: byFile, fragments: fragments, missing: missing, literalKind: literalKind, fragment: fragment };
 if (require.main === module) cli();
 function cli() {
 var args = process.argv.slice(2);

@@ -186,7 +186,7 @@
     "a demand for money": "مطالبة بالمال",
     "a list of other shops": "قائمة بدكاكين أخرى",
     "the name of a tavern": "اسم حانة",
-    "Somebody set fire to {scene} {time}. It started with {detail}. The message came the next morning: {item}.": "أضرم أحدهم النار في {scene} {time}. بدأ الأمر بـ{detail}. ووصلت الرسالة في الصباح التالي: {item}.",
+    "Somebody set fire to {scene} {time}. It started with {detail}. The message came the next morning: {item}.": "أضرم أحدهم النار في {scene} {time}. بدأ الأمر ب{detail}. ووصلت الرسالة في الصباح التالي: {item}.",
     "What the fire started with. Cheap, and handled.": "ما بدأت به النار. رخيص، ومسّته يد.",
     "The Hand on the Kindling": "اليد على الحطب",
     "A clean thumb on the one part that did not burn.": "أثر إبهام واضح على الجزء الوحيد الذي لم يحترق.",

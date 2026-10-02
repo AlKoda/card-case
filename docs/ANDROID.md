@@ -56,7 +56,7 @@ is the same code as the web page.
 | Silence when I switch away, sound when I return | Yes. |
 | It pauses when I look away | "Pause when you switch away" setting, on by default. |
 | The screen does not sleep on me mid-turn | Only while playing. |
-| A little haptic feedback on touches | A "Vibration" setting. The page asks the bridge for a cue by name (`CaseFileAndroid.haptic`): a tick when a card or a tile is picked up, a confirm when a card goes into a slot or a choice is sealed, a reject for a refused drop, all the system's own touch feedback (so the phone's touch-feedback setting is kept); a heavy click for a verdict or a new office, a short double pulse for the week's toll and for harm done, from the vibrator. Off on devices without a vibrator. In a browser the same names are patterns for the Vibration API. |
+| A little haptic feedback on touches | A "Vibration" setting, off on devices without a vibrator. Touches tick; the moments with weight are felt by kind (see Haptics). |
 | No accidental zoom, no text selection, no long-press menus | `touch-action`, `user-select`, and the WebView's own zoom off. |
 | It speaks my language | First run follows the device language (English or Arabic); the picker changes it any time. |
 | I can see which version I have | The Settings screen shows the app version. |
@@ -64,6 +64,26 @@ is the same code as the web page.
 | Installing an update keeps my save | Same key, rising version code, same storage. |
 | It works offline | Everything is bundled; there is no network. |
 | Installing does not need a store account | Sideload; ADB is exempt from the 2026 developer verification, and the free limited-distribution account covers up to 20 devices. |
+
+## Haptics
+
+A one-shot `vibrate(ms)` at the default amplitude is mush at 8-15 ms on
+most motors, so the bridge takes a kind, not a length:
+`CaseFileAndroid.haptic(kind)`, run on the UI thread against the WebView,
+with no flags, so the system's touch-feedback setting is respected.
+
+| Kind | Android | Web fallback (`navigator.vibrate`) | When |
+| --- | --- | --- | --- |
+| `tick` | `performHapticFeedback(CLOCK_TICK)` | 8 | a card picked up |
+| `confirm` | `CONFIRM` (API 30+), else `VIRTUAL_KEY` | 12 | a card slotted, a choice made |
+| `reject` | `REJECT` (API 30+), else `LONG_PRESS` | [8, 40, 8] | a drop refused |
+| `heavy` | `createPredefined(EFFECT_HEAVY_CLICK)` (API 29+), else 30 ms | 30 | a verdict, a promotion |
+| `toll` | `createWaveform({0, 12, 140, 12}, -1)` | [12, 140, 12] | the Bell |
+| `harm` | `createWaveform({0, 30, 60, 30}, -1)` | [30, 60, 30] | a story of kind `harm`, an ability lost |
+
+A pressing need is [15, 90, 15]. The "Vibration" setting still turns all
+of it off. Without the bridge's `haptic` (an older APK), the page falls
+back to the web table.
 
 ## Signing
 

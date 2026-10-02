@@ -1242,7 +1242,10 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   render(e);
   ccEl = $('#board').querySelector('.card[data-uid=' + cc.uid + ']');
   assert.ok(!ccEl.querySelector('.c-searched'), 'a scene with more to give has none');
-  // The Rival: careful for the week a thread was found; the second thread is the other way.
+  // The Rival: careful for the week a thread was found; the second thread is the other way. (Under the rules
+  // that want the Rival caught at it, item 65 below, Question has a slot for their work: read here without it.)
+  var islots0 = CF.VERBS.interrogate.slots;
+  CF.VERBS.interrogate.slots = islots0.filter(function (sl) { return sl.key !== 'theirs'; });
   if (!e.verb('interrogate').unlocked) e.verb('interrogate').unlocked = true;
   if (!e.verb('investigate').unlocked) e.verb('investigate').unlocked = true;
   var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week, heatBy: 'interrogate', stalled: 0 } });
@@ -1264,6 +1267,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/Careful this week/.test(peek) && /The next thread: Question them with Wit/.test(peek), 'the dossier says when and how: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 300));
   UI.selected = null;
   $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  CF.VERBS.interrogate.slots = islots0;
   e.remove(rv);
   render(e);
   // The board's children are placed from its origin, in Arabic too.
@@ -1300,7 +1304,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   e.s.paths = { commissioner: 2, master: 3, crusader: 1 };
   e.s.pathNotes = [{ path: 'commissioner', n: 1, why: 'promoted' }, { path: 'master', n: 1, why: 'an identification' }];
   var ct = peekText(calling);
-  assert.ok(/Mercy 10 of 12/.test(ct) && /Hangman at 14/.test(ct), 'the Merciful ending is in sight: ' + ct);
+  assert.ok(/Mercy 10 of 12/.test(ct) && new RegExp('Hangman at ' + CF.Societies.HANGMANS.cruelty).test(ct), 'the Merciful ending is in sight: ' + ct);
   assert.ok(/Once the physician-monk; set out as The Burgomaster/.test(ct), 'the origin in one line: ' + ct);
   assert.ok(/an identification/.test(ct) && !/promoted/.test(ct), 'only the latest note: ' + ct);
   // The Court's tier carries its gloss.
@@ -1324,9 +1328,11 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   e.criminal = function (id) { return id === crim.id ? crim : oldCrim.call(e, id); };
   var ab = e.create('atlarge', { label: 'Petty Thief: Barent Tanner', data: { criminalId: crim.id } });
   rec.criminalId = crim.id;
-  assert.ok(!/Their new crime/.test(peekText(ab)), 'no promise without the recipe');
+  // (The rules have the recipe now: read without it first, then with it.)
   var hadRecipe = CF.RECIPES_BY_ID.ref_known;
-  if (!hadRecipe) CF.RECIPES_BY_ID.ref_known = { id: 'ref_known', label: 'Known to the Watch' };
+  delete CF.RECIPES_BY_ID.ref_known;
+  assert.ok(!/Their new crime/.test(peekText(ab)), 'no promise without the recipe');
+  CF.RECIPES_BY_ID.ref_known = hadRecipe || { id: 'ref_known', label: 'Known to the Watch' };
   assert.ok(/Their new crime: lay this beside it in Rest/.test(peekText(ab)), 'with it, the hint');
   rec.criminalId = undefined;
   assert.ok(!/Their new crime/.test(peekText(ab)), 'and only while their new case is open');
@@ -2028,9 +2034,11 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   render(e);
   var pk = $('#peek').textContent;
   assert.ok(/catch them at it/.test(pk) && /On your table: A Smudged Print/.test(pk) && new RegExp('goes cold after week ' + (e.s.week + 2)).test(pk), 'the dossier says how, with what, and until when: ' + pk.slice(0, 400));
+  // (The rules carry such a slot of their own now, 'theirs': read without either.)
+  CF.VERBS.interrogate.slots = slots0.filter(function (sl) { return sl.key !== 'theirs'; });
+  // (The card's own description tells the whole rule now; the lines after it are the dossier's.)
+  assert.ok(!/catch them at it/.test(UI.dossierLines(rv).slice(2).join(' ')), 'without the slot, the old rule\'s words');
   CF.VERBS.interrogate.slots = slots0;
-  render(e);
-  assert.ok(!/catch them at it/.test($('#peek').textContent), 'without the slot, the old rule\'s words');
   UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
   e.remove(rv);
   assert.ok(/Then catch them at it/.test(html) && /goes cold in three/.test(html), 'the Help has the race');
@@ -2204,6 +2212,9 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   e.remove(le); UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
 
   // Item 73: the Harbourmaster's leaves, where the rules have them; nothing where they do not.
+  // (The rules have the leaf now: it is set aside to read the interface without it, and put back after.)
+  var realLeaf = CF.CARDS.customsleaf;
+  delete CF.CARDS.customsleaf; UI.leafDef = undefined;
   assert.strictEqual(UI.customsLeafDef(), null, 'no leaf in these rules yet, or the test below stands in for one');
   var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 0, stalled: 0 } });
   UI.selected = rv.uid; render(e);
@@ -2237,7 +2248,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
     assert.strictEqual(UI.caseArt('harbourbooks'), 'charb2-01', 'the books wear a ship at the quay');
   } finally {
     UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
-    delete CF.CARDS.customsleaf; delete CF.CASE_TEMPLATES.harbourbooks;
+    if (realLeaf) CF.CARDS.customsleaf = realLeaf; else delete CF.CARDS.customsleaf;
+    delete CF.CASE_TEMPLATES.harbourbooks;
     CF.RECIPES.splice(CF.RECIPES.indexOf(fakeRec), 1);
     UI.leafDef = undefined;
   }

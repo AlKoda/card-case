@@ -215,7 +215,10 @@
     this.meter('pressure', 1);
     var who = c.wrongfulHow === 'burned' ? 'the one the Inquisitor burned' : c.wrongfulHow === 'rival' ? 'the one the Harbourmaster\'s examiner hanged' : 'the one you sent down';
     var where = Crim.trueAlibi(c.wrongfulAlibi) || 'in the Hole for drunkenness';
-    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': ' + who + ' was ' + where + ' that night. The Warrens have known for a week. Now the Market does.', 'danger');
+    // The Rival's wrong name: the ballad blames their bought confession, by name, not you.
+    var bought = c.wrongfulBy ? ' ' + U.fill('The confession {rival} was so pleased with was bought, and the wrong neck paid for it.', { rival: c.wrongfulBy }) : '';
+    delete c.wrongfulBy;
+    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': ' + who + ' was ' + where + ' that night.' + bought + ' The Warrens have known for a week. Now the Market does.', 'danger');
   };
 
   // The crime a record keeps coming back to: their trade, when the city

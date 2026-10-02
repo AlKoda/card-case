@@ -3,7 +3,7 @@
 // handed every card and verb at once. Cards that are not yet part of the
 // story wait in a stash; verbs open as the work calls for them.
 //
-//   s.intro = { step, stash: [{def, spec}], done: {verb: true}, hint, finished }
+//   s.intro = { step, stash: [{def, spec}], done: {verb: true}, hint, finished, asides: {id: true} }
 (function (G) {
   var CF = G.CF;
   var P = CF.Engine.prototype;
@@ -22,7 +22,7 @@
   // Focus away, close every verb but Investigate, and tell the opening.
   P.setupIntro = function (silent) {
     var self = this, s = this.s;
-    s.intro = { step: 0, stash: [], done: {}, hint: null, finished: false, silent: !!silent };
+    s.intro = { step: 0, stash: [], done: {}, hint: null, finished: false, silent: !!silent, asides: {} };
     this.tableCards().forEach(function (c) {
       if (STASHED[c.def]) { s.intro.stash.push({ def: c.def, spec: spec(c) }); self.remove(c); }
     });
@@ -100,7 +100,7 @@
     { beat: 3, cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
       run: function (e) {
         e.introUnlock(['arrest']);
-        return { hint: 'An accused and their tokens in The Court make a charge. The window says how it will stand.' };
+        return { hint: 'An accused and the tokens of their case in The Court make a charge. Read the window before you press: on Indicia they walk free and remember you; Full Proof holds.' };
       } },
     { beat: 4, cue: function (e) { return e.countOf('trial') > 0 || (Object.keys(e.s.cases).length > 0 && e.s.cases[Object.keys(e.s.cases)[0]].status !== 'open'); },
       run: function (e) {
@@ -108,28 +108,83 @@
         e.introUnlock(['duty']);
         return { hint: 'The sworn men are out. Meanwhile, Attend: Health walks a hard round for Coin, Wit keeps the day-book.' };
       } },
-    { beat: 5, cue: function (e) { return e.countOf('condemned') > 0 || e.countOf('trial') === 0; },
+    // The verdict: the ladder after a conviction, the sworn men's word after an acquittal
+    // (the Ladder is not told when nobody was convicted).
+    { beat: function (e) { return e.countOf('condemned') > 0 ? 5 : acquitted(e) ? 'acquit' : null; },
+      cue: function (e) { return e.countOf('condemned') > 0 || e.countOf('trial') === 0; },
       run: function (e) { return e.countOf('condemned') > 0 ? { hint: 'A conviction. The Condemned and a rung of the ladder go in The Court; say nothing and the Council sentences by custom.' } : null; } },
-    { cue: function (e) { return e.countOf('condemned') === 0; },
+    // The desk arrives once the Condemned is sentenced, and on the opening path not before
+    // the first keep (the Bell and the stipend come with it).
+    { cue: function (e) { return e.countOf('condemned') === 0 && !e.s.flags.opening; },
       run: function (e) { e.introFinish(); return null; } },
   ];
+
+  // Was any case of the guided start ended by an acquittal?
+  function acquitted(e) {
+    var cs = e.s.cases;
+    return Object.keys(cs).some(function (k) { return cs[k].status === 'acquitted'; });
+  }
+
+  // After the hire the beats come one at a time: eight seconds after the
+  // last, and once a verb has finished since (or half a minute has passed).
+  function paced(e) {
+    var s = e.s;
+    if (s.intro.lastBeatT === undefined) return true;
+    var since = s.t - s.intro.lastBeatT;
+    if (since < 8) return false;
+    return verbsRun(e) > (s.intro.lastBeatVerbs || 0) || since >= 30;
+  }
+
+  // The plain start's first three beats, which the opening path passes over, come back there as
+  // asides, each once, when the table first calls for it. Their prose goes quietly to the journal.
+  // One speaks on the table, because it guards against harm: an accused and Health to hand with no
+  // Wit (a hire from the gallows or the Watch has Health and nothing to listen with), and Health in
+  // Question is the question. s.intro.asides holds what has been told; a save without it has told none.
+  function avail(e, d) { return e.tableCards().some(function (c) { return c.def === d && !e.unavailableReason(c); }); }
+  function accused(e) { return e.verb('interrogate').unlocked && avail(e, 'suspect'); }
+  function twoTokens(e) {
+    var n = {};
+    return e.tableCards().some(function (c) { return c.def === 'clue' && c.caseId && (n[c.caseId] = (n[c.caseId] || 0) + 1) >= 2; });
+  }
+  CF.INTRO_ASIDE_QUESTION = 'Health in Question is the question: everybody confesses, true or not, and without indicia it is a crime. Wit listens; Instinct bluffs.';
+  var ASIDES = [
+    { id: 'question', hint: CF.INTRO_ASIDE_QUESTION, cue: function (e) { return accused(e) && avail(e, 'health') && !avail(e, 'focus'); } },
+    { id: 'people', beat: 1, cue: accused },
+    { id: 'scene', beat: 0, cue: function (e) { return avail(e, 'evidence'); } },
+    { id: 'casebook', beat: 2, cue: twoTokens },
+  ];
+  // Tells the first aside whose time has come; true when it took the hint (the steps wait a beat).
+  function asides(e) {
+    var s = e.s;
+    if (!openingPath(e)) return false;
+    var told = s.intro.asides || (s.intro.asides = {});
+    for (var i = 0; i < ASIDES.length; i++) {
+      var a = ASIDES[i];
+      if (told[a.id] || (a.hint && (s.intro.silent || !paced(e))) || !a.cue(e)) continue;
+      told[a.id] = true;
+      var beat = a.beat !== undefined ? CF.Story.beat(e, a.beat) : null;
+      if (beat) e.story(beat.title, beat.text, 'minor');
+      e.dirty = true;
+      if (!a.hint) return false;
+      s.intro.hint = a.hint; s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(e);
+      return true;
+    }
+    return false;
+  }
+  P.introAsides = function () { return ASIDES; };
 
   P.introSteps = function () { return STEPS; };
   P.introTick = function () {
     var s = this.s;
     if (s.flags.opening && s.flags.stage !== 'hired' && s.flags.stage !== 'keep') return; // the opening tells its own story
+    if (asides(this)) return; // one lesson at a time
     var steps = this.introSteps(), step = steps[s.intro.step];
     while (step && step.skipIf && step.skipIf(this)) { s.intro.step++; step = steps[s.intro.step]; }
     if (!step) { this.introFinish(); return; }
     if (!step.cue(this)) return;
-    // After the hire the beats come one at a time: eight seconds after the
-    // last, and once a verb has finished since (or half a minute has passed).
-    if (step.beat !== undefined && openingPath(this) && s.intro.lastBeatT !== undefined) {
-      var since = s.t - s.intro.lastBeatT;
-      if (since < 8) return;
-      if (verbsRun(this) <= (s.intro.lastBeatVerbs || 0) && since < 30) return;
-    }
-    var beat = step.beat !== undefined ? CF.Story.beat(this, step.beat) : null;
+    if (step.beat !== undefined && openingPath(this) && !paced(this)) return;
+    var key = typeof step.beat === 'function' ? step.beat(this) : step.beat;
+    var beat = key !== undefined && key !== null ? CF.Story.beat(this, key) : null;
     var res = step.run(this);
     s.intro.step++;
     if (beat) { this.story(beat.title, beat.text, 'major'); s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); }
@@ -145,14 +200,34 @@
     this.introUnlock(CF.VERB_ORDER.filter(function (id) { return CF.VERBS[id].rank === 0 && !(id === 'time' && s.flags.bellSilent); }));
     var all = s.intro.stash.map(function (it) { return it.def; });
     this.introReveal(all);
-    s.intro.hint = null;
+    // A lesson the first keep gave while the Court was still being taught (the Bell and its
+    // dues) stays on a little after the desk arrives: until the Bell rings, or a minute on.
+    var after = s.intro.after;
+    s.intro.hint = after && after.week === s.week && !s.intro.silent ? after.text : null;
+    if (s.intro.hint) { s.intro.tailT = s.t + 60; s.intro.tailWeek = s.week; }
+    delete s.intro.after;
     var beat = CF.Story.beat(this, 'desk');
     this.story(beat.title, (why ? why + ' ' : '') + beat.text, 'major');
     this.dirty = true;
   };
 
+  // The opening teaches the table's handling as it goes (the labour, the notice, the sergeant), so
+  // the plain how-to line (drag onto the verbs, tap a slot) is for a plain start only: on the
+  // opening path, once the Bell's lesson has had its week, the advisor speaks. For the hint bar.
+  P.introTaughtControls = function () { return !!(this.s.intro && openingPath(this)); };
+
+  // A lesson never stands over the one card whose clock ends the file: while a Fever runs,
+  // the hint says so instead (and the lesson comes back once it is slept off).
+  CF.INTRO_FEVER = 'Pressing: {card}. Into Rest now, or the file ends.';
+  function collapsing(e) {
+    return e.tableCards().filter(function (c) { var d = CF.CARDS[c.def]; return d && d.tags && d.tags.indexOf('collapse') >= 0 && c.maxLife; })[0] || null;
+  }
   P.introHint = function () {
-    var s = this.s;
-    return s.intro && !s.intro.finished ? s.intro.hint : null;
+    var s = this.s, hint;
+    if (!s.intro) return null;
+    if (!s.intro.finished) hint = s.intro.hint;
+    else hint = s.intro.tailT > s.t && s.intro.tailWeek === s.week ? s.intro.hint : null;
+    var fever = hint ? collapsing(this) : null;
+    return fever ? CF.util.fill(CF.INTRO_FEVER, { card: this.labelOf(fever) }) : hint;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

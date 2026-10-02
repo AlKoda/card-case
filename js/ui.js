@@ -3276,7 +3276,7 @@
     var e = UI.e, lines = e.perkList().map(function (k) { return tr('Trick: {perk}', { perk: e.perkLabel(k) }); });
     var ab = /^spent_/.test(card.def) ? CF.CARDS[card.def].restores : card.def;
     if (!CF.growthWays || !CF.CARDS[ab] || CF.CARDS[ab].kind !== 'ability') return lines;
-    var ways = CF.growthWays(e, ab);
+    var ways = CF.growthWays(e, ab, true);
     if (!ways.length) return lines;
     lines.push(tr('How {ability} grows (an Insight, taken to Rest):', { ability: tr(CF.CARDS[ab].label) }));
     ways.forEach(function (w) {

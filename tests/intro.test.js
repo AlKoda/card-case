@@ -150,7 +150,8 @@ console.log('intro: ok');
   assert.ok(e.choose(1));
   var hireT = e.s.intro.lastBeatT, journalAt = e.s.journal.length; // the hire itself: the calling is put a tick after its answer is taken
   assert.strictEqual(e.s.intro.step, 3, 'the lessons the opening gave are skipped: ' + e.s.intro.step);
-  assert.ok(!e.s.journal.some(function (j) { return j.title === 'What the Scene Gives' || j.title === 'People' || j.title === 'The Casebook'; }), 'no lesson told twice');
+  // Their prose may reach the journal as a quiet aside (intro.js ASIDES), never as a lesson told again.
+  assert.ok(!e.s.journal.some(function (j) { return (j.title === 'What the Scene Gives' || j.title === 'People' || j.title === 'The Casebook') && j.kind !== 'minor'; }), 'no lesson told twice');
   // The table is ripe for the Charge; the beat still waits eight seconds and a verb.
   var rec = e.openCases()[0];
   if (!tbl(e, 'suspect').length) e.revealSuspect(rec, null);
@@ -184,7 +185,20 @@ console.log('intro: ok');
   var named = hr.suspects.filter(function (x) { return x.revealed; })[0];
   h.openingHired();
   assert.strictEqual(h.s.flags.stage, 'hired');
-  assert.ok(h.introHint().indexOf('Question ' + named.name + ' with Wit') >= 0, 'the hint names the suspect: ' + h.introHint());
+  // It points at the move that names someone (the case with its tokens in Rest), and a Wit on the table means questioning now.
+  assert.ok(/the case and its tokens together in Rest/.test(h.introHint()), 'the hint points at the case in Rest: ' + h.introHint());
+  assert.ok(h.introHint().indexOf('question ' + named.name + ' with Wit') >= 0, 'the hint names the suspect: ' + h.introHint());
+  // The sergeant has had the only Wit: the hint says it comes back, instead of asking for it.
+  var h2 = CF.Engine.newGame({ seed: 23, who: 'monk', name: 'Named', opening: true, guided: true });
+  h2.s.flags.stage = 'questioned';
+  var hc2 = h2.spawnCase('missing', { quiet: true, roles: h2.openingScene().roles }), hr2 = h2.caseRec(hc2.caseId);
+  hr2.opening = true;
+  h2.revealSuspect(hr2, null);
+  h2.cardsOf('focus', true).forEach(function (c) { h2.remove(c); });
+  h2.s.intro.stash = h2.s.intro.stash.filter(function (it) { return it.def !== 'focus'; });
+  h2.openingHired();
+  assert.ok(/When your Wit comes back from the sergeant, question /.test(h2.introHint()), 'no Wit to hand: ' + h2.introHint());
+  assert.ok(!/with Wit\./.test(h2.introHint()), 'and it does not ask for one now');
   assert.ok(h.s.flags.callingDue && !h.s.choice, 'the calling waits for openingTick');
   h.tick(0.1);
   assert.ok(h.s.choice && h.s.choice.id === 'calling', 'Explore idle: asked at once');
@@ -284,4 +298,432 @@ console.log('intro: ok');
   ml.s.flags.stage = 'questioned'; ml.openingHired(); ml.checkThresholds();
   assert.ok(ml.s.journal.some(function (j) { return j.title === 'The Last Examiner\'s Drawer'; }), 'after a load too');
   console.log('successor: ok');
+})();
+
+// ---- The first keep remembers whose death began it; a won ending looks back -----------------
+(function firstVictim() {
+  CF.ORIGIN_ORDER.concat(['none']).forEach(function (who, i) {
+    var e = CF.Engine.newGame({ seed: 40 + i, who: who, name: 'Kept', opening: true, guided: true });
+    var sc = e.openingScene();
+    assert.ok(sc.kept && sc.kept.length > 20, who + ' has a line for the burial');
+    e.s.flags.stage = 'hired';
+    e.openingKeep();
+    assert.strictEqual(e.s.flags.firstVictim, sc.missing, who + ': the first victim is kept');
+    var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+    assert.ok(keep && keep.text.indexOf(sc.kept) === 0 && keep.text.indexOf(CF.OPENING_TEXT.keepText) > 0, who + ': the keep tells of the burial first: ' + (keep && keep.text));
+  });
+  // A won run ends with the death it began with; a lost one does not.
+  var w = CF.Engine.newGame({ seed: 50, who: 'clerk', name: 'Won', opening: true, guided: true });
+  w.s.flags.stage = 'hired'; w.openingKeep();
+  var won = CF.Engine.load(w.save()); won.gameOver('commissioner');
+  assert.ok(/The first case in your casebook is still the death of Endres\./.test(won.s.over.text), 'the Seat looks back: ' + won.s.over.text);
+  var lost = CF.Engine.load(w.save()); lost.gameOver('dismissed');
+  assert.ok(!/first case in your casebook/.test(lost.s.over.text), 'a dismissal does not');
+  // A save from before the flag, past the first keep, still knows the name from its origin.
+  var old = JSON.parse(w.save()); delete old.flags.firstVictim;
+  var o = CF.Engine.load(old);
+  assert.strictEqual(o.firstVictim(), 'Endres', 'an older save derives the first victim');
+  o.gameOver('master');
+  assert.ok(/still the death of Endres/.test(o.s.over.text), 'and its ending looks back too');
+  // A run with no opening (the guided desk) has nobody to look back to.
+  var p = CF.Engine.newGame({ seed: 51, calling: 'master' }); p.gameOver('master');
+  assert.strictEqual(p.firstVictim(), null);
+  assert.ok(!/first case in your casebook/.test(p.s.over.text), 'no opening, no look back');
+  console.log('first victim: ok');
+})();
+
+// ---- The Reformer hears of the Coquille before he can touch it -------------------------------
+(function coquilleForetold() {
+  function at(rank, week, synd) {
+    var e = CF.Engine.newGame({ seed: 60, calling: 'crusader' });
+    e.introFinish && e.introFinish();
+    e.s.rank = rank; e.s.week = week;
+    e.cardsOf('syndicate', true).forEach(function (c) { e.remove(c); });
+    if (synd) e.create('syndicate');
+    e.rivalWeek();
+    return e.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length;
+  }
+  assert.strictEqual(at(0, 6), 1, 'week six, below the white staff: the word is said');
+  assert.strictEqual(at(1, 9), 1, 'a Sworn Examiner hears it too');
+  assert.strictEqual(at(0, 5), 0, 'not before week six');
+  assert.strictEqual(at(2, 6), 0, 'a Bailiff can go among them: no foretelling');
+  assert.strictEqual(at(0, 6, true), 0, 'the Coquille already formed: no foretelling');
+  var e = CF.Engine.newGame({ seed: 61, calling: 'crusader' });
+  e.s.week = 6; e.cardsOf('syndicate', true).forEach(function (c) { e.remove(c); });
+  var meters = JSON.stringify(e.s.meters);
+  e.rivalWeek(); e.rivalWeek();
+  assert.strictEqual(e.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length, 1, 'once');
+  assert.strictEqual(JSON.stringify(e.s.meters), meters, 'a story only: no meter moves');
+  var m = CF.Engine.newGame({ seed: 62, calling: 'master' }); m.s.week = 6; m.rivalWeek();
+  assert.ok(!m.s.flags.coquilleForetold, 'only the Reformer');
+  var l = CF.Engine.load(JSON.parse(e.save()));
+  l.rivalWeek();
+  assert.strictEqual(l.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length, 1, 'a loaded save does not say it twice');
+  console.log('coquille foretold: ok');
+})();
+
+// ---- The Court's first lesson says what Indicia does ------------------------------------------
+(function courtLesson() {
+  var step = CF.Engine.prototype.introSteps().filter(function (st) { return st.beat === 3; })[0];
+  var e = CF.Engine.newGame({ seed: 70, calling: 'master', guided: true });
+  var res = step.run(e);
+  assert.ok(/Indicia/.test(res.hint) && /walk free/.test(res.hint), 'the Charge hint warns of Indicia: ' + res.hint);
+  console.log('court lesson: ok');
+})();
+
+// ---- The opening case lost in the Court: the keep comes all the same, and the beats fit ------
+// An acquittal (or the case gone unanswered) clears the opening: the Bell, one Coin, a new case
+// soon; the guided start tells the sworn men's word, not the Ladder, and the Desk only after the
+// keep. After a conviction the keep's Bell lesson outlives the Ladder's hint.
+(function openingLost() {
+  function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function titles(g) { return g.s.journal.map(function (j) { return j.title; }).reverse(); }
+  // Any question the city puts (the calling, a choice) is answered at once: the clock waits for it.
+  function tick(g, dt) { if (g.s.choice) g.choose(0); g.tick(dt); if (g.s.choice) g.choose(0); }
+  // A hired examiner with the opening case, its accused and a token, at the Court.
+  function atCourt(seed, who) {
+    var e = CF.Engine.newGame({ seed: seed, who: who, name: 'Lost', opening: true, guided: true });
+    e.s.flags.stage = 'questioned';
+    var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+    rec.opening = true;
+    e.openingHired();
+    if (e.s.choice) e.choose(0);
+    e.introUnlock(['arrest']);
+    e.s.intro.step = 4; e.s.intro.lastBeatT = -100;
+    var sus = tbl(e, 'suspect')[0] || e.revealSuspect(rec, null);
+    var clue = e.create('clue', { label: 'x', caseId: rec.id, aspects: { testimony: 1 } });
+    assert.ok(e.autoSlot('arrest', sus.uid) && e.autoSlot('arrest', clue.uid) && e.start('arrest'), 'the charge starts');
+    tick(e, e.verb('arrest').duration + 0.01); e.collect('arrest');
+    assert.strictEqual(rec.status, 'trial');
+    tick(e, 0.1);
+    assert.ok(e.s.flags.opening, 'a case at trial does not end the opening');
+    e.s.intro.lastBeatT = -100; // the sworn men are out a while: the next beat is not held back
+    return { e: e, rec: rec, trial: tbl(e, 'trial')[0] };
+  }
+  // The sworn men acquit (the dice held high for the verdict).
+  var a = atCourt(70, 'clerk'), e = a.e, rng = e.rng;
+  var coin = e.cardsOf('funds', true).length;
+  e.rng = function () { return 0.995; }; e.verdict(a.trial); e.rng = rng;
+  assert.strictEqual(a.rec.status, 'acquitted');
+  tick(e, 0.1);
+  assert.strictEqual(e.s.flags.stage, 'keep', 'the keep comes after an acquittal');
+  assert.ok(!e.s.flags.opening && !e.s.flags.bellSilent && e.verb('time').unlocked, 'the Bell rings from now on');
+  assert.strictEqual(e.cardsOf('funds', true).length, coin + 1, 'one Coin, not two');
+  var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+  assert.ok(keep && keep.text.indexOf(CF.OPENING_TEXT.keepAcquitted) > 0, 'the keep says the sworn men did not convict: ' + (keep && keep.text));
+  assert.ok(titles(e).indexOf('The Sworn Men Acquit') >= 0 && titles(e).indexOf('The Ladder') < 0, 'the sworn men\'s word, not the Ladder: ' + titles(e).join(' | '));
+  tick(e, 0.1);
+  assert.ok(e.s.intro.finished, 'the desk arrives once the keep is made');
+  assert.ok(titles(e).indexOf('The Desk') > titles(e).indexOf(CF.OPENING_TEXT.keep), 'the Desk after the keep, never while the Bell is silent');
+  assert.ok(/^The Bell rings from now on/.test(e.introHint() || ''), 'the Bell lesson is shown: ' + e.introHint());
+  for (var t = 0; t < 120 && !e.openCases().length; t++) tick(e, 1);
+  assert.ok(e.openCases().length >= 1, 'a new case within two minutes of the acquittal: ' + t + 's');
+  tick(e, 60);
+  assert.strictEqual(e.introHint(), null, 'the Bell lesson goes in time');
+  // A save stuck in the old limbo (acquitted, no keep) recovers on its first tick.
+  var b = atCourt(71, 'monk'), old;
+  b.e.rng = function () { return 0.995; }; b.e.verdict(b.trial); b.e.rng = rng;
+  old = JSON.parse(b.e.save());
+  // The verdict keeps the desk at once now (engine.js); an older build left the opening open, as here.
+  old.flags.opening = true; old.flags.stage = 'hired'; old.flags.bellSilent = true;
+  assert.ok(old.flags.opening && old.flags.stage === 'hired', 'saved in the limbo');
+  var l = CF.Engine.load(old);
+  tick(l, 0.1);
+  assert.strictEqual(l.s.flags.stage, 'keep', 'a loaded limbo save gets its keep');
+  // The case gone unanswered: the keep, with its own words.
+  var c = atCourt(72, 'none');
+  c.e.remove(c.trial); c.rec.status = 'cold';
+  tick(c.e, 0.1);
+  var ck = c.e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+  assert.ok(ck && ck.text.indexOf(CF.OPENING_TEXT.keepCold) > 0, 'an unanswered first case: ' + (ck && ck.text));
+  // A conviction: the Ladder's hint first, then the Bell's once the Condemned is sentenced.
+  var d = atCourt(73, 'watchman'), g = d.e;
+  g.rng = function () { return 0; }; g.verdict(d.trial); g.rng = rng;
+  assert.strictEqual(g.s.flags.stage, 'keep');
+  tick(g, 0.1);
+  var cond = tbl(g, 'condemned')[0];
+  assert.ok(cond, 'a Condemned');
+  assert.ok(/^A conviction\./.test(g.introHint() || ''), 'the Ladder is taught: ' + g.introHint());
+  assert.ok(titles(g).indexOf('The Ladder') >= 0 && titles(g).indexOf('The Sworn Men Acquit') < 0);
+  g.remove(cond); tick(g, 0.1);
+  assert.ok(g.s.intro.finished);
+  assert.ok(/^The Bell rings from now on/.test(g.introHint() || ''), 'then the Bell, which was overwritten before: ' + g.introHint());
+  console.log('opening lost: ok');
+})();
+
+// ---- A strain card never sits without its cure: Rest opens with the first one -------------------
+(function strainOpensRest() {
+  var e = CF.Engine.newGame({ seed: 74, who: 'clerk', name: 'Strained', opening: true, guided: true });
+  e.s.flags.stage = 'search';
+  assert.ok(!e.verb('reflect').unlocked, 'Rest is shut before the hire');
+  e.create('obsession');
+  e.tick(0.1);
+  assert.ok(e.verb('reflect').unlocked, 'Obsession opens Rest');
+  assert.ok(/^Rest is open: put Obsession in it/.test(e.introHint() || ''), 'and the hint says what to do: ' + e.introHint());
+  var f = CF.Engine.newGame({ seed: 75, calling: 'master', guided: true });
+  assert.ok(!f.verb('reflect').unlocked);
+  f.create('fatigue'); f.tick(0.1);
+  assert.ok(f.verb('reflect').unlocked, 'Weariness opens Rest in the plain guided start too');
+  console.log('strain opens rest: ok');
+})();
+
+// ---- The Rival's next move, once foreseen, is the move made ----------------------------------
+(function rivalForeseen() {
+  function setup(seed, cases) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    e.s.week = 7;
+    e.tableCards().forEach(function (c) { if (c.def === 'clue' || c.def === 'evidence' || c.def === 'witness') e.remove(c); });
+    e.openCases().forEach(function (r) { r.searches = 0; });
+    var recs = [];
+    for (var i = 0; i < cases; i++) {
+      var r = e.openCases()[i] || e.caseRec(e.spawnCase(null, { quiet: true }).caseId);
+      r.searches = 1; r.week = 5; recs.push(r);
+    }
+    e.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 0, stalled: 0 } });
+    return { e: e, recs: recs };
+  }
+  var hits = 0;
+  for (var k = 0; k < 6; k++) {
+    var o = setup(80 + k, 2), e = o.e;
+    var line = e.rivalForesee();
+    var next = e.cardsOf('rival', true)[0].data.next;
+    assert.ok(next && next.act === 'poach', 'the only move is a case to race: ' + JSON.stringify(next));
+    var aim = e.caseRec(next.id);
+    assert.ok(line.indexOf('Piet Wieland means to take up ' + aim.title) === 0, 'the line names the case: ' + line);
+    var l = CF.Engine.load(e.save()); // a save keeps the foreseen move
+    l.rivalWeek();
+    assert.ok(l.caseRec(next.id).rival, 'the case foreseen is the case taken');
+    assert.ok(!l.cardsOf('rival', true)[0].data.next, 'the move is spent');
+    if (o.recs.filter(function (r) { return l.caseRec(r.id).rival; }).length === 1) hits++;
+  }
+  assert.strictEqual(hits, 6, 'one case taken each time, the foreseen one');
+  var n = setup(90, 0);
+  assert.ok(/has nothing of yours in hand yet/.test(n.e.rivalForesee()), 'nothing to take: it says so');
+  console.log('rival foreseen: ok');
+})();
+
+// ---- Harm is told apart from bad news ----------------------------------------------------------
+(function harmKind() {
+  var e = CF.Engine.newGame({ seed: 95, calling: 'master' });
+  while (e.cardsOf('health', true).length < 2) e.create('health');
+  var need = e.create('hunger', { lifetime: 1 });
+  e.needExpired(need);
+  var lost = e.s.journal.filter(function (j) { return /^Lost: /.test(j.title); })[0];
+  assert.ok(lost && lost.kind === 'harm', 'an ability lost for good is harm: ' + (lost && lost.kind));
+  console.log('harm kind: ok');
+})();
+
+// ---- A successor's desk: told once it is yours, never as nobody's dead man's ------------------
+(function successorDesk() {
+  var old = CF.Engine.newGame({ seed: 96, calling: 'master' });
+  old.s.detective = 'Kessler';
+  old.gameOver('dismissed');
+  var L = JSON.parse(JSON.stringify(old.s.legacy));
+  var e = CF.Engine.newGame({ seed: 97, who: 'clerk', name: 'Heir', opening: true, guided: true, legacy: L });
+  var texts = function () { return e.s.journal.map(function (j) { return j.title + ': ' + j.text; }).join('\n'); };
+  assert.ok(!/Inherited/.test(texts()), 'no inheritance before the desk is yours:\n' + texts());
+  assert.ok(!/when he died/.test(texts()) && /when they went/.test(texts()), 'the clerk\'s last Examiner went, not died:\n' + texts());
+  assert.ok(e.cardsOf('coldcase', true).length === L.cold.slice(0, 4).length, 'the cold cases are kept for later');
+  // A save from the opening carries the flag through load.
+  e = CF.Engine.load(JSON.stringify(e.s));
+  e.s.flags.stage = 'questioned';
+  var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles });
+  e.caseRec(c.caseId).opening = true;
+  e.openingHired();
+  var drawer = e.s.journal.filter(function (j) { return j.title === 'The Last Examiner\'s Drawer'; });
+  assert.strictEqual(drawer.length, 1, 'the drawer is told at the hire');
+  assert.ok(/was Kessler's, until the Council took the letter back/.test(drawer[0].text), drawer[0].text);
+  assert.strictEqual(/King's compliments/.test(drawer[0].text), !!L.syndicate, 'the King writes only if his Court came down with the desk');
+  // A save from before the flag (its inheritance already told) hires without a second telling.
+  var p = CF.Engine.newGame({ seed: 98, who: 'none', name: 'Plain', opening: true, guided: true });
+  var saved = JSON.parse(JSON.stringify(p.s)); delete saved.flags.legacy;
+  p = CF.Engine.load(saved);
+  p.s.flags.stage = 'questioned';
+  p.openingHired();
+  assert.ok(!p.s.journal.some(function (j) { return j.title === 'The Last Examiner\'s Drawer'; }), 'no legacy, no drawer');
+  // Without the opening the inheritance is told at once, as before.
+  var q = CF.Engine.newGame({ seed: 99, calling: 'master', legacy: L });
+  assert.ok(q.s.journal.some(function (j) { return j.title === 'Inherited'; }), 'a start without the opening inherits at once');
+  console.log('successor desk: ok');
+})();
+
+// ---- An opening case taken out of your hands (settled for a purse, the Court, the Rival) ------
+// The keep comes all the same, and a new case within two weeks: no desk left without the Bell.
+(function openingTakenAway() {
+  ['settled', 'court', 'inquisitor', 'rival'].forEach(function (status, i) {
+    var e = CF.Engine.newGame({ seed: 120 + i, who: 'clerk', name: 'Away', opening: true, guided: true });
+    e.s.flags.stage = 'questioned';
+    var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+    rec.opening = true;
+    e.openingHired();
+    if (e.s.choice) e.choose(0);
+    e.remove(c); rec.status = status;
+    for (var t = 0; t < 2 * CF.WEEK && (e.s.flags.stage !== 'keep' || !e.openCases().length); t++) {
+      if (e.s.choice) e.choose(0);
+      e.tick(1);
+    }
+    assert.strictEqual(e.s.flags.stage, 'keep', status + ': the keep comes');
+    assert.ok(!e.s.flags.opening && e.verb('time').unlocked, status + ': the Bell rings');
+    assert.ok(e.openCases().length >= 1, status + ': a new case within two weeks (' + t + 's)');
+    var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+    assert.ok(keep && keep.text.indexOf(CF.OPENING_TEXT.keepCold) > 0, status + ': the keep says it went unanswered by you: ' + (keep && keep.text));
+  });
+  console.log('opening taken away: ok');
+})();
+
+// ---- A Fever outranks the lesson: the hint names it until it is slept off ----------------------
+(function feverOverLesson() {
+  var e = CF.Engine.newGame({ seed: 130, calling: 'master', guided: true });
+  var lesson = e.introHint();
+  assert.ok(lesson && !/Fever/.test(lesson), 'a lesson to begin with: ' + lesson);
+  var f = e.create('burnout');
+  assert.strictEqual(e.introHint(), 'Pressing: Fever. Into Rest now, or the file ends.', 'the Fever comes first');
+  e.remove(f);
+  assert.strictEqual(e.introHint(), lesson, 'and the lesson comes back');
+  // A Fixation has no clock: it does not take the lesson's place.
+  e.create('tunnel');
+  assert.strictEqual(e.introHint(), lesson, 'Fixation leaves the lesson');
+  // No lesson showing: nothing is said in its place (the advisor speaks then).
+  e.s.intro.finished = true; e.s.intro.tailT = 0;
+  e.create('burnout');
+  assert.strictEqual(e.introHint(), null, 'after the guided start, the hint is the advisor\'s');
+  console.log('fever over the lesson: ok');
+})();
+
+// ---- The opening case's own Quarter comes with the hire, and only that one ------------------
+(function openingQuarter() {
+  var e = CF.Engine.newGame({ seed: 71, who: 'watchman', name: 'Door', opening: true, guided: true });
+  e.s.flags.stage = 'questioned';
+  var c = e.spawnCase('missing', { quiet: true, district: 'warrens', roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+  rec.opening = true;
+  assert.strictEqual(byDef(e, 'district').length, 0, 'no Quarter before the hire');
+  e.openingHired();
+  var q = byDef(e, 'district');
+  assert.ok(q.length === 1 && q[0].data.district === 'warrens', 'the hire gives the case\'s own Quarter');
+  assert.ok(!e.s.flags.marketOpen && !(e.s.flags.districts || {}).market, 'the rest of the city waits for the keep');
+  var hired = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.hired; })[0];
+  assert.ok(hired && hired.text.indexOf('You have the run of The Warrens. Go door to door') > 0, 'the hire says so: ' + (hired && hired.text));
+  assert.strictEqual(e.introHint(), CF.OPENING_TEXT.doorHint, 'nobody named: the hint sends you door to door');
+  // Door to door now works on the first case: the people who saw.
+  e.introUnlock(['investigate']);
+  var found = run(e, 'investigate', [byDef(e, 'case')[0], q[0]]);
+  assert.ok(found.some(function (x) { return x && x.def === 'witness'; }), 'door to door finds who saw: ' + found.map(function (x) { return x && x.def; }));
+  // A save from before, hired with no Quarter: it comes on the next tick, once, with a word.
+  var o = CF.Engine.newGame({ seed: 72, who: 'monk', name: 'Old', opening: true, guided: true });
+  o.s.flags.stage = 'questioned';
+  var oc = o.spawnCase('missing', { quiet: true, district: 'warrens', roles: o.openingScene().roles });
+  o.caseRec(oc.caseId).opening = true;
+  o.openingHired();
+  o.cardsOf('district', true).forEach(function (d) { o.remove(d); });
+  delete o.s.flags.districts;
+  var old = CF.Engine.load(o.save());
+  old.tick(0.1);
+  assert.strictEqual(byDef(old, 'district').length, 1, 'an old hired save gets its Quarter');
+  assert.ok(old.s.journal.some(function (j) { return j.title === CF.OPENING_TEXT.door; }));
+  old.tick(0.1);
+  assert.strictEqual(old.cardsOf('district', true).length, 1, 'once');
+  console.log('the opening quarter: ok');
+})();
+
+// ---- The labour's hint tells the truth: Health laid in Attend is not yet Winded -------------
+(function workHintTruth() {
+  var e = CF.Engine.newGame({ seed: 21, who: 'clerk', name: 'Plate', opening: true, guided: true });
+  var hp = byDef(e, 'health')[0];
+  assert.ok(e.autoSlot('duty', hp.uid), 'Health goes into Attend');
+  assert.strictEqual(e.verb('duty').status, 'idle', 'and the plate is not pressed');
+  e.tick(0.1);
+  assert.strictEqual(e.introHint(), 'Now press A Day\'s Labour.', 'not started: press it, not Winded: ' + e.introHint());
+  assert.ok(e.start('duty'));
+  e.tick(0.1);
+  assert.ok(/^Winded\. Health comes back/.test(e.introHint()), 'started: Winded: ' + e.introHint());
+  // The labour done, Wit laid in Attend and not pressed: the same word, with its own plate.
+  e.tick(e.verb('duty').duration); e.collect('duty'); e.tick(0.1);
+  assert.ok(e.autoSlot('duty', byDef(e, 'focus')[0].uid), 'Wit goes into Attend');
+  e.tick(0.1);
+  assert.strictEqual(e.introHint(), 'Now press ' + e.preview('duty').label + '.', 'Wit unpressed: ' + e.introHint());
+  assert.ok(e.start('duty'));
+  e.tick(0.1);
+  assert.ok(/^Both spent\./.test(e.introHint()), 'both at work: ' + e.introHint());
+  console.log('work hint truth: ok');
+})();
+
+// ---- The plain start's first beats come back on the opening path as asides, each once --------
+(function openingAsides() {
+  function hired(seed, who) {
+    var g = CF.Engine.newGame({ seed: seed, who: who, name: 'Aside', opening: true, guided: true });
+    g.s.flags.stage = 'hired'; g.s.flags.firstCase = true; g.s.intro.step = 3;
+    g.introUnlock(['interrogate', 'analyze', 'reflect']);
+    g.introReveal(['health', 'instinct']);
+    var c = g.spawnCase('missing', { quiet: true }), rec = g.caseRec(c.caseId);
+    rec.opening = true;
+    g.s.intro.lastBeatT = g.s.t - 31; g.s.intro.lastBeatVerbs = 0;
+    return { e: g, rec: rec };
+  }
+  function told(g, title) { return g.s.journal.filter(function (j) { return j.title === title; }); }
+  function noWit(g) {
+    g.cardsOf('focus', true).forEach(function (c) { g.remove(c); });
+    g.s.intro.stash = g.s.intro.stash.filter(function (it) { return it.def !== 'focus'; });
+  }
+  // A hire with Health and no Wit: once an accused is on the table, the question is named before it is used.
+  var a = hired(81, 'watchman'), e = a.e;
+  noWit(e);
+  e.tick(0.1);
+  assert.notStrictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'nobody to question yet');
+  e.revealSuspect(a.rec, null);
+  assert.ok(byDef(e, 'health').length && byDef(e, 'suspect').length && !byDef(e, 'focus').length);
+  e.tick(0.1);
+  assert.strictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'the question is named: ' + e.introHint());
+  e.tick(0.1);
+  var people = told(e, 'People');
+  assert.ok(people.length === 1 && people[0].kind === 'minor', 'the beat\'s prose goes to the journal, quietly');
+  assert.strictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'the quiet prose leaves the hint alone');
+  // A token too: the Charge waits its pace behind the aside, then comes.
+  e.create('clue', { label: 'x', caseId: a.rec.id, aspects: { testimony: 1 } });
+  e.tick(0.1);
+  assert.ok(!e.verb('arrest').unlocked, 'the Charge waits its turn behind the aside');
+  e.tick(31);
+  assert.ok(e.verb('arrest').unlocked, 'and then follows');
+  e.revealSuspect(a.rec, null);
+  e.tick(31);
+  assert.strictEqual(told(e, 'People').length, 1, 'once');
+  assert.notStrictEqual(e.introHint(), CF.INTRO_ASIDE_QUESTION, 'the warning is not given twice');
+  // Two tokens of one case: the Casebook's prose in the journal, the hint left alone.
+  assert.strictEqual(told(e, 'The Casebook').length, 0, 'one token is not yet a casebook');
+  var hint = e.introHint();
+  e.create('clue', { label: 'y', caseId: a.rec.id, aspects: { testimony: 1 } });
+  e.tick(0.1);
+  assert.ok(told(e, 'The Casebook').length === 1 && told(e, 'The Casebook')[0].kind === 'minor', 'the Casebook, quietly');
+  assert.strictEqual(e.introHint(), hint, 'a quiet aside does not take the hint');
+  // With a Wit to hand the question is not pressed on anyone, but the prose still reaches the journal.
+  var b = hired(82, 'clerk'), g = b.e;
+  g.revealSuspect(b.rec, null);
+  assert.ok(byDef(g, 'focus').length, 'a Wit on the table');
+  g.tick(0.1); g.tick(0.1);
+  assert.notStrictEqual(g.introHint(), CF.INTRO_ASIDE_QUESTION, 'a Wit to listen with: no warning');
+  assert.strictEqual(told(g, 'People').length, 1, 'the prose is not lost');
+  // An old save in the middle of the opening (no record of asides) loads and hears them.
+  var o = hired(83, 'watchman'), oe = o.e;
+  noWit(oe);
+  oe.revealSuspect(o.rec, null);
+  var raw = JSON.parse(oe.save()); delete raw.intro.asides;
+  var l = CF.Engine.load(raw);
+  l.tick(0.1);
+  assert.strictEqual(l.introHint(), CF.INTRO_ASIDE_QUESTION, 'an old save hears it too');
+  assert.ok(l.s.intro.asides && l.s.intro.asides.question, 'and keeps the record from then on');
+  // A plain start is taught by its own steps: no asides there.
+  var p = CF.Engine.newGame({ seed: 84, who: 'clerk', name: 'Plain', guided: true });
+  assert.ok(!p.s.flags.opening && !p.s.flags.stage);
+  for (var i = 0; i < 20; i++) p.tick(1);
+  assert.strictEqual(Object.keys(p.s.intro.asides || {}).length, 0, 'no asides on a plain start');
+  console.log('opening asides: ok');
+})();
+
+// ---- The plain how-to line is for a plain start: the opening taught the table as it went -----
+(function controlsTaught() {
+  var e = CF.Engine.newGame({ seed: 85, who: 'clerk', name: 'Taught', opening: true, guided: true });
+  assert.strictEqual(e.introTaughtControls(), true, 'the opening teaches the handling');
+  var p = CF.Engine.newGame({ seed: 85, who: 'clerk', name: 'Plain', guided: true });
+  assert.strictEqual(p.introTaughtControls(), false, 'a plain start keeps the how-to line');
+  assert.strictEqual(CF.Engine.load(e.save()).introTaughtControls(), true, 'and a save keeps it');
+  console.log('controls taught: ok');
 })();

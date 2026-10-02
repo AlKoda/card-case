@@ -176,7 +176,7 @@
     "They kept asking when the carrier's wagon left.": "ظلّوا يسألون متى تنطلق عربة الناقل.",
     "Their fingers were black, like a printer's.": "كانت أصابعهم سوداء، كأصابع طبّاع.",
     "They were rolling a die over their knuckles.": "كانوا يدحرجون زهر نرد على مفاصل أصابعهم.",
-    "{witness} talks for an hour. Most of it is about their late husband. Then, almost as an afterthought: \"{hint}\"": "يتحدث {witness} ساعة كاملة، جلّها عن زوجها الراحل. ثم، كأنه خاطر عابر: \"{hint}\"",
+    "{witness} talks for an hour. Most of it is about their late husband. Then, almost as an afterthought: \"{hint}\"": "يتحدث {witness} ساعة كاملة، جلّها عن زوجته الراحلة. ثم، كأنّ الأمر خاطر عابر: \"{hint}\"",
     "You sit. You listen. You let the silence do the work. Eventually {witness} says: \"{hint}\"": "تجلس. تصغي. تدع الصمت يقوم بالعمل. وأخيرًا يقول {witness}: \"{hint}\"",
     "{witness} keeps begging your pardon for wasting your time. They are not wasting it. \"{hint}\"": "لا يكفّ {witness} عن الاعتذار لإضاعة وقتك. وهو لا يضيّعه. \"{hint}\"",
     "You tell {witness} someone else already named them. It is not true. Their face goes white. \"{hint}\"": "تقول لـ{witness} إن أحدًا غيره قد ذكر اسمه. وهذا غير صحيح. يمتقع وجهه. \"{hint}\"",

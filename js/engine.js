@@ -386,6 +386,7 @@
     if (s.flags.opening && s.flags.stage === 'hired' && !s.over && !Object.keys(s.cases || {}).some(function (k) { var r = s.cases[k]; return r.opening && (r.status === 'open' || r.status === 'trial'); })) {
       e.openingLost(null, 'cold');
     }
+    if (s.choice && e.refreshChoice) e.refreshChoice(); // the answers shown are the spec's own (life.js)
     // Verbs and cards from older saves may sit off the table, or on each other: bring them back onto it.
     CF.VERB_ORDER.forEach(function (id) {
       var v = s.verbs[id];
@@ -2376,9 +2377,11 @@
   // At the Bell of week 26 (or the first Bell after it, to week 29, when a
   // question was waiting), the clerk reads the record in the chamber and the
   // Council asks what the Examiner wants of it (the 'assize' question,
-  // patrons.js). s.flags.assize = { week, record } once read; an older save
-  // past week 29 had none (load).
-  CF.ASSIZE = { week: 26, last: 29 };
+  // patrons.js, which reads the year back in words: story.js Story.assize).
+  // Once a year. s.flags.assize = { week, record, year } once read; an older
+  // save past week 29 had none that year (load).
+  CF.ASSIZE = CF.ASSIZE || {};
+  CF.ASSIZE.week = 26; CF.ASSIZE.last = 29;
   P.assizeRecord = function () {
     var st = this.s.stats || {};
     return { cases: st.cases || 0, convictions: st.convictions || 0, acquittals: st.acquittals || 0, cold: st.cold || 0,
@@ -2397,11 +2400,11 @@
     return lines;
   };
   P.assizeWeek = function () {
-    var s = this.s;
-    if (s.flags.assize || s.over || s.week < CF.ASSIZE.week || s.week > CF.ASSIZE.last) return [];
+    var s = this.s, wy = this.weekOfYear(), year = Math.floor((Math.max(1, s.week) - 1) / CF.YEAR_WEEKS) + 1;
+    if ((s.flags.assize && (s.flags.assize.year || 1) >= year) || s.over || wy < CF.ASSIZE.week || wy > CF.ASSIZE.last) return [];
     if (s.choice || !this.offerLate) return []; // a question waits: the Assize sits at the next Bell
     var rec = this.assizeRecord();
-    s.flags.assize = { week: s.week, record: rec };
+    s.flags.assize = { week: s.week, record: rec, year: year };
     this.story('The Assize', ['Twenty-six weeks. The Council\'s clerk reads your half-year aloud in the chamber.'].concat(this.assizeLines(rec)), 'major');
     this.offerLate('assize');
     return ['The Assize sits. The Council has read your half-year.'];
@@ -2412,7 +2415,7 @@
   // at week 52: told four weeks before (s.flags.longService = the week told),
   // and ended no sooner than four weeks after the telling, so a file that
   // reaches the cap late, or an older save, still has its warning.
-  CF.LONG_SERVICE = { week: 52, warn: 4 };
+  CF.LONG_SERVICE = CF.LONG_SERVICE || { week: 52, warn: 4, warnText: 'The Council is drawing up your pension. Four more weeks.' };
   P.atRankCap = function () { return (this.s.rank || 0) >= (this.rankCap ? this.rankCap() : CF.TOP_RANK); };
   // The week the pension falls due (for the journal's Roads), or null while
   // the run is not at its cap.
@@ -2429,7 +2432,8 @@
     if (typeof s.flags.longService !== 'number') {
       if (s.week < L.week - L.warn) return null;
       s.flags.longService = s.week;
-      return 'The Council is drawing up your pension. Four more weeks.';
+      if (L.warnTitle) this.story(L.warnTitle, L.warnText, 'major');
+      return L.warnText;
     }
     if (s.week >= this.longServiceDue()) this.gameOver('longservice');
     return null;
@@ -2478,14 +2482,17 @@
     var end = CF.ENDINGS[id];
     if (!end || !end.lesson) return null;
     var lead = '';
-    if (id === 'burnout' && cause && cause.restIdle) lead = 'Rest stood idle the whole time the Fever ran. ';
+    if (id === 'burnout' && cause && cause.restIdle) lead = CF.ENDING_REST_IDLE + ' ';
     return lead + end.lesson;
   };
 
   // The Abbey takes you in: the first strain ending (the Fever, Collapse,
   // Lost in the Case) of a junior's first weeks is a week in the Abbey
   // hospital instead. Once a file (flags.abbey); the second time it is the end.
-  CF.ABBEY = { rank: 0, weeks: 4 };
+  CF.ABBEY = { rank: 0, weeks: 4,
+    title: 'The Abbey Takes You In',
+    paid: 'The Grey Sisters find you on the Watch-house stair and carry you to the Abbey hospital. A week of broth, bells and clean linen, and the Council hears where you were. You leave a Coin in the alms box. They will not take you in twice.',
+    owed: 'The Grey Sisters find you on the Watch-house stair and carry you to the Abbey hospital. A week of broth, bells and clean linen, and the Council hears where you were. The Sisters write your name in their book of debts. They will not take you in twice.' };
   CF.STRAIN_ENDINGS = { burnout: ['burnout', 'fatigue'], collapse: ['burnout', 'fatigue'], consumed: ['tunnel', 'obsession'] };
   P.abbeyOpen = function (id) {
     var s = this.s;
@@ -2502,9 +2509,8 @@
     CF.STRAIN_ENDINGS[id].forEach(function (d) { self.cardsOf(d).forEach(function (c) { self.remove(c); }); });
     this.meter('reputation', -1);
     var coin = this.cardsOf('funds')[0];
-    if (coin) this.remove(coin); else this.count('debt');
-    this.story('The Abbey Takes You In', 'The Grey Sisters find you on the Watch-house stair and carry you to the Abbey hospital. A week of broth, bells and clean linen, and the Council hears where you were. ' +
-      (coin ? 'You leave a Coin in the alms box.' : 'The Sisters write your name in their book of debts.') + ' They will not take you in twice.', 'major', { cue: 'quiet' });
+    if (coin) this.remove(coin, 'spent'); else this.count('debt');
+    this.story(CF.ABBEY.title, coin ? CF.ABBEY.paid : CF.ABBEY.owed, 'major', { cue: 'quiet' });
     this.emit('abbey', { ending: id });
     // The week you lay there: the Bell rings, unless it has not yet been given to you.
     if (!s.flags.bellSilent) { s.weekT = 0; this.weekTick(); }
@@ -2629,55 +2635,12 @@
   };
 
   // What became of them (round 8): the run's own late story, told back under
-  // the ending. Up to four lines, each { id, text } (id keys an icon: pattern,
-  // coquille, rival, abroad, watch), drawn from state alone, never from the
-  // dice: the same run gives the same lines. gameOver keeps them in s.over.
+  // the ending. Up to four lines, each { id, kind, icon, key, vars, text } (id
+  // keys an icon: pattern, coquille, rival, abroad, watch), drawn from state
+  // alone, never from the dice: the same run gives the same lines. The telling
+  // is the story's (CF.Story.epilogue); gameOver keeps it in s.over.
   P.epilogue = function () {
-    var s = this.s, st = s.stats || {}, out = [];
-    var cases = Object.keys(s.cases || {}).map(function (k) { return s.cases[k]; });
-    // The Pattern: answered at its last door, or never.
-    var pat = cases.filter(function (r) { return r.template === 'pattern'; })[0];
-    if (pat) {
-      var nth = ['', 'first', 'second', 'third', 'fourth', 'fifth'][Math.min(5, Math.max(1, pat.victims || 1))];
-      out.push({ id: 'pattern', text: pat.status === 'closed'
-        ? U.fill('The girls of {scene}: answered at the {nth} door.', { scene: pat.scene, nth: nth })
-        : U.fill('The girls of {scene}: never answered. He still walks the lanes.', { scene: pat.scene }) });
-    }
-    // The Coquille's King: on his barrel, on the Ravenstone, or kneeling to you.
-    var court = s.court || {}, ev = this.endingVars();
-    var kingCase = cases.filter(function (r) { return r.template === 'syndicate' && r.status === 'closed'; })[0];
-    if (s.over && s.over.id === 'kingofthunes') out.push({ id: 'coquille', text: 'The old King went into the river. The Court kneels to you.' });
-    else if (kingCase || s.flags.syndicateFallen) out.push({ id: 'coquille', text: U.fill('{king} hangs on the Ravenstone.', { king: ev.king }) });
-    else if (court.stance === 'treaty') out.push({ id: 'coquille', text: U.fill('{king} keeps the Treaty, and his barrel.', { king: ev.king }) });
-    else if (this.countOf('syndicate')) out.push({ id: 'coquille', text: U.fill('{king} still sits on his barrel.', { king: ev.king }) });
-    // The Harbourmaster's examiners, sent home.
-    var sent = st.rivalExposed || 0;
-    if (sent === 1) out.push({ id: 'rival', text: 'One examiner sent home to the Customs House.' });
-    else if (sent > 1) out.push({ id: 'rival', text: U.fill('{N} examiners sent home to the Customs House.', { N: CF.numberWord(sent, true) }) });
-    // The worst of those abroad: the one who walked from you most.
-    var WALKED = { cold: 1, acquitted: 1, wrongful: 1, rival: 1, slipped: 1, burned: 1 };
-    var worst = null, walks = 0;
-    this.criminalsAtLarge().forEach(function (c) {
-      var n = (c.history || []).filter(function (h) { return WALKED[h.how]; }).length;
-      if (n > walks || (n === walks && worst && c.crimes > worst.crimes)) { worst = c; walks = n; }
-    });
-    if (worst && walks >= 1) {
-      var last = (worst.history || []).filter(function (h) { return h.title; }).slice(-1)[0];
-      var rec = last && cases.filter(function (r) { return r.title === last.title; })[0];
-      var where = rec && CF.DISTRICTS[rec.district] ? CF.DISTRICTS[rec.district].label : null;
-      var vars = { name: worst.name, k: CF.numberWord(walks), where: where };
-      var seen = where ? [
-        '{name}, who walked from you once, was last seen in {where}.', '{name}, who walked from you twice, was last seen in {where}.', '{name}, who walked from you {k} times, was last seen in {where}.',
-      ] : [
-        '{name}, who walked from you once, is still inside the walls.', '{name}, who walked from you twice, is still inside the walls.', '{name}, who walked from you {k} times, is still inside the walls.',
-      ];
-      out.push({ id: 'abroad', text: U.fill(seen[Math.min(3, walks) - 1], vars) });
-    }
-    // The watchman you drilled hardest.
-    var best = null;
-    this.cardsOf('teammate', true).forEach(function (c) { var lv = (c.data && c.data.level) || 1; if (lv >= 2 && (!best || lv > best.data.level)) best = c; });
-    if (best && best.data.name) out.push({ id: 'watch', text: U.fill('{name} is sergeant now.', { name: best.data.name }) });
-    return out.slice(0, 4);
+    return CF.Story && CF.Story.epilogue ? CF.Story.epilogue(this) : [];
   };
 
   // What a successor inherits: your cold cases and your enemies.
@@ -2705,7 +2668,8 @@
     this.meter('retaliation', Math.min(4, (L.atlarge || []).length + (L.gangs || []).length * 2));
     this.s.flags.legacy = { predecessor: L.predecessor, ending: L.ending || null, syndicate: !!L.syndicate };
     // With the opening the desk is not yours yet: the drawer is told at the hire (legacyStory).
-    if (o && o.defer) return;
+    // `o` is { defer } (or, from older callers, a bare true for the same).
+    if (o === true || (o && o.defer)) return;
     this.s.flags.legacy.told = true;
     this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a cask of very good Rhenish, with the King\'s compliments.', 'major');
   };
@@ -3536,7 +3500,7 @@
     }
     s.flags.openingLost = why || 'cold';
     this.story('The Desk All the Same', CF.OPENING_LOST, 'major');
-    this.openingKeep();
+    this.openingKeep(why === 'acquitted' ? 'acquitted' : 'cold'); // one Coin, and the keep's own words for a case not won
     if (!this.openCases().length) s.dispatchT = Math.min(s.dispatchT, 20);
     // What you want from the desk is still to be asked.
     if (s.flags.callingOpen && s.flags.callingDue && !s.choice && this.offerChoice && CF.CHOICES) {
@@ -3632,9 +3596,9 @@
     this.releaseDelegate(rec);
     var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0] || null;
     var others = rec.suspects.filter(function (x) { return !x.guilty; });
-    var right = !!culprit && !rec.special && (!others.length || this.rng() < 0.6);
+    var right = !!culprit && !rec.special && (!others.length || this.rng() < (CF.RIVAL_RIGHT || 0.6));
     var hanged = right ? culprit : (others.length ? U.pick(this.rng, others) : null);
-    s.stats.rivalClosed = (s.stats.rivalClosed || 0) + 1;
+    s.stats.byRival = (s.stats.byRival || 0) + 1;
     this.emit('resolved', this.caseRecord(rec, 'rival', hanged ? hanged.name : null));
     this.clearCaseCards(rec.id);
     this.meter('reputation', -1);
@@ -3653,12 +3617,12 @@
     } else if (culprit) {
       var w = this.criminalEscapes(rec, culprit, 'rival');
       if (this.atLargeCardFor(w)) this.refreshAtLarge(w);
-      else this.hideCriminal(w, rec, 'rival', hanged && hanged.alibi, hanged);
+      else { this.hideCriminal(w, rec, 'rival', hanged && hanged.alibi, hanged); w.wrongfulBy = rivalName; }
       if (hanged) text += ' ' + hanged.name + ' hangs for it. You read the file once, and you are not sure.';
     }
     this.story('Answered by the Rival', text, 'danger');
     if (rec.opening && !s.over) this.openingLost(rec, 'rival');
-    return { right: right, hanged: hanged ? hanged.name : null };
+    return { right: right, hanged: hanged ? hanged.name : null, name: hanged ? hanged.name : null };
   };
 
   // The Harbourmaster's Examiner caught (round 8). A thread is found by Wit
@@ -3718,6 +3682,7 @@
     r.data.heatWeek = -1; // no thread: as a new card, and as Engine.load reads it
     r.data.eyes = null;
     this.dirty = true;
+    if (CF.RIVAL_FADE) this.story(CF.RIVAL_FADE.title, U.fill(CF.RIVAL_FADE.text, { name: r.data.name || 'The Rival' }));
     return [U.fill('The thread on {name} has gone slack. Find another.', { name: r.data.name || 'the Rival' })];
   };
 
@@ -4043,8 +4008,10 @@
     f.harbourCase = caseId;
     f.rivalGone = CF.RIVAL_HELD;
   };
+  // Returns true when this conviction is his fall (once).
   P.harbourFalls = function (rec, d) {
-    var s = this.s, self = this;
+    var s = this.s, self = this, H = CF.HARBOURMASTER || {};
+    if (s.flags.harbourFallen || !d) return false;
     var sus = rec.suspects.filter(function (x) { return x.name === d.name; })[0];
     if (sus && sus.role === 'the Harbourmaster') {
       s.flags.harbourFallen = true;
@@ -4055,11 +4022,12 @@
       var councilsMan = rec.commission && rec.commission.ofCouncil === sus.key && rec.commission.delivered === 'truth';
       this.meter('reputation', councilsMan ? 4 : 3);
       if (this.favourGain) this.favourGain('council', councilsMan ? -1 : -2);
-      this.story('The Harbourmaster Falls', 'The Customs House is sealed. Nobody will send another examiner against you, because nobody is left who wants to.', 'major');
-      return;
+      this.story(H.falls ? H.falls.title : 'The Harbourmaster Falls', H.falls ? H.falls.text : 'The Customs House is sealed.', 'major');
+      return true;
     }
     // His clerk goes down for it: the Harbourmaster keeps his chain, and in time another examiner.
     s.flags.rivalGone = s.week + CF.RIVAL_GONE_WEEKS;
+    return false;
   };
   P.harbourLost = function (rec) {
     var s = this.s;
@@ -4071,7 +4039,9 @@
     s.flags.rivalSeen = true;
     s.flags.rivalName = name;
     this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
-    this.story('He Has Friends', 'The Harbourmaster\'s books are back on their shelf, and another examiner has his desk.', 'danger');
+    s.flags.harbourFriends = rec ? rec.id : null; // told once for that case
+    var F = CF.HARBOURMASTER.friends; // the words are life.js's
+    this.story(F.title, U.fill(F.text, { name: name }), 'danger');
   };
 
   // A band is broken: its sworn scatter, smaller men. Records lose the band

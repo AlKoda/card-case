@@ -283,15 +283,9 @@
     // Answered the week before (The Council Elects), the count follows the answer.
     // Told whichever way it goes, once the city knows you.
     var el = s.flags.election;
-    if (el && s.week >= el.week) {
-      s.flags.election = null;
-      lines = lines.concat(this.electionCount(el.stance, el.holds));
-    } else if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0 && this.rng() < (s.flags.canvassed === s.week ? Pat.CANVASSED_LOSS : 0.4)) {
-      this.meter('scrutiny', f.council);
-      lines.push('The Council election goes against your patron. Every favour he did you is read aloud by the men who beat him, and the clerks write each one down.');
-      f.council = 0;
-    } else if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0) {
-      lines.push('The Council elects. Your patron keeps his seat by four votes, and sends round a haunch of venison to say he noticed who was at his door.');
+    if ((el && s.week >= el.week) || (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0)) {
+      var told = this.councilCount();
+      lines = lines.concat(told.length ? told : ['The Council elects. Your patron keeps his seat by four votes, and sends round a haunch of venison to say he noticed who was at his door.']);
     } else if (s.week % Pat.ELECTION_EVERY === 0 && s.flags.firstCase) {
       lines.push('The Council elects. New faces on the bench, old money behind them. Nobody asks after the Examiner either way.');
     }
@@ -309,7 +303,7 @@
     if (s.flags.canvassed && s.flags.canvassed < s.week) s.flags.canvassed = null;
     // A wrong name surfaced: his mother comes to the Watch-house door, once a run.
     var wm = this.wrongMother();
-    if (wm) this.offerLate('wrongmother', { criminalId: wm.id }, { case: wm.wrongfulTitle || 'an old case' }, wm.wrongSex === 'f' ? Pat.WRONG_DAUGHTER : null);
+    if (wm) this.offerLate('wrongmother', { criminalId: wm.id });
     // A case that smells of heresy is asked after at a week, and taken at two:
     // by the Inquisitor when he is here, else only while the Bishop is cold.
     var self = this;
@@ -336,10 +330,25 @@
 
   // ---- The Council elects ------------------------------------------------------
   // The week before an election, with a patron on the Council (favour 2 or
-  // more: at 1 there is too little at stake to ask), the city asks how you stand. The count is the next week, at the Bell,
-  // and told: your patron holds his seat six times in ten.
-  //   s.flags.election = { stance: 'stand'|'distance'|'dine', week, holds }   answered, told at `week`
-  Pat.HOLDS = 0.6;
+  // more: at 1 there is too little at stake to ask, and he only asks to be
+  // seen at his door, the canvass), the city asks how you stand. The count is
+  // the next week, at the Bell (councilCount), and told: your patron loses his
+  // seat four times in ten (two, if you were seen canvassing for him).
+  // Unanswered (an old save, a question already open) it goes as it always
+  // did: lost, and every favour read aloud as Suspicion; held, and nothing said.
+  //   s.flags.election = { stance: 'stand'|'distance'|'dine', week }   answered, counted at `week`
+  Pat.LOSES = 0.4;
+  CF.ELECTION = {
+    title: 'The Count in the Chamber',
+    holds: 'The Count in the Chamber: your patron holds.',
+    loses: 'The Count in the Chamber: your patron loses.',
+    told: {
+      stand: { holds: 'He holds the seat, and remembers who stood with him. Council favour +2.', loses: 'He loses the seat. Every favour he did you is read aloud by the men who beat him. Suspicion +{n}.' },
+      distance: { holds: 'He holds the seat, and noticed how far away you stood.', loses: 'He loses the seat. You stood far enough away that nobody reads your name.' },
+      dine: { holds: 'He holds the seat, and has heard where you dined. Council favour is 1.', loses: 'He loses the seat. The new man remembers your dinner. Council favour is 1.' },
+    },
+    old: 'The Council election goes against your patron. Every favour he did you is read aloud by the men who beat him, and the clerks write each one down.',
+  };
   Pat.ELECTION = { id: 'election', when: function () { return false; },
     title: 'The Council Elects', text: 'Your patron\'s seat is contested. The other side has been counting the favours he did you.',
     options: [
@@ -349,7 +358,7 @@
       { label: 'Keep your distance', gain: 'Favour halves; no Suspicion either way',
         text: 'You are busy at the Watch-house all week, and say so to anyone who asks.',
         effect: function (e) { var f = e.favour(); f.council = Math.floor((f.council || 0) / 2); e.electionStance('distance'); } },
-      { label: 'Dine with the other side', cost: 'focus', gain: 'Council favour +1 under the new man; Bishop -1',
+      { label: 'Dine with the other side', cost: 'focus', gain: 'Council favour 1, whoever wins; Bishop -1',
         text: 'The other side keeps a good table, and the Bishop\'s chaplain hears whose.',
         effect: function (e) { e.favourGain('bishop', -1); e.electionStance('dine'); } },
     ] };
@@ -357,70 +366,17 @@
     if (!CF.CHOICES) return false;
     if (!CF.CHOICES.some(function (c) { return c.id === Pat.ELECTION.id; })) CF.CHOICES.push(Pat.ELECTION);
     Pat.LATE.forEach(function (spec) { if (!CF.CHOICES.some(function (c) { return c.id === spec.id; })) CF.CHOICES.push(spec); });
-    // The questions a verb invites are put again ten weeks on, in other words (life.js keeps them).
-    CF.CHOICES.forEach(function (c) { if (Pat.AGAIN[c.id] && !c.again) c.again = Pat.AGAIN[c.id]; });
     return true;
   };
 
   // ---- The late questions --------------------------------------------------------
-  // The powers you live with put questions of their own: the Harbourmaster's
-  // examiner at supper, the mother of a wrong name, the King's wine under the
-  // Treaty, the Inquisitor's list, a canvass before the count, the hangman's
-  // daughter. Each has a free answer and a return you can see. The clock asks
-  // the ones whose `when` holds; the Bell asks the canvass and the mother.
-  function rivalOf(e) { return e.cardsOf('rival', true)[0] || null; }
-  function unsolved(e) { return e.openCases().filter(function (r) { return !r.identified && !r.special; })[0] || null; }
+  // The powers you live with put questions of their own (life.js keeps most:
+  // the Harbourmaster's table, the mother of a wrong name, the King's wine, the
+  // Inquisitor's list, the hangman's daughter...). The Bell asks three: the
+  // canvass before the count and the Assize (both here) and the mother.
   Pat.CANVASSED_LOSS = 0.2;
-  Pat.AGAIN = {
-    lamplighter: 'The tiler is up a different ladder on a different lane, and has seen a different face. He remembers your coin.',
-    pawnbroker: 'The pawnbroker\'s book again, and a fatter week in it.',
-    confessor: 'The same priest, a different penitent, and the same look at a door.',
-    tapster: 'The Swan\'s window was mended once this year already. Tonight it goes again.',
-  };
+
   Pat.LATE = [
-    { id: 'harbourtable', when: function (e) { var r = rivalOf(e); return !!r && !(r.data && r.data.stalled >= e.s.week); },
-      title: 'The Harbourmaster\'s Table', text: 'The Harbourmaster asks both his examiner and you to supper, to see which of you eats with the better manners.',
-      options: [
-        { label: 'Go, and listen', cost: 'focus', gain: 'A thread on the Rival', text: 'You eat little and listen much. Between the fish and the fowl the examiner names a moneylender, and wishes they had not.',
-          effect: function (e) { var r = rivalOf(e); if (r && e.rivalThread) e.rivalThread(r, 'question'); } },
-        { label: 'Go, and pour', cost: 'funds', gain: 'The Rival loses a week', text: 'You keep the examiner\'s cup full. They are carried home at midnight and do no work for a week.',
-          effect: function (e) { var r = rivalOf(e); if (r) { r.data = r.data || {}; r.data.stalled = Math.max(r.data.stalled || 0, e.s.week + 1); } } },
-        { label: 'Send regrets', gain: 'Standing rises', text: 'The Harbourmaster dines with his examiner alone. The Council hears that you were working.',
-          effect: function (e) { e.meter('reputation', 1); } },
-      ] },
-    // Asked by the Bell (offerLate), the text filled with the wrong name's case.
-    { id: 'wrongmother', when: function () { return false; },
-      title: 'The Mother of the Wrong Name', text: 'A woman in black waits at the Watch-house door. Her son answered for {case}. The ballad says he did not do it. She wants to hear you say so.',
-      options: [
-        { label: 'Say it, on the steps', gain: 'Mercy; the Crowd eases; Standing falls', text: 'You say it where the Market can hear. She weeps. The Council reads it in the broadsheets the next morning.',
-          effect: function (e) { e.count('mercy'); e.meter('pressure', -1); e.meter('reputation', -1); } },
-        { label: 'Give her what Coin you have', cost: 'funds', gain: 'Mercy; Dread eases', text: 'She takes it without a word and goes. The Warrens hear what you gave, and not what you said.',
-          effect: function (e) { e.count('mercy'); e.meter('dread', -1); } },
-        { label: 'Shut the door', gain: 'The Council\'s favour; Dread rises', text: 'The sergeant shuts the door. She is still on the step at the Bell.',
-          effect: function (e) { e.favourGain('council', 1); e.meter('dread', 1); } },
-      ] },
-    { id: 'kingswine', when: function (e) { return !!(e.s.court && e.s.court.stance === 'treaty') && !!unsolved(e); },
-      title: 'The King\'s Wine', text: 'A cask with the King\'s compliments, and folded under the bung, a name: a fence the Court is tired of.',
-      options: [
-        { label: 'Take the name', gain: 'A token that names a name; Purse', text: 'The fence talks by morning, about everything he ever bought. The Court sends its thanks, and the Market notes whose thanks.',
-          effect: function (e) {
-            var rec = unsolved(e);
-            e.count('purse');
-            if (rec) e.create('clue', e.clueSpec(rec, { label: 'The King\'s Name', text: 'Folded under the bung of the King\'s cask: a fence, and what he bought, and from whom.', aspects: { testimony: 1, financial: 1 } }, [], { points: rec.culprit }));
-          } },
-        { label: 'Send the cask back', gain: 'Suspicion eases; Vendetta', text: 'The cask goes back down the Warrens unopened. The Council hears of it, and so does the King.',
-          effect: function (e) { e.meter('scrutiny', -1); e.meter('retaliation', 1); } },
-      ] },
-    { id: 'inquisitorlist', when: function (e) { return !!e.s.flags.inquisitor; },
-      title: 'The Inquisitor\'s Question', text: 'The Inquisitor asks, very courteously, for the Examiner\'s list of the city\'s heretics. He is sure you keep one.',
-      options: [
-        { label: 'Give him a name from the Rolls', cost: 'coldcase', gain: 'The Bishop\'s favour +2; Cruelty', text: 'An unanswered case, and a name in it. On Friday somebody burns for it, and the Bishop preaches on the Examiner\'s zeal.',
-          effect: function (e) { e.favourGain('bishop', 2); e.count('cruelty'); } },
-        { label: 'Give him nothing', cost: 'health', gain: 'Mercy; the Bishop frowns', text: 'He asks again, and again, for an afternoon. You give him nothing, and it tires you more than a day on the Ward.',
-          effect: function (e) { e.count('mercy'); e.favourGain('bishop', -1); } },
-        { label: 'Plead the Council\'s business', gain: 'Suspicion rises', text: 'You plead the Council\'s business and leave him in the passage. He writes your name in a small book.',
-          effect: function (e) { e.meter('scrutiny', 1); } },
-      ] },
     // Asked by the Bell the week before the count, when your patron is only a patron (Council favour 1).
     { id: 'canvass', when: function () { return false; },
       title: 'Canvassing on the Hill', text: 'Your patron\'s seat is contested. His man asks whether the Examiner might be seen at his door this week.',
@@ -430,19 +386,13 @@
         { label: 'Stay out of it', gain: 'Standing rises', text: 'You stay at the Watch-house, where the city can see you working.',
           effect: function (e) { e.meter('reputation', 1); } },
       ] },
-    { id: 'hangmansdaughter', when: function (e) { return (e.s.counts.cruelty || 0) >= 3 || e.s.who === 'hangman'; },
-      title: 'The Executioner\'s Daughter', text: 'The executioner\'s daughter is to marry a glover\'s son, and the glovers will not have hangman\'s blood in the guild. Her father asks you to stand witness at the church door.',
-      options: [
-        { label: 'Stand witness', cost: 'health', gain: 'Mercy; Dread eases; the Guilds frown', text: 'You stand at the church door in your gown while the glovers stare. The marriage holds.',
-          effect: function (e) { e.count('mercy'); e.meter('dread', -1); e.favourGain('guild', -1); } },
-        { label: 'Decline', gain: 'The Council\'s favour; Dread rises', text: 'You send a clerk with your regrets. The glovers are grateful, and the Council likes an examiner who knows his company.',
-          effect: function (e) { e.favourGain('council', 1); e.meter('dread', 1); } },
-      ] },
-    // Asked by the Bell at the Assize (engine.js assizeWeek), once a run, after the
+    // Asked by the Bell at the Assize (engine.js assizeWeek), once a year, after the
     // clerk has read the half-year: a pension (s.flags.pension: a Coin more at
     // every Bell), a watchman, or Standing.
-    { id: 'assize', when: function () { return false; },
+    { id: 'assize', when: function () { return false; }, yearly: true,
+      // The question reads the year back from the record (story.js Story.assize), then asks.
       title: 'The Assize', text: 'The clerk rolls up your record. The Council asks what the Examiner wants of it.',
+      textFor: function (e) { return CF.Story && CF.Story.assize ? CF.Story.assize(e) : null; },
       options: [
         { label: 'Ask for a pension', gain: 'A Coin more at every Bell', text: 'The clerk writes it in the book: a Coin a week more, for as long as you serve.',
           effect: function (e) { e.s.flags.pension = true; } },
@@ -452,18 +402,18 @@
           effect: function (e) { e.meter('reputation', 2); } },
       ] },
   ];
-  // The mother's words when the wrong name was her daughter.
-  Pat.WRONG_DAUGHTER = 'A woman in black waits at the Watch-house door. Her daughter answered for {case}. The ballad says she did not do it. She wants to hear you say so.';
   // Put a late question now, if it can be: none waiting, the game running, asked
   // once a run (by the city's record of its questions). `vars` fill its text
   // (or `text`, other words for it).
   P.offerLate = function (id, ctx, vars, text) {
     var s = this.s;
     if (s.choice || s.over || !this.offerChoice || !Pat.register()) return false;
-    if ((s.choicesSeen || {})[id] !== undefined) return false;
-    var spec = Pat.LATE.filter(function (c) { return c.id === id; })[0];
+    var byId = function (c) { return c.id === id; };
+    var spec = Pat.LATE.filter(byId)[0] || (CF.CHOICES || []).filter(byId)[0];
     if (!spec) return false;
-    if (vars || text) { var sp = U.clone(spec); sp.options = spec.options; sp.text = U.fill(text || spec.text, vars || {}); spec = sp; }
+    // Once a run, but for a question the Bell puts each time it comes round (the Assize, once a year).
+    if ((s.choicesSeen || {})[id] !== undefined && !spec.yearly) return false;
+    if (vars || text) { var sp = {}; for (var k in spec) sp[k] = spec[k]; sp.text = U.fill(text || spec.text, vars || {}); delete sp.fill; delete sp.textFor; spec = sp; }
     this.offerChoice(spec, ctx || null);
     return true;
   };
@@ -474,41 +424,42 @@
     for (var k in cs) if (!cs[k].hidden && cs[k].wrongfulTitle) return cs[k];
     return null;
   };
-  // Put the question, if it can be put now. Returns true when asked.
+  // Put the question, if it can be put now: a patron on the Council, no other
+  // question open. Returns true when asked.
   P.offerElection = function () {
     var s = this.s;
-    if (s.choice || s.over || !this.offerChoice || !Pat.register()) return false;
+    if (s.choice || s.over || !this.offerChoice || !Pat.register() || (this.favour().council || 0) <= 0) return false;
     this.offerChoice(Pat.ELECTION, null);
     return true;
   };
-  // The answer, and the count it waits on: the votes are already promised
-  // when the seat is contested, and read out at the next Bell.
+  // The answer: the count waits for the next Bell.
   P.electionStance = function (stance) {
     var s = this.s;
-    s.flags.election = { stance: stance, week: s.week + 1, holds: this.rng() < Pat.HOLDS };
+    s.flags.election = { stance: stance, week: s.week + 1 };
     this.dirty = true;
   };
-  // The count in the chamber, as the answer left it: the Bell's lines.
-  P.electionCount = function (stance, held) {
-    var s = this.s, f = this.favour(), lines = [];
-    var holds = typeof held === 'boolean' ? held : this.rng() < Pat.HOLDS;
-    lines.push(holds ? 'The Count in the Chamber: your patron holds.' : 'The Count in the Chamber: your patron loses.');
-    if (stance === 'stand') {
-      if (holds) { this.favourGain('council', 2); lines.push('He remembers who stood with him. Council favour +2.'); }
-      else {
-        var owed = Math.max(0, f.council || 0);
-        f.council = 0;
-        if (owed) { this.meter('scrutiny', owed); lines.push(U.fill('Every favour he did you is read aloud by the men who beat him. Suspicion +{n}.', { n: owed })); }
-        else lines.push('The new men have nothing against you, and nothing for you.');
-      }
-    } else if (stance === 'distance') {
-      if (!holds) f.council = 0;
-      lines.push(holds ? 'He keeps his seat, and notes that you kept your distance.' : 'The new men have nothing against you, and nothing for you.');
-    } else {
-      if (holds) { f.council = Math.floor((f.council || 0) / 2); lines.push('He keeps his seat, and has heard where you dined. Council favour halves.'); }
-      else { f.council = 1; lines.push('The new man remembers your face from his table. Council favour +1.'); }
+  // The count in the chamber, at the Bell: the Bell's lines. Answered, the
+  // count is told (a line, and the story of what it gave); unanswered, the old
+  // roll, told only when it goes against your patron.
+  P.councilCount = function () {
+    var s = this.s, f = this.favour(), E = CF.ELECTION, el = s.flags.election, lines = [];
+    s.flags.election = null;
+    var stance = el && el.stance;
+    var loses = this.rng() < (s.flags.canvassed === s.week ? Pat.CANVASSED_LOSS : Pat.LOSES);
+    if (!E.told[stance]) {
+      if (!(f.council > 0) || !loses) return lines;
+      this.meter('scrutiny', f.council);
+      f.council = 0;
+      lines.push(E.old);
+      return lines;
     }
-    this.sealCheck();
+    var n = Math.max(0, f.council || 0);
+    if (stance === 'stand' && loses) { if (n) this.meter('scrutiny', n); f.council = 0; }
+    else if (stance === 'stand') this.favourGain('council', 2);
+    else if (stance === 'dine') f.council = 1;
+    this.story(E.title, U.fill(E.told[stance][loses ? 'loses' : 'holds'], { n: n }), stance === 'stand' && loses ? 'danger' : 'event');
+    lines.push(loses ? E.loses : E.holds);
+    if (this.sealCheck) this.sealCheck();
     this.dirty = true;
     return lines;
   };

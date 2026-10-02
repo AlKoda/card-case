@@ -155,7 +155,7 @@ function run(e, verb, cards) {
   assert.strictEqual(lines[0].text, 'The girls of ' + r.pat.scene + ': never answered. He still walks the lanes.');
   assert.ok(/still sits on his barrel\.$/.test(lines[1].text), lines[1].text);
   assert.strictEqual(lines[2].text, 'Two examiners sent home to the Customs House.');
-  assert.strictEqual(lines[3].text, r.cul.name + ', who walked from you twice, was last seen in ' + CF.DISTRICTS[r.b.district].label + '.');
+  assert.strictEqual(lines[3].text, r.cul.name + ', who walked from you twice, was last seen near ' + r.b.scene + '.');
   // Answered at the third door; the King hanged; the watchman sergeant once there is room.
   r.pat.status = 'closed';
   r.e.s.flags.syndicateFallen = true;
@@ -163,7 +163,7 @@ function run(e, verb, cards) {
   lines = r.e.epilogue();
   assert.strictEqual(lines[0].text, 'The girls of ' + r.pat.scene + ': answered at the third door.');
   assert.ok(/hangs on the Ravenstone\.$/.test(lines[1].text));
-  assert.ok(lines.some(function (l) { return l.id === 'watch' && l.text === r.t.data.name + ' is sergeant now.'; }), 'the watchman drilled hardest');
+  assert.ok(lines.some(function (l) { return l.id === 'watch' && l.text === r.t.data.name + ' is sergeant of the Watch now.'; }), 'the watchman drilled hardest');
   // Deterministic: the same seed and the same play give the same lines; reading them draws no dice.
   var a = lateRun(141), b = lateRun(141), rng = a.e.rng.getState();
   assert.deepStrictEqual(a.e.epilogue(), b.e.epilogue(), 'the same run, the same epilogue');
@@ -175,5 +175,49 @@ function run(e, verb, cards) {
   assert.deepStrictEqual(CF.Engine.load(old).s.over.epilogue, a.e.s.over.epilogue, 'an older finished file is told it on load');
   // A quiet run: nothing to tell, nothing made up.
   assert.deepStrictEqual(game(142).epilogue(), [], 'nothing to tell');
+  console.log('epilogue (engine): ok');
+})();
+
+// What Became of Them: the ending's epilogue is read from state alone, so one seed played one
+// way tells one epilogue, at most four lines, each with an icon and a filled template.
+(function epilogue() {
+  var bot = require('./bot.test.js');
+  function played(seed) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'crusader' });
+    bot.play(e, 60 * 26, 'brutal');
+    if (!e.s.over) e.gameOver('burnout');
+    return e;
+  }
+  [311, 312].forEach(function (seed) {
+    var a = CF.Story.epilogue(played(seed)), b = CF.Story.epilogue(played(seed));
+    assert.deepStrictEqual(a, b, 'the same seed, the same epilogue');
+    assert.ok(a.length <= 4);
+    a.forEach(function (l) { assert.ok(CF.CARDS[l.icon] && l.text && !/\{\w+\}/.test(l.text), 'a line: ' + JSON.stringify(l)); });
+  });
+  // Each line from the state that tells it.
+  var e = game(313), s = e.s;
+  assert.deepStrictEqual(CF.Story.epilogue(e), [], 'a fresh desk has nothing to tell');
+  var rec = e.caseRec(byDef(e, 'case')[0].caseId);
+  rec.template = 'pattern'; rec.victims = 3; rec.status = 'closed'; rec.scene = 'the Tanners\' Lane';
+  e.court().king = { name: 'Klaus Rott', criminalId: null };
+  s.journal.unshift({ title: 'The Rival Exposed', text: '' }, { title: 'The Rival Exposed', text: '' });
+  s.criminals.k1 = { id: 'k1', name: 'Jan Pauw', crimes: 3, status: 'at_large', traits: [], district: 'warrens',
+    history: [{ week: 2, title: 'Burglary at the Red Ox', how: 'cold' }, { week: 4, title: rec.title, how: 'acquitted' }, { week: 6, how: 'jailed' }, { week: 7, title: rec.title, how: 'acquitted' }] };
+  var t = e.create('teammate', e.teammateSpec('rookie'));
+  var lines = CF.Story.epilogue(e).map(function (l) { return l.text; });
+  assert.deepStrictEqual(lines, [
+    'The girls of the Tanners\' Lane: answered at the third door.',
+    'Klaus Rott still sits on his barrel.',
+    'Two examiners sent home to the Customs House.',
+    'Jan Pauw, who walked from you three times, was last seen near the Tanners\' Lane.',
+  ], 'four lines, in order: ' + lines.join(' | '));
+  // The fifth waits for room; the Pattern's man Abroad was never answered; the King fallen.
+  rec.suspects.filter(function (x) { return x.guilty; })[0].name = 'Jan Pauw';
+  s.flags.syndicateFallen = true;
+  s.journal = [];
+  lines = CF.Story.epilogue(e).map(function (l) { return l.text; });
+  assert.ok(/never answered/.test(lines[0]), lines[0]);
+  assert.strictEqual(lines[1], 'The Court of Miracles is scattered, and Klaus Rott hangs on the Ravenstone.');
+  assert.strictEqual(lines[3], t.data.name + ' is sergeant of the Watch now.', 'the watchman, once there is room');
   console.log('epilogue: ok');
 })();

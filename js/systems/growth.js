@@ -95,15 +95,18 @@
 
   // The ways an ability grows, with how far along each is: for the ability
   // cards' dossier and the advisor. state: open (not yet earned), waiting
-  // (the Insight is out, take it to Rest), learned.
-  CF.growthWays = function (e, ability) {
+  // (the Insight is out, take it to Rest), learned; with `locked`, also an
+  // office's own Insight not yet open (state locked, with its rank), for the
+  // dossier to name dim with its office.
+  CF.growthWays = function (e, ability, locked) {
     var s = e.s, cards = s.cards || {};
     // An office's Insights show once the office is yours, or once earned.
-    return Object.keys(CF.INSIGHTS).filter(function (id) { return CF.INSIGHTS[id].trains === ability && (CF.insightOpen(e, id) || (s.insights && s.insights[id])); }).map(function (id) {
+    return Object.keys(CF.INSIGHTS).filter(function (id) { return CF.INSIGHTS[id].trains === ability && (locked || CF.insightOpen(e, id) || (s.insights && s.insights[id])); }).map(function (id) {
       var sp = CF.INSIGHTS[id];
       var waiting = Object.keys(cards).some(function (u) { var c = cards[u]; return c.def === 'insight' && c.data && c.data.insight === id; });
       var earned = !!(s.insights && s.insights[id]);
-      return { id: id, label: sp.label, how: sp.how, n: Math.min(sp.need, sp.count(e)), need: sp.need, state: waiting ? 'waiting' : earned ? 'learned' : 'open' };
+      var shut = !earned && !waiting && !CF.insightOpen(e, id);
+      return { id: id, label: sp.label, how: sp.how, n: Math.min(sp.need, sp.count(e)), need: sp.need, rank: sp.rank || 0, state: waiting ? 'waiting' : earned ? 'learned' : shut ? 'locked' : 'open' };
     });
   };
 
