@@ -201,6 +201,14 @@
       if (rc.data.heatHow === undefined) rc.data.heatHow = null;
       if (rc.data.eyes === undefined) rc.data.eyes = null;
     });
+    // The upright man's weekly Coin (round 8): an older save took it once, and owes nothing.
+    if (s.flags.uprightPaid === undefined) s.flags.uprightPaid = null;
+    if (s.flags.uprightBroken === undefined) s.flags.uprightBroken = false;
+    // A wrong name's true whereabouts, for the ballad (round 8): an older hidden record is given one by its name.
+    Object.keys(s.criminals).forEach(function (k) {
+      var hc = s.criminals[k];
+      if (hc.hidden && hc.wrongfulAlibi === undefined && CF.Criminals) hc.wrongfulAlibi = CF.Criminals.alibiFor(hc.name + '|' + (hc.wrongfulTitle || ''));
+    });
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
@@ -675,7 +683,11 @@
       v.held = v.held.filter(function (u) { return u !== card.uid; });
       for (var k in v.ctxSlots) if (v.ctxSlots[k] === card.uid) delete v.ctxSlots[k];
     }
-    if (loc.t === 'out' && v) v.out = v.out.filter(function (u) { return u !== card.uid; });
+    if (loc.t === 'out' && v) {
+      v.out = v.out.filter(function (u) { return u !== card.uid; });
+      // The last output gone, however it went (taken, spent, paid at the Bell): the verb is free again.
+      if (!v.out.length && v.status === 'done') { v.status = 'idle'; v.story = null; }
+    }
     card.loc = null;
   };
 
@@ -1184,13 +1196,11 @@
     return true;
   };
   P.takeOutput = function (verbId, uid, pos) {
-    var v = this.verb(verbId);
     var card = this.card(uid);
     if (!card || !card.loc || card.loc.t !== 'out' || card.loc.verb !== verbId) return false;
     delete card.hidden;
     this.detach(card);
     this.placeOnTable(card, pos || this.outputSpot(verbId, card));
-    if (!v.out.length && v.status === 'done') { v.status = 'idle'; v.story = null; }
     this.dirty = true;
     return true;
   };
@@ -1284,7 +1294,9 @@
       var c = s.cards[ids[i]];
       if (!c || c.life === undefined || c.life === null) continue;
       var rate = 1;
-      if (c.loc && (c.loc.t === 'held' || c.loc.t === 'out')) continue; // at work in a verb, or waiting to be collected: the clock waits
+      // At work in a verb, or a find waiting to be collected: the clock waits.
+      // A case's clock is the city's, and runs wherever the case sits.
+      if (c.loc && (c.loc.t === 'held' || (c.loc.t === 'out' && c.def !== 'case'))) continue;
       if (s.rooms.locker && (c.def === 'clue' || c.def === 'evidence')) rate = 0.5;
       c.life -= dt * rate;
       if (c.life <= 0) this.expire(c);
@@ -2493,6 +2505,52 @@
       ', ' + culprit.name + ' hears the crier and laughs.' + (rec.template === 'pattern' && rec.patternRead ? ' You knew the door, and nobody stood in it.' : ''), 'danger');
   };
 
+  // The Harbourmaster's examiner answers a case first (the Rival's 'close').
+  // Not a case gone cold: no Crowd, no Unanswered card, and the culprit does
+  // not walk laughing. The Council notes who was quicker (Standing -1). Six
+  // times in ten they hang the right name and the culprit leaves the game;
+  // otherwise a wrong one, and the real culprit lies low until the ballad of
+  // the Wrong Name blames the Harbourmaster's examiner. A band's, the
+  // Coquille's or the Architect's case is beyond them: always a wrong name.
+  // Returns { right, hanged } or null when the case is not open.
+  P.rivalCloses = function (recOrId, rivalName) {
+    var s = this.s;
+    var rec = recOrId && typeof recOrId === 'object' ? recOrId : this.caseRec(recOrId);
+    if (!rec || rec.status !== 'open') return null;
+    if (!rivalName) { var rv = this.cardsOf('rival', true)[0]; rivalName = rv && rv.data && rv.data.name ? rv.data.name : 'The Harbourmaster\'s examiner'; }
+    var card = this.caseCard(rec.id);
+    if (card) this.remove(card);
+    rec.status = 'rival';
+    this.releaseDelegate(rec);
+    var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0] || null;
+    var others = rec.suspects.filter(function (x) { return !x.guilty; });
+    var right = !!culprit && !rec.special && (!others.length || this.rng() < 0.6);
+    var hanged = right ? culprit : (others.length ? U.pick(this.rng, others) : null);
+    s.stats.rivalClosed = (s.stats.rivalClosed || 0) + 1;
+    this.emit('resolved', this.caseRecord(rec, 'rival', hanged ? hanged.name : null));
+    this.clearCaseCards(rec.id);
+    this.meter('reputation', -1);
+    if (rec.template === 'architect') s.flags.architect = false;
+    var text = rivalName + ' has closed ' + rec.title + ' with a confession the Harbourmaster is pleased with. The Council notes who was quicker.';
+    if (right) {
+      var c = this.criminalByName(culprit.name);
+      if (c) {
+        c.status = 'dead';
+        c.history.push({ week: s.week, title: rec.title, how: 'rival' });
+        var al = this.atLargeCardFor(c);
+        if (al) this.remove(al);
+      }
+      text += ' ' + culprit.name + ' hangs on the Ravenstone for it, and the Rolls have nothing to add.';
+    } else if (culprit) {
+      var w = this.criminalEscapes(rec, culprit, 'rival');
+      if (this.atLargeCardFor(w)) this.refreshAtLarge(w);
+      else this.hideCriminal(w, rec, 'rival', hanged && hanged.alibi);
+      if (hanged) text += ' ' + hanged.name + ' hangs for it. You read the file once, and you are not sure.';
+    }
+    this.story('Answered by the Rival', text, 'danger');
+    return { right: right, hanged: hanged ? hanged.name : null };
+  };
+
   // ---- Charges and trials ---------------------------------------------------
   // Assess a charge. `apparent` is what you believe; `real` excludes misread clues.
   // assessCharge lives in js/systems/charge.js.
@@ -2629,7 +2687,7 @@
         if (!rec.special) {
           var crimW = this.criminalEscapes(rec, culprit, 'wrongful');
           if (this.atLargeCardFor(crimW)) this.refreshAtLarge(crimW);
-          else this.hideCriminal(crimW, rec);
+          else this.hideCriminal(crimW, rec, null, (rec.suspects.filter(function (x) { return x.name === d.name; })[0] || {}).alibi);
         }
       }
       var lesser = tier !== 'strong' && !d.solid && !rec.special && d.confession !== 'free';
@@ -2690,6 +2748,7 @@
     if (rec.template === 'gang') {
       var g = rec.gangUid && this.card(rec.gangUid);
       if (d.guilty || d.solid) {
+        if (s.flags.uprightPaid && s.flags.uprightPaid === rec.vars.gang) s.flags.uprightBroken = true; // the boy's last visit is told at the Bell
         this.scatterBand(rec.vars.gang, g ? g.data.members : null);
         if (g) this.remove(g);
         this.meter('retaliation', -4);

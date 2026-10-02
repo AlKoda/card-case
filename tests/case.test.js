@@ -366,3 +366,38 @@ function jointure(d) {
   });
   console.log('dry Quarter and Rest with its strain: ok');
 })();
+
+// ---- The case clock runs in a verb's outputs; a verb with nothing left in it is free ---
+(function caseClockAndEmptyVerb() {
+  var d = fresh(11), e = d.e;
+  var kase = d.byDef('case')[0];
+  var vid = 'investigate';
+  assert.ok(e.autoSlot(vid, kase.uid));
+  assert.ok(e.start(vid), vid + ' starts on the case');
+  var v = e.verb(vid), guard = 0;
+  while (v.status === 'running' && guard++ < 400) e.tick(1);
+  assert.strictEqual(v.status, 'done');
+  assert.ok(kase.loc.t === 'out' && kase.loc.verb === vid, 'the case waits among the outputs');
+  var finds = v.out.map(function (u) { return e.card(u); }).filter(function (c) { return c.def !== 'case' && c.life != null; });
+  var life0 = kase.life, finds0 = finds.map(function (c) { return c.life; });
+  e.tick(20);
+  assert.ok(kase.life < life0 - 19, 'the case\'s clock runs where it sits: ' + life0 + ' -> ' + kase.life);
+  finds.forEach(function (c, i) { assert.strictEqual(c.life, finds0[i], 'a find waits to be seen'); });
+  // Everything taken from the outputs some other way (spent, paid at the Bell): the verb is idle, not Ready and empty.
+  v.out.slice().forEach(function (u) { e.remove(e.card(u)); });
+  assert.strictEqual(v.status, 'idle', 'the last output gone, the verb is free');
+  assert.strictEqual(v.story, null);
+  // Coin among Attend's outputs, paid at the Bell.
+  var d2 = new Detective(8), e2 = d2.e, coin = d2.byDef('funds')[0];
+  var vbId = Object.keys(e2.s.verbs).filter(function (k) { return e2.s.verbs[k].status === 'idle'; })[0], vb = e2.s.verbs[vbId];
+  e2.detach(coin);
+  coin.loc = { t: 'out', verb: vbId };
+  vb.out.push(coin.uid); vb.status = 'done'; vb.story = { title: 'x', text: '' };
+  d2.byDef('funds').forEach(function (c) { e2.remove(c); });
+  e2.s.flags.uprightPaid = null;
+  assert.ok(e2.dues() <= 1, 'one Coin pays the dues');
+  e2.weekTick();
+  assert.ok(!e2.card(coin.uid), 'the Coin went to the dues');
+  assert.ok(!(vb.status === 'done' && !vb.out.length), 'the verb is not left Ready and empty');
+  console.log('case clock in the outputs, empty verb freed: ok');
+})();

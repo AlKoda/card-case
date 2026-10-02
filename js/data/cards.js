@@ -301,15 +301,20 @@
   CF.TOP_RANK = CF.RANK_DEFS.length - 1;
   CF.COMMISSIONER_REP = 18;
 
+  // win: the gain line for the calling's option in 'What You Want' (the
+  // calling's own ending; others remain open).
   CF.CALLINGS = {
     commissioner: { card: 'calling_commissioner', label: 'The Burgomaster', theme: 'Power',
       blurb: 'Rise through the offices. Remake the city\'s Watch from the Council chamber.',
-      bonus: 'Begin with an extra Coin and a Beadle already in service.' },
+      bonus: 'Begin with an extra Coin and a Beadle already in service.',
+      win: 'Your ending: the Council\'s Seat, by office and calm' },
     master: { card: 'calling_master', label: 'The Scholar', theme: 'Knowledge',
       blurb: 'Trace every small crime back to the hidden hand that drew it.',
-      bonus: 'Begin with a Sketch-book. Loose Ends appear on sound convictions.' },
+      bonus: 'Begin with a Sketch-book. Loose Ends appear on sound convictions.',
+      win: 'Your ending: the Architect sentenced, by threads and loose ends' },
     crusader: { card: 'calling_crusader', label: 'The Reformer', theme: 'Justice',
       blurb: 'Break the Coquille by any means, even if it costs your office.',
-      bonus: 'Begin with an Informer. The Council\'s eye looks away a little longer.' },
+      bonus: 'Begin with an Informer. The Council\'s eye looks away a little longer.',
+      win: 'Your ending: the Coquille broken and its King hanged' },
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -23,10 +23,10 @@
       desc: 'Let them walk, for a reason: youth, penitence, a plea. Mercy. Without a reason the Council frowns, and on a case the crier sang, the crowd mutters.',
       cost: 'Mercy +2 · Suspicion +1 without a reason' },
     fine: { label: 'Fine and Restitution', short: 'A Fine', icon: 'itrade-20',
-      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter. They go home and, as far as the city ever learns, stay honest.',
+      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter and, as far as the city learns, honest.',
       cost: 'Mercy +1 · 1 Coin' },
     pillory: { label: 'The Pillory', short: 'Pillory', icon: 'ilaw-07',
-      desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: next time, the quarter knows them at once. They walk, marked; if they do it again the quarter will name them at once.',
+      desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: they walk, marked, and the quarter names them next time.',
       cost: 'Crowd −1' },
     banish: { label: 'Flogging and Banishment', short: 'Banished', icon: 'iinv-17',
       desc: 'Whipped at the cart\'s tail to the gate and forbidden the city for ten years. Some come back.',
@@ -42,6 +42,9 @@
       cost: 'Cruelty +1 · Crowd −2 · Vendetta +1' },
     wheel: { label: 'The Wheel', short: 'The Wheel', icon: 'icrime-05',
       desc: 'The spectacle the Carolina keeps for murder with cruelty, arson, coining and poison. The city will remember your name for it. So will the underworld.',
+      // The capital rung under its own name (CF.LADDERS[tid].wheel).
+      descFire: 'The stake in the ring below the Ravenstone, as the Carolina keeps for arson, coining and witchcraft. The city will remember your name for it. So will the underworld.',
+      descWater: 'Sewn into a sack and put into the river from the Harbour bridge, the Carolina\'s death for a poisoner. Quick, and the city watches it all the same.',
       cost: 'Cruelty +2 · Crowd −3 · Dread +2 · Vendetta +2' },
   };
   Sen.ORDER = ['pardon', 'fine', 'pillory', 'banish', 'brand', 'sword', 'rope', 'wheel'];
@@ -76,6 +79,16 @@
     var L = Sen.ladderOf(tid);
     return rung === 'wheel' && L.wheel ? L.wheel : CF.RUNGS[rung].short;
   };
+
+  // What a rung does, under the name this crime gives it.
+  Sen.rungDesc = function (tid, rung) {
+    var L = Sen.ladderOf(tid), R = CF.RUNGS[rung];
+    if (rung === 'wheel' && L.wheel === 'The Fire') return R.descFire;
+    if (rung === 'wheel' && L.wheel === 'The Water') return R.descWater;
+    return R.desc;
+  };
+  // Where a pardoned, mended life is found a year on.
+  Sen.REFORMED_PLACES = ['a stall in the Market', 'a bench in a cooper\'s yard', 'the ferry below the Water-gate'];
 
   // A record for anyone the Court has dealt with, whether or not they ever
   // escaped before.
@@ -123,7 +136,7 @@
     rungs.forEach(function (r) {
       self.create('rung', {
         label: Sen.rungShort(rec.template, r),
-        desc: Sen.rungLabel(rec.template, r) + '. ' + CF.RUNGS[r].desc + (r === custom ? ' This is the custom for the crime.' : '') + ' (' + CF.RUNGS[r].cost + ')',
+        desc: Sen.rungLabel(rec.template, r) + '. ' + Sen.rungDesc(rec.template, r) + (r === custom ? ' This is the custom for the crime.' : '') + ' (' + CF.RUNGS[r].cost + ')',
         caseId: rec.id, data: { rung: r, condemned: cond.uid },
       });
     });
@@ -183,7 +196,7 @@
           c.status = 'reformed';
           var alc = this.atLargeCardFor(c);
           if (alc) this.remove(alc);
-          text = name + ' walks out of the Hole into the Market and does not look back. A year from now they keep a stall in the Abbey Close, and a family, and they cross the street when they see you.';
+          text = name + ' walks out of the Hole into the Market and does not look back. A year from now they keep ' + U.pick(this.rng, Sen.REFORMED_PLACES) + ', and a family, and they cross the street when they see you.';
         } else {
           c.status = 'at_large';
           if (c.traits.indexOf('spared') < 0) c.traits.push('spared');
@@ -250,7 +263,11 @@
         this.meter('dread', 2);
         this.meter('retaliation', 2);
         c.status = 'dead';
-        text = 'The staff is broken, and ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ' follows, before the whole city. It takes most of the morning. The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
+        var wv = Sen.ladderOf(d.template).wheel;
+        text = (wv === 'The Fire' ? 'The staff is broken. The faggots are stacked at the Ravenstone before noon, and the smoke is seen from the Harbour.'
+          : wv === 'The Water' ? 'The staff is broken. They carry ' + name + ' to the Harbour bridge in a sack, and the river is quick about it, which is the only mercy in it.'
+          : 'The staff is broken, and the wheel is brought out on the Ravenstone. It takes most of the morning.') +
+          ' The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
         break;
     }
     if (!d.guilty && rec.id) this.wrongfulSentenced(rec, rung);

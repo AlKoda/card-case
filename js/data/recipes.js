@@ -770,7 +770,8 @@
       if (ctx.has('health')) {
         var rec0 = ctx.caseOf(ctx.primary), ind = rec0 && ctx.e.indiciaOf(rec0);
         return 'The Hole, the thumbscrews, the strappado. You will get a confession; everybody confesses. Whether it is true is another matter, and the Court will check it against Body or Writ. ' +
-          (ind && ind.sufficient ? 'The indicia are sufficient: the Carolina allows the question.' : 'The indicia are not sufficient (two kinds of proof, or a word against interest). The question without them is a crime the Council can charge you with.');
+          (ind && ind.sufficient ? 'The indicia are sufficient: the Carolina, the Emperor\'s law the Court sits under, allows the question.'
+            : 'The indicia are not sufficient. The Carolina, the Emperor\'s law the Court sits under, allows the question only on sufficient indicia: two kinds of proof, or a word against interest. The question without them is a crime the Council can charge you with.');
       }
       if (ctx.has('clue')) return 'Put the token on the table and watch their face.';
       if (ctx.has('instinct')) return 'Pretend you have more than you do.';
@@ -1495,11 +1496,11 @@
     label: function (ctx) { return CF.Sentence.rungLabel(ctx.primary.data.template, ctx.first('rung').data.rung); },
     duration: 10,
     preview: function (ctx) {
-      var d = ctx.primary.data, r = ctx.first('rung').data.rung, R0 = CF.RUNGS[r];
+      var d = ctx.primary.data, r = ctx.first('rung').data.rung;
       var plea = ctx.slots.plea;
       var reason = d.penitent || (plea && (plea.def === 'plea' || plea.data.confession === 'free'));
       var lighter = CF.Sentence.ORDER.indexOf(r) < CF.Sentence.ORDER.indexOf(d.custom);
-      var out = R0.desc;
+      var out = CF.Sentence.rungDesc(d.template, r);
       if (r === 'pardon') out += reason ? ' You have a reason the Council will accept.' : ' You have no reason to give the Council.';
       if (plea && plea.def === 'plea' && plea.data.purse && lighter) out += ' The letter is heavier than paper, and you know what that means.';
       if (lighter && r !== 'pardon') out += ' Lighter than custom; the crowd notices.';

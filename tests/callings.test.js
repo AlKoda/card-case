@@ -157,3 +157,13 @@ console.log('callings: drift, card, endings from any start, origin bonus kept, p
   assert.ok(/The work had other ideas\./.test(q.s.journal[0].text), q.s.journal[0].text);
   console.log('calling deeds: ok');
 })();
+
+// ---- Each calling names the ending it is for -------------------------------------
+(function callingWins() {
+  var ends = { commissioner: /Council's Seat/, master: /Architect sentenced/, crusader: /Coquille broken/ };
+  Object.keys(ends).forEach(function (k) {
+    var w = CF.CALLINGS[k].win;
+    assert.ok(/^Your ending: /.test(w) && ends[k].test(w), k + ': ' + w);
+  });
+  console.log('calling wins: ok');
+})();

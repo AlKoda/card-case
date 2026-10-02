@@ -11,10 +11,11 @@
   var P = CF.Engine.prototype;
 
   var Charge = (CF.Charge = {});
+  // gloss: a few words for the tier's name, beside it in the Court window.
   Charge.TIERS = {
-    weak: { label: 'Indicia', text: 'Indicia: suspicion, not proof. Enough to hold them in the Hole, the cells under the Watch-house; before the sworn men who judge, an advocate will eat it alive.' },
-    reasonable: { label: 'Half Proof', text: 'It could go either way. The sworn men might take it, or convict of the lesser crime.' },
-    strong: { label: 'Full Proof', text: 'Several independent kinds of proof, all pointing one way. The Carolina, the Emperor\'s law the Court sits under, is satisfied. It should hold.' },
+    weak: { label: 'Indicia', gloss: 'suspicion only', text: 'Indicia: suspicion, not proof. Enough to hold them in the Hole, the cells under the Watch-house; before the sworn men who judge, an advocate will eat it alive.' },
+    reasonable: { label: 'Half Proof', gloss: 'may hold', text: 'It could go either way. The sworn men might take it, or convict of the lesser crime.' },
+    strong: { label: 'Full Proof', gloss: '', text: 'Several independent kinds of proof, all pointing one way. The Carolina, the Emperor\'s law the Court sits under, is satisfied. It should hold.' },
   };
 
   // The charge profile of a case: {aspect: points needed}. Generated cases
@@ -194,6 +195,17 @@
     return { suspect: suspectCard.uid, token: tokens[0].uid, wit: wit ? wit.uid : null, ready: !!(v && v.unlocked && v.status !== 'running') };
   };
 
+  // The tier's name with its gloss: 'Indicia (suspicion only)', 'Half Proof (may hold)', 'Full Proof'.
+  Charge.tierTitle = function (tier) {
+    var T = Charge.TIERS[tier];
+    return T.gloss ? T.label + ' (' + T.gloss + ')' : T.label;
+  };
+  // The first two charges of a run show the tier's meaning under its name.
+  P.chargeNovice = function () {
+    var st = this.s.stats || {};
+    return (st.convictions || 0) + (st.acquittals || 0) < 2;
+  };
+
   // Lines for the Arrest window: what the case needs, what the clues give.
   Charge.describe = function (a) {
     var rows = Object.keys(a.profile).map(function (k) {
@@ -238,6 +250,7 @@
       if (!gaps.length) notes.push({ kind: 'dim', text: 'To full proof: a witness, a token that names them, or a confession freely given. Confront them in Question with a token of the case.' });
       else notes.push({ kind: 'dim', text: 'To full proof: ' + gaps.join(', ') + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
     }
-    return { rows: rows, notes: notes, bad: bad, wordWanted: !!a.wordWanted, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text };
+    return { rows: rows, notes: notes, bad: bad, wordWanted: !!a.wordWanted, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text,
+      tierGloss: Charge.TIERS[a.tier].gloss, tierTitle: Charge.tierTitle(a.tier) };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -98,7 +98,7 @@
     },
     arrest: {
       label: 'The Court', rank: 0,
-      desc: 'The Blood Court. An Accused with tokens from their case is a charge: indicia alone will not convict; the Court wants two witnesses, a confession, or enough of the right proof. The Condemned with a rung of the ladder is a sentence; a plea or a free confession is a reason for mercy.',
+      desc: 'The Blood Court. An Accused with tokens from their case is a charge: indicia, suspicion that is not yet proof, will not convict alone; the Court wants two witnesses, a confession, or enough of the right proof. The Condemned with a rung of the ladder is a sentence; a plea or a free confession is a reason for mercy.',
       slots: [
         { key: 'main', label: 'Accused / Condemned', accepts: ['suspect', 'condemned'], primary: true },
         { key: 'c1', label: 'Proof', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },

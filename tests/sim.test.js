@@ -45,6 +45,8 @@ function checkInvariants(e) {
     Object.keys(v.slots).forEach(function (k) { assert.ok(s.cards[v.slots[k]], 'dangling slot ' + id + '.' + k); });
     v.held.forEach(function (u) { assert.ok(s.cards[u], 'dangling held'); });
     v.out.forEach(function (u) { assert.ok(s.cards[u], 'dangling out'); });
+    // A finished verb with nothing left in it is idle, not 'Ready' and empty.
+    assert.ok(!(v.status === 'done' && !v.out.length && !(v.story && v.story.keepOpen)), 'verb ' + id + ' is done with nothing in it');
   });
   // Every spawn site honours the rank's desk: at most one case over it (a warned case, an old case opened again).
   var ordinary = e.openCases().filter(function (r) { return !r.special; }).length;

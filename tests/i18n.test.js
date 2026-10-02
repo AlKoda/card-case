@@ -77,4 +77,40 @@ var kept = fg.create('clue', { label: 'Kept: Warning: Theft', data: {} });
 assert.deepStrictEqual(fg.cardFace(kept), { title: 'Warning', seal: 'Kept' });
 assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Partial: The Blade Read', data: {} })), { title: 'The Blade Read', seal: 'Partial' });
 assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Deposition: Hans Schmidt', data: {} })), { title: 'Deposition', seal: null });
+// Lane 1, items 33-40: the composed lines read in Arabic.
+(function composed() {
+  var texts = [];
+  var g = CF.Engine.newGame({ seed: 9, calling: 'master' });
+  var rec = g.openCases()[0], cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  CF.PROSE.alibis.forEach(function (al, i) {
+    var c = g.criminalEscapes(rec, { name: cul.name, trait: cul.trait }, 'wrongful');
+    g.hideCriminal(c, rec, ['rope', 'burned', 'rival'][i % 3], al);
+    g.surfaceCriminal(c, false);
+    texts.push(g.s.journal[0].text);
+  });
+  var g2 = CF.Engine.newGame({ seed: 10, calling: 'master' });
+  g2.create('rival', { label: 'The Rival: ' + CF.RIVAL_NAMES[0], data: { name: CF.RIVAL_NAMES[0], heat: 0, stalled: 0 } });
+  for (var i = 0; i < 6; i++) {
+    var gg = CF.Engine.load(g2.save()); gg.rng.setState(i * 11 + 2);
+    gg.rivalCloses(gg.openCases()[0]);
+    texts.push(gg.s.journal[0].text);
+  }
+  ['arson', 'poison', 'harbor'].forEach(function (tid) {
+    var ladder = CF.Sentence.ladderOf(tid);
+    texts.push(CF.Sentence.rungLabel(tid, 'wheel') + '. ' + CF.Sentence.rungDesc(tid, 'wheel') + ' (' + CF.RUNGS.wheel.cost + ')');
+    var h = CF.Engine.newGame({ seed: 11, calling: 'master' }), r = h.openCases()[0];
+    var cond = h.create('condemned', { label: cul.name, caseId: r.id, data: { name: cul.name, caseId: r.id, guilty: true, custom: ladder.custom, template: tid, crimes: 1 } });
+    texts.push(h.passSentence(cond, 'wheel', null, { quiet: true }).text);
+  });
+  CF.Sentence.REFORMED_PLACES.forEach(function (pl) {
+    texts.push(cul.name + ' walks out of the Hole into the Market and does not look back. A year from now they keep ' + pl + ', and a family, and they cross the street when they see you.');
+  });
+  texts.push(CF.RUNGS.fine.desc, CF.RUNGS.pillory.desc, CF.Charge.tierTitle('weak'), CF.Charge.tierTitle('reasonable'), CF.Charge.tierTitle('strong'));
+  Object.keys(CF.CALLINGS).forEach(function (k) { texts.push(CF.CALLINGS[k].win); });
+  CF.setLang('ar');
+  var bad = texts.filter(function (t) { var a = CF.T(t); return /[A-Za-z]{3}/.test(a) || a.indexOf('{') >= 0; }).map(function (t) { return t + '  =>  ' + CF.T(t); });
+  CF.setLang('en');
+  assert.strictEqual(bad.length, 0, 'composed lines left English:\n  ' + bad.join('\n  '));
+  console.log('i18n: the Fire, the Water, the true alibi and the Rival\'s close read in Arabic');
+})();
 console.log('i18n: a bot-played game reads fully in Arabic, token faces too');

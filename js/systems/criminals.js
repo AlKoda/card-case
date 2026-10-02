@@ -113,15 +113,31 @@
   // The real culprit behind a wrongful conviction keeps their head down for
   // a few weeks: no Abroad card until the city hears the wrong name hanged.
   // 'how' is what became of the wrong name: a sentence rung, 'burned' when
-  // the Inquisitor took the case, nothing while the Hole still holds them.
-  P.hideCriminal = function (c, rec, how) {
+  // the Inquisitor took the case, 'rival' when the Harbourmaster's examiner
+  // hanged them, nothing while the Hole still holds them. 'alibi' is where
+  // the wrong name really was (one of CF.PROSE.alibis: their own, when they
+  // gave one), kept for the ballad.
+  P.hideCriminal = function (c, rec, how, alibi) {
     c.hidden = true;
     c.surfaceWeek = this.s.week + U.randInt(this.rng, 2, 4);
     c.wrongfulTitle = rec.title;
     c.wrongfulCase = rec.id;
     c.wrongfulHow = how || null;
+    c.wrongfulAlibi = Crim.trueAlibi(alibi) ? alibi : Crim.alibiFor(c.name + '|' + rec.title);
     c.district = rec.district;
     return c;
+  };
+  // The true whereabouts for an alibi, or null if the pool has none for it.
+  Crim.trueAlibi = function (alibi) {
+    var T = CF.PROSE && CF.PROSE.alibiTrue;
+    return (alibi && T && T[alibi]) || null;
+  };
+  // One alibi from the pool, picked by the text given, so it holds across a
+  // save and draws nothing from the dice.
+  Crim.alibiFor = function (key) {
+    var pool = CF.PROSE.alibis, h = 0, str = String(key || '');
+    for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 9973;
+    return pool[h % pool.length];
   };
   // The sentence passed on the wrong name, kept on the real culprit's record.
   P.wrongfulSentenced = function (rec, rung) {
@@ -133,6 +149,7 @@
     var how = c.wrongfulHow;
     if (how === 'rope') return 'hanged for';
     if (how === 'burned') return 'burned for';
+    if (how === 'rival') return 'hanged for';
     if (how === 'sword' || how === 'wheel') return 'died on the Ravenstone for';
     return 'answered for';
   };
@@ -144,8 +161,9 @@
     var dl = CF.DISTRICTS[c.district] ? CF.DISTRICTS[c.district].label : 'the Warrens';
     this.abroadCard(c, 'Someone else ' + Crim.wrongfulFate(c) + ' ' + title + '.');
     this.meter('pressure', 1);
-    var who = c.wrongfulHow === 'burned' ? 'the one the Inquisitor burned' : 'the one you sent down';
-    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': ' + who + ' was in the Hole for drunkenness that night. The Warrens have known for a week. Now the Market does.', 'danger');
+    var who = c.wrongfulHow === 'burned' ? 'the one the Inquisitor burned' : c.wrongfulHow === 'rival' ? 'the one the Harbourmaster\'s examiner hanged' : 'the one you sent down';
+    var where = Crim.trueAlibi(c.wrongfulAlibi) || 'in the Hole for drunkenness';
+    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': ' + who + ' was ' + where + ' that night. The Warrens have known for a week. Now the Market does.', 'danger');
   };
 
   // The crime a record keeps coming back to: their trade, when the city

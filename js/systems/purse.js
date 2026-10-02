@@ -70,9 +70,58 @@
     return { title: 'Nothing for Your Coin', text: 'The thief-takers take the Coin and come back with shrugs. The goods are already out of the city, they say. They may even be telling the truth.', kind: 'minor' };
   };
 
+  // The upright man's offer, taken (life.js 'upright', 'Take it'): a Coin
+  // now, and a Coin a week while his band stands (s.flags.uprightPaid holds
+  // the band's name). Returns the band's name, or null with no band.
+  P.takeUpright = function () {
+    var band = this.cardsOf('gang', true)[0];
+    this.create('funds');
+    this.count('purse');
+    this.meter('retaliation', -3);
+    this.s.flags.uprightPaid = band ? band.data.name : null;
+    this.s.flags.uprightBroken = false;
+    return this.s.flags.uprightPaid;
+  };
+  // The boy's weekly visit, or the week he does not come.
+  P.uprightWeek = function () {
+    var s = this.s, name = s.flags.uprightPaid;
+    if (!name) return [];
+    var stands = this.cardsOf('gang', true).some(function (c) { return c.data && c.data.name === name; });
+    if (stands) {
+      this.create('funds');
+      if (s.week % 2 === 0) this.count('purse');
+      return ['The upright man\'s boy brings the week\'s Coin. The band keeps clear of your stair.'];
+    }
+    var broken = !!s.flags.uprightBroken;
+    s.flags.uprightPaid = null;
+    s.flags.uprightBroken = false;
+    return [broken ? 'The boy does not come this week. His upright man is in the Hole, and so, in a manner of speaking, is your Coin.'
+      : 'The boy does not come this week. His band answers to the Coquille now, and the Coquille pays nobody.'];
+  };
+
+  // The purse left on the desk with a note (life.js 'purse'): the note names
+  // an open case of yours, chosen by the week. Null when no case is open.
+  P.purseNote = function () {
+    var open = this.openCases().filter(function (r) { return !r.special; });
+    if (!open.length) return null;
+    var rec = open[this.s.week % open.length];
+    return { caseId: rec.id, title: rec.title };
+  };
+  // Who left it: a suspect of that case who is of the Hill, revealed as a
+  // card, or null when the case has none (then the Informer on the Hill).
+  Purse.HILL = /\bHill\b|patrician|councillor|benefactor|judge|doctor of laws/i;
+  P.purseSender = function (caseId) {
+    var rec = this.caseRec(caseId);
+    if (!rec || rec.status !== 'open') return null;
+    var hill = rec.suspects.filter(function (x) { return !x.cleared && Purse.HILL.test(x.role || ''); })[0];
+    if (!hill) return null;
+    var card = this.cardsOf('suspect', true).filter(function (c) { return c.caseId === rec.id && c.data && c.data.key === hill.key; })[0];
+    return card || this.revealSuspect(rec, null, { key: hill.key });
+  };
+
   // Every week: debts are called in, letters arrive, and two roads end.
   P.purseWeek = function () {
-    var s = this.s, lines = [], cnt = s.counts || {};
+    var s = this.s, lines = this.uprightWeek(), cnt = s.counts || {};
     if (s.rank >= 1 && !this.countOf('writsale') && this.rng() < 0.15) {
       this.offerWritSale();
       lines.push('A letter under a good seal waits on your desk. It asks nothing outright.');

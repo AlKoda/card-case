@@ -139,7 +139,46 @@ function rung(e, id) { return byDef(e, 'rung').filter(function (c) { return c.da
   var r = run(h.e, 'sentence', [h.cond, rung(h.e, 'sword')]);
   assert.strictEqual(h.e.s.counts.mercy - mm, 1, 'the Sword instead of the Fire is a commutation: Mercy +1');
   assert.ok(/Commuted/.test(r.story.text));
+  // The Fire and the Water are told as themselves, on the rung and on the morning.
+  var wheelStory = g.e.s.journal.filter(function (jj) { return /wheel is brought out on the Ravenstone/.test(jj.text); })[0];
+  assert.ok(wheelStory && /most of the morning/.test(wheelStory.text), 'the Wheel takes the morning');
+  var fireRung = byDef(h.e, 'rung').filter(function (c) { return c.data.rung === 'wheel'; })[0];
+  assert.ok(!fireRung, 'the ladder left with the sentence');
+  var f = null;
+  for (var fi = 0; fi < 30 && !(f && f.cond); fi++) f = convict(400 + fi, 'strong', 'arson');
+  var fr = rung(f.e, 'wheel');
+  assert.ok(fr.desc.indexOf('The Fire. The stake in the ring below the Ravenstone') === 0 && !/murder with cruelty/.test(fr.desc), 'the Fire\'s own rung: ' + fr.desc);
+  var fs2 = run(f.e, 'arrest', [f.cond, fr]);
+  assert.ok(/faggots are stacked/.test(fs2.story.text) && !/most of the morning/.test(fs2.story.text), 'the Fire\'s morning: ' + fs2.story.text);
+  var w = null;
+  for (var wi = 0; wi < 30 && !(w && w.cond); wi++) w = convict(500 + wi, 'strong', 'poison');
+  var wr = rung(w.e, 'wheel');
+  assert.ok(w.e.labelOf(wr) === 'The Water' && /Sewn into a sack/.test(wr.desc), 'the Water\'s own rung: ' + wr.desc);
+  var pv = (function () { w.e.autoSlot('arrest', w.cond.uid); w.e.autoSlot('arrest', wr.uid); var p = w.e.preview('arrest'); return p && p.text; })();
+  assert.ok(pv && /Sewn into a sack/.test(pv) && !/murder with cruelty/.test(pv), 'the Sentence preview tells the Water too: ' + pv);
+  w.e.start('arrest'); w.e.tick(w.e.verb('arrest').duration + 0.01);
+  var ws = w.e.verb('arrest').story;
+  assert.ok(ws.text.indexOf('They carry ' + w.culprit.name + ' to the Harbour bridge in a sack') >= 0 && !/most of the morning/.test(ws.text), 'the Water\'s morning: ' + ws.text);
+  // The rung texts say a thing once.
+  assert.ok(!/at once\..*at once/.test(CF.RUNGS.pillory.desc) && !/goes home.*go home/.test(CF.RUNGS.fine.desc), 'no rung says it twice');
   console.log('capital: ok');
+})();
+
+// ---- A mended life is found somewhere in the city, not always the same stall ----------
+(function reformed() {
+  var places = {};
+  for (var i = 0; i < 40; i++) {
+    var g = convict(600 + i, 'strong');
+    if (!g.cond) continue;
+    g.e.rng.setState(i * 31 + 5);
+    var st = g.e.passSentence(g.cond, 'pardon', null, { quiet: true });
+    var m = /A year from now they keep (.*?), and a family/.exec(st.text);
+    if (m) places[m[1]] = 1;
+  }
+  Object.keys(places).forEach(function (p) { assert.ok(CF.Sentence.REFORMED_PLACES.indexOf(p) >= 0, 'a place from the pool: ' + p); });
+  assert.ok(Object.keys(places).length >= 2, 'more than one place: ' + Object.keys(places));
+  assert.ok(!places['a stall in the Abbey Close'], 'the Market, not the Abbey Close');
+  console.log('reformed: ok');
 })();
 
 // ---- Say nothing and the Council speaks; banished men come back ---------------

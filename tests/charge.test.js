@@ -234,4 +234,20 @@ assert.ok(!pg.assessCharge(pOn(pcul.key), [truth]).falseFree, 'a true confession
 var qLie = pg.make('clue', { caseId: prec.id, aspects: { testimony: 4 }, data: { confession: 'question', falseConfession: true, about: pinn.key } });
 assert.ok(!pg.assessCharge(pOn(pinn.key), [qLie]).falseFree, 'a confession under the question never gives away who is innocent');
 
+// ---- The Court's words are glossed where they are first met ---------------------------
+assert.strictEqual(half.tierTitle, 'Half Proof (may hold)', 'half proof, glossed');
+assert.strictEqual(gap.tierTitle, 'Indicia (suspicion only)', 'indicia, glossed');
+assert.strictEqual(CF.Charge.tierTitle('strong'), 'Full Proof', 'full proof needs no gloss');
+assert.strictEqual(gap.tierLabel, 'Indicia', 'the bare name stays for the prose');
+var nov = CF.Engine.newGame({ seed: 5, calling: 'master' });
+assert.ok(nov.chargeNovice(), 'the first charges are taught');
+nov.s.stats.convictions = 1; nov.s.stats.acquittals = 1;
+assert.ok(!nov.chargeNovice(), 'after two, the label alone');
+assert.ok(/indicia, suspicion that is not yet proof, will not convict alone/.test(CF.VERBS.arrest.desc), 'the Court\'s description glosses indicia');
+var q = CF.RECIPES_BY_ID.int_suspect;
+['sufficient', 'not'].forEach(function (k) {
+  var fake = { has: function (x) { return x === 'health'; }, primary: {}, caseOf: function () { return {}; }, e: { indiciaOf: function () { return { sufficient: k === 'sufficient' }; } } };
+  assert.ok(/Carolina, the Emperor's law the Court sits under/.test(q.preview(fake)), 'the question names the Carolina\'s law: ' + k);
+});
+
 console.log('charge: profiles, diversity, corroboration, contradictions, illegal evidence, tiers, court all OK');

@@ -129,6 +129,15 @@
       'a night in the Hole for drunkenness': 'The gaoler\'s roll has no such name that night.',
     },
     alibiLie: 'Nobody remembers them where they say they were.',
+    // What the ballad says the wrong name was really doing: one for each alibi above, by its text.
+    alibiTrue: {
+      'a night at the Harbour crane with a dozen porters': 'at the Harbour crane all night with a dozen porters',
+      'a bed in the Abbey hospital': 'in a bed in the Abbey hospital, and the infirmarian\'s book says so',
+      'a game of tables with a sergeant of the Watch': 'at a game of tables with a sergeant of the Watch, who remembers losing',
+      'a carrier\'s chit stamped two days\' ride away': 'two days\' ride away, with the carrier\'s chit to prove it',
+      'a wedding, and forty guests who remember the dancing': 'dancing at a wedding before forty guests',
+      'a night in the Hole for drunkenness': 'in the Hole for drunkenness',
+    },
     suspectEmpathy: [
       'You let {suspect} talk about {victim}. Their voice changes when they do. {motive}',
       'A gentle question, then another. {suspect} is angry about something, and it comes out sideways. {motive}',

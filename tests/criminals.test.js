@@ -352,6 +352,7 @@ function run(e, verb, cards) {
   var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
   var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
   var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  innocent.alibi = 'a wedding, and forty guests who remember the dancing'; // the story they gave in Question
   e.remove(kase);
   var t = e.create('trial', { data: { caseId: rec.id, name: innocent.name, guilty: false, solid: false, tier: 'reasonable', real: 6, need: 6, coerced: 0, planted: 1, illegal: 0, contradictions: 0 } });
   var saved = e.save(), g = null;
@@ -384,6 +385,10 @@ function run(e, verb, cards) {
   assert.strictEqual(g.s.meters.pressure, pr0 + 1, 'the Crowd hears the ballad');
   var story = g.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
   assert.ok(story && story.text.indexOf(culprit.name) === 0 && story.text.indexOf(rec.title) > 0 && /the one you sent down/.test(story.text), 'the ballad names them');
+  // The ballad tells where the wrong name really was: their own alibi, true after all.
+  assert.strictEqual(crim.wrongfulAlibi, innocent.alibi, 'the wrong name\'s own alibi is kept');
+  assert.ok(/the one you sent down was dancing at a wedding before forty guests that night/.test(story.text), 'the true alibi: ' + story.text);
+  assert.ok(!/drunkenness/.test(story.text), 'not the same verse every time');
   // Pardoned, nobody hanged, and the ballad does not say so.
   var g2 = CF.Engine.load(hidden), crim2 = g2.criminalByName(culprit.name);
   g2.passSentence(byDef(g2, 'condemned')[0], 'pardon', null, {});
@@ -407,6 +412,14 @@ function run(e, verb, cards) {
   var story3 = inq.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
   assert.ok(al3 && al3.desc.indexOf('Someone else burned for ' + rec.title + '.') > 0, 'burned: ' + al3.desc);
   assert.ok(story3 && /the one the Inquisitor burned/.test(story3.text) && !/sent down/.test(story3.text), 'the ballad does not blame you: ' + story3.text);
+  assert.ok(CF.PROSE.alibis.indexOf(crim3.wrongfulAlibi) >= 0 && story3.text.indexOf(' was ' + CF.PROSE.alibiTrue[crim3.wrongfulAlibi] + ' that night') > 0, 'an alibi from the pool: ' + story3.text);
+  // Every alibi has its true telling, and a save from before keeps a hidden record's alibi steady.
+  CF.PROSE.alibis.forEach(function (a) { assert.ok(CF.PROSE.alibiTrue[a], 'a true telling for ' + a); });
+  var old = JSON.parse(hidden);
+  Object.keys(old.criminals).forEach(function (k) { delete old.criminals[k].wrongfulAlibi; });
+  var ol1 = CF.Engine.load(JSON.parse(JSON.stringify(old))), ol2 = CF.Engine.load(JSON.parse(JSON.stringify(old)));
+  var oc = ol1.criminalByName(culprit.name);
+  assert.ok(CF.PROSE.alibis.indexOf(oc.wrongfulAlibi) >= 0 && oc.wrongfulAlibi === ol2.criminalByName(culprit.name).wrongfulAlibi, 'an old save gets one alibi, the same each load');
   // The staff: a death sentence breaks it.
   CF.Criminals.WEEKLY_CRIME = p0;
   console.log('wrongful: ok');
@@ -453,4 +466,64 @@ function run(e, verb, cards) {
   }
   assert.ok(warned, 'a spared man pays his debt');
   console.log('trade: ok');
+})();
+
+// ---- The Rival answers a case: not a case gone cold ------------------------------------
+(function rivalCloses() {
+  var p0 = CF.Criminals.WEEKLY_CRIME;
+  CF.Criminals.WEEKLY_CRIME = 0;
+  var right = null, wrong = null;
+  for (var i = 0; i < 40 && !(right && wrong); i++) {
+    var e = game(300 + i);
+    var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+    var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+    var pr0 = e.s.meters.pressure, rep0 = e.s.meters.reputation, cold0 = e.s.stats.cold, events = [];
+    e.on(function (type, p) { if (type === 'resolved') events.push(p); });
+    var res = e.rivalCloses(rec, 'Jost Ammann');
+    assert.ok(res, 'the case was open');
+    assert.strictEqual(rec.status, 'rival', 'answered by the Rival');
+    assert.ok(!e.caseCard(rec.id), 'the case card leaves');
+    assert.strictEqual(e.s.meters.pressure, pr0, 'the Crowd does not rise');
+    assert.strictEqual(e.s.meters.reputation, Math.max(0, rep0 - 1), 'Standing -1');
+    assert.strictEqual(e.s.stats.cold, cold0, 'not counted cold');
+    assert.strictEqual(byDef(e, 'coldcase').length, 0, 'no Unanswered card');
+    assert.strictEqual(byDef(e, 'atlarge').length, 0, 'nobody walks laughing');
+    assert.ok(events.length === 1 && events[0].outcome === 'rival', 'the journal hears it as the Rival\'s');
+    var story = e.s.journal.filter(function (j) { return j.title === 'Answered by the Rival'; })[0];
+    assert.ok(story && story.text.indexOf('Jost Ammann has closed ' + rec.title) === 0, 'told once: ' + (story && story.text));
+    assert.ok(!e.s.journal.some(function (j) { return j.title === 'The Trail Goes Cold'; }), 'and not as a cold trail');
+    assert.strictEqual(e.rivalCloses(rec), null, 'a closed case cannot be closed twice');
+    var crim = e.criminalByName(culprit.name);
+    if (res.right) {
+      assert.strictEqual(res.hanged, culprit.name);
+      assert.ok(!crim || crim.status === 'dead', 'the culprit leaves the game');
+      right = e;
+    } else {
+      assert.ok(res.hanged && res.hanged !== culprit.name, 'a wrong name hangs');
+      assert.ok(crim && crim.hidden && crim.wrongfulHow === 'rival', 'the culprit lies low');
+      wrong = { e: e, crim: crim, rec: rec };
+    }
+  }
+  assert.ok(right && wrong, 'both ends happen');
+  // The wrong name's ballad blames the Harbourmaster's examiner, not you.
+  var w = wrong.e;
+  w.s.meters.pressure = 0;
+  for (var wk = 0; wk < 4; wk++) { w.s.week++; w.criminalsAct(); }
+  var ballad = w.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
+  assert.ok(ballad && /the one the Harbourmaster's examiner hanged was /.test(ballad.text) && !/sent down/.test(ballad.text), 'the Rival\'s wrong name: ' + (ballad && ballad.text));
+  var al = byDef(w, 'atlarge').filter(function (c) { return c.data.criminalId === wrong.crim.id; })[0];
+  assert.ok(al && al.desc.indexOf('Someone else hanged for ' + wrong.rec.title + '.') > 0, 'hanged, on the Abroad card');
+  // A culprit already Abroad, hanged by the Rival: the card goes.
+  var a = game(360), ak = byDef(a, 'case')[0], ar = a.caseRec(ak.caseId), ac = ar.suspects.filter(function (x) { return x.guilty; })[0];
+  var rcd = a.criminalEscapes({ title: 'an old case' }, ac, 'cold');
+  a.create('atlarge', { label: 'Abroad: ' + ac.name, data: { name: ac.name, criminalId: rcd.id } });
+  var gone = false;
+  for (var j = 0; j < 30 && !gone; j++) {
+    var b = CF.Engine.load(a.save()); b.rng.setState(j * 7 + 1);
+    var r2 = b.rivalCloses(b.caseRec(ar.id));
+    if (r2.right) { assert.strictEqual(byDef(b, 'atlarge').length, 0, 'the Abroad card goes with the hanged'); assert.strictEqual(b.criminalByName(ac.name).status, 'dead'); gone = true; }
+  }
+  assert.ok(gone, 'the Rival hangs the right one in time');
+  CF.Criminals.WEEKLY_CRIME = p0;
+  console.log('rival closes: ok');
 })();

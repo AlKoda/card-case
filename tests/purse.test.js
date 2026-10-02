@@ -152,4 +152,61 @@ function run(e, verb, cards) {
   console.log('endings: ok');
 })();
 
+// ---- The upright man's Coin comes every week, while his band stands -------------------
+(function upright() {
+  var e = game(71);
+  var band = e.create('gang', { label: 'Band: The Lamplighters', data: { name: 'the Lamplighters', members: [] } });
+  e.s.meters.retaliation = 5;
+  var coin0 = e.countOf('funds'), purse0 = e.s.counts.purse || 0;
+  assert.strictEqual(e.takeUpright(), 'the Lamplighters');
+  assert.strictEqual(e.countOf('funds'), coin0 + 1, 'a Coin now');
+  assert.strictEqual(e.s.counts.purse, purse0 + 1, 'Purse +1');
+  assert.strictEqual(e.s.meters.retaliation, 2, 'Vendetta eases');
+  assert.strictEqual(e.s.flags.uprightPaid, 'the Lamplighters');
+  var c1 = e.countOf('funds'), p1 = e.s.counts.purse;
+  var weeks = 4, lines = [];
+  for (var w = 0; w < weeks; w++) { e.s.week++; lines = lines.concat(e.uprightWeek()); }
+  assert.strictEqual(e.countOf('funds'), c1 + weeks, 'a Coin every week');
+  assert.strictEqual(e.s.counts.purse, p1 + weeks / 2, 'Purse every other week');
+  assert.strictEqual(lines.filter(function (l) { return /brings the week's Coin/.test(l); }).length, weeks);
+  // Broken by your Court: the boy does not come, and says why.
+  var saved = e.save();
+  e.s.flags.uprightBroken = true; e.remove(band);
+  var l2 = e.uprightWeek();
+  assert.ok(/His upright man is in the Hole/.test(l2[0]) && e.s.flags.uprightPaid === null, 'the Hole: ' + l2);
+  assert.deepStrictEqual(e.uprightWeek(), [], 'and says so once');
+  // Sworn to the Coquille: the boy does not come either.
+  var f = CF.Engine.load(saved);
+  f.remove(f.cardsOf('gang', true)[0]);
+  assert.ok(/answers to the Coquille/.test(f.uprightWeek()[0]));
+  // The Bell pays it.
+  var g = CF.Engine.load(saved);
+  g.weekTick();
+  assert.ok(g.s.journal.some(function (j) { return /brings the week's Coin/.test(j.text); }), 'the Bell brings the boy');
+  // A save from before: no Coin owed.
+  var old = JSON.parse(saved); delete old.flags.uprightPaid; delete old.flags.uprightBroken;
+  var o = CF.Engine.load(old);
+  assert.strictEqual(o.s.flags.uprightPaid, null);
+  assert.strictEqual(o.s.flags.uprightBroken, false);
+  assert.deepStrictEqual(o.uprightWeek(), []);
+  console.log('upright: ok');
+})();
+
+// ---- The purse's note names one of your cases; who left it may be of the Hill ---------
+(function purseNote() {
+  var e = game(72);
+  var rec = e.openCases()[0];
+  var n = e.purseNote();
+  assert.ok(n && n.caseId === rec.id && n.title === rec.title, 'the note names an open case');
+  rec.suspects[0].role = 'a gentleman of the Hill in debt';
+  var card = e.purseSender(rec.id);
+  assert.ok(card && card.def === 'suspect' && card.data.key === rec.suspects[0].key, 'a suspect of the Hill, revealed');
+  assert.strictEqual(e.purseSender(rec.id).uid, card.uid, 'the same card, not a second');
+  rec.suspects.forEach(function (x) { x.role = 'a porter of the Market'; });
+  assert.strictEqual(e.purseSender(rec.id), null, 'nobody of the Hill: the informer instead');
+  e.openCases().forEach(function (r) { r.status = 'closed'; });
+  assert.strictEqual(e.purseNote(), null, 'no case open, no name on the note');
+  console.log('purse note: ok');
+})();
+
 console.log('purse: writ, thief-takers, blood money, endings all OK');
