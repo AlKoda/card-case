@@ -226,6 +226,21 @@
     return r;
   }
 
+  // In a right-to-left paragraph a sign before a number is drawn after it ('+1' reads '1+'), and
+  // 'a / b' turns about. Each such run is wrapped in invisible isolates (LRI ... PDI) so it keeps
+  // its own order. A run already wrapped, or a sign that joins two numbers ('3-5'), is left be.
+  var BIDI_RUN = /[+\u2212\u00b1\u00d7-] ?\d+(?:[.,]\d+)?%?|\d+(?:[.,]\d+)? ?\/ ?\d+/g;
+  var LRI = '\u2066', PDI = '\u2069';
+  CF.bidi = function (s) {
+    if (typeof s !== 'string' || I.lang === 'en' || !CF.isRTL() || !/[+\u2212\u00b1\u00d7\/-] ?\d/.test(s)) return s;
+    return s.replace(BIDI_RUN, function (m, off, all) {
+      var prev = all.charAt(off - 1);
+      if (prev === LRI) return m;
+      if (/^[^\d]/.test(m) && /[0-9A-Za-z]/.test(prev)) return m;
+      return LRI + m + PDI;
+    });
+  };
+
   // Translate a string (and fill {vars}, translating each value too).
   CF.T = function (s, vars) {
     if (s === undefined || s === null) return s;
@@ -235,7 +250,7 @@
       for (var k in vars) tv[k] = typeof vars[k] === 'string' ? translate(vars[k], 1) : vars[k];
       out = CF.util.fill(out, tv);
     }
-    return out;
+    return CF.bidi(out);
   };
 
   // ---- Static markup. A paragraph with only <b>/<i> inside is one unit, so
@@ -292,7 +307,7 @@
     if (el.nodeType === 3) {
       if (el.__en === undefined) el.__en = el.nodeValue;
       var v = el.__en, t = v.trim();
-      if (t) el.nodeValue = v.replace(t, translate(t, 0));
+      if (t) el.nodeValue = v.replace(t, CF.bidi(translate(t, 0)));
       return;
     }
     if (el.nodeType !== 1 || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
@@ -302,7 +317,7 @@
       if (!el.hasAttribute(name)) continue;
       var key = '__en_' + name;
       if (el[key] === undefined) el[key] = el.getAttribute(name);
-      el.setAttribute(name, translate(el[key], 0));
+      el.setAttribute(name, CF.bidi(translate(el[key], 0)));
     }
     if (el.tagName === 'BUTTON' && el.hasAttribute('value')) {
       if (el.__en_value === undefined) el.__en_value = el.getAttribute('value');
@@ -310,7 +325,7 @@
     }
     if (unitOf(el)) {
       if (el.__enHTML === undefined) el.__enHTML = el.innerHTML.replace(/\s+/g, ' ').trim();
-      el.innerHTML = translate(el.__enHTML, 0);
+      el.innerHTML = CF.bidi(translate(el.__enHTML, 0));
       return;
     }
     var kids = Array.prototype.slice.call(el.childNodes);

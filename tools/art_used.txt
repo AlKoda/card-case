@@ -199,6 +199,7 @@ csign-01
 csign-02
 csign-04
 csign-06
+cstamp-02
 cstamp-04
 cstory-02
 cstory-03

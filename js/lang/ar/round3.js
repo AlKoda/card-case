@@ -923,5 +923,14 @@
     "Attend with a watchman: Double the Guard": "الدوام مع حارس: ضاعِف الحراسة",
     "Ignored once already: next time there is no warning": "أُهمِل مرة من قبل: في المرة القادمة لا إنذار",
     "Let it lie and they come back": "دَعْه ملقى ويعودون",
+    "One thread on the Rival. Pull it: Question {name} with Wit.": "في يدك خيط على الغريم. اسحبه: استجوب {name} بالفطنة.",
+    "One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.": "في يدك خيط على الغريم. اسحبه: تعقّب {name} في الاستكشاف بالحدس.",
+    "The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.": "الغريم تحرّك مرتين. تعقّب {name} في الاستكشاف بالحدس لتجد ضعفه.",
+    "Searched out: nothing more here. Another search only feeds Obsession.": "فُتّش كله: لم يبقَ هنا شيء. تفتيش آخر لا يزيد إلا الهوس.",
+    "Careful this week: the next thread after the Bell": "حذِرٌ هذا الأسبوع: الخيط التالي بعد الجرس",
+    "The next thread: shadow them in Explore with Instinct": "الخيط التالي: تعقّبه في الاستكشاف بالحدس",
+    "The next thread: Question them with Wit": "الخيط التالي: استجوبه بالفطنة",
+    "Question with Wit, or shadow in Explore with Instinct, to expose": "استجوبه بالفطنة، أو تعقّبه في الاستكشاف بالحدس، لتفضحه",
+    "From the middle of the game the Provost sends an examiner of his own. Every week they act against you: take one of your cases and close it first, spoil a token, pay a witness to forget. Find their weakness: question them with Wit, or shadow them in Explore with Instinct. One thread a week; find the second the other way, and the Council sends them home. Question them with Coin to buy a quiet fortnight, or with Health to frighten them.": "من منتصف اللعبة يرسل الوالي محققاً من عنده. وكل أسبوع يعمل ضدك: يأخذ إحدى قضاياك ويغلقها قبلك، أو يفسد أمارة، أو يدفع لشاهد لينسى. جِد نقطة ضعفه: استجوبه بالفطنة، أو تعقّبه في الاستكشاف بالحدس. خيط واحد في الأسبوع؛ والثاني تجده بالطريق الأخرى، فيعيده المجلس إلى داره. واستجوبه بالنقود لتشتري أسبوعين هادئين، أو بالصحة لتخيفه.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -4,7 +4,8 @@
 (function () {
   var CF = window.CF;
   var A = (CF.Audio = { ctx: null, ready: false });
-  var master, musicBus, sfxBus, noiseBuf, musicTimer = null, chordIdx = 0;
+  var volScale = 1;
+  var master, limiter, musicBus, sfxBus, noiseBuf, musicTimer = null, chordIdx = 0;
 
   // Browsers only allow audio after a user gesture.
   A.unlock = function () {
@@ -17,7 +18,13 @@
     sfxBus = A.ctx.createGain();
     musicBus.connect(master);
     sfxBus.connect(master);
-    master.connect(A.ctx.destination);
+    // A soft limiter on the master, so cues that land together do not clip.
+    if (A.ctx.createDynamicsCompressor) {
+      limiter = A.ctx.createDynamicsCompressor();
+      limiter.threshold.value = -16; limiter.knee.value = 8; limiter.ratio.value = 4;
+      limiter.attack.value = 0.005; limiter.release.value = 0.2;
+      master.connect(limiter); limiter.connect(A.ctx.destination);
+    } else master.connect(A.ctx.destination);
     noiseBuf = A.ctx.createBuffer(1, A.ctx.sampleRate * 2, A.ctx.sampleRate);
     var d = noiseBuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -62,7 +69,7 @@
     o.frequency.setValueAtTime(freq, t);
     if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, t + dur);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(opts.vol || 0.3, t + (opts.attack || 0.005));
+    g.gain.exponentialRampToValueAtTime((opts.vol || 0.3) * volScale, t + (opts.attack || 0.005));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     var node = o;
     if (opts.lp) { var f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = opts.lp; o.connect(f); node = f; }
@@ -80,7 +87,7 @@
     f.type = opts.filter || 'bandpass';
     f.frequency.value = opts.freq || 2000;
     f.Q.value = opts.q || 1;
-    g.gain.setValueAtTime(opts.vol || 0.2, t);
+    g.gain.setValueAtTime((opts.vol || 0.2) * volScale, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(f); f.connect(g); g.connect(opts.bus || sfxBus);
     s.start(t);
@@ -97,12 +104,40 @@
     danger: function () { tone(110, 0.8, { type: 'sawtooth', vol: 0.16, lp: 600 }); tone(116.5, 0.8, { type: 'sawtooth', vol: 0.14, lp: 600 }); },
     week: function () { noise(0.04, { freq: 2500, q: 8, vol: 0.25 }); noise(0.04, { freq: 1800, q: 8, vol: 0.2, delay: 0.35 }); },
     victory: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.9, { type: 'triangle', vol: 0.12, delay: i * 0.12 }); }); },
+    // A leaf turned: a quiet story, without a bell.
+    page: function () { noise(0.12, { filter: 'highpass', freq: 2500, vol: 0.06 }); },
+    // A need arriving: two low beats.
+    heartbeat: function () { tone(55, 0.12, { vol: 0.25 }); tone(52, 0.14, { vol: 0.2, delay: 0.22 }); },
+    // Bad news that is not harm: a low rumble.
+    omen: function () { noise(0.35, { filter: 'lowpass', freq: 180, vol: 0.18 }); tone(73, 0.5, { vol: 0.08 }); },
     defeat: function () { [392, 330, 262, 196].forEach(function (f, i) { tone(f, 1.1, { type: 'triangle', vol: 0.12, delay: i * 0.18, lp: 1200 }); }); },
   };
 
-  A.play = function (name) {
-    if (!A.ready || !SOUNDS[name]) return;
+  // One cue at a time: the same cue does not repeat inside its gap, and a
+  // lesser cue gives way to a greater one started a moment before.
+  var MIN_GAP = { complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 1.0, page: 0.4, flip: 0.05, coin: 0.07, pick: 0.05 };
+  var PRIORITY = { gavel: 5, victory: 5, defeat: 5, office: 5, week: 4, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
+  // A quiet cue is heard only alone.
+  var QUIET = { page: 1 };
+  var lastAt = {}, top = { p: -1, at: -1 };
+  A.allow = function (name, now) {
+    var gap = MIN_GAP[name] || 0, p = PRIORITY[name] || 0;
+    if (lastAt[name] !== undefined && now - lastAt[name] < gap) return false;
+    if (QUIET[name] && top.at >= 0 && now - top.at < 0.3) return false;
+    if (top.at >= 0 && now - top.at < 0.3 && p < top.p) return false;
+    lastAt[name] = now;
+    if (!(top.at >= 0 && now - top.at < 0.3) || p >= top.p) { top.p = p; top.at = now; }
+    return true;
+  };
+  A.reset = function () { lastAt = {}; top = { p: -1, at: -1 }; };
+  // opts.vol scales the cue (the busy 'complete' at a fast clock).
+  A.play = function (name, opts) {
+    if (!A.ready || !SOUNDS[name]) return false;
+    if (!A.allow(name, A.ctx.currentTime)) return false;
+    volScale = opts && opts.vol > 0 ? opts.vol : 1;
     try { SOUNDS[name](); } catch (err) { /* ignore audio errors */ }
+    volScale = 1;
+    return true;
   };
 
   // --- Music: a slow Am9 - Fmaj7 - Dm9 - E7 pad, with soft rain under it.

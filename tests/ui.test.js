@@ -1072,5 +1072,137 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the dagger is advised and explained, the ring steps without a filter, the plates stay in sight');
 })();
 
+// ---- Round 8, lane 2, items 17-24: the Rival hunted a thread a week, a swipe on a tile pans, the searched-out
+// seal, the Arabic seconds, sounds that do not pile up, harm apart from reminders, the board pinned left.
+(function round8c() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 23 });
+  UI.attach(e);
+  UI.view = UI.view || { x: 0, y: 0, z: 1 };
+  render(e);
+  // Sounds: harm is the alarm and the shake; a need a heartbeat; other bad news an omen; a verdict's story is silent.
+  assert.strictEqual(UI.storySound({ kind: 'danger', title: 'Wounded' }), 'danger', 'harm by title is the alarm');
+  assert.strictEqual(UI.storySound({ kind: 'harm', title: 'Anything' }), 'danger', 'a harm kind is the alarm');
+  assert.strictEqual(UI.storySound({ kind: 'danger', title: 'Something', harm: true }), 'danger', 'a harm flag is the alarm');
+  assert.strictEqual(UI.storySound({ kind: 'danger', title: CF.CARDS.hunger.label }), 'heartbeat', 'a need arriving is a heartbeat');
+  assert.strictEqual(UI.storySound({ kind: 'danger', title: 'The Rival Boasts' }), 'omen', 'a boast is an omen');
+  assert.strictEqual(UI.storySound({ kind: 'danger', title: 'Not Guilty: Jakob Hess' }), null, 'the acquittal leaves the sound to the verdict');
+  assert.strictEqual(UI.storySound({ kind: 'major', title: 'X' }), 'page', 'a major story turns a page');
+  assert.strictEqual(UI.storySound({ kind: 'victory', title: 'X' }), null, 'the verdict story rings no second bell');
+  assert.strictEqual(UI.dangerWeight({ kind: 'danger', title: 'Lost: Health' }), 'harm', 'a lost ability is harm');
+  settings.shake = true;
+  $('#app').classList.remove('shake');
+  played.length = 0;
+  e.story('The Rival Boasts', 'They boast.', 'danger');
+  assert.ok(!$('#app').classList.contains('shake') && played.indexOf('omen') >= 0 && played.indexOf('danger') < 0, 'a boast does not shake the screen: ' + played);
+  e.story('Beaten on the Stair', 'Ow.', 'danger');
+  assert.ok($('#app').classList.contains('shake') && played.indexOf('danger') >= 0, 'a beating does');
+  settings.shake = false;
+  e.story('A Blow', 'Ow.', 'harm');
+  var lastToast = $('#toasts').children[$('#toasts').children.length - 1];
+  assert.ok(lastToast && lastToast.classList.contains('k-harm') && /clabel-01/.test(lastToast.style['--bar']), 'a harm story is toasted like danger');
+  // The audio's own throttle and priority, on a stand-in clock.
+  var actx = { window: {}, document: { addEventListener: function () {}, hidden: false } };
+  actx.window.CF = { Settings: { onChange: function () {}, values: {} } };
+  actx.window.addEventListener = function () {};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8'), actx, { filename: 'js/audio.js' });
+  var A = actx.window.CF.Audio;
+  assert.ok(A.allow('complete', 10) && !A.allow('complete', 10.001) && !A.allow('complete', 10.5), 'the same ding does not repeat inside its gap');
+  assert.ok(A.allow('complete', 10.8), 'and is heard again after it');
+  A.reset();
+  assert.ok(A.allow('danger', 20) && !A.allow('click', 20.1) && A.allow('gavel', 20.1), 'a lesser cue gives way to a greater one a moment before; a greater one plays');
+  A.reset();
+  assert.ok(A.allow('click', 30) && !A.allow('page', 30.1) && A.allow('page', 30.5), 'a page turns only alone');
+  var asrc = fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8');
+  assert.ok(/createDynamicsCompressor/.test(asrc) && /master\.connect\(limiter\)/.test(asrc), 'a limiter sits between the master and the speakers');
+  // A finger on a verb tile pans; held still, it lifts the tile; a tap still opens it.
+  var tok = $('#board').querySelectorAll('.verb').filter(function (x) { return x.dataset.verb === 'duty'; })[0];
+  assert.ok(tok, 'the Attend tile is on the table');
+  var inner = new El('div');
+  inner.closest = function (sel) { return /\.verb\[data-verb\]/.test(sel) ? tok : null; };
+  var vb = e.verb('duty'), vx = vb.x, vy = vb.y, v0 = { x: UI.view.x, y: UI.view.y };
+  timers = []; delays = [];
+  var down = { pointerId: 7, pointerType: 'touch', button: 0, clientX: 400, clientY: 400, target: inner, preventDefault: function () {} };
+  UI.pointer.down(down);
+  assert.ok(UI.drag && UI.drag.kind === 'pan' && UI.drag.under && UI.drag.under.kind === 'verb', 'a touch on a tile starts as a pan');
+  assert.strictEqual(delays[delays.length - 1], 350, 'with a 350ms hold to lift');
+  UI.pointer.move({ pointerId: 7, clientX: 550, clientY: 420, target: inner });
+  assert.ok(UI.drag.started && (UI.view.x !== v0.x || UI.view.y !== v0.y), 'a swipe pans the view');
+  flushTimers();
+  assert.strictEqual(UI.drag.kind, 'pan', 'and the hold does not fire once it moved');
+  UI.pointer.up({ pointerId: 7, clientX: 550, clientY: 420, target: inner });
+  assert.ok(vb.x === vx && vb.y === vy, 'the tile stays where it was');
+  timers = [];
+  UI.pointer.down(down);
+  flushTimers();
+  assert.ok(UI.drag && UI.drag.kind === 'verb' && UI.drag.lifted && tok.classList.contains('held'), 'a hold lifts the tile');
+  UI.pointer.move({ pointerId: 7, clientX: 480, clientY: 470, target: inner });
+  assert.ok(UI.drag.started, 'and a drag moves it');
+  UI.pointer.up({ pointerId: 7, clientX: 480, clientY: 470, target: inner });
+  assert.ok((vb.x !== vx || vb.y !== vy) && !tok.classList.contains('held'), 'the tile is put down elsewhere');
+  e.moveVerb('duty', vx, vy);
+  timers = [];
+  UI.pointer.down(down);
+  UI.pointer.up({ pointerId: 7, clientX: 400, clientY: 400, target: inner });
+  assert.ok(UI.openVerbs.indexOf('duty') >= 0, 'a tap still opens the verb');
+  UI.back();
+  // The mouse lifts at once, as before.
+  UI.pointer.down({ pointerId: 8, pointerType: 'mouse', button: 0, clientX: 400, clientY: 400, target: inner, preventDefault: function () {} });
+  assert.strictEqual(UI.drag.kind, 'verb', 'a mouse press on a tile is a tile drag');
+  UI.pointer.up({ pointerId: 8, clientX: 400, clientY: 400, target: inner });
+  UI.back();
+  render(e);
+  // The pile, the same.
+  var pzEl = $('#board').querySelector('.pile-zone');
+  if (pzEl) {
+    var pin = new El('div');
+    pin.closest = function (sel) { return sel === '.pile-zone' ? pzEl : null; };
+    timers = [];
+    UI.pointer.down({ pointerId: 9, pointerType: 'touch', button: 0, clientX: 200, clientY: 200, target: pin, preventDefault: function () {} });
+    assert.ok(UI.drag.kind === 'pan' && UI.drag.under.kind === 'pile', 'a touch on the pile starts as a pan');
+    UI.pointer.up({ pointerId: 9, clientX: 200, clientY: 200, target: pin });
+  }
+  // A searched-out scene wears the glass stamp on its case card.
+  var rec = e.openCases()[0], cc = e.caseCard(rec.id);
+  assert.ok(rec && cc, 'a case is open');
+  var found0 = rec.found;
+  rec.found = rec.items.length;
+  render(e);
+  var ccEl = $('#board').querySelector('.card[data-uid=' + cc.uid + ']');
+  var so = ccEl && ccEl.querySelector('.c-searched');
+  assert.ok(so && /cstamp-02/.test(so.style.backgroundImage) && !so.textContent, 'the searched-out stamp, without a word');
+  rec.found = found0;
+  render(e);
+  ccEl = $('#board').querySelector('.card[data-uid=' + cc.uid + ']');
+  assert.ok(!ccEl.querySelector('.c-searched'), 'a scene with more to give has none');
+  // The Rival: careful for the week a thread was found; the second thread is the other way.
+  if (!e.verb('interrogate').unlocked) e.verb('interrogate').unlocked = true;
+  if (!e.verb('investigate').unlocked) e.verb('investigate').unlocked = true;
+  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week, heatBy: 'interrogate', stalled: 0 } });
+  e.s.journal.unshift({ t: 1, week: 1, title: 'The Rival Takes a Case', text: '', kind: 'danger' }, { t: 2, week: 1, title: 'A Scene Spoiled', text: '', kind: 'danger' });
+  var wit = e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('focus');
+  var ins = e.cardsOf('instinct').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('instinct');
+  void wit; void ins;
+  assert.ok(!/Rival/.test(UI.advice() || ''), 'careful this week: no Rival line');
+  rv.data.heatWeek = e.s.week - 1;
+  var say = UI.advice() || '';
+  assert.ok(/shadow Anselm Brecht in Explore with Instinct/.test(say), 'after a Wit thread, the next is shadowing: ' + say);
+  rv.data.heatBy = 'investigate';
+  say = UI.advice() || '';
+  assert.ok(/Question Anselm Brecht with Wit/.test(say), 'after a shadow, the next is a question: ' + say);
+  UI.selected = rv.uid;
+  rv.data.heatWeek = e.s.week;
+  render(e);
+  var peek = $('#peek').innerHTML;
+  assert.ok(/Careful this week/.test(peek) && /The next thread: Question them with Wit/.test(peek), 'the dossier says when and how: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 300));
+  UI.selected = null;
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  e.remove(rv);
+  render(e);
+  // The board's children are placed from its origin, in Arabic too.
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  assert.ok(/\n#board > \* \{ position: absolute; left: 0; top: 0;/.test(css), 'every board child is pinned to left and top 0');
+  console.log('ui: the Rival a thread a week, a swipe pans past a tile, the searched-out stamp, sounds that do not pile up, harm apart');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

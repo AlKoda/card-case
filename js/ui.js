@@ -135,11 +135,15 @@
   var TRAIT_ART = 'imark-11';
   var PATH_HINTS = { commissioner: 'offices, rooms, calm weeks', master: 'threads, identifications, reopened cases', crusader: 'bands broken, the abroad put away, disguises' };
   var RIVAL_TITLES = /Rival|Scene Spoiled|Paid to Forget/;
+  // The Rival is hunted a thread a week: careful until the Bell after the last one was found.
+  function rivalCareful(card) { var d = card.data || {}; return d.heatWeek !== undefined && d.heatWeek !== null && UI.e.s.week <= d.heatWeek; }
+  // The way the next thread must come: the other verb from the first one's, or either.
+  function rivalNextWay(card) { var d = card.data || {}; return !d.heat ? null : d.heatBy === 'interrogate' ? 'investigate' : d.heatBy === 'investigate' ? 'interrogate' : null; }
   // The meters are the coloured counters: fire for the Crowd, the eye for Suspicion, the masked man for Vendetta, the moon for Dread, the crown for Standing.
   var METER_ICONS = { pressure: 'cres-04', scrutiny: 'cres-03', retaliation: 'casp-01', dread: 'cres-12', reputation: 'cres-09' };
-  var TOAST_BARS = { case: 'clabel-01', danger: 'clabel-01', defeat: 'clabel-01', major: 'clabel-02', victory: 'clabel-02', week: 'clabel-04', verb: 'clabel-03', minor: 'clabel-05' };
-  var TOAST_ICONS = { case: 'imark-01', danger: 'cmark-04', defeat: 'imark-04', major: 'cwax-02', victory: 'imark-12', week: 'ccirc-02', verb: 'cwit-02', minor: 'cmark-05' };
-  var TOAST_LONG = { major: 1, case: 1, danger: 1, victory: 1, defeat: 1 };
+  var TOAST_BARS = { case: 'clabel-01', danger: 'clabel-01', harm: 'clabel-01', need: 'clabel-01', defeat: 'clabel-01', major: 'clabel-02', victory: 'clabel-02', week: 'clabel-04', verb: 'clabel-03', minor: 'clabel-05' };
+  var TOAST_ICONS = { case: 'imark-01', danger: 'cmark-04', harm: 'cmark-04', need: 'cmark-04', defeat: 'imark-04', major: 'cwax-02', victory: 'imark-12', week: 'ccirc-02', verb: 'cwit-02', minor: 'cmark-05' };
+  var TOAST_LONG = { major: 1, case: 1, danger: 1, harm: 1, need: 1, victory: 1, defeat: 1 };
   var RANK_ART = ['cwax-01', 'cwax-03', 'cwax-02'];
   // The tokens are cards too: a tall rounded ring drawn just outside their edge.
   var RING_LEN = 2 * (240 + 240) - 8 * 20 + 2 * Math.PI * 20;
@@ -300,11 +304,18 @@
   UI.setPaused = function (p) { UI.paused = p; renderControls(); };
   // A light tick on touches (the Vibration setting). The app's own vibrator
   // first, the web Vibration API otherwise, nothing where there is neither.
+  // A pattern [on, off, on, ...] is played as it is on the web, and pulse by pulse through the app's bridge.
   UI.haptic = function (ms) {
     if (CF.Settings.get('haptics') === false) return;
     try {
-      if (window.CaseFileAndroid && CaseFileAndroid.vibrate) CaseFileAndroid.vibrate(ms || 10);
-      else if (navigator.vibrate) navigator.vibrate(ms || 10);
+      if (window.CaseFileAndroid && CaseFileAndroid.vibrate) {
+        if (!(ms instanceof Array)) { CaseFileAndroid.vibrate(ms || 10); return; }
+        var at = 0;
+        ms.forEach(function (d, i) {
+          if (i % 2 === 0) { if (at) setTimeout(function () { CaseFileAndroid.vibrate(d); }, at); else CaseFileAndroid.vibrate(d); }
+          at += d;
+        });
+      } else if (navigator.vibrate) navigator.vibrate(ms || 10);
     } catch (err) { /* no haptics */ }
   };
   // The screen stays on only while a game is running, unpaused, with no menu
@@ -456,7 +467,32 @@
   };
 
   // ---------------------------------------------------------------- Events
-  var STORY_SOUNDS = { case: 'case', danger: 'danger', week: 'week', major: 'complete', victory: 'complete' };
+  // A verdict is heard from its stamp, so the story of it is silent; a major story turns a page.
+  var STORY_SOUNDS = { case: 'case', week: 'week', major: 'page' };
+  // Bad news comes in three weights: harm done to you or yours (the alarm and the shake), a need
+  // arriving (a heartbeat), and the rest (an omen). The engine may mark harm by kind or flag;
+  // until it does, the titles of harm are known here.
+  var HARM_TITLES = /^(A Watchman Dead|A Watchman Hurt|Wounded|Beaten on the Stair|Fever|Lost: .+)$/;
+  function dangerWeight(entry) {
+    var k = entry.kind;
+    if (k === 'harm' || (k === 'danger' && (entry.harm || HARM_TITLES.test(entry.title || '')))) return 'harm';
+    if (k === 'need') return 'need';
+    if (k !== 'danger') return null;
+    if (CF.NEEDS) for (var n in CF.NEEDS) if (CF.CARDS[n] && CF.CARDS[n].label === entry.title) return 'need';
+    // The verdict's own stamp speaks for a man found not guilty.
+    if (/^Not Guilty\b/.test(entry.title || '')) return 'quiet';
+    return 'omen';
+  }
+  UI.dangerWeight = dangerWeight;
+  function storySound(entry) {
+    var w = dangerWeight(entry);
+    if (w === 'harm') return 'danger';
+    if (w === 'need') return 'heartbeat';
+    if (w === 'omen') return 'omen';
+    if (w === 'quiet') return null;
+    return STORY_SOUNDS[entry.kind] || null;
+  }
+  UI.storySound = storySound;
   function shake() {
     if (!CF.Settings.get('shake')) return;
     var app = $('#app');
@@ -500,14 +536,14 @@
     if (type === 'resolved' && UI.onResolved) UI.onResolved(payload);
     if (type === 'resolved') stampVerdict(payload);
     if (type === 'story') {
-      var k = payload.kind;
-      if (!UI.modal && STORY_SOUNDS[k]) CF.Audio.play(STORY_SOUNDS[k]);
-      if (!UI.modal && k === 'danger') shake();
-      if (k === 'case' || k === 'danger' || k === 'major' || k === 'victory' || k === 'week') toast(payload);
+      var k = payload.kind, cue = storySound(payload);
+      if (!UI.modal && cue) CF.Audio.play(cue);
+      if (!UI.modal && dangerWeight(payload) === 'harm') { shake(); UI.haptic([30, 60, 30]); }
+      if (k === 'case' || k === 'danger' || k === 'harm' || k === 'need' || k === 'major' || k === 'victory' || k === 'week') toast(payload);
       if (k === 'case' && !UI.replaying && CF.Settings.get('pauseOnCase')) UI.setPaused(true);
     }
     if (type === 'complete') {
-      CF.Audio.play('complete');
+      CF.Audio.play('complete', UI.speed > 1 ? { vol: 0.7 } : null);
       var v = UI.e.verb(payload.verb);
       if (UI.openVerbs.indexOf(payload.verb) < 0 && v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
@@ -719,8 +755,14 @@
     // The underworld's grudge, and nothing to meet it with.
     if (meterLevel('retaliation') >= 3 && !hp) return tr('The Vendetta is high and you are Winded: an attack now would find you without Health. Rest before the Bell.');
     // The Rival has acted twice and still has their desk.
+    // One thread a week (data.heatWeek), and the second found the other way (data.heatBy: the verb of the
+    // first), where the engine keeps them; without them, the Wit line alone.
     var rival = table.filter(function (c) { return c.def === 'rival'; })[0];
-    if (rival && (rival.data.heat || 0) < 2 && s.journal.filter(function (j) { return RIVAL_TITLES.test(j.title); }).length >= 2 && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rival.data.name || e.labelOf(rival) }); }
+    if (rival && (rival.data.heat || 0) < 2 && !rivalCareful(rival) && s.journal.filter(function (j) { return RIVAL_TITLES.test(j.title); }).length >= 2) {
+      var rname = rival.data.name || e.labelOf(rival), rnext = rivalNextWay(rival), inst = has('instinct')[0];
+      if (rnext !== 'investigate' && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
+      if (rnext !== 'interrogate' && inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
+    }
     var insight = table.filter(function (c) { return c.def === 'insight' && c.data && CF.INSIGHTS[c.data.insight] && !e.unavailableReason(c); })[0];
     if (insight && can('reflect')) return tr('An Insight waits: put {label} into Rest alone to learn it, or with your {ability} to keep it as a trick.', { label: e.labelOf(insight), ability: tr(CF.CARDS[CF.INSIGHTS[insight.data.insight].trains].label) });
     if (can('investigate')) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
@@ -964,8 +1006,15 @@
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
     return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden, card.data && card.data.trust, card.data && card.data.heat, card.data && card.data.mark ? 'm' : '',
-      card.def === 'coldcase' ? card.data.template : ''].join('|');
+      card.def === 'coldcase' ? card.data.template : '', searchedOut(card) ? 'so' : ''].join('|');
   }
+  // A case whose scene has given all it had: another search only feeds an Obsession.
+  function searchedOut(card) {
+    if (!card.caseId || CF.CARDS[card.def].kind !== 'case' || !UI.e) return false;
+    var rec = UI.e.caseRec(card.caseId);
+    return !!(rec && rec.status === 'open' && rec.items && rec.items.length && rec.found >= rec.items.length);
+  }
+  UI.searchedOut = searchedOut;
 
   // A card element: shadow cards underneath (for stacks) and the face.
   function buildCard(card, count, mini) {
@@ -1034,6 +1083,13 @@
       var seal = h('div', 'c-seal');
       seal.style.backgroundImage = art((CASE_ART[crec2 && crec2.template] || CASE_DEFAULT)[1]);
       face.appendChild(seal);
+      // The scene searched out: a stamp of the glass on the other corner, and no word.
+      if (searchedOut(card)) {
+        var so = h('div', 'c-seal c-status c-searched');
+        so.style.backgroundImage = art('cstamp-02');
+        so.title = tr('Searched out: nothing more here. Another search only feeds Obsession.');
+        face.appendChild(so);
+      }
     }
     n.appendChild(face);
     if (card.data && card.data.mark) { var pin = h('div', 'c-pin'); pin.title = tr('Marked: yours to remember'); pin.style.backgroundImage = art('cmark-03'); n.appendChild(pin); }
@@ -2052,7 +2108,7 @@
     pane.appendChild(rbox);
 
     var act2 = h('div', 'actions go-row');
-    var go = h('button', 'plate-btn redfill go', pv ? pv.label + ' · ' + Math.round(pv.duration) + 's' : (primaryCard ? 'Nothing comes of it' : 'Put a card in'));
+    var go = h('button', 'plate-btn redfill go', pv ? tr('{label} · {n}s', { label: pv.label, n: Math.round(pv.duration) }) : (primaryCard ? 'Nothing comes of it' : 'Put a card in'));
     // The Court's Charge plate names the accused in a span a narrow phone hides (the charge panel names them too).
     if (pv && vid === 'arrest' && pcard && pcard.def === 'suspect') {
       var gname = tr(CF.cardFace(pcard, e.labelOf(pcard)).text.replace(/^★ /, '')), glab = go.textContent, gat = gname ? glab.indexOf(gname) : -1;
@@ -2375,10 +2431,13 @@
         lines.push(fr.watched ? 'Watched: a safer way in' : 'Not yet watched');
       }
     } else if (card.def === 'rival') {
-      var rd = card.data || {};
+      var rd = card.data || {}, rway = rivalNextWay(card);
       if (rd.heat) lines.push(tr('Weakness found: {n} of 2', { n: rd.heat }));
       else if (rd.stalled && rd.stalled >= e.s.week) lines.push(tr('Lying low until week {n}', { n: rd.stalled + 1 }));
-      else lines.push('Question with Wit to expose');
+      if (rivalCareful(card)) lines.push('Careful this week: the next thread after the Bell');
+      if (rway === 'investigate') lines.push('The next thread: shadow them in Explore with Instinct');
+      else if (rway === 'interrogate') lines.push('The next thread: Question them with Wit');
+      else if (!rd.heat) lines.push('Question with Wit, or shadow in Explore with Instinct, to expose');
     } else if (card.def === 'atlarge') {
       var crim = card.data.criminalId && e.criminal(card.data.criminalId);
       if (crim) {
@@ -2642,7 +2701,8 @@
     // The box, while the verb asks: a tap answers it from the table.
     if (vn && ev.button === 0 && t.closest('.v-magnet.asks')) { UI.answerAsk(vn.dataset.verb); ev.preventDefault(); return; }
     if (vn && ev.button === 0) {
-      UI.drag = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
+      var vd = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
+      UI.drag = ev.pointerType === 'touch' ? holdToLift(vd) : vd;
       ev.preventDefault();
       return;
     }
@@ -2650,7 +2710,8 @@
     var pz = t.closest && t.closest('.pile-zone');
     if (pz && ev.button === 0) {
       var pl = UI.e.pile();
-      UI.drag = { kind: 'pile', el: pz, x0: ev.clientX, y0: ev.clientY, b0: { x: pl.x, y: pl.y }, started: false };
+      var pd = { kind: 'pile', el: pz, x0: ev.clientX, y0: ev.clientY, b0: { x: pl.x, y: pl.y }, started: false };
+      UI.drag = ev.pointerType === 'touch' ? holdToLift(pd) : pd;
       ev.preventDefault();
       return;
     }
@@ -2660,6 +2721,22 @@
       UI.drag = { kind: 'pan', x0: ev.clientX, y0: ev.clientY, vx: UI.view.x, vy: UI.view.y, started: false };
       ev.preventDefault();
     }
+  }
+
+  // A finger on a verb tile or the pile pans the table, as a swipe should; held still for a
+  // moment, it lifts the tile instead. A tap still opens the verb. The mouse lifts at once.
+  var LIFT_HOLD = 350;
+  function holdToLift(under) {
+    var d = { kind: 'pan', x0: under.x0, y0: under.y0, vx: UI.view.x, vy: UI.view.y, started: false, under: under };
+    d.holdT = setTimeout(function () {
+      if (UI.drag !== d || d.started) return;
+      d.holdT = 0;
+      under.lifted = true;
+      UI.drag = under;
+      under.el.classList.add('held');
+      UI.haptic(15);
+    }, LIFT_HOLD);
+    return d;
   }
 
   function onPointerMove(ev) {
@@ -2691,6 +2768,7 @@
     }
     if (d.kind === 'pan') {
       d.started = true;
+      if (d.holdT) { clearTimeout(d.holdT); d.holdT = 0; }
       var tr0 = $('#table').getBoundingClientRect();
       var p0 = toPlane(d.x0 - tr0.left, d.y0 - tr0.top), p1 = toPlane(ev.clientX - tr0.left, ev.clientY - tr0.top);
       UI.view.x = d.vx + (p1.x - p0.x);
@@ -2867,6 +2945,7 @@
     if (!d) return;
     if (d.holdT) clearTimeout(d.holdT);
     if (d.kind === 'pinch') return;
+    if (d.el && d.el.classList) d.el.classList.remove('held');
     if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
     if ((d.kind === 'verb' || d.kind === 'pile') && d.started) {
       d.el.classList.remove('dragging');
@@ -2887,7 +2966,10 @@
     resumeAfterDrag();
     if (d.holdT) clearTimeout(d.holdT);
     if (d.kind === 'window') return;
+    // A tap on a tile that was waiting to be held is a tap on the tile.
+    if (d.kind === 'pan' && d.under && !d.started) d = d.under;
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
+    if (d.el) d.el.classList.remove('held');
     if (d.kind === 'pile') {
       d.el.classList.remove('dragging');
       if (d.started) { e.movePile(d.at.x, d.at.y); CF.Audio.play('drop'); UI.haptic(10); }

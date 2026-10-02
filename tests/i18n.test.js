@@ -49,7 +49,19 @@ assert.strictEqual(CF.T('Week {n}', { n: 4 }).indexOf('{'), -1, 'placeholders ar
     assert.ok(!/[A-Za-z]/.test(CF.T('Hans Schmidt')), 'a name met in \'' + deep + '\' still reads in Arabic: ' + CF.T('Hans Schmidt'));
   });
 });
+// A sign before a number keeps its place in a right-to-left line: the run is wrapped in invisible isolates.
+CF.setLang('ar');
+var plus = CF.T('Body +1');
+assert.ok(plus.indexOf('\u2066+1\u2069') >= 0, 'Body +1 isolates its +1: ' + JSON.stringify(plus));
+assert.strictEqual(CF.T(plus), plus, 'a string read twice is wrapped once');
+assert.ok(CF.T('3 / 8').indexOf('\u20663 / 8\u2069') === 0, 'a / b is isolated');
+assert.ok(CF.T('×3').indexOf('\u2066×3\u2069') === 0, 'a count is isolated');
+assert.strictEqual(CF.bidi('1600-1610'), '1600-1610', 'a range is left be');
+// The go plate's seconds are Arabic seconds.
+var plate = CF.T('{label} · {n}s', { label: 'Search the Scene', n: 30 });
+assert.ok(!/[A-Za-z]/.test(plate) && /30 ث/.test(plate), 'the plate reads its seconds in Arabic: ' + plate);
 CF.setLang('en');
+assert.strictEqual(CF.T('Body +1'), 'Body +1', 'English is left alone');
 assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
 
 // A token's face says what kind of token it is, and looks through a status it gained later (a seal instead).

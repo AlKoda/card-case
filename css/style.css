@@ -237,6 +237,9 @@ html[data-flat] #table { perspective: none; }
   box-shadow: 0 12px 0 #1a1410, 0 13px 0 1px #0b0908, 0 22px 26px rgba(0, 0, 0, 0.6); transition: transform 0.15s, box-shadow 0.15s; }
 .verb:hover .v-token { transform: translateY(-4px); box-shadow: 0 16px 0 #1a1410, 0 17px 0 1px #0b0908, 0 30px 32px rgba(0, 0, 0, 0.6); }
 .verb.dragging .v-token { transform: translateY(-10px) scale(1.03); box-shadow: 0 22px 0 #1a1410, 0 23px 0 1px #0b0908, 0 40px 40px rgba(0, 0, 0, 0.65); }
+/* Held under a finger long enough to lift: the tile rises before it moves. */
+.verb.held .v-token { transform: translateY(-10px) scale(1.03); transition: transform 0.12s; }
+#board .pile-zone.held { --cell: rgba(240, 200, 90, 0.7); }
 /* The name, on a plate below the tile. */
 .verb .v-plate {
   position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 16px; width: 200px; height: 40px; box-sizing: border-box;
@@ -327,6 +330,8 @@ html[data-flat] #table { perspective: none; }
 .card .c-seal { position: absolute; right: -7px; top: -7px; width: 32px; height: 32px; background: center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.65)); pointer-events: none; }
 /* A token's later status (kept, matched, read in part): a smaller seal in the same corner, so the face keeps its words. */
 .card .c-status { right: -6px; top: -6px; width: 28px; height: 28px; }
+/* A case searched out: the glass stamp on the left corner, across from its crime. */
+.card .c-searched { right: auto; left: -6px; }
 /* Case strings: a pinned rope from each case to what belongs to it. */
 #board .links { position: absolute; overflow: visible; pointer-events: none; z-index: 0; opacity: 0.6; }
 #board .links.pins { z-index: 5; opacity: 0.85; }
@@ -565,7 +570,7 @@ html[data-flat] #table { perspective: none; }
 .journal-entry h6 { margin: 2px 0 3px; font-size: 13px; font-family: var(--display); color: #2a1a10; }
 .journal-entry p { margin: 0; font-family: var(--serif); font-size: 13px; line-height: 1.45; color: #4a4033; }
 .journal-entry.k-case { border-left-color: var(--danger); }
-.journal-entry.k-danger { border-left-color: #e08a3c; }
+.journal-entry.k-danger, .journal-entry.k-harm, .journal-entry.k-need { border-left-color: #e08a3c; }
 .journal-entry.k-major { border-left-color: #b8892c; }
 .journal-entry.k-victory { border-left-color: #3f8f3c; }
 .journal-entry.k-week { border-left-color: #6a6e74; }
@@ -807,9 +812,9 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .end-box .row { flex-wrap: wrap; }
 .end-box .plate-btn { min-width: 0; font-size: 12.5px; padding: 10px 18px; }
 
-/* Window shake on bad news. */
-#app.shake { animation: shake 0.4s; }
-@keyframes shake { 20% { transform: translate(-5px, 2px); } 40% { transform: translate(4px, -3px); } 60% { transform: translate(-3px, 2px); } 80% { transform: translate(2px, -1px); } }
+/* Window shake on harm done, not on every piece of bad news. */
+#app.shake { animation: shake 0.3s; }
+@keyframes shake { 20% { transform: translate(-3px, 1px); } 40% { transform: translate(3px, -2px); } 60% { transform: translate(-2px, 1px); } 80% { transform: translate(1px, -1px); } }
 
 .story { cursor: default; }
 
@@ -971,6 +976,8 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 [dir=rtl] .toast.leaving { transform: translateX(20px); }
 [dir=rtl] input[type=text] { direction: rtl; }
 [dir=rtl] #name { direction: ltr; text-align: right; }
+/* A count alone keeps its sign before its number. */
+[dir=rtl] .card .c-count { unicode-bidi: isolate; direction: ltr; }
 [dir=rtl] .vwin { transform: none; border-width: calc(64px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1)) calc(66px * var(--ui-scale, 1)); }
 [dir=rtl] .vwin::before { right: calc(-20px * var(--ui-scale, 1)); left: calc(-66px * var(--ui-scale, 1)); border-width: calc(64px * var(--ui-scale, 1)) calc(66px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)); transform: scaleX(-1); }
 [dir=rtl] .vw-body { margin: 0 -10px 0 -46px; padding: 2px 12px 2px 4px; }
