@@ -100,8 +100,9 @@
     hiredWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. Or question {name} with Wit.',
     hiredNoWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. When your Wit comes back from the sergeant, question {name} with it.',
     keepText: 'The Council pays a stipend to the examiner who answered a case, and the landlord, who has heard, sends up the bill. The Bell rings from today: lodging and dues at every turn of the week. You are an examiner now, and the cases will come on the city\'s clock.',
-    // The opening case ended without a conviction: the desk is earned all the same.
-    keepAcquitted: 'The sworn men did not convict, but the Council has seen you work: the desk is yours, and so is the Bell. Lodging and dues at every turn of the week, and the next case on the city\'s clock.',
+    // The opening case ended without a conviction: the desk is earned all the same. After an
+    // acquittal the verdict has already said the desk is yours (engine.js), so the keep does not.
+    keepAcquitted: 'The Council pays one Coin for the desk, not two for the case. The Bell rings from today: lodging and dues at every turn of the week, and the next case on the city\'s clock.',
     keepCold: 'The case went unanswered, but the Council has seen you work: the desk is yours, and so is the Bell. Lodging and dues at every turn of the week, and the next case on the city\'s clock.',
     bellHint: 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.',
     // The opening case's own Quarter comes with the hire (only that one: the rest of the city waits
@@ -190,6 +191,11 @@
     e.introUnlock(['reflect']);
     hint(e, U.fill('Rest is open: put {card} in it to ease it before more come.', { card: e.labelOf(strain) }));
   }
+  // A save from before intro.keepWeek: the week its 'Your First Keep' was told, else null (unknown).
+  function keptWeek(e) {
+    var j = (e.s.journal || []).filter(function (x) { return x.title === CF.OPENING_TEXT.keep; })[0];
+    return j && typeof j.week === 'number' ? j.week : null;
+  }
   // The opening case's Quarter, given once at the hire (a save from before it gets it on the next tick).
   function openingQuarter(e, rec) {
     var known = e.s.flags.districts || {};
@@ -199,6 +205,7 @@
   P.openingTick = function () {
     var s = this.s, sc = this.openingScene();
     strainCure(this);
+    if (s.flags.stage === 'keep' && s.intro && s.intro.keepWeek === undefined) s.intro.keepWeek = keptWeek(this);
     if (!s.flags.opening) return;
     // The opening case ended without a conviction (acquitted, gone unanswered, settled for a
     // purse or taken out of your hands): the keep comes all the same, so the city does not stand
@@ -318,8 +325,13 @@
     // The one you knew is buried, and the casebook remembers whose death began it.
     var sc = this.openingScene();
     s.flags.firstVictim = sc.missing;
+    // A case lost out of your hands has just been told as 'The Desk All the Same' (engine.js
+    // openingLost), which says the Bell and the clock already: the keep is the burial alone.
     var text = won ? CF.OPENING_TEXT.keepText : why === 'acquitted' ? CF.OPENING_TEXT.keepAcquitted : CF.OPENING_TEXT.keepCold;
-    this.story(CF.OPENING_TEXT.keep, (sc.kept ? sc.kept + ' ' : '') + text, 'major');
+    if (!won && why !== 'acquitted' && s.flags.openingLost && sc.kept) text = '';
+    this.story(CF.OPENING_TEXT.keep, (sc.kept ? sc.kept + (text ? ' ' : '') : '') + text, 'major');
+    // The week of the keep, for the Bell's lesson on the hint bar (ui.js reads intro.keepWeek).
+    if (s.intro) s.intro.keepWeek = s.week;
     if (!won && !this.openCases().length) s.dispatchT = Math.min(s.dispatchT, 5);
     // The Bell's lesson: now, and kept on for a while after the desk arrives (introFinish),
     // since the Court's own lessons may still have the hint when the guided start ends.
@@ -428,6 +440,12 @@
       witnesses: e.tableCards().filter(function (c) { return c.def === 'witness' && c.life > 40; }),
     };
   }
+  // The case the first thread named (data.eyes: they have been asking about it), if it is still
+  // among those they could take up: the one they take, so the naming holds.
+  function rivalEyes(r, mine) {
+    var id = r && r.data && r.data.eyes;
+    return id ? mine.filter(function (x) { return x.id === id; })[0] || null : null;
+  }
   // The target of a foreseen move, if it is still there to be taken.
   function rivalAim(next, o) {
     var list = { poach: o.mine, close: o.ripe, tamper: o.clues, bribe: o.witnesses }[next.act] || [];
@@ -453,35 +471,21 @@
     if (o.witnesses.length) acts.push('bribe');
     if (!acts.length) { delete r.data.next; return U.fill(CF.RIVAL_FORESEEN.none, { name: r.data.name }); }
     var act = U.pick(this.rng, acts);
-    var t = U.pick(this.rng, { poach: o.mine, close: o.ripe, tamper: o.clues, bribe: o.witnesses }[act]);
+    var t = (act === 'poach' && rivalEyes(r, o.mine)) || U.pick(this.rng, { poach: o.mine, close: o.ripe, tamper: o.clues, bribe: o.witnesses }[act]);
     r.data.next = { act: act, id: t.uid || t.id };
     this.dirty = true;
     return U.fill(CF.RIVAL_FORESEEN[act], { name: r.data.name, target: t.uid ? this.labelOf(t) : t.title });
   };
 
-  // The upright man's Coin, taken once (the 'upright' choice), comes every week while his band
-  // stands: one Coin, and every other week the purse is counted. When the band is broken the
-  // boy stops coming, and says so once.
+  // The upright man's Coin, taken once (the 'upright' choice: purse.js takeUpright), comes every week
+  // while his band stands: one Coin, and every other week the purse is counted. The Bell pays it
+  // (purse.js uprightWeek, from purseWeek), once; these are its words. When the band is broken the boy
+  // stops coming, and says so once: in the Hole by your Court, or gone under the Warrens.
   CF.UPRIGHT_WEEK = {
     paid: 'The upright man\'s boy brings the week\'s Coin. The band keeps clear of your stair.',
     broken: 'The boy does not come this week. His upright man is in the Hole, and so, in a manner of speaking, is your Coin.',
-    // Two bands sworn into the Coquille: the band card goes, but nobody broke it.
-    sworn: 'The boy does not come this week. His band has gone under the Warrens to the King of Thunes, and the King pays nobody.',
+    sworn: 'The boy does not come this week. His band answers to the Coquille now, and the Coquille pays nobody.',
   };
-  function uprightWeek(e, lines) {
-    var f = e.s.flags, band = f.uprightPaid;
-    if (!band) return;
-    var stands = e.cardsOf('gang', true).some(function (g) { return g.data && g.data.name === band; });
-    if (!stands) {
-      delete f.uprightPaid;
-      lines.push(e.countOf('syndicate') && !f.syndicateFallen ? CF.UPRIGHT_WEEK.sworn : CF.UPRIGHT_WEEK.broken);
-      return;
-    }
-    coins(e, 1);
-    f.uprightWeeks = (f.uprightWeeks || 0) + 1;
-    if (f.uprightWeeks % 2 === 0) e.count('purse');
-    lines.push(CF.UPRIGHT_WEEK.paid);
-  }
 
   // How often the Rival's bought confession names the right man (engine.js rivalCloses).
   CF.RIVAL_RIGHT = 0.6;
@@ -514,7 +518,6 @@
   P.rivalWeek = function () {
     var s = this.s, lines = [];
     foretellCoquille(this); // the week's other word from the street, before the Rival's
-    uprightWeek(this, lines); // and the upright man's boy, if you took his Coin
     if (s.week < 5 || (s.intro && !s.intro.finished)) return lines;
     var r = this.cardsOf('rival', true)[0];
     if (!r) {
@@ -561,7 +564,7 @@
     if (!acts.length) { this.dirty = true; return lines; }
     var act = aim ? next.act : U.pick(this.rng, acts);
     if (act === 'poach') {
-      var rec = aim || U.pick(this.rng, mine), card = this.caseCard(rec.id);
+      var rec = aim || rivalEyes(r, mine) || U.pick(this.rng, mine), card = this.caseCard(rec.id);
       rec.rival = true;
       rec.rivalSince = s.week;
       if (card) card.life = Math.min(card.life, card.maxLife * 0.5);
@@ -673,9 +676,12 @@
         { label: 'Give them the vagrant', gain: 'The Crowd goes quiet; Dread rises', text: 'The Crowd is fed. Someone who did nothing hangs for it, and the city learns what you are.', effect: function (e) { e.meter('pressure', -3); e.meter('dread', 2); e.count('cruelty', 2); e.s.stats.wrongful++; } },
         { label: 'Hold the line', cost: 'health', gain: 'Standing rises; Mercy', text: 'You say the case is open. The song gets another verse.', effect: function (e) { e.meter('pressure', 1); e.meter('reputation', 1); e.count('mercy'); } },
       ] },
-    // The note names one of your open cases: the one somebody wants dropped.
+    // The note names one of your open cases: the one somebody wants dropped (purse.js purseNote).
     { id: 'purse', when: function (e) { return e.s.week >= 2 && e.openCases().length > 0; },
-      context: function (e) { var rec = U.pick(e.rng, e.openCases()); return rec ? { caseId: rec.id } : null; },
+      context: function (e) {
+        var note = e.purseNote ? e.purseNote() : null, rec = note ? null : U.pick(e.rng, e.openCases());
+        return note ? { caseId: note.caseId } : rec ? { caseId: rec.id } : null;
+      },
       fill: function (e, ctx) { var rec = anyOpenCase(e, ctx); return { 'case': rec ? rec.title : 'a case of yours' }; },
       title: 'The Note with the Purse', text: 'Three Coin, good silver, and a note with one thing on it: {case}. Nobody saw who left it.',
       again: 'Another purse, heavier than the last, and the same hand on the note: {case}.',
@@ -684,10 +690,13 @@
         { label: 'Find who left it', cost: 'instinct', gain: 'A name in that case, or an Informer on the Hill', text: 'A boy, a lane, a door on the Hill.',
           effect: function (e, ctx) {
             e.meter('scrutiny', -1); e.meter('retaliation', 1); e.favour().council += 1;
-            // The door belongs to somebody in the case the note named, if anyone there is still unnamed.
+            // The door belongs to somebody in the case the note named: one of the Hill in it first
+            // (purse.js purseSender), else anyone there still unnamed, else the boy himself.
             var rec = anyOpenCase(e, ctx);
-            var sc = rec && rec.suspects.some(function (x) { return !x.revealed && !x.cleared; }) ? e.revealSuspect(rec, null) : null;
-            if (sc) return U.fill('The boy leads you up the Hill to a door that does not open to you. You know whose it is: {name}, in {case}.', { name: sc.label, 'case': rec.title });
+            var sc = rec && e.purseSender ? e.purseSender(rec.id) : null;
+            if (!sc && rec && rec.suspects.some(function (x) { return !x.revealed && !x.cleared; })) sc = e.revealSuspect(rec, null);
+            var who = sc && e.suspectOf ? e.suspectOf(sc) : null;
+            if (sc) return U.fill('The boy leads you up the Hill to a door that does not open to you. You know whose it is: {name}, in {case}.', { name: who ? who.name : sc.label, 'case': rec.title });
             e.create('informant', e.informantSpec('uptown'));
             return 'A boy, a lane, a door on the Hill that does not open to you. But the boy will, for a coin now and then.';
           } },
@@ -797,7 +806,10 @@
       title: 'The Upright Man\'s Offer', text: 'A boy brings a purse and a message from the band\'s upright man: a Coin a week, and the band keeps clear of your stair.',
       options: [
         { label: 'Take it', gain: '+1 Coin a week while the band stands; Purse; Vendetta eases', text: 'The boy comes every week. The band keeps clear of your stair, and the Market knows why.',
-          effect: function (e) { coins(e, 1); e.count('purse'); e.meter('retaliation', -3); var g = e.cardsOf('gang', true)[0]; if (g) e.s.flags.uprightPaid = g.data.name; } },
+          effect: function (e) {
+            if (e.takeUpright) { e.takeUpright(); return; }
+            coins(e, 1); e.count('purse'); e.meter('retaliation', -3); var g = e.cardsOf('gang', true)[0]; if (g) e.s.flags.uprightPaid = g.data.name;
+          } },
         { label: 'Send the boy back with the purse', gain: 'Standing rises; Vendetta', text: 'The boy goes back with the purse and the message. The band hears it, and so does the lane.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); } },
       ] },
     { id: 'dinner', when: function (e) { return e.s.meters.reputation >= 6; },

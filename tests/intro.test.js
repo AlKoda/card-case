@@ -411,6 +411,9 @@ console.log('intro: ok');
   assert.strictEqual(e.cardsOf('funds', true).length, coin + 1, 'one Coin, not two');
   var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
   assert.ok(keep && keep.text.indexOf(CF.OPENING_TEXT.keepAcquitted) > 0, 'the keep says the sworn men did not convict: ' + (keep && keep.text));
+  var told = e.s.journal.filter(function (j) { return /Council has seen you work/.test(j.text || ''); });
+  assert.strictEqual(told.length, 1, 'the desk kept after an acquittal is said once, by the verdict: ' + told.map(function (j) { return j.title; }).join(' | '));
+  assert.strictEqual(e.s.intro.keepWeek, e.s.week, 'the keep\'s week is kept for the Bell\'s lesson');
   assert.ok(titles(e).indexOf('The Sworn Men Acquit') >= 0 && titles(e).indexOf('The Ladder') < 0, 'the sworn men\'s word, not the Ladder: ' + titles(e).join(' | '));
   tick(e, 0.1);
   assert.ok(e.s.intro.finished, 'the desk arrives once the keep is made');
@@ -499,6 +502,17 @@ console.log('intro: ok');
   assert.strictEqual(hits, 6, 'one case taken each time, the foreseen one');
   var n = setup(90, 0);
   assert.ok(/has nothing of yours in hand yet/.test(n.e.rivalForesee()), 'nothing to take: it says so');
+  // The first thread named the case they are after (data.eyes): when they take up a case, it is that one.
+  var named = 0;
+  for (var q = 0; q < 8; q++) {
+    var p = setup(100 + q, 3), r = p.e.cardsOf('rival', true)[0];
+    r.data.eyes = p.recs[2].id;
+    p.e.rivalWeek();
+    var taken = p.recs.filter(function (x) { return x.rival; });
+    assert.strictEqual(taken.length, 1, 'one case taken up');
+    if (taken[0] === p.recs[2]) named++;
+  }
+  assert.strictEqual(named, 8, 'the case they were asking about is the one they take');
   console.log('rival foreseen: ok');
 })();
 
@@ -569,6 +583,30 @@ console.log('intro: ok');
     assert.ok(keep && keep.text.indexOf(CF.OPENING_TEXT.keepCold) > 0, status + ': the keep says it went unanswered by you: ' + (keep && keep.text));
   });
   console.log('opening taken away: ok');
+})();
+
+// ---- A first case lost out of your hands is told once: the Desk All the Same, then the burial ----
+(function openingLostOnce() {
+  var e = CF.Engine.newGame({ seed: 131, who: 'watchman', name: 'Once', opening: true, guided: true });
+  e.s.flags.stage = 'questioned';
+  var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+  rec.opening = true;
+  e.openingHired();
+  if (e.s.choice) e.choose(0);
+  e.goCold(rec.id);
+  var titles = e.s.journal.map(function (j) { return j.title; });
+  assert.ok(titles.indexOf('The Desk All the Same') >= 0, 'the desk is kept all the same');
+  var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+  assert.strictEqual(keep && keep.text, e.openingScene().kept, 'the keep is the burial, not the Bell said twice: ' + (keep && keep.text));
+  assert.strictEqual(e.s.intro.keepWeek, e.s.week, 'its week is kept');
+  // A save from before intro.keepWeek reads the week from the journal.
+  var old = JSON.parse(e.save());
+  delete old.intro.keepWeek;
+  var l = CF.Engine.load(old);
+  if (l.s.choice) l.choose(0);
+  l.tick(0.1);
+  assert.strictEqual(l.s.intro.keepWeek, e.s.week, 'an older save finds the keep\'s week in the journal');
+  console.log('opening lost, told once: ok');
 })();
 
 // ---- A Fever outranks the lesson: the hint names it until it is slept off ----------------------

@@ -149,7 +149,9 @@ does not gamble: on full proof it convicts. If the first case is lost
 some other way (a thin charge acquitted, the case gone unanswered,
 settled for a purse, or taken out of your hands by the Court of Miracles,
 the Inquisitor or the Rival), the Council has still seen you work: the first keep comes all the same, with
-one Coin instead of two, and the next case comes at once.
+one Coin instead of two, and the next case comes at once. It is said once:
+the verdict (or *The Desk All the Same*) says the desk is yours, and the
+keep that follows tells the burial and the Bell's price, not the desk again.
 
 The hire gives the first case its own Quarter, and only that one; the
 rest of the city waits for the keep. Door to door with the case and its
@@ -279,8 +281,8 @@ money changes the truth:
 | **The Thief-takers' cut** | Recovering goods for a fee without prosecuting [Wild] | 2 Funds per case closed this way | +1, and Underworld Debt |
 | **Selling a writ** | A patrician, wanting a rival searched | 3 Funds | +1, Suspicion +1 if the rival is a Council family |
 | **The King's tribute** | The underworld, weekly, once a Treaty stands (§8) | Funds every week | +1 per week taken |
-| **The upright man's Coin** | A band's upright man, once a Band is on the table | 1 Fund every week while that band stands; the boy stops coming when it is broken | +1, then +1 every other week |
-| **The note with the purse** | Somebody who wants one of your open cases dropped; the note names it | 3 Funds, or trace the boy to a door on the Hill and a name in that case | +1 if pocketed |
+| **The upright man's Coin** | A band's upright man, once a Band is on the table | 1 Fund now, and 1 every week at the Bell while that band stands (once a week, never twice); the boy stops coming when your Court breaks the band, or when it goes under the Warrens to the Coquille | +1, then +1 every other week |
+| **The note with the purse** | Somebody who wants one of your open cases dropped; the note names it | 3 Funds, or trace the boy to a door on the Hill: one of the Hill in that case first, else another name in it, else the boy himself as an Informer | +1 if pocketed |
 | **Blood money** | Convicting for the reward with a frame [Macdaniel] | 3 Funds | +2, and a wrongful conviction |
 
 Two exits from the corrupt road, and the whole design hinges on both
@@ -440,7 +442,9 @@ found two different ways. The ways are questioning (Wit), shadowing
 they spoiled, a witness they paid); answering a case they raced before
 they close it counts as one. The same way twice only puts them on guard.
 The first weakness does not stop them; it shows their next move, and that
-is the move they make at the Bell if it can still be made. The second
+is the move they make at the Bell if it can still be made. It also names
+the case they have been asking about, and when they next take up a case
+of yours, it is that one. The second
 sends them home for ten weeks, with Standing +1 and the Council's favour.
 A weakness left three weeks goes stale: they have covered their tracks,
 and the hunt starts again.
