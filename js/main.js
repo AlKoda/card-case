@@ -57,14 +57,15 @@
       if (cap) cap.textContent = k ? tr(CF.POWERS[k].label) : '';
       el.classList.toggle('on', i === 1 && !!k);
     });
-    CF.Audio.play('victory');
+    // The office's own bell, not the ending's fanfare.
+    CF.Audio.play('office');
     show('promo', true);
     // The ceremony: the panel opens, the wax comes down on it, the powers are dealt one by one.
     var box = $('promo-box'), dealt = 0;
     box.classList.remove('cer'); void box.offsetWidth; box.classList.add('cer');
     [1, 2, 3].forEach(function (i) { var el = $('promo-s' + i); el.style.animationDelay = el.classList.contains('empty') ? '' : (0.75 + 0.12 * dealt++) + 's'; });
     clearTimeout(promoStamp);
-    promoStamp = setTimeout(function () { if (!$('promo').classList.contains('hidden')) CF.Audio.play('complete'); }, 650);
+    promoStamp = setTimeout(function () { if (!$('promo').classList.contains('hidden')) { CF.Audio.play('seal'); if (UI.haptic) UI.haptic(40); } }, 650);
   };
   var promoStamp = null;
   // The new rank's wax glows in the top bar for a moment once the dialog is put away.
@@ -73,6 +74,8 @@
     var rb = document.getElementById('rank-badge');
     if (!rb) return;
     rb.classList.remove('rank-new'); void rb.offsetWidth; rb.classList.add('rank-new');
+    // The new wax is pressed into the bar.
+    setTimeout(function () { CF.Audio.play('seal'); }, 300);
     setTimeout(function () { rb.classList.remove('rank-new'); }, 2000);
   }
   // A tap on a power reads it out under the slots.

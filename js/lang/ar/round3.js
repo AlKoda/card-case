@@ -958,5 +958,6 @@
     "Cruelties: {n}. Dread stays at {f} of {max} or above.": "القسوات: {n}. تبقى الرهبة عند {f} من {max} أو فوقها.",
     "Turn the phone on its side": "أدِر الهاتف على جانبه",
     "Play upright": "العب والهاتف قائم",
+    "Reduce motion": "تقليل الحركة",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

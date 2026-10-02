@@ -13,7 +13,7 @@
     ar: { name: 'العربية', dir: 'rtl', fonts: 'css/fonts-ar.css' },
   };
 
-  var I = (CF.I18N = { lang: 'en', dicts: {}, compiled: {}, lower: {}, cache: {}, cacheN: 0, cutoffs: 0, missing: {}, track: false });
+  var I = (CF.I18N = { lang: 'en', dicts: {}, compiled: {}, lower: {}, cache: {}, cacheN: 0, cutoffs: 0, missing: {}, partial: {}, track: false });
 
   CF.addStrings = function (lang, map) {
     var d = I.dicts[lang] || (I.dicts[lang] = {});
@@ -75,7 +75,8 @@
         lit += part.length;
         return escapeRe(part);
       }).join('');
-      if (!keys.length || !/[A-Za-z]{3}/.test(k.replace(/\{\w+\}/g, ''))) continue;
+      // Some words of its own ('It is {name}'s.'), not bare glue ('{a}: {b}', '{a} of {b}').
+      if (!keys.length || (k.replace(/\{\w+\}/g, '').match(/[A-Za-z]/g) || []).length < 4) continue;
       list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, out: d[k], lit: lit });
     }
     list.sort(function (a, b) { return b.lit - a.lit; });
@@ -95,37 +96,56 @@
     var lower = I.lower[I.lang] || lowerIndex(I.lang), lk = lower[t.toLowerCase()];
     if (lk !== undefined) return s.replace(t, lk);
     if (depth > 5) { I.cutoffs++; return miss(s); }
-    var viaTpl = matchTemplate(t, depth);
+    var fallback = null;
+    // A pattern that reads every piece wins at once; one that leaves a piece in English is kept for last.
+    var viaTpl = matchTemplate(t, depth, true);
     if (viaTpl !== null) return t === s ? viaTpl : s.replace(t, viaTpl);
+    var loose = matchTemplate(t, depth);
+    if (loose !== null) fallback = t === s ? loose : s.replace(t, loose);
     // A parenthesis in front: '(The Market) The crier has sung it.'
     var par = /^\(([^()]+)\)\s+([\s\S]+)$/.exec(t);
     if (par) {
       var a = translate(par[1], depth + 1), b2 = translate(par[2], depth + 1);
       if (a !== par[1] || b2 !== par[2]) return s.replace(t, '(' + a + ') ' + b2);
     }
-    // A symbol in front of a known string: '★ The Body at the Crane'.
-    var sym = /^([^A-Za-z{(]+)([\s\S]+)$/.exec(t);
-    if (sym && LETTERS.test(sym[2])) {
+    // A symbol in front of a known string: '★ The Body at the Crane'. A number in front is the string's
+    // own ('2 who walked from you...'), unless the rest is one phrase.
+    var sym = /^([^A-Za-z{("“]+)([\s\S]+)$/.exec(t);
+    if (sym && LETTERS.test(sym[2]) && !(/\d/.test(sym[1]) && /[.!?]["'”)]*\s+\S/.test(sym[2]))) {
       var body = translate(sym[2], depth + 1);
       if (body !== sym[2]) return s.replace(t, sym[1].replace(/,/g, '،').replace(/;/g, '؛') + body);
     }
     // 'Label: the text' (the text may have colons of its own).
+    // The label is one phrase: a colon after a sentence ('Rent is due. The stipend: 4 Coin.') is not a label's.
     var colon = t.indexOf(': ');
-    if (colon > 0 && colon < 60 && /[A-Za-z]{2}/.test(t.slice(0, colon))) {
+    if (colon > 0 && colon < 60 && /[A-Za-z]{2}/.test(t.slice(0, colon)) && !/[.!?]["'”)]*\s/.test(t.slice(0, colon))) {
       var lab = translate(t.slice(0, colon), depth + 1), txt = translate(t.slice(colon + 2), depth + 1);
-      if (lab !== t.slice(0, colon) && txt !== t.slice(colon + 2)) return s.replace(t, lab + ': ' + txt);
+      // Read in part, it is kept in case nothing reads it whole ('Witness: X; Y (accused)' is a list).
+      if (lab !== t.slice(0, colon) && txt !== t.slice(colon + 2)) {
+        if (whollyRead(txt)) return s.replace(t, lab + ': ' + txt);
+        if (fallback === null) fallback = s.replace(t, lab + ': ' + txt);
+      }
     }
     // The longest opening run of sentences that is one known text (a case's
     // brief, a story beat), then whatever follows it.
-    var bre = /[.!?]["'”)]*\s+/g, cuts = [], bm;
+    var bre = /[.!?]["'”)]*\s+/g, cuts = [], bm, firstCut = null;
     while ((bm = bre.exec(t))) cuts.push(bm.index + bm[0].length);
     for (var ci = cuts.length - 1; ci >= 0; ci--) {
       var head = t.slice(0, cuts[ci]).replace(/\s+$/, ''), gap = t.slice(head.length, cuts[ci]), rest = t.slice(cuts[ci]);
       var hd = whole(head);
-      if (hd === null) hd = matchTemplate(head, depth + 1);
+      // A quoted saying: '"A gold ring. Big, on the little finger." (Loves the accused.)'
+      var qt = hd === null ? /^(["“])([\s\S]+?)(["”])$/.exec(head) : null;
+      if (qt) { var qin = whole(qt[2]); if (qin !== null) hd = qt[1] + qin + qt[3]; }
+      // A pattern that fits the run but leaves a piece of it in English is the wrong cut: a shorter run is tried.
+      if (hd === null) hd = matchTemplate(head, depth + 1, true);
       if (hd === null) continue;
-      return s.replace(t, hd + gap + translate(rest, depth + 1));
+      // What follows is the next sentence along, not a piece inside this one: a long week's news reads to its end.
+      // A cut that leaves what follows in English (the run took a sentence the next pattern needed) gives way to a shorter one.
+      var rr = translate(rest, Math.max(1, depth)), cut = s.replace(t, hd + gap + rr);
+      if (whollyRead(rr)) return cut;
+      if (firstCut === null) firstCut = cut;
     }
+    if (firstCut !== null) return firstCut;
     // Sentence by sentence.
     var parts = t.match(/[^.!?]+[.!?]+["'”)]*(\s+|$)|[^.!?]+$/g);
     if (parts && parts.length > 1) {
@@ -149,13 +169,21 @@
     for (var si = 0; si < SEPS.length; si++) {
       var items = t.split(SEPS[si]);
       if (items.length < 2) continue;
-      var all2 = true;
-      var out2 = items.map(function (p) {
-        if (!/[A-Za-z]{2}/.test(p)) return p;
-        var tr = translate(p, depth + 1);
+      var all2 = true, out2 = [];
+      // An item may hold the separator itself ('A ledger in weights, not sums'): an unknown piece is
+      // read together with the next one or two before the list is given up.
+      for (var ii = 0; ii < items.length; ii++) {
+        var p = items[ii];
+        if (!/[A-Za-z]{2}/.test(p)) { out2.push(p); continue; }
+        var tr = translate(p, depth + 1), took = 0;
+        for (var more = 1; tr === p && more <= 2 && ii + more < items.length; more++) {
+          var joined = items.slice(ii, ii + more + 1).join(SEPS[si]), tj = translate(joined, depth + 1);
+          if (tj !== joined) { tr = tj; p = joined; took = more; }
+        }
         if (tr === p) all2 = false;
-        return tr;
-      });
+        out2.push(tr);
+        ii += took;
+      }
       if (all2) return s.replace(t, out2.join(SEPS[si] === ', ' ? '، ' : SEPS[si] === '; ' ? '؛ ' : SEPS[si] === ' and ' ? ' و' : SEPS[si]));
     }
     // A run of known words, or two known parts: 'Hans van der Meer',
@@ -174,6 +202,7 @@
         }
       }
     }
+    if (fallback !== null) return fallback;
     return miss(s);
   }
   // Exact keys only: what a captured piece must satisfy when it spans
@@ -185,7 +214,7 @@
     var lower = I.lower[I.lang] || lowerIndex(I.lang);
     return lower[t.toLowerCase()] !== undefined ? lower[t.toLowerCase()] : null;
   }
-  function matchTemplate(t, depth) {
+  function matchTemplate(t, depth, strict) {
     var tpls = I.compiled[I.lang] || compile(I.lang);
     for (var i = 0; i < tpls.length; i++) {
       var m = tpls[i].re.exec(t);
@@ -206,18 +235,30 @@
           if (translate(l, depth + 1) !== l && translate(r, depth + 1) !== r) { caps[a] = l; caps[a + 1] = r; break; }
         }
       }
-      var out = tpls[i].out;
-      for (var j = 0; j < tpls[i].keys.length; j++) out = out.split('{' + tpls[i].keys[j] + '}').join(translate(caps[j], depth + 1));
+      var out = tpls[i].out, filled = true;
+      for (var j = 0; j < tpls[i].keys.length; j++) {
+        var tc = translate(caps[j], depth + 1);
+        if (strict && /[A-Za-z]{3}/.test(caps[j]) && !whollyRead(tc)) filled = false;
+        out = out.split('{' + tpls[i].keys[j] + '}').join(tc);
+      }
+      if (!filled) continue;
       return out;
     }
     return null;
   }
   function miss(s) { return s; }
+  function whollyRead(r) { return !/[A-Za-z]{3}/.test(r.replace(KEEP_LATIN, '')); }
+  // Words that stay in Latin letters in every language: the names of keys.
+  var KEEP_LATIN = /\b(Shift|Esc|Enter|Tab|Space|Ctrl|Alt)\b/g;
   function translate(s, depth) {
     if (I.lang === 'en' || !s || !I.dicts[I.lang]) return s;
     if (I.cache[s] !== undefined) return I.cache[s];
     var cut = I.cutoffs, r = lookup(s, depth);
-    if (I.track && depth === 0 && r === s) I.missing[s] = (I.missing[s] || 0) + 1;
+    if (I.track && depth === 0) {
+      if (r === s) I.missing[s] = (I.missing[s] || 0) + 1;
+      // Half translated: English words left in the answer (the keys' caps aside) are as much a leak as none.
+      else if (I.lang !== 'en' && !whollyRead(r)) I.partial[s] = r;
+    }
     // A string read deep inside another may have met the depth cut-off on the way: that answer is only good for
     // where it was asked, so it is not kept (else a name reached first in a long sentence stays English everywhere).
     if (depth > 0 && I.cutoffs !== cut) return r;

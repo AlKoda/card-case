@@ -94,6 +94,15 @@
     s.stop(t + dur + 0.05);
   }
 
+  // A struck bell: a few inharmonic partials, each fading on its own.
+  function bell(freq, dur, opts) {
+    opts = opts || {};
+    var vol = opts.vol || 0.1, delay = opts.delay || 0;
+    [[1, 1, 1], [2, 0.45, 0.7], [2.76, 0.3, 0.5], [5.4, 0.12, 0.3]].forEach(function (p) {
+      tone(freq * p[0], dur * p[2], { vol: vol * p[1], delay: delay, attack: 0.004, lp: opts.lp || 2400 });
+    });
+  }
+
   var SOUNDS = {
     pick: function () { noise(0.05, { freq: 3500, vol: 0.12 }); tone(900, 0.05, { type: 'triangle', vol: 0.05 }); },
     drop: function () { tone(170, 0.12, { to: 90, vol: 0.25 }); noise(0.08, { freq: 900, vol: 0.08 }); },
@@ -110,13 +119,23 @@
     heartbeat: function () { tone(55, 0.12, { vol: 0.25 }); tone(52, 0.14, { vol: 0.2, delay: 0.22 }); },
     // Bad news that is not harm: a low rumble.
     omen: function () { noise(0.35, { filter: 'lowpass', freq: 180, vol: 0.18 }); tone(73, 0.5, { vol: 0.08 }); },
+    // A find turned over: the flick of the paper, then the face landing.
+    flip: function () { noise(0.035, { filter: 'highpass', freq: 3000, vol: 0.10 }); noise(0.05, { filter: 'bandpass', freq: 1800, q: 0.8, vol: 0.08, delay: 0.18 }); tone(260, 0.06, { vol: 0.04, delay: 0.18 }); },
+    // A find that names someone, or carries a confession: a low note under the face.
+    discovery: function () { tone(110, 0.9, { vol: 0.07 }); tone(165, 0.9, { vol: 0.04, delay: 0.04 }); },
+    // A verb asks for a card: two knocks at the door.
+    knock: function () { [0, 0.16].forEach(function (d) { noise(0.04, { freq: 700, q: 3, vol: 0.22, delay: d }); tone(180, 0.05, { to: 120, vol: 0.12, delay: d }); }); },
+    // Wax pressed down: a choice answered, a rank sealed.
+    seal: function () { noise(0.06, { filter: 'lowpass', freq: 600, vol: 0.2 }); tone(196, 0.18, { vol: 0.08 }); },
+    // A new office: the tower bell, then two soft notes.
+    office: function () { bell(147, 3, { vol: 0.09 }); tone(220, 0.9, { type: 'triangle', vol: 0.06, delay: 0.4, lp: 1400 }); tone(294, 1.1, { type: 'triangle', vol: 0.06, delay: 0.7, lp: 1400 }); },
     defeat: function () { [392, 330, 262, 196].forEach(function (f, i) { tone(f, 1.1, { type: 'triangle', vol: 0.12, delay: i * 0.18, lp: 1200 }); }); },
   };
 
   // One cue at a time: the same cue does not repeat inside its gap, and a
   // lesser cue gives way to a greater one started a moment before.
-  var MIN_GAP = { complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 1.0, page: 0.4, flip: 0.05, coin: 0.07, pick: 0.05 };
-  var PRIORITY = { gavel: 5, victory: 5, defeat: 5, office: 5, week: 4, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
+  var MIN_GAP = { complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 4.0, knock: 1.0, page: 0.4, flip: 0.05, discovery: 0.5, seal: 0.2, coin: 0.07, pick: 0.05 };
+  var PRIORITY = { gavel: 5, victory: 5, defeat: 5, office: 5, week: 4, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, seal: 2, discovery: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
   // A quiet cue is heard only alone.
   var QUIET = { page: 1 };
   var lastAt = {}, top = { p: -1, at: -1 };

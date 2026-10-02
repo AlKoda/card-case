@@ -110,14 +110,39 @@ assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
   console.log('i18n: the Bell\'s week, the keys, the ask box, the instruments, the promotion and the days in Arabic');
 })();
 
-// A played game, read in Arabic: nothing the player could see stays English.
+// The lookup reads a long composed text to its end: a colon after a sentence is not a label's, a number in
+// front belongs to its sentence, a quoted saying is read inside its quotes, a list item may hold a comma, a
+// pattern that leaves a piece in English gives way to one that reads it whole.
+(function lookups() {
+  CF.setLang('ar');
+  function whole(s) { var r = CF.T(s); assert.ok(!/[A-Za-z]{3}/.test(r), 'read whole: ' + s + '\n  => ' + r); return r; }
+  whole('Lodging and dues take 6. The Council\'s stipend: 3 Coin. 2 who walked from you are still inside the walls. The Abbey hospital keeps a bed for you. You sleep a night in it. Another girl in the Warrens. The fifth. There is a purse on your desk. Nobody saw who left it. The ledger: no case closed; 4 open; 3 Coin in hand.');
+  whole('"A gold ring. Big, on the little finger. It caught the lantern." (Loves the accused.)');
+  whole('You find: The Carrier\'s Chit, The Bad Coin, A ledger in weights, not sums.');
+  whole('The blackmailer\'s own hand, on the thing they were most careful about. It is Hal Kramer\'s.');
+  whole('A parish beadle with a staff and a loud voice. Knocks on doors without complaining and whips beggars without being asked. Slot them into a verb to help. Known: Doors open for them. A canvass turns up one more person.');
+  whole('Around the Claesz Print-shop people are frightened, and frightened people talk. You come away with: Witness: Ursel Bicker; Cicely Hobson (accused); Witness: Lienhard Adornes. One door stayed shut, and the street talked less for it.');
+  whole('Without the Apothecary\'s Key, you only get part of it. a ghost on the wage-roll. The clerk finds the thread and pulls it: one signature, over and over. You worked into the dark, and it cost you.');
+  // Half a translation is caught: the tracker keeps what came back with English words in it.
+  CF.I18N.track = true; CF.I18N.partial = {}; CF.I18N.cache = {};
+  CF.T('Wit. Zorblax quintessence.');
+  CF.T('Pause (Space)');
+  CF.I18N.track = false;
+  assert.ok(CF.I18N.partial['Wit. Zorblax quintessence.'], 'a half-English answer is recorded');
+  assert.ok(!CF.I18N.partial['Pause (Space)'], 'a key\'s cap is not');
+  CF.setLang('en');
+  console.log('i18n: long composed texts read to their end');
+})();
+
+// Played games, read in Arabic: nothing the player could see stays English, not even in part. Three plain
+// games and four with the opening and the life of the city (needs, choices, the Bell, the rival).
 CF.setLang('ar');
 CF.I18N.track = true;
 CF.I18N.missing = {};
+CF.I18N.partial = {};
+CF.I18N.cache = {};
 function read(s) { if (s) CF.T(s); }
-[0, 1, 2].forEach(function (g) {
-  var e = CF.Engine.newGame({ seed: 900 + g, calling: ['master', 'commissioner', 'crusader'][g], who: CF.ORIGIN_ORDER[g] });
-  bot.play(e, 60 * 22, ['custom', 'merciful', 'brutal'][g]);
+function readGame(e) {
   Object.keys(e.s.cards).forEach(function (uid) {
     var c = e.s.cards[uid];
     read(e.labelOf(c)); read(e.descOf(c));
@@ -127,11 +152,28 @@ function read(s) { if (s) CF.T(s); }
   });
   e.s.journal.forEach(function (j) { read(j.title); read(j.text); });
   Object.keys(e.s.cases).forEach(function (id) { var r = e.s.cases[id]; read(r.title); read(r.short); read(r.scene); read(r.victim); });
-  CF.VERB_ORDER.forEach(function (vid) { read(e.lockReason(vid)); });
+  CF.VERB_ORDER.forEach(function (vid) { read(e.lockReason(vid)); var v = e.verb(vid); if (v && v.ask) { read(v.ask.label); read(v.ask.text); } });
+  if (e.s.choice) { read(e.s.choice.title); read(e.s.choice.text); (e.s.choice.options || []).forEach(function (o) { read(o.label); read(o.text); read(o.gain); }); }
   if (e.s.over) { read(e.s.over.title); read(e.s.over.text); }
+}
+[0, 1, 2].forEach(function (g) {
+  var e = CF.Engine.newGame({ seed: 900 + g, calling: ['master', 'commissioner', 'crusader'][g], who: CF.ORIGIN_ORDER[g] });
+  bot.play(e, 60 * 22, ['custom', 'merciful', 'brutal'][g]);
+  readGame(e);
 });
+[0, 1, 2, 3].forEach(function (g) {
+  var e = CF.Engine.newGame({ seed: 930 + g, calling: ['master', 'commissioner', 'crusader', 'master'][g], who: CF.ORIGIN_ORDER[g % CF.ORIGIN_ORDER.length], life: true, opening: true, guided: true, name: 'Vogel' });
+  bot.play(e, 60 * 25, ['custom', 'merciful', 'brutal', 'corrupt'][g]);
+  readGame(e);
+});
+// What the interface itself says of the city's life: the asks, the choices, the needs.
+(CF.ASKS || []).forEach(function (a) { read(a.label); read(a.text); read(a.thanks); read(a.miss); });
+(CF.CHOICES || []).forEach(function (c) { read(c.title); read(c.text); (c.options || []).forEach(function (o) { read(o.label); read(o.text); read(o.gain); }); });
+Object.keys(CF.NEEDS || {}).forEach(function (k) { read(CF.NEEDS[k].arrive); read(CF.NEEDS[k].loss); });
 var miss = Object.keys(CF.I18N.missing).filter(function (s) { return /[A-Za-z]{3}/.test(s); });
+var part = Object.keys(CF.I18N.partial);
 CF.I18N.track = false;
 CF.setLang('en');
 assert.strictEqual(miss.length, 0, miss.length + ' strings from a played game stay English:\n  ' + miss.slice(0, 80).join('\n  '));
-console.log('i18n: a bot-played game reads fully in Arabic');
+assert.strictEqual(part.length, 0, part.length + ' strings from a played game are half English:\n  ' + part.slice(0, 40).map(function (s) { return s + '\n    => ' + CF.I18N.partial[s]; }).join('\n  '));
+console.log('i18n: bot-played games, with the opening and the city\'s life, read fully in Arabic');

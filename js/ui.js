@@ -584,7 +584,8 @@
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
     }
     if (type === 'ask') {
-      CF.Audio.play('click');
+      // Someone at the door: two knocks, not a menu's click.
+      CF.Audio.play('knock');
       var askPen = askPenalty(payload.verb);
       toast({ title: CF.VERBS[payload.verb].label + ' asks: ' + payload.label, text: payload.text + (askPen === 'fatigue' ? ' ' + tr('Answer it, or come back wearier.') : askPen === 'thin' ? ' ' + tr('Answer it, or find less.') : ''), kind: 'verb', verb: payload.verb });
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
@@ -598,9 +599,9 @@
     }
     if (type === 'chosen') UI.saveSoon = true;
     if (type === 'chosen' && UI.viewBefore) {
-      // Back to exactly where you were looking, at the same zoom.
+      // Back to exactly where you were looking, at the same zoom, once the answer's seal has been seen.
       var back = UI.viewBefore; UI.viewBefore = null;
-      tweenView(back);
+      setTimeout(function () { tweenView(back); }, CHOICE_HOLD);
     }
     if (type === 'autorun') {
       // An event runs a verb by itself: the cards are pulled in, the window opens.
@@ -633,6 +634,8 @@
         : fch ? tr('Into The Court with {accused} now, or lay it in a verb: a card\'s clock stops while a verb works on it.', { accused: UI.e.labelOf(fch.card) })
         : tr('{left} before it is gone. A card\'s clock stops while a verb works on it.', { left: fleft });
       toast({ title: (need ? 'Pressing: ' : 'Fading: ') + payload.label, text: ftext, kind: 'danger', uid: payload.uid, verb: payload.verb });
+      // A need or an affliction about to take its due is heard once; a fading token or witness stays quiet.
+      if (need || (fc && CF.CARDS[fc.def] && CF.CARDS[fc.def].kind === 'threat')) { CF.Audio.play('heartbeat'); UI.haptic([15, 90, 15]); }
     }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
   }
@@ -646,7 +649,8 @@
     t.style.setProperty('--bar', art(TOAST_BARS[entry.kind] || 'clabel-06'));
     t.style.setProperty('--icon', art(TOAST_ICONS[entry.kind] || 'ccirc-01'));
     var text = entry.kind === 'verb' ? 'Tap to read' : entry.text || '';
-    t.innerHTML = '<b>' + esc(entry.title) + '</b><span>' + esc(text) + '</span>';
+    // The medallion is its own element, so a right-to-left bar can be mirrored under it while the icon is not.
+    t.innerHTML = '<i class="t-icon"></i><b>' + esc(entry.title) + '</b><span>' + esc(text) + '</span>';
     var stay = TOAST_LONG[entry.kind] ? 9000 : 6000;
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
@@ -1506,7 +1510,10 @@
     var inside = cx > 0 && cx < tr2.width && cy > 0 && cy < tr2.height;
     if (n.inside !== inside) { n.inside = inside; n.mark.classList.toggle('hidden', inside); }
     if (inside) return;
-    var mx = Math.round(Math.max(24, Math.min(tr2.width - 24, cx))), my = Math.round(Math.max(80, Math.min(tr2.height - 90, cy)));
+    // Kept on screen by its own width, measured once it shows: a long label (or an Arabic one) is not cut at the edge.
+    if (!n.w) n.w = n.mark.offsetWidth || 0;
+    var half = Math.max(24, Math.min(tr2.width / 2, Math.ceil(n.w / 2) + 4));
+    var mx = Math.round(Math.max(half, Math.min(tr2.width - half, cx))), my = Math.round(Math.max(80, Math.min(tr2.height - 90, cy)));
     var ang = Math.round(Math.atan2(cy - my, cx - mx) * 180 / Math.PI);
     if (n.mx !== mx) { n.mx = mx; n.mark.style.left = mx + 'px'; }
     if (n.my !== my) { n.my = my; n.mark.style.top = my + 'px'; }
@@ -1520,9 +1527,13 @@
       placeMark(n);
     });
   }
+  // Less motion: the camera is there at once, with no glide.
+  function calm() { return !!(CF.Settings && CF.Settings.get && CF.Settings.get('calm')); }
+  UI.calm = calm;
   // Glide the view to an exact position and zoom.
   function tweenView(to, done) {
     var v = UI.view, from = { x: v.x, y: v.y, z: v.z }, t0 = null;
+    if (calm()) { v.x = to.x; v.y = to.y; v.z = to.z; applyView(); if (done) done(); return; }
     function step(now) {
       if (!t0) t0 = now;
       var k = Math.min(1, (now - t0) / 600), ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
@@ -1537,6 +1548,7 @@
     var z = Math.max(v.z, 0.95), band = toolBand(r);
     var tx = r.width / 2 - (x + w / 2) * z, ty = band + (r.height - band) / 2 - (y + h / 2) * z;
     var from = { x: v.x, y: v.y, z: v.z }, t0 = null;
+    if (calm()) { v.x = tx; v.y = ty; v.z = z; applyView(); if (done) done(); return; }
     function step(now) {
       if (!t0) t0 = now;
       var k = Math.min(1, (now - t0) / 650), ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
@@ -1547,6 +1559,8 @@
     requestAnimationFrame(step);
   }
   var choiceEl = null;
+  // An answered choice holds still this long: the price goes into the option, the wax comes down on it.
+  var CHOICE_HOLD = 550;
   // The options a waiting choice shows. The save keeps a copy from when it was asked, but choose(i) runs the
   // question's own option i: when the copy no longer matches it (a save from before an option was added), or
   // none of the copy's options can be paid, the question's own list is shown, so the free way out is never hidden.
@@ -1561,7 +1575,14 @@
   };
   function syncChoice() {
     var e = UI.e, board = $('#board'), c = e.s.choice;
-    if (!c) { if (choiceEl) { choiceEl.classList.add('gone'); var old = choiceEl; setTimeout(function () { old.remove(); }, 300); choiceEl = null; } return; }
+    if (!c) {
+      if (choiceEl) {
+        var old = choiceEl, hold = old.classList.contains('answered') ? CHOICE_HOLD : 0;
+        choiceEl = null;
+        setTimeout(function () { old.classList.add('gone'); setTimeout(function () { old.remove(); }, 300); }, hold);
+      }
+      return;
+    }
     var shown = UI.choiceOptions(e, c);
     if (choiceEl && choiceEl.dataset.id === c.id && choiceEl.dataset.n === String(shown.length)) {
       choiceEl.querySelectorAll('.ch-opt').forEach(function (b, i) { b.classList.toggle('cant', !e.canChoose(i)); });
@@ -1580,7 +1601,7 @@
       var took = o.cost ? tr(o.forGood ? 'Takes {card}, for good.' : 'Takes {card}.', { card: CF.CARDS[o.cost].label }) : '';
       var cost = o.cost ? '<i class="ch-cost' + (o.forGood ? ' ch-cost-forgood' : '') + '" style="background-image:' + art(ASK_ART[o.cost] || 'itrade-20') + '" title="' + esc(took) + '"></i>' : '';
       b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em class="ch-cost-read' + (o.forGood ? ' ch-cost-forgood' : '') + '">' + esc(took) + '</em>' : '') + '</span>' + (o.gain ? '<span class="ch-gain">' + esc(tr(o.gain)) + '</span>' : '');
-      b.addEventListener('click', function (ev) { ev.stopPropagation(); if (e.choose(i)) { CF.Audio.play('drop'); UI.haptic(15); e.dirty = true; } else if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' }); });
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); if (el.classList.contains('answered')) return; answerChoice(e, el, b, i, o); });
       opts.appendChild(b);
     });
     el.appendChild(opts);
@@ -1589,6 +1610,33 @@
     board.appendChild(el);
     choiceEl = el;
   }
+  // An answer with a visible return: the price flies into the option, the wax comes down on it, the
+  // other answers dim, and what the answer gives flies out of it onto the table.
+  function answerChoice(e, el, b, i, o) {
+    var c = e.s.choice, spec = c && CF.CHOICES && CF.CHOICES.filter(function (x) { return x.id === c.id; })[0];
+    var pay = spec && spec.options[i] ? e.choicePayment(spec.options[i]) : null;
+    var pel = null, ghost = null;
+    if (pay && pay.loc && pay.loc.t === 'table') {
+      pel = cardEls[pay.uid] || cardEls[e.stackOf(pay)[0].uid] || null;
+      try { ghost = JSON.parse(JSON.stringify(pay)); } catch (err) { ghost = null; }
+    }
+    var before = e.s.nextUid;
+    if (!e.choose(i)) {
+      if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' });
+      return false;
+    }
+    if (pel && ghost) flyTo(pel, b, ghost);
+    el.classList.add('answered');
+    b.classList.add('taken');
+    CF.Audio.play('seal');
+    UI.haptic(15);
+    // What the answer gives comes out of it.
+    if (typeof before === 'number') e.tableCards().forEach(function (x) { if (x.uid >= before) markSpawn(x.uid, b); });
+    e.dirty = true;
+    return true;
+  }
+  UI.answerChoice = answerChoice;
+
   // ---- Case strings: a rope from a case card to every card that belongs
   // to it, pinned at both ends, in the case's own colour. Cards inside a verb
   // are tied to the verb's token; a card being dragged pulls its string along.
@@ -2073,8 +2121,13 @@
 
   function miniCard(card) {
     var mc = miniCard0(card);
-    // The flip plays on the wrapper: the card inside keeps its mini scale.
-    if (UI.flipIn[card.uid]) { mc.classList.add('flip-in'); delete UI.flipIn[card.uid]; }
+    // The flip plays on the wrapper: the card inside keeps its mini scale. A redraw mid-flip picks it up where it was.
+    var held = UI.flipHold[card.uid], into = UI.flipIn[card.uid], t = flipNow();
+    if (held !== undefined && card.hidden) { mc.classList.add('flip-out'); mc.style.animationDelay = Math.round(held - t) + 'ms'; }
+    else if (into !== undefined) {
+      if (t - into < FLIP_IN) { mc.classList.add('flip-in'); if (t > into) mc.style.animationDelay = -Math.round(t - into) + 'ms'; }
+      else delete UI.flipIn[card.uid];
+    }
     return mc;
   }
   function miniCard0(card) {
@@ -2315,33 +2368,61 @@
     UI.spawn[uid] = { cx: r.left, cy: r.top, gx: 0, gy: 0 };
   }
   // Turn a find over with a flip: the back turns edge-on, then the face turns out.
+  // UI.flipIn[uid] and UI.flipHold[uid] keep when each half began, so a window redrawn
+  // in the middle of a flip carries it on from where it was instead of starting over.
   UI.flipIn = {};
+  UI.flipHold = {};
+  var FLIP_OUT = 180, FLIP_IN = 220, FLIP_STEP = 70;
+  function flipNow() { return performance.now(); }
+  // A find that names someone, or carries a confession, lands with a low note and a glow; the rest land quietly.
+  function discovery(card) {
+    var d = card.data || {};
+    return card.def === 'suspect' || !!d.points || !!d.confession;
+  }
+  function turnOver(e, uid) {
+    delete UI.flipHold[uid];
+    UI.flipIn[uid] = flipNow();
+    e.reveal(uid);
+    e.dirty = true;   // the window redraws the card face up, where it lies; a tap on it then reads it
+    var c = e.card(uid);
+    if (!c || !discovery(c)) return;
+    setTimeout(function () {
+      CF.Audio.play('discovery');
+      UI.haptic(20);
+      var el = document.querySelector('.vwin .card[data-uid="' + uid + '"]') || cardEls[uid];
+      if (el) { el.classList.remove('noticed'); void el.offsetWidth; el.classList.add('noticed'); setTimeout(function () { el.classList.remove('noticed'); }, 4000); }
+    }, 120);
+  }
+  function flipOut(wrap, uid, delay) {
+    UI.flipHold[uid] = flipNow() + delay;
+    if (!wrap) return;
+    wrap.style.animationDelay = delay ? delay + 'ms' : '';
+    wrap.classList.add('flip-out');
+  }
   function flipReveal(card, el) {
     var e = UI.e;
     var wrap = el && (el.closest('.mini-wrap') || el);
-    if (wrap) wrap.classList.add('flip-out');
-    CF.Audio.play('click');
+    flipOut(wrap, card.uid, 0);
+    CF.Audio.play('flip');
     UI.haptic(12);
     UI.hoverBlock = card.uid;   // the mouse resting on it does not open the inspect: a tap does
     if (UI.hover === card.uid) UI.hover = null;
-    setTimeout(function () {
-      UI.flipIn[card.uid] = true;
-      e.reveal(card.uid);
-      e.dirty = true;   // the window redraws the card face up, where it lies; a tap on it then reads it
-    }, 180);
+    setTimeout(function () { turnOver(e, card.uid); }, FLIP_OUT);
   }
+  // Every find turns in its turn, a moment apart, each with its own flick.
   function revealAll(vid) {
     var e = UI.e, w = winEls[vid];
     var hidden = e.verb(vid).out.filter(function (u) { var c = e.card(u); return c && c.hidden; });
     if (!hidden.length) return;
-    if (w) hidden.forEach(function (u) { var el = w.querySelector('.card[data-uid="' + u + '"]'); var wrap = el && (el.closest('.mini-wrap') || el); if (wrap) wrap.classList.add('flip-out'); });
-    CF.Audio.play('click');
     UI.haptic(12);
-    setTimeout(function () {
-      hidden.forEach(function (u) { UI.flipIn[u] = true; e.reveal(u); });
-      e.dirty = true;
-    }, 180);
+    hidden.forEach(function (u, i) {
+      var el = w && w.querySelector('.card[data-uid="' + u + '"]'), wrap = el && (el.closest('.mini-wrap') || el);
+      flipOut(wrap, u, i * FLIP_STEP);
+      setTimeout(function () { CF.Audio.play('flip'); }, i * FLIP_STEP);
+      setTimeout(function () { if (e.card(u) && e.card(u).hidden) turnOver(e, u); else delete UI.flipHold[u]; }, FLIP_OUT + i * FLIP_STEP);
+    });
   }
+  UI.revealAll = revealAll;
   function collectAll(vid) {
     var e = UI.e, w = winEls[vid];
     e.verb(vid).out.forEach(function (u) { markSpawn(u, w && w.querySelector('.card[data-uid="' + u + '"]')); });

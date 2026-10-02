@@ -636,7 +636,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/@keyframes stamp \{ from \{ transform: scale\(2\.2\) rotate\(-12deg\)/.test(css) && /\.verb \.verdict \{[^}]*width: 120px/.test(css), 'the verdict slams down as a stamp');
   assert.ok(/\.card\.sealed \.c-face::after \{[^}]*var\(--seal\)[^}]*rotate\(-8deg\)/.test(css), 'a sealed case wears its wax');
   assert.ok(/\.toast \{[^}]*aspect-ratio: auto/.test(css) && !/\.toast \{[^}]*overflow: hidden/.test(css), 'a toast is as tall as its words');
-  assert.ok(/\.toast::after \{[^}]*border-image: var\(--bar\)/.test(css) && /\.toast::before \{[^}]*var\(--icon\)/.test(css), 'the bar is sliced, the icon sits in its circle');
+  assert.ok(/\.toast::after \{[^}]*border-image: var\(--bar\)/.test(css) && /\.toast::before \{[^}]*var\(--bar\)/.test(css) && /\.toast \.t-icon \{[^}]*var\(--icon\)/.test(css) && /<i class="t-icon"><\/i>/.test(ui), 'the bar is sliced, the icon sits in its circle (its own element, so Arabic mirrors the bar and not the icon)');
   assert.ok(/#toasts \{[^}]*right: calc\(12px \+ var\(--sa-r\)\)[^}]*top: calc\(var\(--sa-t\) \+ 260px\)/.test(css) && /body\.has-window #toasts \{ right: calc\(390px \* var\(--ui-scale, 1\)\)/.test(css), 'toasts sit top right under the verb row, clear of the hint, the window and the notch');
   var phone = /@media \(max-height: 520px\), \(max-width: 980px\) \{[\s\S]*?\n\}/.exec(css)[0]; // to the block's own closing brace, past the nested keyframes
   assert.ok(/#toasts \{ top: auto; bottom: calc\(12px \+ var\(--sa-b\)\)/.test(phone) && /#toasts \.toast:nth-last-child\(n\+3\) \{ display: none/.test(phone), 'on a phone the toasts grow up from the bottom, two at most');
@@ -785,7 +785,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/width: 18px; height: 18px/.test(rule('.firsts .first i')) && /display: inline-block/.test(rule('.firsts .first i')), 'the firsts wear 18px marks');
   assert.ok(/float: left/.test(rule('.journal-entry .j-icon')) && /width: 20px; height: 20px/.test(rule('.journal-entry .j-icon')), 'an entry floats its 20px icon');
   assert.ok(/rgba\(239, 227, 198, 0\.92\)/.test(rule('#journal')) && /border: 2px solid #b8913f/.test(rule('#journal')), 'the journal is paper at 92%');
-  assert.ok(/border-left: 3px solid/.test(rule('.journal-entry')) && /background: rgba\(255, 250, 238/.test(rule('.journal-entry')) && /border-left-color: var\(--danger\)/.test(rule('.journal-entry.k-case')), 'entries are paper blocks with the kind down the left');
+  assert.ok(/border-inline-start: 3px solid/.test(rule('.journal-entry')) && /background: rgba\(255, 250, 238/.test(rule('.journal-entry')) && /border-inline-start-color: var\(--danger\)/.test(rule('.journal-entry.k-case')), 'entries are paper blocks with the kind down the side a line starts on');
   assert.ok(/cbar-02/.test(rule('.side-head')) && /color: #1c1914/.test(rule('.side-head')), 'the head is the small blue banner');
   // No layers at rest; the flat table.
   var card = /\n\.card \{([^}]*)\}/.exec(css)[1], verb = /\n\.verb \{([^}]*)\}/.exec(css)[1];
@@ -796,7 +796,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/transform: none/.test(rule('html[data-flat] #tilt')) && /perspective: none/.test(rule('html[data-flat] #table')), 'data-flat lays the table flat');
   assert.ok(/tilt: true/.test(settingsSrc) && !/deviceMemory/.test(settingsSrc) && /prefers-reduced-motion: reduce/.test(settingsSrc), 'tilt is on by default, off only under reduced motion');
   assert.ok(/<label for="s-tilt">Tilt the table<\/label><input type="checkbox" class="toggle" id="s-tilt">/.test(html) && /<p class="set-note">Off, the table lies flat: easier on an old phone\.<\/p>/.test(html), 'the Settings row and its note');
-  assert.ok(/'snap', 'strings', 'haptics', 'tilt'\]/.test(screens), 'screens.js wires it like snap');
+  assert.ok(/'snap', 'strings', 'haptics', 'tilt', 'calm'\]/.test(screens), 'screens.js wires it like snap');
   // settings.js under Node: the attribute follows the value.
   var keep = CF.Settings, store = {};
   globalThis.localStorage = { getItem: function (k) { return store[k] || null; }, setItem: function (k, v) { store[k] = v; } };
@@ -1287,7 +1287,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
   var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
   assert.ok(/tr\('Promoted'\)/.test(main) && /lu-rank/.test(main) && !/'Promoted: ' \+/.test(main), 'the title is split');
-  assert.ok(/classList\.add\('cer'\)/.test(main) && /Audio\.play\('complete'\)/.test(main) && /rank-new/.test(main), 'the ceremony and the glow');
+  assert.ok(/classList\.add\('cer'\)/.test(main) && /Audio\.play\('seal'\)/.test(main) && /rank-new/.test(main), 'the ceremony and the glow');
   assert.ok(/\.dlg-levelup\.cer \.lu-badge \{ animation: stamp/.test(css) && /\.dlg-levelup\.cer \.lu-slot:not\(\.empty\) \{ animation: flipIn/.test(css), 'stamp and deal');
   var badge = /\n\.lu-badge \{[^}]*\}/.exec(css)[0];
   assert.ok(!/clip-path/.test(badge) && /border:/.test(badge), 'the wax is framed whole, not clipped');
@@ -1417,7 +1417,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   flushTimers();
   var mark = $('#table').querySelectorAll('.edge-mark')[0];
   assert.ok(mark && !mark.classList.contains('hidden'), 'the off-screen tile gets a mark');
-  assert.strictEqual(mark.style.left, '24px', 'at the left edge, toward it');
+  // The stand-in measures every element 100px wide: the mark's centre keeps half of that, and 4px, from the edge.
+  assert.strictEqual(mark.style.left, '54px', 'at the left edge, toward it, its label whole on screen');
   reads = 0;
   var writes = 0, st = mark.style, left = st.left;
   Object.defineProperty(st, 'left', { configurable: true, get: function () { return left; }, set: function (v) { writes++; left = v; } });
@@ -1549,6 +1550,135 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   El.prototype.getBoundingClientRect = realRect;
   delete El.prototype.isConnected;
   console.log('ui: marks off the DOM, the turn card, the drag by translate, the bar\'s badge and reach, the urgent first, the city remembers, clocks far out, the phone\'s toast');
+})();
+
+// ---- Round 8, lane 2, items 49-56: less motion, a choice with a visible return, a find turned over, the knock
+// and the heartbeat, the office's bell, Arabic laid out from the right, Arabic type.
+(function round8g() {
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var fontsAr = fs.readFileSync(path.join(__dirname, '..', 'css/fonts-ar.css'), 'utf8');
+  var settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/settings.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+
+  // Less motion: on from the first run where the device asks for it, with the shake off; a saved choice wins.
+  var keep = CF.Settings, store = {}, realLS = globalThis.localStorage, mm = globalThis.matchMedia;
+  globalThis.localStorage = { getItem: function (k) { return store[k] || null; }, setItem: function (k, v) { store[k] = v; } };
+  globalThis.matchMedia = function (q) { return { matches: q === '(prefers-reduced-motion: reduce)', addEventListener: function () {}, addListener: function () {} }; };
+  vm.runInThisContext(settingsSrc, { filename: 'js/settings.js' });
+  var root = document.documentElement;
+  assert.ok(CF.Settings.get('calm') === true && CF.Settings.get('shake') === false && root.hasAttribute('data-calm'), 'a first run under reduced motion is calm and does not shake');
+  store = { 'casefile.settings.v1': JSON.stringify({ calm: false, shake: true }) };
+  CF.Settings.load();
+  assert.ok(CF.Settings.get('calm') === false && CF.Settings.get('shake') === true && !root.hasAttribute('data-calm'), 'a saved choice wins');
+  globalThis.matchMedia = function () { return { matches: false, addEventListener: function () {}, addListener: function () {} }; };
+  store = { 'casefile.settings.v1': JSON.stringify({ master: 50 }) };
+  CF.Settings.load();
+  assert.ok(CF.Settings.get('calm') === false && CF.Settings.get('shake') === true, 'settings saved before the toggle load with motion as it was');
+  CF.Settings = keep; globalThis.matchMedia = mm; globalThis.localStorage = realLS;
+  assert.ok(/<label for="s-calm">Reduce motion<\/label><input type="checkbox" class="toggle" id="s-calm">/.test(html), 'the Settings row');
+  assert.ok(/animation: none/.test(rule('html[data-calm] #app.shake')) && /fadeIn/.test(rule('html[data-calm] .verb .verdict')) && /fadeOut/.test(rule('html[data-calm] .mini-wrap.flip-out')) && /fadeIn/.test(rule('html[data-calm] .mini-wrap.flip-in')), 'no shake, no slam, flips that fade');
+  assert.ok(/html\[data-calm\] \.dlg-levelup, html\[data-calm\] #board \.choice, html\[data-calm\] \.vwin, html\[data-calm\] \.toast[^{]*\{ animation-name: fadeIn; \}/.test(css), 'panels come in by opacity alone');
+  // The camera is there at once: no frame of a glide is needed (the stand-in never runs one).
+  var e = CF.Engine.newGame({ calling: 'master', seed: 31 });
+  UI.attach(e);
+  render(e);
+  settings.calm = true;
+  var spot = e.choiceSpot(), v0 = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
+  played.length = 0;
+  e.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'lamplighter'; })[0], null);
+  assert.ok(UI.view.x !== v0.x || UI.view.y !== v0.y || UI.view.z !== v0.z, 'a calm camera is on the choice at once');
+  void spot;
+
+  // The answer: the Coin flies into the option, the wax comes down on it, the others dim, the camera waits.
+  if (!e.cardsOf('funds', true).length) e.create('funds');
+  render(e);
+  var ch = $('#board').querySelector('.choice');
+  var opts = ch.querySelectorAll('.ch-opt');
+  var coins = e.cardsOf('funds', true).length;
+  timers = []; delays = []; played.length = 0;
+  var ghosts = $('#drag-layer').children.length;
+  opts[0].click();
+  assert.ok(!e.s.choice && e.cardsOf('funds', true).length === coins - 1, 'the Coin is paid');
+  assert.ok(ch.classList.contains('answered') && opts[0].classList.contains('taken') && !opts[1].classList.contains('taken'), 'the answer is sealed, the other is not');
+  assert.ok(played.indexOf('seal') >= 0 && played.indexOf('drop') < 0, 'the wax is heard, not a dropped card: ' + played);
+  assert.ok($('#drag-layer').children.length > ghosts, 'the Coin flies into the option');
+  assert.ok(delays.indexOf(550) >= 0, 'the camera waits for the seal');
+  render(e);
+  assert.ok(ch.parentNode && !ch.classList.contains('gone'), 'the answered panel stays a moment');
+  opts[1].click();
+  assert.ok(!opts[1].classList.contains('taken'), 'a second press does nothing');
+  flushTimers(); flushTimers();
+  assert.ok(ch.classList.contains('gone'), 'then it goes');
+  assert.ok(/#board \.choice\.answered \.ch-opt:not\(\.taken\) \{ opacity: 0\.45; \}/.test(css) && /cwax-01/.test(rule('#board .choice .ch-opt.taken::after')) && /animation: stamp/.test(rule('#board .choice .ch-opt.taken::after')), 'the seal and the dimming');
+  settings.calm = false;
+
+  // A find turned over: a paper flick per card, a moment apart; one that names someone is heard and glows.
+  var vid = 'investigate';
+  e.verb(vid).unlocked = true;
+  if (e.verb(vid).x === undefined) e.layoutVerbs();
+  var vb = e.verb(vid), uids = [];
+  for (var n = 0; n < 3; n++) {
+    var c = e.create(n === 2 ? 'suspect' : 'clue', { label: n === 2 ? 'Suspect: Jakob Hess' : 'A Bloody Shoe', data: {} });
+    e.detach(c); c.loc = { t: 'out', verb: vid }; c.hidden = true; vb.out.push(c.uid); uids.push(c.uid);
+  }
+  vb.status = 'done';
+  UI.openWindow(vid);
+  render(e);
+  timers = []; delays = []; played.length = 0;
+  UI.revealAll(vid);
+  assert.deepStrictEqual(delays.filter(function (d) { return d >= 180; }), [180, 250, 320], 'each find turns 70ms after the last');
+  flushTimers();
+  assert.ok(played.filter(function (x) { return x === 'flip'; }).length === 3 && played.indexOf('click') < 0, 'a flick per card, not a menu click: ' + played);
+  assert.ok(uids.every(function (u) { return !e.card(u).hidden; }), 'all turned');
+  flushTimers();
+  assert.ok(played.indexOf('discovery') >= 0, 'the suspect lands with its low note');
+  var src = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+  assert.ok(/card\.def === 'suspect' \|\| !!d\.points \|\| !!d\.confession/.test(src), 'only a name or a confession is a discovery');
+  while (UI.openVerbs.length) UI.back();
+
+  // An ask knocks; a need about to take its due beats once; a fading token is quiet.
+  played.length = 0;
+  e.emit('ask', { verb: 'duty', label: 'A hand', text: 'Someone.' });
+  assert.ok(played.indexOf('knock') >= 0 && played.indexOf('click') < 0, 'an ask knocks');
+  var hunger = e.create('hunger');
+  played.length = 0;
+  e.emit('expiring', { uid: hunger.uid, label: e.labelOf(hunger), verb: null });
+  assert.ok(played.indexOf('heartbeat') >= 0, 'a need about to take its due is heard');
+  var tok = e.create('clue', { label: 'A Bloody Shoe', data: {} });
+  played.length = 0;
+  e.emit('expiring', { uid: tok.uid, label: e.labelOf(tok), verb: null });
+  assert.strictEqual(played.indexOf('heartbeat'), -1, 'a fading token is not');
+
+  // The audio: the new cues exist and are rate-limited; the promotion has the office's bell, not the ending's fanfare.
+  var actx = { window: {}, document: { addEventListener: function () {}, hidden: false } };
+  actx.window.CF = { Settings: { onChange: function () {}, values: {} } };
+  actx.window.addEventListener = function () {};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8'), actx, { filename: 'js/audio.js' });
+  var A = actx.window.CF.Audio, asrc = fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8');
+  ['flip', 'discovery', 'knock', 'seal', 'office'].forEach(function (k) { assert.ok(new RegExp('\\n    ' + k + ': function').test(asrc), 'the ' + k + ' cue'); });
+  assert.ok(A.allow('knock', 5) && !A.allow('knock', 5.9) && A.allow('knock', 6.1), 'a knock at most once a second');
+  A.reset();
+  assert.ok(A.allow('heartbeat', 5) && !A.allow('heartbeat', 8.5) && A.allow('heartbeat', 9.1), 'a heartbeat at most once in four seconds');
+  var promo = main.slice(main.indexOf('UI.onPromotion'), main.indexOf('var promoStamp'));
+  assert.ok(/Audio\.play\('office'\)/.test(promo) && !/'victory'/.test(promo) && /Audio\.play\('seal'\)/.test(promo), 'the promotion rings the office bell and seals');
+  assert.ok(/15% \{ opacity: 1; transform: scale\(0\.95\); \}/.test(css), 'the new wax is pressed into the bar');
+
+  // Arabic from the right: logical sides for the choices, the ending, the journal, the dossier, the toasts and the hint.
+  assert.ok(/text-align: start/.test(rule('#board .choice .ch-opt')) && /padding-inline-end: 44px/.test(rule('#board .choice .ch-opt')) && /inset-inline-end: 8px/.test(rule('#board .choice .ch-opt .ch-cost')), 'a choice reads from where its language starts');
+  assert.ok(/text-align: start/.test(rule('.end-box .end-paper .lead')) && /margin-inline: 0 8px/.test(rule('.firsts .first')) && /margin-inline: 0 4px/.test(rule('.firsts .first i')), 'the ending and the firsts');
+  assert.ok(/border-inline-start: 2px solid/.test(rule('#peek .i-lines')) && /padding-inline: 58px 30px/.test(rule('.toast')) && /padding-inline: 54px 18px/.test(rule('#hint')), 'the dossier notes, the toast, the hint');
+  assert.ok(/scaleX\(-1\)/.test(rule('[dir=rtl] .toast::after, [dir=rtl] .toast::before, [dir=rtl] #hint::after, [dir=rtl] #hint::before')) && /right 8px center/.test(rule('[dir=rtl] .toast .t-icon')), 'the bar is mirrored, the icon is not');
+  assert.ok(/\[dir=rtl\] #zoom button\.tool-art\[data-tool=undo\] \{ transform: scaleX\(-1\); \}/.test(css), 'Undo points back the Arabic way');
+  assert.ok(/padding-inline: 6px 10px/.test(rule('.edge-mark')), 'the edge mark pads by its sides');
+
+  // Arabic type: real targets, no fake italics, Amiri's own spaces and digits.
+  assert.ok(!/\.c-name|\.v-label/.test(css), 'no rule for classes that are gone');
+  assert.ok(/font-size: 12\.5px; line-height: 1\.45/.test(rule('[dir=rtl] .card .c-title')) && /font-size: 16px/.test(rule('[dir=rtl] .verb .v-plate')) && /font-size: 14\.5px/.test(rule('[dir=rtl] .toast b')) && /font-size: 13\.5px/.test(rule('[dir=rtl] .meter .m-word')), 'Arabic is set larger where it is read');
+  assert.ok(/font-style: normal !important/.test(rule('[dir=rtl] *')), 'Arabic is never slanted');
+  assert.ok(/unicode-range: U\+0020-007E/.test(fontsAr) && (fontsAr.match(/font-family: 'Amiri'/g) || []).length === 4, 'Amiri carries its own spaces, digits and stops, in both weights');
+  console.log('ui: less motion, the sealed answer, the flick of a find, the knock, the office bell, Arabic from the right, Arabic type');
 })();
 
 void realSetTimeout;

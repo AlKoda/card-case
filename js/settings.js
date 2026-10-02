@@ -3,7 +3,7 @@
   var CF = window.CF;
   var KEY = 'casefile.settings.v1';
   var DEFAULTS = { master: 80, music: 60, sfx: 70, textSpeed: 50, shake: true, lang: 'en', pauseOnCase: false, pauseOnVerb: false, pauseOnBlur: true,
-    gap: 14, guided: true, uiScale: 100, pauseOnDrag: false, grid: false, snap: true, strings: true, haptics: true, tilt: true };
+    gap: 14, guided: true, uiScale: 100, pauseOnDrag: false, grid: false, snap: true, strings: true, haptics: true, tilt: true, calm: false };
 
   var Settings = (CF.Settings = { values: {}, listeners: [] });
 
@@ -14,7 +14,12 @@
     // A first run follows the device's language, when the game speaks it.
     if (v.lang === undefined) Settings.values.lang = Settings.deviceLang();
     // The table lies flat from the first run where the device asks for less motion.
-    if (v.tilt === undefined && Settings.reducedMotion()) Settings.values.tilt = false;
+    // Less motion, from the first run too: no shake, no glides, flips and stamps that fade instead.
+    if (Settings.reducedMotion()) {
+      if (v.tilt === undefined) Settings.values.tilt = false;
+      if (v.calm === undefined) Settings.values.calm = true;
+      if (v.shake === undefined) Settings.values.shake = false;
+    }
     Settings.applyTilt();
     return Settings.values;
   };
@@ -29,11 +34,13 @@
   Settings.reducedMotion = function () {
     try { return typeof matchMedia === 'function' && !!matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (err) { return false; }
   };
-  // The stylesheet lays the table flat under html[data-flat] (no tilt, no perspective).
+  // The stylesheet lays the table flat under html[data-flat] (no tilt, no perspective),
+  // and holds the motion still under html[data-calm].
   Settings.applyTilt = function () {
     try {
       var root = document.documentElement;
       if (Settings.values.tilt === false) root.setAttribute('data-flat', ''); else root.removeAttribute('data-flat');
+      if (Settings.values.calm) root.setAttribute('data-calm', ''); else root.removeAttribute('data-calm');
     } catch (err) { /* no document */ }
   };
 

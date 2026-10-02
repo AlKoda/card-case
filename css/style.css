@@ -64,7 +64,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .meter.crit .m-icon::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; box-shadow: 0 0 6px 3px rgba(208, 86, 74, 1); opacity: 0; animation: urgentIcon 1s infinite; pointer-events: none; }
 @keyframes urgentIcon { 50% { opacity: 1; } }
 .meter.rep .m-fill { background: var(--good); }
-#controls { margin-left: auto; flex: none; display: flex; gap: 6px; align-items: center; }
+#controls { margin-inline-start: auto; flex: none; display: flex; gap: 6px; align-items: center; }
 #controls .speed { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #1a1c20; border: 1px solid var(--line); }
 #controls .speed .ctl { border: none; min-width: 40px; }
 .ctl.dbi { position: relative; width: 44px; height: 44px; min-width: 44px; padding: 0; background: var(--i) center / 100% 100% no-repeat, transparent; border: none; border-radius: 50%; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); transition: transform 0.12s, filter 0.12s; }
@@ -125,11 +125,16 @@ html[data-flat] #table { perspective: none; }
 #board .choice .ch-title { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: 0.04em; margin-bottom: 6px; color: #5a1410; }
 #board .choice .ch-text { margin: 0 0 10px; font-family: var(--serif); font-size: 14px; line-height: 1.5; }
 #board .choice .ch-options { display: flex; flex-direction: column; gap: 8px; }
-#board .choice .ch-opt { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid #a88a4c; border-radius: 6px; background: #f6efdc; color: var(--paper-ink); cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
+#board .choice .ch-opt { display: block; width: 100%; text-align: start; padding: 8px 10px; border: 1px solid #a88a4c; border-radius: 6px; background: #f6efdc; color: var(--paper-ink); cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
 #board .choice .ch-opt:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); border-color: #7c1d15; }
-#board .choice .ch-opt { position: relative; padding-right: 44px; }
-#board .choice .ch-opt .ch-cost { position: absolute; right: 8px; top: 50%; width: 28px; height: 28px; margin-top: -14px; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+#board .choice .ch-opt { position: relative; padding-inline-end: 44px; }
+#board .choice .ch-opt .ch-cost { position: absolute; inset-inline-end: 8px; top: 50%; width: 28px; height: 28px; margin-top: -14px; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
 #board .choice .ch-opt.cant { opacity: 0.55; filter: grayscale(0.6); }
+/* The answer taken: the wax comes down on it, the others dim, nothing more is pressed. */
+#board .choice.answered .ch-opt { pointer-events: none; transition: opacity 0.2s; }
+#board .choice.answered .ch-opt:not(.taken) { opacity: 0.45; }
+#board .choice .ch-opt.taken { border-color: #7c1d15; }
+#board .choice .ch-opt.taken::after { content: ''; position: absolute; inset-inline-end: 0; top: 50%; width: 46px; height: 46px; margin-top: -23px; background: var(--art-cwax-01) center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); pointer-events: none; transform: rotate(-6deg); animation: stamp 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 #board .choice .ch-opt span em { font-style: italic; color: #7c1d15; }
 #board .choice .ch-opt b { display: block; font-family: var(--display); font-size: 13px; letter-spacing: 0.03em; color: #2a1a10; }
 #board .choice .ch-opt span { display: block; font-family: var(--serif); font-size: 12.5px; color: #5a4f3a; line-height: 1.35; margin-top: 2px; }
@@ -162,7 +167,7 @@ html[data-flat] #table { perspective: none; }
   padding: 6px 18px; border-radius: 16px; background: rgba(12, 14, 16, 0.88); border: 1px solid #b8913f; color: var(--paper);
   font-family: var(--serif); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; font-size: 14px; transition: opacity 0.2s, transform 0.2s;
 }
-#pause-banner span { margin-left: 10px; font-family: var(--sans); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 12px; color: var(--ink-dim); }
+#pause-banner span { margin-inline-start: 10px; font-family: var(--sans); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 12px; color: var(--ink-dim); }
 #table.paused #pause-banner { opacity: 1; transform: translate(-50%, 0); }
 #zoom { position: absolute; right: 12px; bottom: 12px; z-index: 6; display: flex; gap: 4px; }
 #zoom button { width: 34px; height: 34px; border-radius: 8px; background: rgba(15, 17, 19, 0.85); border: 1px solid var(--line); color: var(--paper); font-size: 17px; }
@@ -186,9 +191,9 @@ html[data-flat] #table { perspective: none; }
 .picker .pk-card:hover .c-face { transform: translateY(-3px); filter: drop-shadow(0 0 6px rgba(212, 162, 76, 0.9)); }
 /* The hint is a painted label bar under the verbs: the circle (crisp, from ::before) carries the
    marker, the panel (::after, nine-sliced like .plate-btn) stretches with the words. */
-#hint { position: absolute; left: 50%; top: 10px; bottom: auto; white-space: pre-line; transform: translateX(-50%); z-index: 4; max-width: 70%; min-height: 40px; padding: 8px 18px 8px 54px; isolation: isolate; text-align: center; font-family: var(--serif); font-size: 13px; line-height: 1.3; color: #1f1b15; pointer-events: auto; transition: opacity 0.6s; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55)); }
+#hint { position: absolute; left: 50%; top: 10px; bottom: auto; white-space: pre-line; transform: translateX(-50%); z-index: 4; max-width: 70%; min-height: 40px; padding-block: 8px; padding-inline: 54px 18px; isolation: isolate; text-align: center; font-family: var(--serif); font-size: 13px; line-height: 1.3; color: #1f1b15; pointer-events: auto; transition: opacity 0.6s; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55)); }
 #hint::after { content: ''; position: absolute; inset: 0; z-index: -1; border: solid transparent; border-width: 16px 24px 16px 92px; border-image: var(--art-clabel-06) 32 48 32 184 fill / 16px 24px 16px 92px stretch; clip-path: inset(0 0 0 46px); }
-#hint::before { content: ''; position: absolute; left: 0; top: 50%; width: 46px; height: 40px; margin-top: -20px; background: var(--art-bround-17) 8px center / 28px 28px no-repeat, var(--art-clabel-06) left center / auto 40px no-repeat; }
+#hint::before { content: ''; position: absolute; inset-inline-start: 0; top: 50%; width: 46px; height: 40px; margin-top: -20px; background: var(--art-bround-17) 8px center / 28px 28px no-repeat, var(--art-clabel-06) left center / auto 40px no-repeat; }
 #hint.gone { opacity: 0; pointer-events: none; }
 #hint.go { cursor: pointer; }
 #hint.advice { filter: drop-shadow(0 0 6px rgba(212, 162, 76, 0.55)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55)); }
@@ -413,7 +418,7 @@ html[data-flat] #table { perspective: none; }
 /* ---------- Side panel ---------- */
 #peek .i-card { display: flex; justify-content: center; height: calc(var(--card-h) * 1.3 + 8px); margin: 6px 0 8px; }
 #peek .i-card .card { position: relative; left: auto; top: auto; transform: scale(1.3); transform-origin: top center; pointer-events: none; cursor: default; }
-#peek .i-lines { margin: 6px 0; padding: 6px 8px; border-left: 2px solid #a88a4c; font-family: var(--serif); font-style: italic; font-size: 12.5px; line-height: 1.35; color: var(--paper-ink); }
+#peek .i-lines { margin: 6px 0; padding: 6px 8px; border-inline-start: 2px solid #a88a4c; font-family: var(--serif); font-style: italic; font-size: 12.5px; line-height: 1.35; color: var(--paper-ink); }
 #peek h4 { margin: 0 0 4px; font-family: var(--display); font-size: 15px; }
 #peek .i-kind { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #5a4f3a; display: flex; align-items: center; gap: 6px; }
 #peek .i-kind .k-icon { width: 22px; height: 22px; flex: none; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
@@ -464,7 +469,7 @@ html[data-flat] #table { perspective: none; }
 #peek .i-meter h4 { margin: 0; }
 .meter { cursor: pointer; }
 /* A notice at the table's edge, pointing at something worth a look. */
-.edge-mark { position: absolute; z-index: 28; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 16px; background: rgba(14, 12, 10, 0.9); border: 1px solid var(--accent); color: var(--paper); font-family: var(--display); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; animation: markIn 0.25s ease-out; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6); }
+.edge-mark { position: absolute; z-index: 28; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding-block: 4px; padding-inline: 6px 10px; border-radius: 16px; background: rgba(14, 12, 10, 0.9); border: 1px solid var(--accent); color: var(--paper); font-family: var(--display); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; animation: markIn 0.25s ease-out; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6); }
 .edge-mark b { position: relative; width: 22px; height: 22px; background: center / contain no-repeat; }
 .edge-mark b::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 8px 3px rgba(109, 187, 106, 0.95); opacity: 0; animation: pulse 1.4s infinite; pointer-events: none; }
 .edge-mark::after { content: ''; position: absolute; left: 50%; top: 50%; width: 30px; height: 2px; margin-top: -1px; transform-origin: 0 50%; transform: rotate(var(--ang, 0deg)) translateX(24px); background: var(--accent); }
@@ -510,7 +515,7 @@ html[data-flat] #table { perspective: none; }
 .recipe p { margin: 0; font-size: 13px; color: #5a4f3a; line-height: 1.45; }
 .recipe .r-strain { color: #7a6440; font-size: 12px; margin-top: 6px; font-style: italic; }
 .recipe .r-danger { color: #a5522a; font-size: 12px; margin-top: 6px; }
-.recipe .r-blocked { color: var(--danger); font-size: 12px; margin-top: 6px; padding-left: 22px; min-height: 16px; background: var(--art-cmark-04) 0 50% / 16px no-repeat; }
+.recipe .r-blocked { color: var(--danger); font-size: 12px; margin-top: 6px; padding-inline-start: 22px; min-height: 16px; background: var(--art-cmark-04) 0 50% / 16px no-repeat; }
 .recipe .r-none { color: #8a7a5a; font-style: italic; }
 .clock { display: grid; grid-template-columns: 1fr 70px minmax(52px, auto); align-items: center; gap: 8px; font-size: 12px; margin: 4px 0; color: #5a4f3a; }
 .clock .ck-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -565,22 +570,22 @@ html[data-flat] #table { perspective: none; }
 
 /* The journal on paper: each entry a paper block with its kind's colour as a rule down its left,
    and its kind's icon; the Firsts wear their marks (cprog-01 waiting, cprog-02 done). */
-.journal-entry { position: relative; border: 1px solid rgba(60, 40, 10, 0.25); border-left: 3px solid #8f7440; border-radius: 4px; padding: 6px 8px 8px 10px; margin-bottom: 10px; background: rgba(255, 250, 238, 0.6); }
+.journal-entry { position: relative; border: 1px solid rgba(60, 40, 10, 0.25); border-inline-start: 3px solid #8f7440; border-radius: 4px; padding-block: 6px 8px; padding-inline: 10px 8px; margin-bottom: 10px; background: rgba(255, 250, 238, 0.6); }
 .journal-entry .j-icon { float: left; width: 20px; height: 20px; margin: 2px 8px 0 0; background: center / contain no-repeat; }
 .journal-entry::after { content: ''; display: block; clear: both; }
 .firsts { margin: 0 0 14px; padding: 8px 10px; border: 1px solid #a88a4c; border-radius: 8px; background: rgba(255, 250, 238, 0.5); }
 .firsts h6 { margin: 0 0 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a5a1a; }
-.firsts .first { display: inline-block; margin: 2px 8px 2px 0; font-family: var(--serif); font-size: 12.5px; color: #6a5f4a; }
-.firsts .first i { display: inline-block; width: 18px; height: 18px; margin: -4px 4px -4px 0; vertical-align: middle; background: center / contain no-repeat; }
+.firsts .first { display: inline-block; margin-block: 2px; margin-inline: 0 8px; font-family: var(--serif); font-size: 12.5px; color: #6a5f4a; }
+.firsts .first i { display: inline-block; width: 18px; height: 18px; margin-block: -4px; margin-inline: 0 4px; vertical-align: middle; background: center / contain no-repeat; }
 .firsts .first.done { color: #1f1b15; }
 .journal-entry .j-meta { font-family: var(--mono); font-size: 10px; color: #8a7a5a; text-transform: uppercase; letter-spacing: 0.08em; }
 .journal-entry h6 { margin: 2px 0 3px; font-size: 13px; font-family: var(--display); color: #2a1a10; }
 .journal-entry p { margin: 0; font-family: var(--serif); font-size: 13px; line-height: 1.45; color: #4a4033; }
-.journal-entry.k-case { border-left-color: var(--danger); }
-.journal-entry.k-danger, .journal-entry.k-harm, .journal-entry.k-need { border-left-color: #e08a3c; }
-.journal-entry.k-major { border-left-color: #b8892c; }
-.journal-entry.k-victory { border-left-color: #3f8f3c; }
-.journal-entry.k-week { border-left-color: #6a6e74; }
+.journal-entry.k-case { border-inline-start-color: var(--danger); }
+.journal-entry.k-danger, .journal-entry.k-harm, .journal-entry.k-need { border-inline-start-color: #e08a3c; }
+.journal-entry.k-major { border-inline-start-color: #b8892c; }
+.journal-entry.k-victory { border-inline-start-color: #3f8f3c; }
+.journal-entry.k-week { border-inline-start-color: #6a6e74; }
 
 /* ---------- Toasts ---------- */
 /* Top right, under the bar, clear of the notch; a verb window pushes them left. */
@@ -591,9 +596,10 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 /* The bar grows with its words: the panel (::after) is nine-sliced and stretches; the circle
    (::before) is painted crisp from the same tile, with the icon in it. */
 /* border-image-source is set here (unpainted, width 0) so the page sees the bar comes from the stylesheet. */
-.toast { position: relative; isolation: isolate; border-image-source: var(--bar); border-image-width: 0; aspect-ratio: auto; min-height: 44px; padding: 10px 30px 10px 58px; color: #1f1b15; display: flex; flex-direction: column; justify-content: center; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); animation: toastIn 0.25s ease-out; pointer-events: auto; cursor: pointer; }
+.toast { position: relative; isolation: isolate; border-image-source: var(--bar); border-image-width: 0; aspect-ratio: auto; min-height: 44px; padding-block: 10px; padding-inline: 58px 30px; color: #1f1b15; display: flex; flex-direction: column; justify-content: center; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); animation: toastIn 0.25s ease-out; pointer-events: auto; cursor: pointer; }
 .toast::after { content: ''; position: absolute; inset: 0; z-index: -1; border: solid transparent; border-width: 16px 24px 16px 92px; border-image: var(--bar) 32 48 32 184 fill / 16px 24px 16px 92px stretch; clip-path: inset(0 0 0 46px); }
-.toast::before { content: ''; position: absolute; left: 0; top: 50%; width: 46px; height: 40px; margin-top: -20px; background: var(--icon) 8px center / 28px 28px no-repeat, var(--bar) left center / auto 40px no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.toast::before { content: ''; position: absolute; inset-inline-start: 0; top: 50%; width: 46px; height: 40px; margin-top: -20px; background: var(--bar) left center / auto 40px no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.toast .t-icon { position: absolute; inset-inline-start: 0; top: 50%; width: 46px; height: 40px; margin-top: -20px; background: var(--icon) 8px center / 28px 28px no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); pointer-events: none; }
 .toast b { display: -webkit-box; font-family: var(--display); font-size: 13px; line-height: 1.15; white-space: normal; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .toast span { font-size: 12px; line-height: 1.25; color: #4a4033; font-family: var(--serif); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .toast span:empty { display: none; }
@@ -619,7 +625,7 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .origin .bonus { font-size: 10.5px; color: #a8c29a; line-height: 1.35; }
 .origin .shut { font-size: 10.5px; color: #c48a7a; line-height: 1.35; margin-top: 2px; }
 .callings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 6px 0 18px; }
-.calling { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: rgba(20, 24, 26, 0.85); cursor: pointer; text-align: left; transition: border-color 0.15s, transform 0.15s; }
+.calling { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: rgba(20, 24, 26, 0.85); cursor: pointer; text-align: start; transition: border-color 0.15s, transform 0.15s; }
 .calling:hover { border-color: #7d6a45; transform: translateY(-2px); }
 .calling.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212, 162, 76, 0.35); }
 .calling .pcard { width: 100px; flex: none; }
@@ -650,7 +656,7 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .banner.win span { border-image-source: var(--art-cbar-03); }
 .end-paper { flex: 1 1 auto; min-height: 150px; overflow: auto; display: grid; grid-template-columns: 240px 1fr; gap: 20px; align-items: start; padding: 18px 22px; font-family: var(--serif); }
 .end-paper h2 { margin: 0 0 8px; font-family: var(--serif); font-weight: 400; font-size: 16px; color: #5a4f3a; }
-.end-box .end-paper .lead { margin: 0 0 8px; max-width: none; text-align: left; text-shadow: none; color: #1f1b15; font-size: 15px; line-height: 1.55; }
+.end-box .end-paper .lead { margin: 0 0 8px; max-width: none; text-align: start; text-shadow: none; color: #1f1b15; font-size: 15px; line-height: 1.55; }
 /* The end card: a wide frame (gold on a win, dark on a loss) with the ending's picture in its arch,
    the rank's wax in the circle and the name in the band. */
 .end-card { position: relative; width: 100%; aspect-ratio: 320 / 236; background: var(--frame, var(--art-cwide-04)) center / 100% 100% no-repeat; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); }
@@ -898,11 +904,28 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .dlg-levelup.cer .lu-badge { animation: stamp 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) 0.35s backwards; }
 .dlg-levelup.cer .lu-slot:not(.empty) { animation: flipIn 0.4s ease-out backwards; }
 #rank-badge.rank-new { animation: rankGlow 2s ease-out; }
-@keyframes rankGlow { 0%, 60% { filter: drop-shadow(0 0 8px rgba(240, 200, 110, 0.95)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); transform: scale(1.12); } }
+/* Pressed in like wax (the first 0.3s), then it glows. */
+@keyframes rankGlow { 0% { opacity: 0; transform: scale(1.8); } 15% { opacity: 1; transform: scale(0.95); } 0%, 22%, 60% { filter: drop-shadow(0 0 8px rgba(240, 200, 110, 0.95)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); } 22%, 60% { transform: scale(1.12); } }
 @media (prefers-reduced-motion: reduce) {
   .dlg-levelup, .dlg-levelup.cer .lu-badge, .dlg-levelup.cer .lu-slot:not(.empty) { animation: none; }
   #rank-badge.rank-new { animation: none; filter: drop-shadow(0 0 6px rgba(240, 200, 110, 0.9)); }
 }
+
+/* Reduce motion (Settings, on from the first run where the device asks for it): no shake, no slam,
+   no turn in depth. Flips and stamps fade, panels and notes come in by opacity alone, glows hold still. */
+html[data-calm] #app.shake { animation: none; }
+html[data-calm] .verb .verdict { animation: fadeIn 0.2s ease-out both, stampLift 0.4s ease-in 1.6s forwards; }
+html[data-calm] .mini-wrap.flip-out { animation: fadeOut 0.12s linear forwards; }
+html[data-calm] .mini-wrap.flip-in { animation: fadeIn 0.12s linear; }
+html[data-calm] .card.arrive .c-face, html[data-calm] .card.settle .c-face { animation-name: fadeIn; }
+html[data-calm] .dlg-levelup, html[data-calm] #board .choice, html[data-calm] .vwin, html[data-calm] .toast, html[data-calm] .edge-mark, html[data-calm] .verb .v-magnet.asks, html[data-calm] .verb .v-magnet.due { animation-name: fadeIn; }
+html[data-calm] .dlg-levelup.cer .lu-badge, html[data-calm] .dlg-levelup.cer .lu-slot:not(.empty), html[data-calm] #board .choice .ch-opt.taken::after { animation-name: fadeIn; }
+html[data-calm] #rank-badge.rank-new { animation: none; filter: drop-shadow(0 0 6px rgba(240, 200, 110, 0.9)); }
+html[data-calm] .verb.done .v-token::before, html[data-calm] .verb.new .v-token::before, html[data-calm] .verb.noticed .v-token::before, html[data-calm] .card.urgent::after, html[data-calm] .card.noticed::after, html[data-calm] .card.merged::after, html[data-calm] .meter.crit .m-icon::after, html[data-calm] .edge-mark b::after, html[data-calm] .verb .v-magnet.asks::after, html[data-calm] #turn .turn-card { animation: none; }
+html[data-calm] .card.urgent::after, html[data-calm] .meter.crit .m-icon::after { opacity: 0.8; }
+html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none; }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; } }
 
 /* Panels scale with the Settings slider; the table itself is zoomed by hand. */
 .vwin { width: min(calc(370px * var(--ui-scale, 1)), calc(100% - 16px)); }
@@ -923,6 +946,8 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   .slot { flex: none; }
   #zoom { top: 10px; right: 10px; bottom: auto; }
   #zoom button.tool-art { width: 34px; padding: 0; font-size: 0; border: none; border-radius: 6px; background: var(--i) center / 100% 100% no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
+  /* Undo's arrow points back the way an Arabic line reads. */
+  [dir=rtl] #zoom button.tool-art[data-tool=undo] { transform: scaleX(-1); }
   #zoom .tool-gap { width: 2px; }
   /* Toasts grow up from the bottom-right over the empty felt, two at most. With the sheet open, the newest alone
      sits just above the sheet's top (the sheet is at most 78% of the table under the 44px bar), never on its head. */
@@ -978,13 +1003,13 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
    Attend, open Explore, the sergeant), a few lines at most, tappable like the bar on a desk. After the phone block,
    so it beats the short window's 44% cap. */
 @media (max-width: 980px) and (min-height: 521px) {
-  #hint { left: 8px; right: 8px; top: 62px; width: auto; max-width: none; transform: none; padding: 7px 16px 7px 54px; text-align: start; font-size: 12px; line-height: 1.25; }
+  #hint { left: 8px; right: 8px; top: 62px; width: auto; max-width: none; transform: none; padding-block: 7px; padding-inline: 54px 16px; text-align: start; font-size: 12px; line-height: 1.25; }
 }
 /* A phone on its side (the APK's only way): the verbs fill the top of the felt, so the hint docks at the foot, on the
    left, clear of the toasts that grow up from the bottom-right. An open sheet covers it on purpose: the sheet is
    what is being read. */
 @media (max-height: 520px) {
-  #hint { left: 8px; right: auto; top: auto; bottom: 8px; width: auto; max-width: min(520px, 56%); transform: none; padding: 7px 16px 7px 54px; text-align: start; font-size: 12px; line-height: 1.25; }
+  #hint { left: 8px; right: auto; top: auto; bottom: 8px; width: auto; max-width: min(520px, 56%); transform: none; padding-block: 7px; padding-inline: 54px 16px; text-align: start; font-size: 12px; line-height: 1.25; }
 }
 /* A narrow phone: the pause menu in one column; the bar's gaps close so the five meters, the badge and the controls fit 360px. */
 @media (max-width: 480px) {
@@ -1036,11 +1061,24 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 }
 [dir=rtl] body, [dir=rtl] .card, [dir=rtl] .verb, [dir=rtl] .vwin, [dir=rtl] #peek, [dir=rtl] .toast, [dir=rtl] .modal, [dir=rtl] .choice, [dir=rtl] .meter, [dir=rtl] #hint, [dir=rtl] .pile-zone { letter-spacing: 0; }
 [dir=rtl] * { letter-spacing: 0 !important; }
-[dir=rtl] .card .c-name, [dir=rtl] .verb .v-label, [dir=rtl] .toast b, [dir=rtl] .meter .m-word, [dir=rtl] .meter .m-label { font-size: 1.08em; line-height: 1.3; }
+/* Arabic needs more height than the capitals it replaces: the card's few words, the verb's plate, the toast's title and the meters' words are set larger and looser. */
+[dir=rtl] .card .c-title { font-size: 12.5px; line-height: 1.45; }
+[dir=rtl] .verb .v-plate { font-size: 16px; line-height: 1.5; overflow: clip; overflow-clip-margin: 6px; }
+[dir=rtl] .verb .v-plate.long { font-size: 14px; }
+[dir=rtl] .toast b { font-size: 14.5px; line-height: 1.4; }
+[dir=rtl] .meter .m-word { font-size: 13.5px; }
+[dir=rtl] .meter .m-label { font-size: 11.5px; }
+[dir=rtl] .toast span, [dir=rtl] #hint, [dir=rtl] #peek .i-lines { line-height: 1.6; }
+/* Arabic has no italic: emphasis is carried by colour, as the help already does. */
+[dir=rtl] * { font-style: normal !important; }
 [dir=rtl] #topbar .brand { font-size: 19px; }
 [dir=rtl] .story p, [dir=rtl] .vw-desc, [dir=rtl] .journal-entry p, [dir=rtl] .modal p, [dir=rtl] #peek p, [dir=rtl] .help-grid p, [dir=rtl] .lead { line-height: 1.75; }
-[dir=rtl] #pause-banner span { margin-left: 0; margin-right: 10px; }
 [dir=rtl] .toast.leaving { transform: translateX(20px); }
+/* The bars read from the right: the bar and its socket are mirrored, the medallion's icon is not (the hint's eye is the same either way). */
+[dir=rtl] .toast::after, [dir=rtl] .toast::before, [dir=rtl] #hint::after, [dir=rtl] #hint::before { transform: scaleX(-1); }
+[dir=rtl] .toast .t-icon { background-position: right 8px center; }
+[dir=rtl] .recipe .r-blocked { background-position: 100% 50%; }
+[dir=rtl] .journal-entry .j-icon { float: right; margin: 2px 0 0 8px; }
 [dir=rtl] input[type=text] { direction: rtl; }
 [dir=rtl] #name { direction: ltr; text-align: right; }
 /* A count alone keeps its sign before its number. */
