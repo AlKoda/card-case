@@ -35,7 +35,7 @@
       desc: 'The iron on the cheek. A marked man cannot swear before a court, cannot be pardoned again, and has nowhere to go but the Coquille.',
       cost: 'Dread +1 · Cruelty +1' },
     sword: { label: 'The Sword', short: 'The Sword', icon: 'itrade-08',
-      desc: 'An honourable death, kneeling, one stroke. For the penitent and the well-born. No band swears vengeance for a man who died well.',
+      desc: 'An honourable death, kneeling, one stroke. For the penitent and the well-born. No band swears vengeance for one who died well.',
       cost: 'Cruelty +1 · Crowd −2' },
     rope: { label: 'The Rope', short: 'The Rope', icon: 'icrime-02',
       desc: 'The gallows on the Ravenstone, before the crowd. For thieves, burglars and receivers.',
@@ -137,7 +137,7 @@
       pleas.push({ from: 'family', purse: purse, label: 'A Family\'s Plea', text: d.name + '\'s ' + U.pick(rng, ['mother', 'wife', 'brother', 'father', 'sister']) + ' waits at the Watch-house door with a letter for the Examiner.' + (purse ? ' The letter is heavier than paper.' : '') });
     }
     pleas.forEach(function (p) {
-      self.create('plea', { label: p.label, desc: p.text + ' Put it in Sentence with a lighter rung and it counts as a reason.', caseId: rec.id, data: { from: p.from, purse: !!p.purse, condemned: cond.uid } });
+      self.create('plea', { label: p.label, desc: p.text + ' Put it in The Court with a lighter rung and it counts as a reason.', caseId: rec.id, data: { from: p.from, purse: !!p.purse, condemned: cond.uid } });
     });
     if (this.inquisitorTakes && this.inquisitorTakes(cond)) return null;
     this.story('Condemned: ' + d.name, d.name + ' goes down to the Hole to wait. The ladder is on your desk: ' + rungs.map(function (r) { return Sen.rungShort(rec.template, r); }).join(', ') + '. The Council will follow your word, or its custom.' +
@@ -195,7 +195,7 @@
             text = name + ' knows what a pardon costs and what it is worth. A week later they are waiting on the Informers\' Bench with something to sell. They owe you, and they know it.';
           } else {
             this.abroadCard(c, 'Pardoned by the Examiner, and the underworld knows it.');
-            text = name + ' walks. The Coquille hears of it before the bell. A spared man owes the Examiner, and everybody knows to whom he owes it.';
+            text = name + ' walks. The Coquille hears of it before the bell. The spared owe the Examiner, and everybody knows to whom.';
           }
         }
         break;
@@ -235,7 +235,7 @@
         this.meter('pressure', d.highProfile ? -2 : -1);
         if (L.capital && d.custom === 'wheel') { count('mercy', 1); notes.push('Commuted from ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ', out of mercy. The Bishop approves.'); }
         c.status = 'dead';
-        text = 'The judge breaks the white staff over the head of ' + name + '. At first light they kneel on the Ravenstone and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for a man who died well.';
+        text = 'The judge breaks the white staff over the head of ' + name + '. At first light they kneel on the Ravenstone and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for one who died well.';
         break;
       case 'rope':
         count('cruelty', 1);
@@ -288,7 +288,7 @@
         c.status = 'at_large';
         c.crimes++;
         self.abroadCard(c, 'Back from banishment. Hangs if caught.');
-        lines.push(c.name + ', banished, is back inside the walls. A returned banished man hangs if caught, and knows it.');
+        lines.push(c.name + ', banished, is back inside the walls. The banished who come back hang if caught, and know it.');
       } else c.returnWeek = s.week + 3;
     });
     return lines;

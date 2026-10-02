@@ -282,3 +282,39 @@ function run(e, verb, cards) {
   assert.strictEqual(CF.clueAspects(a2.tableCards().filter(function (c) { return c.label === 'The Leaves Parted'; })[0]).forensic || 0, 0, 'paper does not');
   console.log('precinct: ok');
 })();
+
+// ---- The Seat told truly: the man chosen instead has a name; the Hangman's door is said aloud ----
+(function seatAndCap() {
+  var c = game(74, 'commissioner');
+  c.s.meters.reputation = 30; c.s.rank = CF.TOP_RANK; c.checkThresholds();
+  var seats = function () { return c.s.journal.filter(function (l) { return l.title === 'The Seat Is Empty'; }); };
+  assert.ok(/dead of a stone/.test(seats()[0].text), 'the first Seat: a death');
+  c.s.meters.pressure = 6;
+  var vote = run(c, 'duty', [byDef(c, 'chair')[0]]);
+  var chosen = c.s.flags.burgomaster;
+  assert.ok(chosen && vote.story.text.indexOf('chooses ' + chosen + ' of the Hill') > 0, 'the Council\'s choice is named: ' + vote.story.text);
+  c.s.week = c.s.flags.chairCooldown; c.checkThresholds();
+  var second = seats()[0];
+  assert.ok(seats().length === 2 && !/dead of a stone/.test(second.text) && second.text.indexOf(chosen + ' has lasted a season') === 0, 'the second Seat is his: ' + second.text);
+  // An older save that had already told the Seat does not bury the Burgomaster twice.
+  var old = JSON.parse(c.save()); delete old.flags.seatTold; delete old.flags.burgomaster;
+  var lo = CF.Engine.load(old);
+  assert.strictEqual(lo.s.flags.seatTold, true, 'a Seat on the table: told');
+  var fresh = JSON.parse(game(75, 'commissioner').save()); delete fresh.flags.seatTold;
+  assert.strictEqual(CF.Engine.load(fresh).s.flags.seatTold, false);
+  // The Hangman at Bailiff with the Standing for Magistrate: told once.
+  var h = CF.Engine.newGame({ seed: 76, calling: 'master', who: 'hangman' });
+  h.s.rank = h.rankCap(); h.s.meters.reputation = CF.RANK_REP[h.rankCap() + 1];
+  h.checkThresholds(); h.checkThresholds();
+  var cap = h.s.journal.filter(function (l) { return l.title === 'The Letter That Will Not Come'; });
+  assert.strictEqual(cap.length, 1, 'told once');
+  assert.ok(/Bailiff is as high as the Ravenstone reaches/.test(cap[0].text), cap[0].text);
+  var w = CF.Engine.newGame({ seed: 77, calling: 'master', who: 'watchman' });
+  w.s.rank = 2; w.s.meters.reputation = CF.RANK_REP[3]; w.checkThresholds();
+  assert.ok(!w.s.journal.some(function (l) { return l.title === 'The Letter That Will Not Come'; }), 'only for the shut door');
+  // Deputise counts in the city's days.
+  var dp = CF.RECIPES_BY_ID.delegate_case.preview;
+  var txt = typeof dp === 'function' ? dp({ caseOf: function () { return null; }, primary: null }) : dp;
+  assert.ok(new RegExp('every ' + CF.daysLeft(CF.DELEGATE_EVERY) + ' days').test(txt) && !/minute/.test(txt), txt);
+  console.log('seat and cap: ok');
+})();

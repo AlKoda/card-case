@@ -88,7 +88,7 @@
     rival: { label: 'The Rival', kind: 'criminal', tags: ['person', 'rival'], aspects: { rival: 1 },
       desc: 'The Harbourmaster\'s Examiner, appointed to show the Council it has a choice. They work your cases from the other side: they close them first, spoil your scenes, pay your witnesses to forget. Question them with Wit to find their weakness (twice, and you can expose them), with Coin to buy a quiet fortnight, with Health to frighten them; shadow them in Explore with Instinct.' },
     burnout: { label: 'Fever', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
-      desc: 'You cannot face the street. Attend, Walk the Ward, Examine and Question are shut to you. Rest in Rest before this runs out, or they carry you to the pesthouse.' },
+      desc: 'You cannot face the street. Attend, Explore and Question are shut to you. Lie down in Rest before this runs out, or they carry you to the pesthouse.' },
     obsession: { label: 'Obsession', kind: 'threat', tags: ['strain'], image: 'icon-obsession', aspects: { obsession: 1 }, stackable: true,
       desc: 'A case has got under your skin. Three of these harden into Fixation. Closing the case eases it; so does letting go in Rest.' },
     tunnel: { label: 'Fixation', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-redeye', aspects: { tunnel: 1 },
@@ -119,7 +119,7 @@
     //   unlocks: a recipe id it makes possible; unlocksVerb: a verb it opens
     camera: { label: 'Sketch-book', kind: 'equipment', tags: ['tool'], image: 'icon-camera', aspects: { tool: 1 },
       mods: { unlocks: 'inv_photograph', boost: { tags: ['watching'], aspects: { opportunity: 1 } } },
-      desc: 'Charcoal and good paper. Put it in Examine with a case to draw the scene before it is tidied: what you have found there stops fading, and the drawings are proof. On a Watch, it catches faces.' },
+      desc: 'Charcoal and good paper. Put it in Explore with a case to draw the scene before it is tidied: what you have found there stops fading, and the drawings are proof. On a Watch, it catches faces.' },
     prints: { label: 'Vinegar and Umbrella', kind: 'equipment', tags: ['tool', 'kit', 'surfaces'], image: 'aspect-forensic', aspects: { tool: 1, kit_prints: 1 },
       mods: { gate: 'prints', boost: { tags: ['surfaces'], aspects: { forensic: 1 } } },
       desc: 'The coroner\'s trick from the old book: wash a surface with vinegar and wine, and read it under a red umbrella in sunlight. Old wounds, old blood and the marks of a hand come up plain.' },
@@ -167,7 +167,7 @@
     trial: { label: 'The Blood Court', kind: 'court', tags: ['court'], image: 'icon-gavel', aspects: { trial: 1 }, decay: 45, onExpire: 'verdict',
       desc: 'The case is before the judge and the sworn men. The verdict comes when the sand runs out.' },
     condemned: { label: 'The Condemned', kind: 'condemned', tags: ['court', 'person'], aspects: { condemned: 1 }, decay: 120, onExpire: 'sentence_default',
-      desc: 'Convicted, and waiting in the Hole for your word. Put them in Sentence with a rung of the ladder. Say nothing and the Council sentences by custom.' },
+      desc: 'Convicted, and waiting in the Hole for your word. Put them in The Court with a rung of the ladder. Say nothing and the Council sentences by custom.' },
     rung: { label: 'A Rung', kind: 'sentence', tags: ['court', 'ladder'], aspects: { rung: 1 },
       desc: 'One rung of the Carolina\'s ladder. It leaves the table with the Condemned it belongs to.' },
     plea: { label: 'A Plea', kind: 'plea', tags: ['court', 'letter'], aspects: { plea: 1 }, decay: 100, onExpire: 'vanish',
@@ -179,7 +179,7 @@
     tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
       desc: 'The Court of Miracles pays its Examiner while the Treaty stands. Put it in Attend to take it; every week taken is Purse +1. Let it lie and the King notes that too.' },
     dagger: { label: 'A Dagger on the Pillow', kind: 'threat', tags: ['warning'], aspects: { dagger: 1 }, decay: 100, onExpire: 'mountain',
-      desc: 'The Order of the Mountain warns once. Rest it with two Coin to buy six weeks, or alone to endure; or Attend it with a watchman to double the guard. Let it lie and they come back.' },
+      desc: 'The Order of the Mountain warns once. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 
@@ -251,18 +251,33 @@
     steady: { label: 'Steady', desc: 'Working beside them, you do not tire.' },
   };
 
+  // What an instrument's boost reads, in words: the tags of the finds it sharpens.
+  // CF.tagLabels(['biology', 'physical']) gives ['Bodies and traces'] (one label, not two).
+  CF.TAGS = {
+    biology: { label: 'Bodies and traces' },
+    physical: { label: 'Bodies and traces' },
+    surfaces: { label: 'Surfaces' },
+    records: { label: 'Papers' },
+    watching: { label: 'Watching' },
+  };
+  CF.tagLabels = function (tags) {
+    var out = [];
+    (tags || []).forEach(function (t) { var l = (CF.TAGS[t] || { label: t }).label; if (out.indexOf(l) < 0) out.push(l); });
+    return out;
+  };
+
   // People you can take into service. aspects are what they bring to a case;
   // traits are drawn from the pool when they are hired.
   CF.PERSONNEL = {
-    rookie: { label: 'Beadle', cost: 1, role: 'Beadle', aspects: { testimony: 1, opportunity: 1 }, traits: ['thorough', 'streetwise', 'steady'],
+    rookie: { label: 'Beadle', cost: 1, role: 'Beadle', sex: 'm', aspects: { testimony: 1, opportunity: 1 }, traits: ['thorough', 'streetwise', 'steady'],
       desc: 'A parish beadle with a staff and a loud voice. Knocks on doors without complaining and whips beggars without being asked.' },
-    tech: { label: 'Apothecary\'s Boy', cost: 3, role: 'Apothecary\'s Boy', aspects: { forensic: 2 }, traits: ['sharp', 'patient', 'thorough'],
+    tech: { label: 'Apothecary\'s Boy', cost: 3, role: 'Apothecary\'s Boy', sex: 'm', aspects: { forensic: 2 }, traits: ['sharp', 'patient', 'thorough'],
       desc: 'Talks to jars more than people. Knows the taste of every powder in the shop and which ones he should not have tasted.' },
-    interviewer: { label: 'Confessor', cost: 3, role: 'Confessor', aspects: { testimony: 2, motive: 1 }, traits: ['empathetic', 'patient', 'streetwise'],
+    interviewer: { label: 'Confessor', cost: 3, role: 'Confessor', sex: 'm', aspects: { testimony: 2, motive: 1 }, traits: ['empathetic', 'patient', 'streetwise'],
       desc: 'A priest without a parish. Sits. Listens. People tell him things they have never told God.' },
     analyst: { label: 'Clerk', cost: 4, role: 'Clerk', aspects: { digital: 2, financial: 2 }, traits: ['sharp', 'patient'],
       desc: 'Reads a ledger like a romance and a forged hand like a confession. Ink under every nail.' },
-    veteran: { label: 'Sergeant of the Watch', cost: 5, role: 'Sergeant', aspects: { opportunity: 2, motive: 2, testimony: 1 }, traits: ['thorough', 'streetwise', 'steady', 'empathetic'], nTraits: 2,
+    veteran: { label: 'Sergeant of the Watch', cost: 5, role: 'Sergeant', sex: 'm', aspects: { opportunity: 2, motive: 2, testimony: 1 }, traits: ['thorough', 'streetwise', 'steady', 'empathetic'], nTraits: 2,
       desc: 'Thirty years with a halberd. Has seen this before. Has seen everything before, and hanged some of it.' },
   };
 

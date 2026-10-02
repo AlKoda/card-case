@@ -13,6 +13,7 @@
 // the Calling card on the table changes with it, and the journal says so.
 (function (G) {
   var CF = G.CF;
+  var U = CF.util;
   var P = CF.Engine.prototype;
 
   var Callings = (CF.Callings = {});
@@ -59,10 +60,13 @@
     var card = null;
     for (var k in s.cards) if (CF.CARDS[s.cards[k].def].kind === 'calling' && s.cards[k].loc) { card = s.cards[k]; break; }
     var def = CF.CALLINGS[lead];
-    if (card) this.transform(card, def.card, { desc: CF.CARDS[def.card].desc + ' (You set out as ' + CF.CALLINGS[from].label + '; the work has changed you.)' });
+    if (card) this.transform(card, def.card, { desc: CF.CARDS[def.card].desc + ' (You set out as ' + Callings.inProse(from) + '; the work has changed you.)' });
     else this.create(def.card);
-    this.story('Your Calling Changes', 'You set out to be ' + CF.CALLINGS[from].label + '. Look at what you have actually done: ' + Callings.summary(this) +
-      '. Whatever you tell yourself, you are ' + def.label + ' now, and the ending you are walking toward is theirs.', 'major');
+    // What the player did, in words; the numbers stay in the Calling card's dossier.
+    var deeds = Callings.deeds(this, lead);
+    this.story('Your Calling Changes', deeds
+      ? U.fill('You meant to be {from}. Look at what you have done instead: {deeds}. Whatever you tell yourself, you are {to} now, and the ending you are walking toward is theirs.', { from: Callings.inProse(from), deeds: deeds, to: Callings.inProse(lead) })
+      : U.fill('You meant to be {from}. The work had other ideas. Whatever you tell yourself, you are {to} now, and the ending you are walking toward is theirs.', { from: Callings.inProse(from), to: Callings.inProse(lead) }), 'major');
     this.dirty = true;
     return true;
   };
@@ -74,6 +78,51 @@
     this.initPaths();
     var p = this.s.paths;
     return this.s.calling === path || p[path] >= p[this.s.calling] - Callings.MARGIN;
+  };
+
+  // 'The Scholar' in the middle of a sentence: 'the Scholar'.
+  Callings.inProse = function (key) { return CF.CALLINGS[key].label.replace(/^The /, 'the '); };
+  // Why a path grew (s.pathNotes), as the deed itself: [one, several].
+  Callings.DEEDS = {
+    'a calm fortnight': ['a calm fortnight', 'calm fortnight after calm fortnight'],
+    'promoted': ['a letter of office', 'letter after letter of office'],
+    'made a treaty with the Coquille': ['a treaty with the Coquille'],
+    'reasoned to the right name': ['the right name, reasoned out', 'the right names, reasoned out'],
+    'put away a repeat offender': ['a thief who will not be back', 'thieves who will not be back'],
+    'put away a violent man': ['a brute off the street', 'brutes off the street'],
+    'put away someone at large': ['a name off the wall', 'names off the wall'],
+    'broke a gang': ['a band broken', 'bands broken'],
+    'broke the Coquille': ['the Coquille broken'],
+    'went undercover': ['a season in disguise', 'seasons in disguise'],
+    'left a purse to lie': ['a purse left lying', 'purses left lying'],
+    'convicted a Council family': ['a Council family in the dock'],
+    'an identification': ['a face put to a name', 'faces put to names'],
+    'found a connection': ['two cases tied together', 'cases tied together'],
+    'broke the Eumenides': ['the Eumenides broken'],
+    'reopened a cold case': ['a cold case opened again', 'cold cases opened again'],
+    'reopened a cold trail': ['a cold trail warmed', 'cold trails warmed'],
+    'closed a cold case': ['a cold case answered', 'cold cases answered'],
+    'a loose end': ['a loose end tied', 'loose ends tied'],
+    'closed in on the network': ['the network drawn tight'],
+  };
+  Callings.deed = function (why, many) {
+    var d = Callings.DEEDS[why];
+    if (d) return many && d[1] ? d[1] : d[0];
+    var room = /^built the (.+)$/.exec(why);
+    if (room) return U.fill('masons in the {room}', { room: room[1] });
+    return why;
+  };
+  // The last three distinct deeds down a path, newest first: 'a; b; c'.
+  Callings.deeds = function (e, path) {
+    var notes = (e.s.pathNotes || []).filter(function (n) { return n.path === path && n.why; });
+    var order = [], count = {};
+    for (var i = notes.length - 1; i >= 0; i--) {
+      var w = notes[i].why;
+      if (!count[w]) { count[w] = 0; order.push(w); }
+      count[w]++;
+    }
+    var list = order.slice(0, 3).map(function (w) { return Callings.deed(w, count[w] > 1); });
+    return list.join('; ');
   };
 
   Callings.summary = function (e) {

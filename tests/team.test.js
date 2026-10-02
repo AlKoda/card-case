@@ -186,3 +186,15 @@ function officer(e, key, traits) {
   assert.strictEqual(got2, got1 + 1, 'streetwise: ' + got2 + ' vs ' + got1);
   console.log('team: ok');
 })();
+
+// A priest, a sergeant, a beadle and an apothecary's boy are men; their names say so.
+(function teamNames() {
+  var e = game(64);
+  ['rookie', 'tech', 'interviewer', 'veteran'].forEach(function (k) {
+    for (var i = 0; i < 12; i++) {
+      var first = e.teammateSpec(k).data.name.split(' ')[0];
+      assert.ok(CF.NAMES.m.indexOf(first) >= 0, k + ' named ' + first);
+    }
+  });
+  console.log('team names: ok');
+})();

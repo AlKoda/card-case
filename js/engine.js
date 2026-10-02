@@ -145,7 +145,7 @@
     else e.applyCalling(s.calling);
 
     if (e.applyOrigin) e.applyOrigin();
-    if (opts.legacy) e.applyLegacy(opts.legacy);
+    if (opts.legacy) e.applyLegacy(opts.legacy, { defer: !!(opts.opening && e.setupOpening) });
 
     if (opts.opening && e.setupOpening) {
       // No office yet: Health and Attend, then the notice, the Watch, the desk.
@@ -188,6 +188,8 @@
     // Round 8: the opening case may be lost and the desk kept; a failed vote waits six weeks.
     if (s.flags.openingAcquitted === undefined) s.flags.openingAcquitted = false;
     if (typeof s.flags.chairCooldown !== 'number') s.flags.chairCooldown = 0;
+    // The Seat already told once (a cooldown or a Seat on the table): the next telling is not a death.
+    if (s.flags.seatTold === undefined) s.flags.seatTold = !!s.flags.chairCooldown || Object.keys(s.cards || {}).some(function (k) { return s.cards[k].def === 'chair'; });
     // A queued case says once where it will come from (an informer's word, round 8).
     if (s.nextCase && s.nextCase.told === undefined) s.nextCase.told = false;
     // The Harbourmaster's Examiner keeps the week and the road of the last thread pulled (round 8).
@@ -285,8 +287,22 @@
   };
 
   // ---- Journal ------------------------------------------------------------
-  P.story = function (title, text, kind) {
+  function storyCue(title) {
+    if (/^Lost: /.test(title)) return 'harm';
+    for (var k in CF.NEEDS || {}) if (CF.CARDS[k] && CF.CARDS[k].label === title) return 'need';
+    return null;
+  }
+  // A 'danger' story carries a cue for how loud it lands (the UI reads entry.cue):
+  //   'harm'   a body hurt: yours or a watchman's (the alarm and the shake)
+  //   'need'   a need arrives (a heartbeat)
+  //   'quiet'  the verdict or the scene says it already (no cue of its own)
+  //   none     every other bad news (an omen)
+  // A need's arrival and an ability lost to one are known by their titles.
+  P.story = function (title, text, kind, opts) {
     var entry = { t: this.s.t, week: this.s.week, title: title, text: text, kind: kind || 'event' };
+    var cue = opts && opts.cue;
+    if (!cue && kind === 'danger') cue = storyCue(title);
+    if (cue) entry.cue = cue;
     this.s.journal.unshift(entry);
     if (this.s.journal.length > 300) this.s.journal.length = 300;
     this.emit('story', entry);
@@ -582,6 +598,21 @@
     var obs = this.obstacles(function (c) { return c === card; });
     var p = prefer ? this.nearestFree(prefer.x, prefer.y, T.CW, T.CH, obs) : this.pileSpot(obs);
     card.loc = { t: 'table', x: p.x, y: p.y };
+  };
+
+  // A card that changed while it lay in a stack (a token spoiled, a mark read)
+  // is not its neighbours' twin any more: it takes a spot of its own nearby.
+  P.settleStacks = function () {
+    var self = this, at = {};
+    this.tableCards().sort(function (a, b) { return a.uid - b.uid; }).forEach(function (c) {
+      var pk = c.loc.x + ',' + c.loc.y, key = self.stackKey(c);
+      if (!at[pk]) { at[pk] = key; return; }
+      if (at[pk] === key) return;
+      var p = self.nearestFree(c.loc.x, c.loc.y, T.CW, T.CH, self.obstacles(function (o) { return o === c; }));
+      c.loc = { t: 'table', x: p.x, y: p.y };
+      at[p.x + ',' + p.y] = key;
+      self.dirty = true;
+    });
   };
 
   // Drop a card (or its whole stack) at a board position. Dropping a stackable
@@ -1075,6 +1106,8 @@
   P.settleAsk = function (v, ctx, result) {
     var spec = this.askSpec(v), self = this;
     var answered = v.ask && v.ask.filled && this.card(v.ask.filled);
+    // Work that did not happen earns no thanks and pays no penalty; an answer comes back out.
+    if (result && result.interrupted) { v.ask = null; return; }
     if (answered && spec) {
       if (spec.reward === 'nofatigue') ctx.out.slice().forEach(function (c) { if (c.def === 'fatigue') { self.remove(c); ctx.out.splice(ctx.out.indexOf(c), 1); } });
       if (spec.reward === 'testimony') ctx.out.forEach(function (c) { if ((c.def === 'clue' || c.def === 'evidence') && c.aspects) c.aspects.testimony = (c.aspects.testimony || 0) + 1; });
@@ -1100,7 +1133,7 @@
     var result;
     try {
       // The main card can vanish mid-recipe (burned informant, expired case...).
-      if (!rec || !ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: 'Whatever you were working on is gone before you finish. The city does not wait.' };
+      if (!rec || !ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: 'Whatever you were working on is gone before you finish. The city does not wait.', interrupted: true };
       else result = rec.run(ctx) || { title: rec.label, text: '' };
     } catch (err) {
       if (typeof console !== 'undefined') console.error(err);
@@ -1456,6 +1489,7 @@
     if (this.patronsWeek) lines = lines.concat(this.patronsWeek());
     if (this.mountainWeek) lines = lines.concat(this.mountainWeek());
     if (this.rivalWeek) lines = lines.concat(this.rivalWeek());
+    this.settleStacks(); // a token tampered with in its stack is no longer its twin
     if (s.rooms.survroom) lines = lines.concat(this.belfryWeek());
     // The Pattern: once a run, for a Bailiff (or a Sworn Examiner from week twelve), and every week it is open another girl.
     if (s.week >= 6 && (s.rank >= 2 || (s.rank >= 1 && s.week >= 12)) && !s.flags.patternSeen && this.rng() < 0.2 && this.openCases().length < this.maxOpenCases()) {
@@ -1650,11 +1684,11 @@
         this.remove(c);
         this.meter('pressure', 1);
         this.create('obsession');
-        this.story('A Watchman Dead', this.labelOf(c) + ' was stabbed on their way home. The burial is on Thursday. The whole Watch-house goes. You carry the coffin.', 'danger');
+        this.story('A Watchman Dead', this.labelOf(c) + ' was stabbed on their way home. The burial is on Thursday. The whole Watch-house goes. You carry the coffin.', 'danger', { cue: 'harm' });
       } else {
         this.remove(c);
         this.create('injured', { label: 'Hurt: ' + this.labelOf(c), data: { teammate: { label: c.label, desc: c.desc, aspects: c.aspects, data: c.data } } });
-        this.story('A Watchman Hurt', this.labelOf(c) + ' was set upon outside the Watch-house. They will be in the Abbey hospital for a while.', 'danger');
+        this.story('A Watchman Hurt', this.labelOf(c) + ' was set upon outside the Watch-house. They will be in the Abbey hospital for a while.', 'danger', { cue: 'harm' });
       }
     } else {
       this.hurtYou('Someone was waiting on the stair of your lodging. You remember the first blow of the cudgel and not much after.');
@@ -1670,14 +1704,14 @@
       this.remove(hp[0]);
       var w = this.create('wound');
       if (this.woundFactor && this.woundFactor() !== 1) { w.life *= this.woundFactor(); w.maxLife = w.life; }
-      this.story('Wounded', text, 'danger');
+      this.story('Wounded', text, 'danger', { cue: 'harm' });
     } else if (this.cardsOf('wound', true).length) {
-      this.story('In the Council\'s Service', text, 'danger');
+      this.story('In the Council\'s Service', text, 'danger', { cue: 'harm' });
       this.gameOver('death');
     } else {
       this.create('fatigue');
       this.create('fatigue');
-      this.story('Beaten on the Stair', text + ' There was no strength in you to lose. You lie on the stair until the watchman finds you.', 'danger');
+      this.story('Beaten on the Stair', text + ' There was no strength in you to lose. You lie on the stair until the watchman finds you.', 'danger', { cue: 'harm' });
     }
   };
   // Would the next blow kill you: a Wound carried, and no Health left to lose.
@@ -1700,6 +1734,10 @@
       return self.cardsOf(def).filter(function (c) { return c.loc.t === 'table' || c.loc.t === 'out'; });
     };
 
+    // A predecessor's drawer is told once the desk is yours.
+    var L = s.flags.legacy;
+    if (L && !L.told && (!s.flags.opening || s.flags.stage === 'hired' || s.flags.stage === 'keep')) this.legacyStory();
+
     // A strain card never waits without its cure: Rest opens with the first one.
     var rest = s.verbs.reflect;
     if (rest && !rest.unlocked && this.introUnlock && ['fatigue', 'obsession', 'burnout', 'tunnel'].some(function (d) { return self.cardsOf(d, true).length; })) this.introUnlock(['reflect']);
@@ -1709,7 +1747,7 @@
       if (this.countOf('burnout')) { this.gameOver('collapse'); return; }
       fat.slice(0, 3).forEach(function (c) { self.remove(c); });
       this.create('burnout');
-      this.story('Fever', 'You stand in the Market outside the Watch-house for an hour and cannot make yourself go in. Your hands will not stop shaking. You need rest, and soon.', 'danger');
+      this.story('Fever', 'You stand in the Market outside the Watch-house for an hour and cannot make yourself go in. Your hands will not stop shaking. You need rest, and soon.', 'danger', { cue: 'harm' });
     }
 
     var obs = free('obsession');
@@ -1741,7 +1779,18 @@
     if (s.flags.chairCooldown && s.week >= s.flags.chairCooldown) s.flags.chairCooldown = 0;
     if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && s.meters.reputation >= CF.COMMISSIONER_REP && !this.cardsOf('chair', true).length && !(s.flags.chairCooldown > s.week)) {
       this.create('chair');
-      this.story('The Seat Is Empty', 'The Burgomaster is dead of a stone. The Council will choose a successor, and your name is on the list.', 'major');
+      // The first time a death; after that, the man the Council chose instead (s.flags.burgomaster) wears out.
+      var bm = s.flags.burgomaster;
+      if (bm) this.story('The Seat Is Empty', U.fill('{name} has lasted a season and the Council has had enough of him. It will choose again, and your name is on the list.', { name: bm }), 'major');
+      else if (s.flags.seatTold) this.story('The Seat Is Empty', 'The Council has not settled on a Burgomaster. It will vote again, and your name is still on the list.', 'major');
+      else this.story('The Seat Is Empty', 'The Burgomaster is dead of a stone. The Council will choose a successor, and your name is on the list.', 'major');
+      s.flags.seatTold = true;
+    }
+    // The Hangman's shut door: the Standing for the next office, and no letter will ever come. Told once.
+    var cap = this.rankCap ? this.rankCap() : CF.TOP_RANK;
+    if (cap < CF.TOP_RANK && s.rank >= cap && !s.flags.capTold && s.meters.reputation >= CF.RANK_REP[cap + 1]) {
+      s.flags.capTold = true;
+      this.story('The Letter That Will Not Come', U.fill('You have the Standing for the red gown, and every councillor knows it. None of them will seat a hangman on the bench. The sergeant says it for them: {office} is as high as the Ravenstone reaches.', { office: CF.RANK_DEFS[cap].label }), 'major');
     }
   };
 
@@ -1793,7 +1842,7 @@
     };
   };
 
-  P.applyLegacy = function (L) {
+  P.applyLegacy = function (L, o) {
     var self = this;
     (L.cold || []).slice(0, 4).forEach(function (c) { self.create('coldcase', c); });
     (L.criminals || []).forEach(function (c) { var copy = U.clone(c); copy.heat = 0; delete copy.hidden; delete copy.surfaceWeek; self.s.criminals[copy.id] = copy; });
@@ -1802,7 +1851,36 @@
     if (L.syndicate) this.create('syndicate');
     this.create('notes', { desc: 'The casebook of ' + L.predecessor + ' (' + L.ending + '). Half of it is water-stained. Read it in Rest.' });
     this.meter('retaliation', Math.min(4, (L.atlarge || []).length + (L.gangs || []).length * 2));
+    this.s.flags.legacy = { predecessor: L.predecessor, ending: L.ending || null, syndicate: !!L.syndicate };
+    // With the opening the desk is not yours yet: the drawer is told at the hire (legacyStory).
+    if (o && o.defer) return;
+    this.s.flags.legacy.told = true;
     this.story('Inherited', 'Your predecessor, ' + L.predecessor + ', left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a cask of very good Rhenish, with the King\'s compliments.', 'major');
+  };
+  // How the last Examiner left the desk, from the title of their ending.
+  CF.LEGACY_HOW = {
+    'Dismissed': 'the Council took the letter back',
+    'The Fever': 'one morning they did not come in',
+    'Collapse': 'they fell on the Watch-house stair',
+    'Killed in the Council\'s Service': 'the burial',
+    'The Council\'s Sergeants': 'the sergeants came at first light',
+    'Lost in the Case': 'they broke the study door',
+    'The Crowd Turns': 'the crowd came for them',
+    'The Stake': 'the Fire',
+    'The Dagger on the Pillow': 'the dagger',
+    'The Old Bailey': 'the trial',
+  };
+  // The inheritance, once the desk is yours (the hire in the opening). Once.
+  P.legacyStory = function () {
+    var L = this.s.flags.legacy;
+    if (!L || L.told) return null;
+    L.told = true;
+    var how = CF.LEGACY_HOW[L.ending] || 'they left it';
+    var text = U.fill(L.syndicate
+      ? 'The desk under the stair was {predecessor}\'s, until {how}. Their unanswered cases are still in the drawer, and their enemies have already found the new name on the door: a cask of very good Rhenish waits on the desk, with the King\'s compliments.'
+      : 'The desk under the stair was {predecessor}\'s, until {how}. Their unanswered cases are still in the drawer, and their enemies have already found the new name on the door.',
+    { predecessor: L.predecessor, how: how });
+    return this.story('The Last Examiner\'s Drawer', text, 'major');
   };
 
   // ---- Specs for generated cards ------------------------------------------
@@ -1836,7 +1914,7 @@
   };
   P.teammateSpec = function (key) {
     var p = CF.PERSONNEL[key];
-    var name = this.newName();
+    var name = this.newName(p.sex);
     var traits = U.sample(this.rng, p.traits || [], p.nTraits || 1);
     return {
       label: p.role + ' ' + name.split(' ')[1],
@@ -2479,11 +2557,12 @@
       this.meter('scrutiny', 3);
       notes.push('The accused\'s advocate takes your arranged proof apart before the sworn men. The court goes very quiet.');
     }
-    for (var j = 0; j < (d.contradictions || 0); j++) {
+    for (var j = 0, read = 0; j < (d.contradictions || 0); j++) {
       if (rng() < 0.35) {
         p -= 0.2;
         struck = true;
-        notes.push('The advocate reads your own proof back to the sworn men: it describes somebody else entirely.');
+        if (!read++) notes.push('The advocate reads your own proof back to the sworn men: it describes somebody else entirely.');
+        else if (read === 2) notes.push('Then he does it again, with another token of yours.');
       }
     }
     p = U.clamp(p, 0.02, 0.98);
@@ -2522,7 +2601,9 @@
       else if (ob) this.remove(ob);
       var pay = d.guilty ? (CF.ECONOMY.convictionPay[tier] || 0) + (hp ? CF.ECONOMY.highProfilePay : 0) : 0;
       for (var pi = 0; pi < pay; pi++) this.create('funds');
-      if (pay) notes.push(tier === 'strong' ? 'The Council\'s thanks, with a purse attached.' : 'The case closes, and a small fee comes with it.');
+      // A Council family convicted against the Council's wish: no thanks, only the fee.
+      var spurned = rec.commission && rec.commission.from === 'council' && rec.commission.delivered === 'truth';
+      if (pay) notes.push(tier !== 'strong' ? 'The case closes, and a small fee comes with it.' : spurned ? 'The Watch-house fee is paid to the coin, and not a penny over.' : 'The Council\'s thanks, with a purse attached.');
       if (d.guilty && !rec.special && rng() < 0.35) { this.create('funds'); notes.push('At the court door ' + rec.victim + ' presses a coin into your hand and will not take it back. An honest fee.'); }
       if (d.framed) {
         for (var fi = 0; fi < 3; fi++) this.create('funds');
@@ -2585,7 +2666,7 @@
       var keepAnyway = !!(s.flags.opening && this.openingKeep);
       this.story('Not Guilty: ' + d.name, (notes.length ? notes.join(' ') + ' ' : '') + 'The sworn men acquit. ' + d.name +
         ' walks down the court steps into the crowd\'s cheering and looks straight at you.' +
-        (keepAnyway ? ' The sworn men did not convict, but the Council has seen you work: the desk is yours, and so is the Bell.' : ''), 'danger');
+        (keepAnyway ? ' The sworn men did not convict, but the Council has seen you work: the desk is yours, and so is the Bell.' : ''), 'danger', { cue: 'quiet' });
       if (keepAnyway) {
         s.flags.openingAcquitted = true;
         this.openingKeep('acquitted');

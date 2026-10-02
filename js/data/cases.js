@@ -97,7 +97,7 @@
   // Questioning and street prose that works across cases.
   CF.PROSE = {
     witnessEmpathy: [
-      '{witness} talks for an hour. Most of it is about their late husband. Then, almost as an afterthought: "{hint}"',
+      '{witness} talks for an hour. Most of it is about the price of bread. Then, almost as an afterthought: "{hint}"',
       'You sit. You listen. You let the silence do the work. Eventually {witness} says: "{hint}"',
       '{witness} keeps begging your pardon for wasting your time. They are not wasting it. "{hint}"',
     ],

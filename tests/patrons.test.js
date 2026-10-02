@@ -163,3 +163,59 @@ function commission(seed, from) {
 })();
 
 console.log('patrons: arrive, council, sentences, favour all OK');
+
+// ---- Elections are told whichever way they go; the Dominican only when he can take the file ----
+(function elections() {
+  var kept = false, lost = false;
+  for (var i = 0; i < 30 && !(kept && lost); i++) {
+    var e = game(700 + i); e.favour().council = 2; e.s.week = CF.Patrons.ELECTION_EVERY || 12;
+    var l = e.patronsWeek().join(' ');
+    if (/keeps his seat by four votes/.test(l)) { kept = true; assert.strictEqual(e.favour().council, 2, 'a kept seat keeps the Favour'); }
+    if (/goes against your patron/.test(l)) lost = true;
+  }
+  assert.ok(kept && lost, 'a patron keeps his seat, or loses it, and either is told');
+  var n = game(731); n.s.week = 12; n.s.flags.firstCase = true;
+  assert.ok(n.patronsWeek().some(function (x) { return /New faces on the bench/.test(x); }), 'with no patron, the election still happens');
+  // The Bishop in favour: nobody asks for the file, and nothing is taken.
+  var d = game(732); d.s.rank = 3; d.favour().bishop = 1;
+  var hrec = d.caseRec(d.spawnCase('scriptorium', { quiet: true }).caseId);
+  hrec.week = d.s.week - 1;
+  assert.ok(!d.patronsWeek().some(function (x) { return /Dominican/.test(x); }), 'no Dominican while the Bishop is warm');
+  hrec.week = d.s.week - 3;
+  for (var q = 0; q < 10; q++) d.patronsWeek();
+  assert.strictEqual(hrec.status, 'open');
+  // The Bishop cools: the warning first, a week before any seizure.
+  d.favour().bishop = 0;
+  var w = d.patronsWeek();
+  assert.ok(w.some(function (x) { return /A Dominican has asked the Rolls/.test(x); }) && hrec.status === 'open', 'warned, not yet taken');
+  console.log('elections and the Dominican: ok');
+})();
+
+// ---- The Court: one advocate's reading, then 'again'; no thanks for a Council family ----
+(function courtWords() {
+  var c = commission(60, 'council'), e = c.e, rec = c.rec;
+  var fam = rec.suspects.filter(function (x) { return x.key === rec.commission.ofCouncil; })[0];
+  var told = null;
+  for (var i = 0; i < 40 && !told; i++) {
+    var g = CF.Engine.load(e.save());
+    var t = g.create('trial', { data: { caseId: rec.id, name: fam.name, guilty: true, solid: true, tier: 'strong', real: 9, need: 6, coerced: 0, planted: 0, illegal: 0, contradictions: 0 } });
+    g.rng.setState(i * 17 + 3); g.verdict(g.card(t.uid));
+    if (g.caseRec(rec.id).status === 'closed') told = g.s.journal.filter(function (j) { return /^Guilty: /.test(j.title); })[0];
+  }
+  assert.ok(told, 'convicted');
+  assert.ok(/Council family in the dock/.test(told.text) && !/The Council's thanks/.test(told.text), 'no thanks from the Council it angered: ' + told.text);
+  assert.ok(/not a penny over/.test(told.text), 'only the fee: ' + told.text);
+  // Three contradictions read out: the note once, then 'again', never the same line twice.
+  var seen = false;
+  for (var k = 0; k < 60 && !seen; k++) {
+    var h = game(800 + k), hr = h.caseRec(byDef(h, 'case')[0].caseId), cul = hr.suspects.filter(function (x) { return x.guilty; })[0];
+    var tt = h.create('trial', { data: { caseId: hr.id, name: cul.name, guilty: true, solid: false, tier: 'reasonable', real: 5, need: 6, coerced: 0, planted: 0, illegal: 0, contradictions: 4 } });
+    h.verdict(h.card(tt.uid));
+    var txt = h.s.journal.filter(function (j) { return /^(Not )?Guilty: /.test(j.title); })[0].text;
+    var reads = txt.split('The advocate reads your own proof back').length - 1;
+    assert.ok(reads <= 1, 'read once: ' + txt);
+    if (/Then he does it again/.test(txt)) { seen = true; assert.strictEqual(reads, 1); }
+  }
+  assert.ok(seen, 'a second contradiction is told as a second reading');
+  console.log('court words: ok');
+})();

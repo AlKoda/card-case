@@ -68,7 +68,7 @@
     if (this.cardsOf('dagger', true).length || this.rng() >= Soc.MOUNTAIN.chance) return lines;
     this.create('dagger', {
       label: 'A Dagger on the Pillow',
-      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Rest it with two Coin to buy six weeks, or alone to endure; or Attend it with a watchman to double the guard. Let it lie and they come back.',
+      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.',
       data: { week: s.week },
     });
     lines.push('There was a dagger on your pillow this morning. The door was barred. Somebody wants you to know what they can do.');

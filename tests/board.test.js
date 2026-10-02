@@ -737,3 +737,60 @@ console.error = function (err) { throw err; };
   CF.Engine.load(e2.save());
   console.log('load tolerance: unknown verb, recipe and choice ids ok' + (errors.length ? ' (the lost recipe was reported: ' + errors.length + ')' : ''));
 })();
+
+// An ask on work that never happened: no miss line, no penalty; the answer comes back out.
+(function interruptedAsk() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Gone', seed: 61 });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  assert.ok(e.autoSlot('investigate', kase.uid) && e.start('investigate'));
+  var v = e.verb('investigate');
+  e.tick(v.duration * 0.35);
+  assert.ok(v.ask && !v.ask.filled, 'asked');
+  var fat0 = e.cardsOf('fatigue', true).length;
+  e.remove(e.card(v.ctxSlots[e.primaryKey('investigate')]));
+  e.tick(v.duration);
+  assert.strictEqual(v.story.title, 'Interrupted');
+  assert.ok(!/back room|wore you|legs know/.test(v.story.text), 'no miss line: ' + v.story.text);
+  assert.strictEqual(e.cardsOf('fatigue', true).length, fat0, 'no penalty for work that did not happen');
+  assert.ok(!v.ask, 'the ask is gone');
+  console.log('interrupted ask: ok');
+})();
+
+// How loud bad news lands: a body hurt, a need, the verdict's own word, the rest.
+(function storyCues() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Cues', seed: 62 });
+  e.hurtYou('A cudgel on the stair.');
+  assert.strictEqual(e.s.journal[0].title, 'Wounded');
+  assert.strictEqual(e.s.journal[0].cue, 'harm');
+  var need = Object.keys(CF.NEEDS)[0];
+  assert.strictEqual(e.story(CF.CARDS[need].label, 'x', 'danger').cue, 'need', 'a need arriving');
+  assert.strictEqual(e.story('Lost: Wit', 'x', 'danger').cue, 'harm', 'an ability lost');
+  assert.strictEqual(e.story('The Rival Boasts', 'x', 'danger').cue, undefined, 'a boast is an omen, not a blow');
+  assert.strictEqual(e.story('A Day', 'x', 'major').cue, undefined);
+  assert.strictEqual(e.story('Not Guilty: X', 'x', 'danger', { cue: 'quiet' }).cue, 'quiet');
+  for (var i = 0; i < 3; i++) e.create('fatigue');
+  e.checkThresholds();
+  assert.ok(e.s.journal[0].title === 'Fever' && e.s.journal[0].cue === 'harm', 'the fever is a blow');
+  // Saved and loaded, the journal keeps its cues and an old entry without one still reads.
+  var l = CF.Engine.load(e.save());
+  assert.strictEqual(l.s.journal[0].cue, 'harm');
+  // An instrument's boost reads in words.
+  assert.deepStrictEqual(CF.tagLabels(['biology', 'physical']), ['Bodies and traces']);
+  assert.deepStrictEqual(CF.tagLabels(['records']), ['Papers']);
+  console.log('story cues: ok');
+})();
+
+// A token changed inside its stack (the Rival's people at it) leaves the stack.
+(function settleStacks() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Twins', seed: 63 });
+  var a = e.create('clue', { label: 'Rumour from Rattle', caseId: 'c1', aspects: { testimony: 1 } });
+  var b = e.create('clue', { label: 'Rumour from Rattle', caseId: 'c1', aspects: { testimony: 1 } });
+  assert.ok(a.loc.x === b.loc.x && a.loc.y === b.loc.y, 'twins stack');
+  b.aspects = {};
+  e.settleStacks();
+  assert.ok(a.loc.x !== b.loc.x || a.loc.y !== b.loc.y, 'the changed one moves out');
+  var c = e.create('clue', { label: 'Rumour from Rattle', caseId: 'c1', aspects: { testimony: 1 } });
+  e.settleStacks();
+  assert.ok(c.loc.x === a.loc.x && c.loc.y === a.loc.y, 'true twins stay together');
+  console.log('settled stacks: ok');
+})();

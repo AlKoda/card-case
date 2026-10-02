@@ -447,7 +447,7 @@ function run(e, verb, cards) {
     if (warn) {
       warned = true;
       assert.ok(h.s.nextCase && h.s.nextCase.template === warn.data.template, 'the warned-of case is coming');
-      assert.ok(/pays a debt/.test(lines.join(' ')) && /A spared man pays his debt/.test(warn.desc));
+      assert.ok(/pays a debt/.test(lines.join(' ')) && /One you spared pays a debt/.test(warn.desc));
       assert.strictEqual(sp.crimes, 1, 'a warning, not a crime');
     }
   }

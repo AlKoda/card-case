@@ -252,3 +252,36 @@ console.log('intro: ok');
   assert.strictEqual(g2.verb('interrogate').status, 'running', 'loaded: the questioning starts when the Wit is back');
   console.log('sergeant waits: ok');
 })();
+
+// ---- A successor's desk: the inheritance is told once the desk is yours ----------
+(function successor() {
+  var L = { predecessor: 'Kessler', ending: 'Dismissed', cold: [{ label: 'Cold: The Mill Fire', desc: 'x', data: {} }], atlarge: [], gangs: [], criminals: [], syndicate: false };
+  var g = CF.Engine.newGame({ seed: 41, who: 'clerk', name: 'Heir', opening: true, legacy: L });
+  var titles = function () { return g.s.journal.map(function (j) { return j.title; }); };
+  assert.ok(titles().indexOf('Inherited') < 0, 'nothing inherited before the desk is yours');
+  var owned = function (def) { return g.s.intro.stash.filter(function (it) { return it.def === def; }).length + Object.keys(g.s.cards).filter(function (u) { return g.s.cards[u].def === def; }).length; };
+  assert.strictEqual(owned('coldcase'), 1, 'but the drawer is already full (stashed)');
+  assert.ok(owned('notes') >= 1);
+  g.tick(1);
+  assert.ok(titles().indexOf('The Last Examiner\'s Drawer') < 0, 'still nothing during the opening');
+  g.s.flags.stage = 'questioned';
+  g.openingHired();
+  g.checkThresholds();
+  var drawer = g.s.journal.filter(function (j) { return j.title === 'The Last Examiner\'s Drawer'; });
+  assert.strictEqual(drawer.length, 1, 'told at the hire');
+  assert.ok(/was Kessler's, until the Council took the letter back\./.test(drawer[0].text) && !/Rhenish/.test(drawer[0].text), drawer[0].text);
+  g.checkThresholds(); g.legacyStory();
+  assert.strictEqual(g.s.journal.filter(function (j) { return j.title === 'The Last Examiner\'s Drawer'; }).length, 1, 'once');
+  // With the Coquille in the drawer, the King sends his compliments; without the opening, the old telling.
+  var k = CF.Engine.newGame({ seed: 42, who: 'watchman', opening: true, legacy: { predecessor: 'Vos', ending: 'Something Else', syndicate: true } });
+  k.s.flags.stage = 'questioned'; k.openingHired(); k.legacyStory();
+  assert.ok(/until they left it\..*Rhenish/.test(k.s.journal[0].text), k.s.journal[0].text);
+  var n = CF.Engine.newGame({ seed: 43, calling: 'master', legacy: L });
+  assert.ok(n.s.journal.some(function (j) { return j.title === 'Inherited'; }) && n.s.flags.legacy.told, 'no opening: told at once');
+  // Saved mid-opening and loaded: still told at the hire.
+  var m = CF.Engine.newGame({ seed: 44, who: 'monk', opening: true, legacy: L });
+  var ml = CF.Engine.load(m.save());
+  ml.s.flags.stage = 'questioned'; ml.openingHired(); ml.checkThresholds();
+  assert.ok(ml.s.journal.some(function (j) { return j.title === 'The Last Examiner\'s Drawer'; }), 'after a load too');
+  console.log('successor: ok');
+})();

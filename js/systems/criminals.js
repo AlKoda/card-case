@@ -156,7 +156,7 @@
     return U.pick(this.rng, pool);
   };
 
-  // A spared man pays his debt: word of a crime before it happens, in the
+  // One you spared pays a debt: word of a crime before it happens, in the
   // shape of an informer's warning, with no informer behind it.
   P.sparedWarning = function (c) {
     var tid = this.criminalTrade(c);
@@ -166,7 +166,7 @@
     this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
     this.create('intel', {
       label: 'Warning: ' + T.label,
-      desc: 'A spared man pays his debt: ' + c.name + ' sends word of ' + T.label.toLowerCase() + ' in ' + CF.DISTRICTS[district].label + '. Keep this on the table.',
+      desc: 'One you spared pays a debt: word from ' + c.name + ' of ' + T.label.toLowerCase() + ' in ' + CF.DISTRICTS[district].label + '. Keep this on the table.',
       data: { kind: 'warning', template: tid, district: district, informant: null, spared: c.id },
     });
     return c.name + ' pays a debt: a warning, not a crime.';

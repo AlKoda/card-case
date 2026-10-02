@@ -71,7 +71,11 @@ function run(e, verb, cards) {
   var rec = e.caseRec(e.spawnCase('scriptorium', { quiet: true }).caseId);
   e.patronsWeek();
   assert.strictEqual(rec.status, 'open', 'not yet: two weeks');
-  e.s.week += 2;
+  // A week on, the Dominican asks for the file (the warning comes a week before the seizure).
+  e.s.week += 1;
+  assert.ok(e.patronsWeek().some(function (l) { return /A Dominican has asked the Rolls/.test(l); }), 'warned at a week');
+  assert.strictEqual(rec.status, 'open');
+  e.s.week += 1;
   e.patronsWeek();
   assert.strictEqual(rec.status, 'inquisitor', 'the Inquisitor takes a heresy case left open two weeks');
   assert.ok(!e.caseCard(rec.id));

@@ -134,10 +134,15 @@
       lines.push('You have the Standing for a new office. The letter does not come; the Council is displeased.');
     }
     // Elections: every twelve weeks the Council may turn, and Favour becomes Suspicion.
+    // Told whichever way it goes, once the city knows you.
     if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0 && this.rng() < 0.4) {
       this.meter('scrutiny', f.council);
       lines.push('The Council election goes against your patron. Every favour he did you is read aloud by the men who beat him. Suspicion +' + f.council + '.');
       f.council = 0;
+    } else if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0) {
+      lines.push('The Council elects. Your patron keeps his seat by four votes, and sends round a haunch of venison to say he noticed who was at his door.');
+    } else if (s.week % Pat.ELECTION_EVERY === 0 && s.flags.firstCase) {
+      lines.push('The Council elects. New faces on the bench, old money behind them. Nobody asks after the Examiner either way.');
     }
     // The Inquisitor arrives when the Bishop's Favour is low.
     if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican, white habit under a black cloak, has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
@@ -151,7 +156,10 @@
       var T = CF.CASE_TEMPLATES[rec.template];
       if (!T.heresy) return;
       var age = s.week - (rec.week || 0);
-      if (age === 1 && !rec.dominican) {
+      // Asked after only while the file can be taken: the Inquisitor here, or the Bishop not in favour.
+      // The warning comes a week before any seizure.
+      if (!rec.dominican) {
+        if (age < 1 || !(s.flags.inquisitor || f.bishop <= 0)) return;
         rec.dominican = true;
         self.story('A Dominican at the Rolls', 'A Dominican has asked the Rolls for the file on ' + rec.title + '. He has a week\'s start on you.', 'danger');
         lines.push('A Dominican has asked the Rolls for the file on ' + rec.title + '.');

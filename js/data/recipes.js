@@ -95,8 +95,10 @@
       }
       e.meter('reputation', -4);
       e.s.flags.chairCooldown = e.s.week + 6;
+      // The man they chose instead has a name, and the next empty Seat is his.
+      var chosen = e.s.flags.burgomaster = e.newName('m');
       return { title: 'Passed Over', kind: 'danger',
-        text: 'The Council thanks you for your service and chooses someone else. ' + (m.pressure > 4 ? 'The city is too restless. ' : '') + (m.scrutiny > 4 ? 'There are rumours about your methods. ' : '') + 'There will be another vote in six weeks, if you earn it again.' };
+        text: U.fill('The Council thanks you for your service and chooses {name} of the Hill, who has never answered a case in his life. ', { name: chosen }) + (m.pressure > 4 ? 'The city is too restless. ' : '') + (m.scrutiny > 4 ? 'There are rumours about your methods. ' : '') + 'There will be another vote in six weeks, if you earn it again.' };
     },
   });
   R.push({
@@ -1003,6 +1005,7 @@
     run: function (ctx) {
       ctx.consume(ctx.primary);
       ctx.e.openingHired();
+      if (ctx.e.legacyStory) ctx.e.legacyStory();
       return { title: 'The Sergeant Listens', text: ctx.e.openingScene().hired };
     },
   });
@@ -1541,7 +1544,7 @@
       ctx.consume(p);
       if (o.room) {
         e.s.rooms[o.room] = true;
-        e.pathGain('commissioner', 1, 'built the ' + o.label);
+        e.pathGain('commissioner', 1, 'built the ' + o.label.replace(/^The /, ''));
         ctx.give('room', { label: CF.ROOMS[o.room].label, desc: CF.ROOMS[o.room].desc });
         return { title: 'The Watch-house: ' + o.label, text: 'Masons, lime dust and a blessing from the Bishop\'s chaplain. The ' + o.label + ' is open. ' + CF.ROOMS[o.room].desc };
       }
@@ -1790,7 +1793,7 @@
   // ================================================================= DELEGATE
   R.push({
     id: 'delegate_case', verb: 'duty', src: 'delegate', rank: 2, label: 'Deputise the Case', duration: 10,
-    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.delegate ? 'Somebody is already working this case for you.' : 'Hand it over. They will bring you something every half minute until it closes.'; },
+    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.delegate ? 'Somebody is already working this case for you.' : U.fill('Hand it over. They will bring you something every {days} days until it closes.', { days: CF.daysLeft(CF.DELEGATE_EVERY) }); },
     blocked: function (ctx) {
       var rec = ctx.caseOf(ctx.primary);
       if (rec && rec.delegate) return 'A watchman is already on it.';

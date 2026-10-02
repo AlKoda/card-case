@@ -133,3 +133,27 @@ assert.strictEqual(s2.s.calling, 'crusader');
 assert.strictEqual(s2.s.origin, 'commissioner');
 assert.ok(/Power \d+ · Knowledge \d+ · Justice \d+/.test(CF.Callings.summary(s2)));
 console.log('callings: drift, card, endings from any start, origin bonus kept, play feeds paths, save OK');
+
+// ---- The turn of a calling says what was done, not the score ----------------
+(function deeds() {
+  var d = game(91, 'master');
+  d.pathGain('commissioner', 1, 'a calm fortnight');
+  d.pathGain('commissioner', 1, 'a calm fortnight');
+  d.pathGain('commissioner', 1, 'built the Belfry');
+  d.pathGain('commissioner', 1, 'promoted');
+  d.pathGain('commissioner', 3, 'reopened a cold case');
+  assert.strictEqual(d.s.calling, 'commissioner', 'the calling turned');
+  var j = d.s.journal.filter(function (x) { return x.title === 'Your Calling Changes'; })[0];
+  assert.ok(j, 'told');
+  assert.ok(!/\d/.test(j.text), 'no numbers in the telling: ' + j.text);
+  assert.ok(/^You meant to be the Scholar\. /.test(j.text) && /you are the Burgomaster now/.test(j.text), 'the article in lower case mid-sentence: ' + j.text);
+  assert.ok(/: a cold case opened again; a letter of office; masons in the Belfry\./.test(j.text), 'the last three deeds, newest first: ' + j.text);
+  var card = callingCards(d)[0];
+  assert.ok(/\(You set out as the Scholar; the work has changed you\.\)$/.test(d.descOf(card)), d.descOf(card));
+  // A repeated deed reads as many; with no deed recorded, the line still reads.
+  assert.strictEqual(CF.Callings.deed('a calm fortnight', true), 'calm fortnight after calm fortnight');
+  var q = game(92, 'crusader');
+  q.s.paths.master = 20; q.checkDrift();
+  assert.ok(/The work had other ideas\./.test(q.s.journal[0].text), q.s.journal[0].text);
+  console.log('calling deeds: ok');
+})();
