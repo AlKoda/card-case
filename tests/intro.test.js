@@ -332,33 +332,15 @@ console.log('intro: ok');
   console.log('first victim: ok');
 })();
 
-// ---- The Reformer hears of the Coquille before he can touch it -------------------------------
+// ---- The Reformer hears of the Coquille before he can touch it, once ------------------------
 (function coquilleForetold() {
-  function at(rank, week, synd) {
-    var e = CF.Engine.newGame({ seed: 60, calling: 'crusader' });
-    e.introFinish && e.introFinish();
-    e.s.rank = rank; e.s.week = week;
-    e.cardsOf('syndicate', true).forEach(function (c) { e.remove(c); });
-    if (synd) e.create('syndicate');
-    e.rivalWeek();
-    return e.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length;
-  }
-  assert.strictEqual(at(0, 6), 1, 'week six, below the white staff: the word is said');
-  assert.strictEqual(at(1, 9), 1, 'a Sworn Examiner hears it too');
-  assert.strictEqual(at(0, 5), 0, 'not before week six');
-  assert.strictEqual(at(2, 6), 0, 'a Bailiff can go among them: no foretelling');
-  assert.strictEqual(at(0, 6, true), 0, 'the Coquille already formed: no foretelling');
-  var e = CF.Engine.newGame({ seed: 61, calling: 'crusader' });
-  e.s.week = 6; e.cardsOf('syndicate', true).forEach(function (c) { e.remove(c); });
-  var meters = JSON.stringify(e.s.meters);
-  e.rivalWeek(); e.rivalWeek();
-  assert.strictEqual(e.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length, 1, 'once');
-  assert.strictEqual(JSON.stringify(e.s.meters), meters, 'a story only: no meter moves');
-  var m = CF.Engine.newGame({ seed: 62, calling: 'master' }); m.s.week = 6; m.rivalWeek();
-  assert.ok(!m.s.flags.coquilleForetold, 'only the Reformer');
-  var l = CF.Engine.load(JSON.parse(e.save()));
-  l.rivalWeek();
-  assert.strictEqual(l.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length, 1, 'a loaded save does not say it twice');
+  var e = CF.Engine.newGame({ seed: 21, calling: 'crusader', life: true });
+  for (var i = 0; i < 7; i++) e.weekTick();
+  var door = /looks at the same door/;
+  var told = e.s.journal.filter(function (j) { return door.test(j.text); });
+  assert.strictEqual(told.length, 1, 'one foretelling a run, not one from each system: ' + told.map(function (j) { return j.title; }).join(', '));
+  var opening = CF.INTRO_BEATS ? [].concat(CF.INTRO_BEATS).map(function (b) { return b && b.title; }) : [];
+  assert.ok(opening.indexOf(told[0].title) < 0, 'its title is not the opening beat\'s');
   console.log('coquille foretold: ok');
 })();
 

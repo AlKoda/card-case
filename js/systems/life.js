@@ -416,19 +416,6 @@
   // boast of a name, a week after that they close it), spoil a scene, pay a
   // witness to forget. A spoiled token and a bought witness carry the mark
   // (data.tampered, data.bribed) for the dossier.
-  // The Reformer below the white staff hears of the Coquille before it can be touched: a story
-  // in the week the bands begin to gather, and nothing on the meters. Once, and only while the
-  // Coquille has not yet formed (see organise in engine.js). Until the staff, the Watch on its
-  // stair is the Reformer's answer to it (Attend, a watchman and the Coquille).
-  CF.COQUILLE_FORETOLD = { title: 'The Word Nobody Says', text: 'Every fence you question looks at the same door before he lies. Somebody under the Warrens is gathering the bands into one shell. Until you carry the Bailiff\'s staff you cannot go among them: post the Watch on its stair.' };
-  function foretellCoquille(e) {
-    var s = e.s, f = s.flags;
-    if (s.calling !== 'crusader' || s.week < 6 || (s.rank || 0) >= 2 || f.coquilleForetold || f.syndicateFallen) return;
-    if ((s.intro && !s.intro.finished) || e.countOf('syndicate')) return;
-    f.coquilleForetold = true;
-    e.story(CF.COQUILLE_FORETOLD.title, CF.COQUILLE_FORETOLD.text);
-  }
-
   // What the Rival could do at the Bell of week `wk`: race you on a case you have opened and
   // held a week, close one they have raced two, spoil a token, or buy a witness.
   function rivalOptions(e, wk) {
@@ -517,7 +504,6 @@
   CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
   P.rivalWeek = function () {
     var s = this.s, lines = [];
-    foretellCoquille(this); // the week's other word from the street, before the Rival's
     if (s.week < 5 || (s.intro && !s.intro.finished)) return lines;
     var r = this.cardsOf('rival', true)[0];
     if (!r) {
