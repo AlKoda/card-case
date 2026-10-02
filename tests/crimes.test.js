@@ -393,3 +393,38 @@ console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, name
   assert.ok(read && read.data.trait === 'lefty', 'the letter read carries the left hand');
   console.log('words that describe a mark: ok (' + hits + ' tokens, ' + marked + ' on the culprit)');
 })();
+
+// ---- The accused are nobody's kin by accident, and one desk holds no two cases of one title ----------
+(function namesAndTitles() {
+  var share = 0, scene = 0, total = 0, sameTitle = 0;
+  for (var seed = 900; seed < 960; seed++) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    e.s.rank = 3;
+    for (var k = 0; k < 4; k++) {
+      var c = e.spawnCase(null, { quiet: true });
+      var rec = e.caseRec(c.caseId);
+      if (rec.special) continue;
+      var vp = CF.nameParts(rec.victim);
+      rec.suspects.forEach(function (x) {
+        var np = CF.nameParts(x.name);
+        total++;
+        if (np[0] === vp[0] || np[1] === vp[1]) share++;
+        if (rec.vars.last && np[1] === rec.vars.last) scene++;
+      });
+    }
+    var titles = e.openCases().map(function (r) { return r.title; });
+    titles.forEach(function (t, i) { if (titles.indexOf(t) !== i) sameTitle++; });
+  }
+  assert.ok(total > 500, 'enough accused: ' + total);
+  assert.ok(share <= total * 0.01, 'the accused rarely share the victim\'s names: ' + share + ' of ' + total);
+  assert.ok(scene <= total * 0.01, 'nor the scene\'s surname: ' + scene + ' of ' + total);
+  assert.strictEqual(sameTitle, 0, 'no two open cases share a title');
+  // A fixed title twice on one desk: the second is told apart.
+  var f = CF.Engine.newGame({ seed: 961, calling: 'master' }); f.s.rank = 3;
+  var a = f.caseRec(f.spawnCase('scriptorium', { quiet: true }).caseId), b = f.caseRec(f.spawnCase('scriptorium', { quiet: true }).caseId);
+  assert.ok(a.title !== b.title && b.title === a.title + ', Again', b.title);
+  // The harbour's body is found at its own scene.
+  var h = f.caseRec(f.spawnCase('harbor', { quiet: true }).caseId);
+  assert.strictEqual(h.title, 'The Body at ' + h.scene);
+  console.log('the accused nobody\'s kin, one title per desk: ok');
+})();

@@ -200,7 +200,8 @@ function step(e, temper) {
   var cold = of(e, 'coldcase')[0];
   if (cold && s.rooms.archive) tryRun(e, 'analyze', [cold]);
   var al = of(e, 'atlarge')[0];
-  if (cold && al) tryRun(e, 'reflect', [cold, al]);
+  var ghost = cold && of(e, 'atlarge').filter(function (a) { return CF.walkedFrom(cold, a); })[0];
+  if (cold && ghost) tryRun(e, 'reflect', [cold, ghost]);
 
   // Buy things.
   var orders = of(e, 'order').concat(of(e, 'personnel')).sort(function (a, b) { return CF.costOf(a) - CF.costOf(b); });

@@ -294,3 +294,27 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   assert.deepStrictEqual(l.s.weekSnap.favour, { council: 2, bishop: 0, guild: 0 }, 'an older save starts counting favour now');
   console.log('every commission speaks: ok');
 })();
+
+// ---- What the dossier says of a heresy case: the Inquisitor's week, or the Bishop's protection ----------
+(function heresyWatch() {
+  var d = game(21); d.s.rank = 3;
+  var hrec = d.caseRec(d.spawnCase('scriptorium', { quiet: true }).caseId);
+  var plain = d.caseRec(d.spawnCase('burglary', { quiet: true }).caseId);
+  assert.strictEqual(d.heresyWatch(plain), null, 'no heresy, nothing to say');
+  d.favour().bishop = 1; d.s.flags.inquisitor = false;
+  var w = d.heresyWatch(hrec);
+  assert.ok(w.kept && w.line === 'The Bishop has kept the Dominicans off this one.', 'a warm Bishop keeps them off');
+  // And no Dominican is told of while he does.
+  hrec.week = d.s.week - 3;
+  assert.ok(!d.patronsWeek().some(function (l) { return /Dominican/.test(l); }) && !hrec.dominican, 'no empty threat under a warm Bishop');
+  d.favour().bishop = 0;
+  w = d.heresyWatch(hrec);
+  assert.ok(!w.kept && !w.asked && w.week === d.s.week + 2 && w.vars.n === w.week, 'cold: not before the week after the asking');
+  d.patronsWeek();
+  assert.ok(hrec.dominican, 'asked after once the Bishop cools');
+  w = d.heresyWatch(hrec);
+  assert.ok(w.asked && w.week === d.s.week + 1, 'asked: taken from the next week');
+  d.favour().bishop = 2; d.s.flags.inquisitor = true;
+  assert.ok(!d.heresyWatch(hrec).kept, 'the Inquisitor here: the Bishop cannot keep him off');
+  console.log('the Bishop keeps the Dominicans off: ok');
+})();

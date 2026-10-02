@@ -226,6 +226,21 @@
     return lines;
   };
 
+  // What the dossier says of a heresy case: when the Inquisitor could take
+  // it, or that the Bishop keeps the Dominicans off it. The same gate as
+  // patronsWeek: asked after only while the Inquisitor is here or the
+  // Bishop not in favour, and taken a week after the asking at the soonest.
+  // null for a case that does not smell of heresy. `line` and `vars` are
+  // the words to show (through tr).
+  P.heresyWatch = function (rec) {
+    var T = rec && CF.CASE_TEMPLATES[rec.template];
+    if (!T || !T.heresy || rec.status !== 'open') return null;
+    var s = this.s, f = this.favour();
+    if (!s.flags.inquisitor && f.bishop > 0) return { kept: true, line: 'The Bishop has kept the Dominicans off this one.' };
+    var from = (rec.week || 0) + 2, n = Math.max(from, s.week + (rec.dominican ? 1 : 2));
+    return { kept: false, week: n, asked: !!rec.dominican, line: 'Smells of heresy: the Inquisitor\'s after week {n}', vars: { n: n } };
+  };
+
   // The Inquisitor takes a heresy case: somebody burns, and it is rarely the right one.
   P.inquisitorSeizes = function (rec) {
     var s = this.s;

@@ -1413,5 +1413,13 @@
     "{N} things you found there will keep now.": "{N} من الأشياء التي وجدتها هناك ستبقى الآن.",
     "One watchman worked {title}.": "حارس واحد عمل على {title}.",
     "{N} watchmen worked {title}.": "{N} من الحرّاس عملوا على {title}.",
+    "{title}, Again": "{title}، مرّةً أخرى",
+    "The hue and cry brought them in. The Court tried them for what they walked from.": "جاءت بهم صيحةُ المطاردة. وحاكمتهم المحكمة على ما فرّوا منه.",
+    "Mercy +1 · Coin +1 for the Watch-house": "الرحمة +1 · النقود +1 لدار الحرس",
+    "The Bishop has kept the Dominicans off this one.": "أبعد الأسقفُ الدومينيكيّين عن هذه القضية.",
+    "That is not the one who walked from this case.": "ليس هذا من أفلت من هذه القضية.",
+    "Something is already on its way to your desk.": "ثمّة ما هو في طريقه إلى مكتبك بالفعل.",
+    "The Body at {scene}": "الجثة عند {scene}",
+    "{title}, Once More": "{title}، مرّةً ثالثة",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

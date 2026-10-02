@@ -1196,11 +1196,20 @@
       return { title: 'The Architect', kind: 'major', text: 'You lay the three details side by side on your table at matins, and for the first time you see the shape of the hand that drew them. Someone has been planning the city\'s crimes. You know where they live.' };
     },
   });
+  // Is this Abroad card the one who walked from this unanswered case: by name,
+  // or by the card itself when the case kept no name. A case that kept neither
+  // takes anyone.
+  CF.walkedFrom = function (cc, al) {
+    var d = cc.data || {};
+    if (d.culpritName) return d.culpritName === al.data.name;
+    return !d.atLargeUid || d.atLargeUid === al.uid;
+  };
   R.push({
     id: 'ref_cold_atlarge', verb: 'reflect', label: 'Old Ghosts', duration: 30,
     preview: 'The unanswered case and the one who walked. Think about where they would go.',
     blocked: function (ctx) {
-      var al = ctx.first('atlarge');
+      var al = ctx.first('atlarge'), cc = ctx.first('coldcase');
+      if (al && cc && !CF.walkedFrom(cc, al)) return 'That is not the one who walked from this case.';
       if (al && al.data.innocent) return CF.INNOCENT_NO_HUNT;
       if (al && ctx.e.huntRunning(al)) return 'You are already hunting them.';
       return ctx.e.roomForCase(1) ? null : 'The desk is full. Close or let go of a case before you raise the hue and cry.';
@@ -1210,7 +1219,7 @@
       var e = ctx.e;
       var al = ctx.first('atlarge');
       ctx.consume(ctx.first('coldcase'));
-      var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid,
+      var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid, crimeTitle: ctx.first('coldcase').data.title || null,
         headline: 'Hue and Cry: ' + al.data.name, lead: 'You think you know where ' + al.data.name + ' went.' });
       e.huntBegins(al, card.caseId);
       e.pathGain('master', 1, 'reopened a cold trail');
@@ -1948,9 +1957,12 @@
     id: 'major_focus', verb: 'duty', src: 'majorcrimes', rank: 3, label: 'Turn the Watch\'s Eyes', duration: 15,
     preview: function (ctx) { return 'Rounds, informers and the day-book all point at ' + ctx.e.labelOf(ctx.primary) + '. The next case comes from there, sooner, with more time on its clock.'; },
     requires: ['district'],
+    // A case already on its way (a known hand's next crime, an informer's warning) is not overwritten.
+    blocked: function (ctx) { return ctx.e.s.nextCase ? 'Something is already on its way to your desk.' : null; },
     run: function (ctx) {
       var e = ctx.e, d = ctx.primary.data.district;
-      var tid = U.pick(ctx.rng, CF.ORDINARY_CASES.filter(function (t) { return CF.CASE_TEMPLATES[t].districts.indexOf(d) >= 0; }) || CF.ORDINARY_CASES);
+      var here = CF.ORDINARY_CASES.filter(function (t) { return CF.CASE_TEMPLATES[t].districts.indexOf(d) >= 0; });
+      var tid = U.pick(ctx.rng, here.length ? here : CF.ORDINARY_CASES);
       e.s.nextCase = { template: tid, district: d, extraTime: 60 };
       e.s.dispatchT = Math.min(e.s.dispatchT, 30);
       return { title: 'Eyes on ' + CF.DISTRICTS[d].label, text: 'Every watchman with a lantern spends the week in ' + CF.DISTRICTS[d].label + '. Whatever happens there next, you will hear first.' };

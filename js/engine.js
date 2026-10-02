@@ -212,6 +212,17 @@
     if (s.flags.seatTold === undefined) s.flags.seatTold = !!s.flags.chairCooldown || Object.keys(s.cards || {}).some(function (k) { return s.cards[k].def === 'chair'; });
     // A queued case says once where it will come from (an informer's word, round 8).
     if (s.nextCase && s.nextCase.told === undefined) s.nextCase.told = false;
+    // A hue and cry is tried for the crime they walked from (round 8): an older save's hunt finds it on the record.
+    Object.keys(s.cases || {}).forEach(function (id) {
+      var hr = s.cases[id];
+      if (hr.template !== 'manhunt' || hr.crimeTitle !== undefined) return;
+      var cul = (hr.suspects || []).filter(function (x) { return x.guilty; })[0];
+      var kc = null;
+      if (cul) for (var kk in s.criminals || {}) if (s.criminals[kk].name === cul.name) kc = s.criminals[kk];
+      var chase = cul ? U.fill(CF.CASE_TEMPLATES.manhunt.title, { culprit: cul.name }) : '';
+      var hs = kc && kc.history ? kc.history.filter(function (h) { return h.title && h.title !== chase; }) : [];
+      hr.crimeTitle = hs.length ? hs[hs.length - 1].title : null;
+    });
     // The Harbourmaster's Examiner keeps the week and the road of the last thread pulled (round 8).
     Object.keys(s.cards).forEach(function (u) {
       var rc = s.cards[u];
@@ -446,7 +457,11 @@
     if (!card || !def) throw new Error('Cannot transform into ' + defId);
     spec = spec || {};
     card.def = defId;
+    // The player's own Mark stays on the card through whatever it becomes
+    // (spent, restored, a witness turned suspect): copied, not set on a shared spec.
+    var marked = card.data && card.data.mark;
     card.data = spec.data || {};
+    if (marked) { var kept = {}; for (var dk in card.data) kept[dk] = card.data[dk]; kept.mark = true; card.data = kept; }
     ['label', 'desc', 'aspects', 'tags', 'image', 'caseId'].forEach(function (k) {
       if (spec[k] !== undefined) card[k] = k === 'tags' ? spec[k].slice() : spec[k]; else delete card[k];
     });
@@ -1956,8 +1971,10 @@
   // `cause` says who struck (order, court, cover, stair): a killing blow keeps it
   // in stats.killedBy for the ending.
   P.hurtYou = function (text, cause) {
-    var hp = this.cardsOf('health', true);
-    if (!hp.length) hp = this.cardsOf('spent_health', true);
+    // The Health lying idle goes first: a blow does not stop a round that one walks while another waits.
+    var held = function (a, b) { return (a.loc && a.loc.t === 'held' ? 1 : 0) - (b.loc && b.loc.t === 'held' ? 1 : 0); };
+    var hp = this.cardsOf('health', true).sort(held);
+    if (!hp.length) hp = this.cardsOf('spent_health', true).sort(held);
     if (hp.length) {
       this.remove(hp[0]);
       var w = this.create('wound');
@@ -2337,9 +2354,27 @@
 
   // ---- Specs for generated cards ------------------------------------------
   // A name: a man's, a woman's, or either when the role does not say.
-  P.newName = function (sex) {
-    var N = CF.NAMES, first = sex === 'm' ? N.m : sex === 'f' ? N.f : N.first;
-    return U.pick(this.rng, first || N.first) + ' ' + U.pick(this.rng, N.last);
+  // `ex` ({ first: [], last: [] }) names to keep clear of: a first name or a
+  // surname one of them has is passed over for the next in the list, so the
+  // accused are not kin of the victim nobody wrote. Stepping, not drawing
+  // again: the city's dice fall as they would have.
+  P.newName = function (sex, ex) {
+    var N = CF.NAMES, first = (sex === 'm' ? N.m : sex === 'f' ? N.f : N.first) || N.first;
+    var f = U.pick(this.rng, first), l = U.pick(this.rng, N.last);
+    if (ex) { f = CF.nextClear(first, f, ex.first); l = CF.nextClear(N.last, l, ex.last); }
+    return f + ' ' + l;
+  };
+  // The first entry of `list`, from `item` on, that is not in `taken` (`item` itself when every one is).
+  CF.nextClear = function (list, item, taken) {
+    var i0 = list.indexOf(item);
+    if (!taken || !taken.length || i0 < 0) return item;
+    for (var k = 0; k < list.length; k++) { var x = list[(i0 + k) % list.length]; if (taken.indexOf(x) < 0) return x; }
+    return item;
+  };
+  // A name as [first, surname]; a surname of several words (van der Meer) stays whole.
+  CF.nameParts = function (name) {
+    var i = (name || '').indexOf(' ');
+    return i < 0 ? [name || '', ''] : [name.slice(0, i), name.slice(i + 1)];
   };
   // What a witness's description says of their sex, for the name they are given.
   P.sexOf = function (who) {
@@ -2630,7 +2665,14 @@
     var rng = this.rng;
     // The crimes come by rank: an Examiner gets the plain ones; the killings
     // and the strange cases wait until you have risen to them.
-    var tid = templateId || U.pick(rng, this.casePool());
+    var pool = templateId ? null : this.casePool();
+    var tid = templateId || U.pick(rng, pool);
+    // A crime whose title has no names in it (the Scriptorium) is not sent twice to one desk: the next in the pool comes instead.
+    if (pool) {
+      var fixedOpen = this.openCases().map(function (r) { return r.title; });
+      var fixedClash = function (t) { var TT = CF.CASE_TEMPLATES[t]; return TT && TT.title.indexOf('{') < 0 && fixedOpen.indexOf(TT.title) >= 0; };
+      for (var pk = 1; pk < pool.length && fixedClash(tid); pk++) tid = pool[(pool.indexOf(tid) + 1) % pool.length];
+    }
     var T = CF.CASE_TEMPLATES[tid];
     var id = 'c' + s.nextUid++;
     // An unanswered case opened again is the same book: the victim, the
@@ -2646,6 +2688,18 @@
     if (from && from.vars) for (var fv in from.vars) vars[fv] = from.vars[fv];
     var scene = from && from.scene ? from.scene : U.fill(U.pick(rng, T.scenes), vars);
     vars.scene = scene;
+    // Two cases on one desk do not share a title: on a clash the next surname,
+    // the victim's next surname (when the story did not name one) and the next
+    // scene are tried, five times at most, without a throw of the dice.
+    var openTitles = from ? [] : this.openCases().map(function (r) { return r.title; });
+    var titleTpl = opts.title || T.title;
+    var lastAt = CF.NAMES.last.indexOf(last), sceneAt = Math.max(0, T.scenes.map(function (x) { return U.fill(x, vars); }).indexOf(scene));
+    var vic0 = CF.nameParts(victim), vicAt = CF.NAMES.last.indexOf(vic0[1]);
+    for (var tt = 1; tt <= 5 && !from && openTitles.indexOf(U.fill(titleTpl, vars)) >= 0; tt++) {
+      vars.last = last = CF.NAMES.last[(lastAt + tt) % CF.NAMES.last.length];
+      if (!opts.victim && vicAt >= 0 && /\{victim\}/.test(titleTpl)) vars.victim = victim = vic0[0] + ' ' + CF.NAMES.last[(vicAt + tt) % CF.NAMES.last.length];
+      vars.scene = scene = U.fill(T.scenes[(sceneAt + tt) % T.scenes.length], vars);
+    }
     // Structure first, prose second: the shape of this particular crime.
     var structure = null;
     if (from) structure = (CF.STRUCTURES[tid] || []).filter(function (x) { return x.id === from.structure; })[0] || null;
@@ -2682,8 +2736,14 @@
       });
     }
     var self = this;
+    // The accused keep clear of the victim's names, the scene's surname, each
+    // other's, and the surnames of the accused in every other open case.
+    var vp = CF.nameParts(victim), ex = { first: [vp[0]], last: [vp[1], vars.last] };
+    this.openCases().forEach(function (r) { (r.suspects || []).forEach(function (x) { ex.last.push(CF.nameParts(x.name)[1]); }); });
+    if (opts.culpritName) { var cp = CF.nameParts(opts.culpritName); ex.first.push(cp[0]); ex.last.push(cp[1]); }
     var suspects = roles.map(function (r, i) {
-      var name = i === guiltyIdx && opts.culpritName ? opts.culpritName : self.newName(r.sex || null);
+      var name = i === guiltyIdx && opts.culpritName ? opts.culpritName : self.newName(r.sex || null, ex);
+      var np = CF.nameParts(name); ex.first.push(np[0]); ex.last.push(np[1]);
       return { key: 's' + i, name: name, role: r.role, motive: r.motive, trait: traits[i].id, guilty: i === guiltyIdx, revealed: false };
     });
     if (from) {
@@ -2778,7 +2838,7 @@
     }
 
     var rec = {
-      id: id, template: tid, title: from && from.title ? from.title : U.fill(opts.title || T.title, vars), short: T.label, district: district, scene: scene,
+      id: id, template: tid, title: from && from.title ? from.title : U.fill(titleTpl, vars), short: T.label, district: district, scene: scene,
       victim: victim, vars: vars, suspects: suspects, culprit: culprit.key, keyAspects: T.keyAspects.slice(),
       difficulty: difficulty, highProfile: highProfile, charge: charge, items: items, found: 0,
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
@@ -2787,6 +2847,13 @@
       structure: structure ? structure.id : null, front: front ? front.id : null,
     };
     rec.week = s.week;
+    // A title no redraw could change (a fixed one, the Scriptorium's) on a desk that already holds it.
+    if (!from && openTitles.indexOf(rec.title) >= 0) {
+      var again = U.fill('{title}, Again', { title: rec.title });
+      rec.title = openTitles.indexOf(again) < 0 ? again : U.fill('{title}, Once More', { title: rec.title });
+    }
+    // A hue and cry is tried for the crime they walked from, not for the chase.
+    if (tid === 'manhunt') rec.crimeTitle = opts.crimeTitle || this.walkedFromTitle(opts) || null;
     if (this.commissionFor) rec.commission = this.commissionFor(rec, T);
     // A template may name the role the Council would rather not see in the dock (the Harbourmaster).
     var councilSus = T.councilRole ? suspects.filter(function (x) { return x.role === T.councilRole; })[0] : null;
@@ -2850,6 +2917,17 @@
     }
     return card;
   };
+  // The case a hunted name walked from: the last one on their record that was
+  // not itself a hue and cry.
+  P.walkedFromTitle = function (opts) {
+    var c = (opts.criminalId && this.criminal && this.criminal(opts.criminalId)) || (opts.culpritName && this.criminalByName && this.criminalByName(opts.culpritName));
+    if (!c || !c.history) return null;
+    var chase = U.fill(CF.CASE_TEMPLATES.manhunt.title, { culprit: c.name });
+    var hs = c.history.filter(function (h) { return h.title && h.title !== chase; });
+    return hs.length ? hs[hs.length - 1].title : null;
+  };
+  // What a conviction says the accused was convicted of.
+  P.convictedOf = function (rec) { return rec.crimeTitle || rec.title; };
   // A citizen you once sent home who may come back as a witness: reformed,
   // not the case's own criminal, and nobody come that way in six weeks.
   P.oldDebtor = function (exceptId) {
@@ -3345,7 +3423,8 @@
       var lesser = tier !== 'strong' && !d.solid && !rec.special && d.confession !== 'free';
       var T = CF.CASE_TEMPLATES[rec.template];
       if (lesser) notes.unshift('On half proof the Court convicts of the lesser crime only: ' + (T && T.lesser ? T.lesser : 'the lesser charge') + '.');
-      this.story('Guilty: ' + d.name, 'The sworn men are out for ' + (d.solid ? 'the length of a Paternoster' : 'two days') + '. ' + d.name + ' is convicted of ' + rec.title + ', and the sergeants take them down to the Hole to wait for the sentence. ' +
+      if (rec.crimeTitle) notes.unshift('The hue and cry brought them in. The Court tried them for what they walked from.');
+      this.story('Guilty: ' + d.name, 'The sworn men are out for ' + (d.solid ? 'the length of a Paternoster' : 'two days') + '. ' + d.name + ' is convicted of ' + this.convictedOf(rec) + ', and the sergeants take them down to the Hole to wait for the sentence. ' +
         (d.guilty ? '' : 'You tell yourself it was the right person. ') + notes.join(' '), 'victory');
     } else {
       s.stats.acquittals++;

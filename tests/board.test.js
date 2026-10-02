@@ -1246,3 +1246,37 @@ console.error = function (err) { throw err; };
   assert.strictEqual(e.verbInfo('reflect').basics, CF.VERBS.reflect.desc, 'a verb with no basics shows its description');
   console.log('the Bell\'s week, the verb\'s first look: ok');
 })();
+
+// ---- A blow takes the idle Health first; a Mark stays through what the card becomes ----------
+(function blowAndMark() {
+  var e = CF.Engine.newGame({ seed: 4, calling: 'master', life: true });
+  e.create('health'); // a second Health, on the table
+  var walking = e.cardsOf('health').filter(function (c) { return c.loc.t === 'table'; })[0];
+  assert.ok(e.autoSlot('duty', walking.uid) && e.start('duty'), 'one Health walks the round');
+  var idle = e.cardsOf('health').filter(function (c) { return c.uid !== walking.uid; })[0];
+  assert.ok(idle, 'another waits');
+  e.hurtYou('A cudgel on the stair.');
+  assert.ok(e.card(walking.uid) && walking.loc.t === 'held', 'the round keeps its Health');
+  assert.ok(!e.card(idle.uid), 'the blow takes the one lying idle');
+  var guard = 0;
+  while (e.verb('duty').status === 'running' && guard++ < 400) e.tick(1);
+  assert.notStrictEqual(e.verb('duty').story && e.verb('duty').story.title, 'Interrupted', 'the round is not interrupted');
+
+  // The player's Mark on a Health: spent by the round, and back again, still marked.
+  var m = CF.Engine.newGame({ seed: 5, calling: 'master', life: true });
+  var hp = m.cardsOf('health').filter(function (c) { return c.loc.t === 'table'; })[0];
+  hp.data = hp.data || {}; hp.data.mark = true;
+  var shared = { kind: 'x' };
+  assert.ok(m.autoSlot('duty', hp.uid) && m.start('duty'));
+  guard = 0;
+  while (m.verb('duty').status === 'running' && guard++ < 400) m.tick(1);
+  assert.notStrictEqual(hp.def, 'health', 'spent by the round: ' + hp.def);
+  assert.ok(hp.data.mark, 'the spent card keeps its Mark');
+  m.transform(hp, 'health', { data: shared });
+  assert.ok(hp.data.mark && hp.data.kind === 'x', 'restored, still marked, with the new data');
+  assert.ok(shared.mark === undefined, 'a shared spec is copied, not marked');
+  var plainHp = m.create('health');
+  m.transform(plainHp, 'evidence', {});
+  assert.ok(!plainHp.data.mark, 'an unmarked card stays unmarked');
+  console.log('the blow takes the idle Health, the Mark stays: ok');
+})();

@@ -298,7 +298,7 @@
       hints: [{ text: 'They quarrelled with someone on the stair. A man or a woman, I couldn\'t say. They sounded like they knew each other.' }, { text: 'They were frightened. They kept looking at the door.' }, { text: 'They told me they were coming into money. Then they said they were leaving the city.' }],
     },
     harbor: {
-      label: 'A Death', title: 'The Body at the Crane', lesser: 'manslaughter, not murder', lifetime: 240, difficulty: 7, highProfile: true,
+      label: 'A Death', title: 'The Body at {scene}', lesser: 'manslaughter, not murder', lifetime: 240, difficulty: 7, highProfile: true,
       keyAspects: ['forensic', 'motive', 'opportunity'], districts: ['docks', 'canal'],
       charge: { forensic: 3, motive: 2, opportunity: 2 },
       scenes: ['Berth {n}', 'the {last} Warehouse', 'the Harbour Steps'],

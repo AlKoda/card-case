@@ -24,7 +24,7 @@
       cost: 'Mercy +2 · Suspicion +1 without a reason' },
     fine: { label: 'Fine and Restitution', short: 'A Fine', icon: 'itrade-20',
       desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter and, as far as the city learns, honest. The city remembers who sent them home.',
-      cost: 'Mercy +1 · 1 Coin' },
+      cost: 'Mercy +1 · Coin +1 for the Watch-house' }, // the fee comes to you
     pillory: { label: 'The Pillory', short: 'Pillory', icon: 'ilaw-07',
       desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: they walk, marked, and the quarter names them next time.',
       cost: 'Crowd −1' },
@@ -130,7 +130,7 @@
     var wish = patron ? CF.Patrons.WISH[patron].filter(function (r) { return rungs.indexOf(r) >= 0; }) : [];
     var cond = this.create('condemned', {
       label: d.name,
-      desc: d.name + (sus.role ? ', ' + sus.role : '') + ', convicted of ' + rec.title + (lesser ? ' (the lesser crime)' : '') + ', waits in the Hole for your word. ' +
+      desc: d.name + (sus.role ? ', ' + sus.role : '') + ', convicted of ' + (this.convictedOf ? this.convictedOf(rec) : rec.title) + (lesser ? ' (the lesser crime)' : '') + ', waits in the Hole for your word. ' +
         (penitent ? 'They confessed freely and ask for the Church. ' : '') + 'By custom the Council would give them ' + Sen.rungLabel(rec.template, custom).toLowerCase() + '. Say nothing and it will.' +
         (patron && wish.length ? ' ' + CF.Patrons.asksLine(patron, wish) : ''),
       caseId: rec.id,

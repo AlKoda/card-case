@@ -623,3 +623,66 @@ function run(e, verb, cards) {
   assert.strictEqual(crim2.status, 'at_large', 'a stale hunted record is at large again at the Bell');
   console.log('a cold hue and cry sets them loose: ok');
 })();
+
+// ---- Turn the Watch's Eyes waits for a case already on its way; Old Ghosts pairs a case with its own; a hunt is tried for the crime ----------
+(function queuedAndGhosts() {
+  var e = game(71); e.s.rank = 3;
+  var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+  var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  kase.life = 0.1; e.tick(1);
+  var crim = e.criminalByName(culprit.name);
+  // The criminal's next crime is queued; the Quarter in Attend cannot overwrite it.
+  e.s.nextCase = { template: e.criminalTrade(crim), culpritName: crim.name, culpritTrait: crim.trait, criminalId: crim.id, district: 'market', extraTime: 0, told: false };
+  var queued = e.s.nextCase;
+  var q = e.giveDistrict('market');
+  assert.ok(e.autoSlot('duty', q.uid), 'a Quarter in Attend');
+  var pv = e.preview('duty');
+  assert.ok(pv && pv.label === 'Turn the Watch\'s Eyes', 'the Proclamation offers itself: ' + (pv && pv.label));
+  assert.strictEqual(pv.blocked, 'Something is already on its way to your desk.');
+  assert.ok(!e.start('duty'), 'and does not start');
+  assert.strictEqual(e.s.nextCase, queued, 'the queued case is untouched');
+  e.clearSlots('duty');
+  e.s.dispatchT = 0; e.s.cases[rec.id].status = 'cold';
+  e.openCases().forEach(function (r) { r.status = 'closed'; });
+  for (var i = 0; i < 400 && e.s.nextCase; i++) e.tick(1);
+  assert.ok(e.openCases().some(function (r) { return r.criminalId === crim.id; }), 'the criminal\'s case arrives');
+  // With nothing queued it runs.
+  e.s.nextCase = null;
+  assert.ok(e.autoSlot('duty', q.uid) && !e.preview('duty').blocked && e.start('duty'), 'nothing queued: the Watch turns its eyes');
+
+  // Old Ghosts: the Abroad card must be the one who walked from that case.
+  var g = game(72);
+  var gk = byDef(g, 'case')[0], grec = g.caseRec(gk.caseId), gcul = grec.suspects.filter(function (x) { return x.guilty; })[0];
+  gk.life = 0.1; g.tick(1);
+  var cold = byDef(g, 'coldcase')[0], own = byDef(g, 'atlarge')[0];
+  assert.ok(cold && own && own.data.name === gcul.name);
+  var other = g.create('atlarge', { label: 'Abroad: Somebody Else', data: { name: 'Somebody Else', trait: gcul.trait } });
+  var ghosts = CF.RECIPES_BY_ID.ref_cold_atlarge;
+  var ctxOf = function (al) { return { e: g, first: function (k) { return k === 'coldcase' ? cold : k === 'atlarge' ? al : null; } }; };
+  assert.strictEqual(ghosts.blocked(ctxOf(other)), 'That is not the one who walked from this case.');
+  assert.strictEqual(ghosts.blocked(ctxOf(own)), null, 'the one who walked: open');
+  assert.ok(CF.walkedFrom({ data: {} }, other), 'a cold case that kept no name takes anyone');
+  g.remove(other);
+  var title = cold.data.title;
+  var res = run(g, 'reflect', [cold, own]);
+  var hunt = res.out.filter(function (c) { return c.def === 'case'; })[0];
+  var hrec = g.caseRec(hunt.caseId);
+  assert.strictEqual(hrec.template, 'manhunt');
+  assert.strictEqual(hrec.crimeTitle, title, 'the hunt remembers the crime');
+  assert.strictEqual(g.convictedOf(hrec), title, 'and is tried for it');
+  var t = g.create('trial', { data: { caseId: hrec.id, name: gcul.name, guilty: true, solid: true, tier: 'strong', real: 9, need: 4, coerced: 0, planted: 0, illegal: 0, contradictions: 0 } });
+  hrec.status = 'trial';
+  g.verdict(t);
+  var guilty = g.s.journal.filter(function (j) { return /^Guilty: /.test(j.title); })[0];
+  assert.ok(guilty, 'a conviction');
+  assert.ok(guilty.text.indexOf('is convicted of ' + title) >= 0 && !/convicted of Hue and Cry/.test(guilty.text), 'convicted of the crime: ' + guilty.text);
+  assert.ok(/The hue and cry brought them in\./.test(guilty.text));
+  var cond = byDef(g, 'condemned')[0];
+  assert.ok(!cond || cond.desc.indexOf('convicted of ' + title) >= 0, 'the Condemned card names the crime');
+  // Without a cold case the record gives the crime; an older save's hunt finds it on load.
+  assert.strictEqual(g.walkedFromTitle({ culpritName: gcul.name }), title);
+  var old = JSON.parse(g.save());
+  delete old.cases[hrec.id].crimeTitle;
+  assert.strictEqual(CF.Engine.load(old).s.cases[hrec.id].crimeTitle, title, 'backfilled from the record');
+  console.log('a queued case kept, Old Ghosts paired, the hunt tried for the crime: ok');
+})();
