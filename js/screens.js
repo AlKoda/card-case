@@ -4,7 +4,9 @@
   var CF = window.CF;
   function $(id) { return document.getElementById(id); }
   var tr = CF.T;
-  function esc(s) { return String(tr(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  // Escape text already in the reader's language: read again, a line left part English costs the whole lookup twice.
+  function escText(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(s) { return escText(tr(s)); }
 
   // ------------------------------------------------------------ Settings
   var SettingsUI = (CF.SettingsUI = {});
@@ -139,6 +141,14 @@
     e.dirty = true;
     return true;
   };
+  // Put an instrument's Petition on the table (the engine's own, once), unless it is out, granted or beyond the office.
+  Precinct.orderGood = function (e, key) {
+    var o = CF.ORDERS[key];
+    if (!o || o.room || e.s.rank < o.rank) return false;
+    if (!e.petition(key)) return false;
+    e.dirty = true;
+    return true;
+  };
   // The Petitions that are not rooms (the instruments, a key, and whatever else the Council will hear), as the
   // board's second row: bought, the office it needs, its form on the table, or its price. Pure, like tiles().
   var GOOD_ICONS = { camera: 'cstory-04', prints: 'cstory-02', kit: 'iinv-16', labpass: 'ilaw-19', surveillance: 'cverb-08' };
@@ -174,11 +184,12 @@
       d.className = 'room ' + t.state + (t.good ? ' good' : '') + (t.key === next ? ' next' : '');
       d.innerHTML = '<div class="rm-icon" style="background-image:var(--art-' + (t.good ? t.icon : ROOM_ICONS[t.key] || 'iplace-10') + ')"></div><div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
         '<div class="rm-foot">' + esc(t.good && t.state === 'owned' ? CF.T('Bought') : Precinct.foot(t)) + '</div>' + (t.key === next ? '<div class="rm-next">' + esc('Next') + '</div>' : '');
-      if (t.state === 'open' && !t.good) {
+      // An instrument is petitioned from here as a room is, so the tile marked Next can always be acted on.
+      if (t.state === 'open') {
         var b = document.createElement('button');
         b.className = 'plate-btn teal small';
         b.textContent = tr('Petition');
-        b.addEventListener('click', function () { Precinct.order(e, t.key); CF.Audio.play('start'); Precinct.render(); });
+        b.addEventListener('click', function () { (t.good ? Precinct.orderGood : Precinct.order)(e, t.key); CF.Audio.play('start'); Precinct.render(); });
         d.appendChild(b);
       }
       grid.appendChild(d);
@@ -261,9 +272,9 @@
     // The portrait floats on the corner and the title and rows run beside it, in either direction, at any width.
     box.innerHTML = '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
       '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
-      row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>' + esc(tr(', week {n}', { n: rec.week })) + (rec.highProfile ? esc(' · the city watched') : '') + '<br><span class="a-dim">' + esc(tr('Examiner {name}', { name: rec.detective })) + '</span>') +
+      row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>' + escText(tr(', week {n}', { n: rec.week })) + (rec.highProfile ? esc(' · the city watched') : '') + '<br><span class="a-dim">' + escText(tr('Examiner {name}', { name: rec.detective })) + '</span>') +
       row('pin', esc(rec.scene) + '<br><span class="a-dim">' + esc((CF.DISTRICTS[rec.district] || {}).label || '') + '</span>') +
-      row('person', esc(tr('Victim: {name}', { name: rec.victim })) + (rec.charged ? '<br>' + esc(tr('Charged: {name}', { name: rec.charged })) : '<br><span class="a-dim">' + esc('Nobody was charged.') + '</span>')) +
+      row('person', escText(tr('Victim: {name}', { name: rec.victim })) + (rec.charged ? '<br>' + escText(tr('Charged: {name}', { name: rec.charged })) : '<br><span class="a-dim">' + esc('Nobody was charged.') + '</span>')) +
       row('eye', truth);
     $('arc-open').disabled = opened;
   }

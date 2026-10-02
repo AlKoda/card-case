@@ -289,7 +289,9 @@
     if (text !== undefined && text !== null) n.textContent = tr(text);
     return n;
   }
-  function esc(s) { return String(tr(s)).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  // Escape text already in the reader's language: read again, a line left part English costs the whole lookup twice.
+  function escText(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(s) { return escText(tr(s)); }
 
   // ---------------------------------------------------------------- Setup
   UI.attach = function (engine) {
@@ -1377,14 +1379,14 @@
     peekHead(METER_ICONS[key], info.title);
     var ends = key === 'reputation' && UI.e ? repTarget(UI.e).line : info.ends;
     box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' +
-      '<div class="i-kind">' + esc(tr('Now: {word}', { word: (CF.METER_WORDS[key] || [])[meterLevel(key)] || '' })) + '</div>' +
+      '<div class="i-kind">' + escText(tr('Now: {word}', { word: (CF.METER_WORDS[key] || [])[meterLevel(key)] || '' })) + '</div>' +
       '<p>' + esc(info.what) + '</p><p>' + esc(ends) + '</p>';
     if (key === 'pressure' && UI.e) {
       // The tally the broadsheet-sellers keep (engine weekTick): the count, the threshold, and the way to lower it.
       // The rules' own count where they keep it (engine abroadTally()): the Coquille one, none while its case is open.
       var ue = UI.e, tally = typeof ue.abroadTally === 'function' ? ue.abroadTally() : null;
       var abroad = tally ? tally.n : ue.cardsOf('atlarge').filter(function (c) { return !c.data.band && !c.data.innocent; }).length + ue.countOf('gang') * 2 + ue.countOf('syndicate');
-      box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + esc(tr('Thieves abroad: {n}. At four the Market sings them, and the Crowd rises every other week (every week from Bailiff). A band counts two, the Coquille one.', { n: abroad })) + '</p>' +
+      box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + escText(tr('Thieves abroad: {n}. At four the Market sings them, and the Crowd rises every other week (every week from Bailiff). A band counts two, the Coquille one.', { n: abroad })) + '</p>' +
         '<p>' + esc('A hue and cry takes a name off the wall: Work the Quarter in Explore, or Old Ghosts in Rest.') + '</p>');
     }
     // The city remembers (engine dreadFloor, where the rules keep one): Dread fades at the Bell, but not below a
@@ -1392,7 +1394,7 @@
     if (key === 'dread' && UI.e && typeof UI.e.dreadFloor === 'function') {
       var floor = UI.e.dreadFloor(), cru = (UI.e.s.counts && UI.e.s.counts.cruelty) || 0;
       box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + esc('Fear fades, but not below what you have done: every three cruelties keep it one step higher.') + '</p>' +
-        (floor > 0 ? '<p>' + esc(tr('Cruelties: {n}. Dread stays at {f} of {max} or above.', { n: cru, f: floor, max: UI.e.meterMax ? UI.e.meterMax('dread') : 10 })) + '</p>' : ''));
+        (floor > 0 ? '<p>' + escText(tr('Cruelties: {n}. Dread stays at {f} of {max} or above.', { n: cru, f: floor, max: UI.e.meterMax ? UI.e.meterMax('dread') : 10 })) + '</p>' : ''));
     }
     if (key === 'reputation') {
       // Where the ladder ends for you, and what holds the next letter back.
@@ -1431,7 +1433,7 @@
       if (st.threat && f <= -2) lines.push(tr('Now: {what}', { what: st.threat }));
       else if (st.threat && f <= 0) lines.push(tr('At -2: {what}', { what: st.threat }));
       html += '<div class="fv-row fv-' + (f >= 3 ? 'patron' : f >= 1 ? 'warm' : f <= -1 ? 'cold' : 'even') + '"><i style="background-image:' + art(PATRON_ART[k]) + '"></i>' +
-        '<b>' + esc(CF.PATRONS[k].label) + '</b><em title="' + esc(tr('Favour {n}', { n: f })) + '">' + esc(favourWord(f)) + '</em>' +
+        '<b>' + esc(CF.PATRONS[k].label) + '</b><em title="' + escText(tr('Favour {n}', { n: f })) + '">' + esc(favourWord(f)) + '</em>' +
         lines.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('') + '</div>';
     });
     // A patron at 3 sends a seal to call in, where the rules have one (the engine's 'seal' card).
@@ -1610,8 +1612,8 @@
     if (asp.children.length) into.appendChild(asp);
     if (card.def === 'informant') {
       var st = h('div', 'c-stats');
-      st.innerHTML = '<span class="c-stat trust" title="' + esc(tr('Trust {n} of 3', { n: card.data.trust || 0 })) + '"><i style="background-image:' + art('crel-02') + '"></i>' + (card.data.trust || 0) + '</span>' +
-        '<span class="c-stat heat" title="' + esc(tr('Heat {n} of {max}', { n: card.data.heat || 0, max: CF.INFORMANT.compromisedAt })) + '"><i style="background-image:' + art('icrime-24') + '"></i>' + (card.data.heat || 0) + '</span>';
+      st.innerHTML = '<span class="c-stat trust" title="' + escText(tr('Trust {n} of 3', { n: card.data.trust || 0 })) + '"><i style="background-image:' + art('crel-02') + '"></i>' + (card.data.trust || 0) + '</span>' +
+        '<span class="c-stat heat" title="' + escText(tr('Heat {n} of {max}', { n: card.data.heat || 0, max: CF.INFORMANT.compromisedAt })) + '"><i style="background-image:' + art('icrime-24') + '"></i>' + (card.data.heat || 0) + '</span>';
       into.appendChild(st);
     }
     if (card.maxLife) {
@@ -2792,7 +2794,7 @@
         var pips = '';
         for (var qi = 0; qi < quota.expect; qi++) pips += '<i class="' + (qi < quota.closed ? 'on' : '') + '"></i>';
         qrow.innerHTML = '<span class="q-seal" style="background-image:' + art(PATRON_ART.council) + '"></span><span class="q-text">' +
-          esc(tr('The Council counts: {n} of {m} this fortnight', { n: Math.min(quota.closed, quota.expect), m: quota.expect })) + '</span><span class="q-pips">' + pips + '</span>';
+          escText(tr('The Council counts: {n} of {m} this fortnight', { n: Math.min(quota.closed, quota.expect), m: quota.expect })) + '</span><span class="q-pips">' + pips + '</span>';
         pane.appendChild(qrow);
       }
       var orders = e.tableCards().filter(function (c) { return c.def === 'order' && CF.costOf; }).sort(function (a, b) { return CF.costOf(a) - CF.costOf(b); });
@@ -3043,7 +3045,7 @@
     var fits = e.tableCards().filter(function (c) { return e.slotAccepts(sl, c); }).sort(function (a, b) { return a.uid - b.uid; });
     var seen = {}, shown = [];
     fits.forEach(function (c) { var k = e.stackKey(c) || c.uid; if (!seen[k]) { seen[k] = true; shown.push(c); } });
-    box.innerHTML = '<div class="pk-head"><span>' + esc(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: sl.accepts.map(prettyAspect).join(', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
+    box.innerHTML = '<div class="pk-head"><span>' + escText(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: sl.accepts.map(prettyAspect).join(', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
     box.querySelector('.pk-close').addEventListener('click', function () { UI.pick = null; e.dirty = true; });
     if (!shown.length) { box.appendChild(h('p', 'pk-none', 'Nothing on the table fits this slot yet.')); return box; }
     var row = h('div', 'pk-cards');
@@ -3239,7 +3241,7 @@
     pane.innerHTML = '';
     var fb = h('div', 'firsts');
     var done = FIRSTS.filter(function (f) { return f.done(e); }).length;
-    fb.innerHTML = '<h6>' + esc(tr('Firsts: {n} of {total}', { n: done, total: FIRSTS.length })) + '</h6>';
+    fb.innerHTML = '<h6>' + escText(tr('Firsts: {n} of {total}', { n: done, total: FIRSTS.length })) + '</h6>';
     // Each first wears a progress mark: the empty ring, then the check.
     FIRSTS.forEach(function (f) {
       var ok = f.done(e), sp = h('span', 'first' + (ok ? ' done' : ''));
@@ -3256,7 +3258,7 @@
     }
     j.slice(0, 120).forEach(function (x) {
       var d = h('div', 'journal-entry k-' + x.kind);
-      d.innerHTML = '<i class="j-icon" style="background-image:' + art(TOAST_ICONS[x.kind] || 'ccirc-01') + '"></i><div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(storyText(x)) + '</p>';
+      d.innerHTML = '<i class="j-icon" style="background-image:' + art(TOAST_ICONS[x.kind] || 'ccirc-01') + '"></i><div class="j-meta">' + escText(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + escText(storyText(x)) + '</p>';
       pane.appendChild(d);
     });
   }
@@ -3280,7 +3282,7 @@
   }
   function chargeHtml(d, firstCase, a) {
     var gates = chargeGates(d, a);
-    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span></div>';
+    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + escText(tr('{tier} charge', { tier: d.tierLabel })) + '</span></div>';
     if (gates) {
       html += '<div class="ch-gates">' + GATE_ORDER.map(function (id) {
         var g = gates.filter(function (x) { return x.id === id; })[0];
@@ -3678,7 +3680,7 @@
     html += '<p>' + esc(dossierDesc(card, rec)) + '</p>';
     html += proofHtml(proofRow(card));
     if (notes.length) html += '<div class="i-lines">' + notes.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
-    if (card.maxLife) html += '<div class="i-note i-time">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
+    if (card.maxLife) html += '<div class="i-note i-time">' + escText(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     var canMark = card.loc && (card.loc.t === 'table' || card.loc.t === 'slot');
@@ -3703,7 +3705,7 @@
         if (old) { var was = old.dataset.aspect; old.remove(); if (was === k) return; }
         var pop = h('div', 'aspect-pop');
         pop.dataset.aspect = k;
-        pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-from">' + esc(tr('Where it comes from: {from}', { from: tr(aspectFrom(k, UI.e, null)) })) + '</p><p class="ap-note">' + esc('Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.') + '</p>';
+        pop.innerHTML = '<b>' + esc(A.label) + '</b><p>' + esc(A.meaning) + '</p><p class="ap-from">' + escText(tr('Where it comes from: {from}', { from: tr(aspectFrom(k, UI.e, null)) })) + '</p><p class="ap-note">' + esc('Proof of this kind counts toward a charge that asks for it. The number is how much of it the token carries.') + '</p>';
         var find = h('button', 'ap-find', 'Show on the table');
         find.addEventListener('click', function (ev2) { ev2.stopPropagation(); UI.showAspect(k); });
         pop.appendChild(find);
@@ -3734,7 +3736,7 @@
     box.innerHTML = '';
     CF.CLUE_ASPECTS.forEach(function (k) {
       var A = CF.ASPECTS[k], row = h('div', 'ha-row');
-      row.innerHTML = '<span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'iinv-05') + '"></span><b>' + esc(A.label) + '</b> ' + esc(A.meaning) + ' <i>' + esc(tr('Where it comes from: {from}', { from: tr(aspectFrom(k, null)) })) + '</i>';
+      row.innerHTML = '<span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'iinv-05') + '"></span><b>' + esc(A.label) + '</b> ' + esc(A.meaning) + ' <i>' + escText(tr('Where it comes from: {from}', { from: tr(aspectFrom(k, null)) })) + '</i>';
       box.appendChild(row);
     });
   }

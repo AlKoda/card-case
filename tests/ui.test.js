@@ -1143,6 +1143,10 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(acts > 0 && acts < phone && /position: sticky; top: 0/.test(rule('.vw-body .actions')) && /border-bottom: 1px solid #a88a4c/.test(rule('.vw-body .actions')) && /order: -1/.test(rule('.vw-body .actions')), 'the sticky plates are outside the phone block');
   assert.ok(/flex-wrap: nowrap/.test(rule('.vw-body .actions.go-row')) && /flex: 1 1 auto; min-width: 0/.test(rule('.actions.go-row .go')) && /flex: none/.test(rule('.actions.go-row .go + button')), 'the go plate and Clear share one row');
   assert.ok(/@media \(max-width: 480px\) \{ \.go-name \{ display: none; \} \}/.test(css) && /@container \(max-width: 480px\) \{ \.go-name \{ display: none; \} \}/.test(css) && /container-type: inline-size/.test(rule('.vw-body')), 'and the name gives way on a narrow screen or in a narrow window');
+  // The tier is a line of its own under the verb, so a 150px plate beside Clear does not cut it to 'Full Pr...'.
+  assert.ok(/display: block/.test(rule('.plate-btn.go .go-tier')) && !/margin-inline-start/.test(rule('.plate-btn.go .go-tier')), 'the Charge plate\'s tier sits on its own line');
+  // A phone on its side with a sheet open: the toast and the table's tools keep opposite top corners in Arabic too.
+  assert.ok(/@media \(max-height: 520px\) \{[^@]*\[dir=rtl\] body\.has-window #toasts \{ left: auto; right:[^@]*\[dir=rtl\] #zoom \{ right: auto; left: 10px; \}/.test(css), 'in Arabic the toast takes the right and the tools the left, so it never lies over them');
   console.log('ui: the dagger is advised and explained, the ring steps without a filter, the plates stay in sight');
 })();
 

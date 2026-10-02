@@ -157,15 +157,24 @@
       // place ('{last} Row') is enough, its capture being one name.
       var bare = k.replace(/\{\w+\}/g, ''), letters = (bare.match(/[A-Za-z]/g) || []).length;
       if (!keys.length || (letters < 4 && !(keys.indexOf('last') >= 0 && /[A-Za-z]{3}/.test(bare)))) continue;
-      list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, k: k, lit: lit });
+      // Its own words, each of which a string must hold before the pattern is tried on it (a cheap test first).
+      var lits = parts.filter(function (part) { return part && !/^\{\w+\}$/.test(part); });
+      // Filed by how it opens, else by how it ends ('pThe', 'sht.'): a string is tried only on the patterns that could fit it.
+      var pre = parts[0], suf = parts[parts.length - 1];
+      var bin = pre.length >= 3 ? 'p' + pre.slice(0, 3) : suf.length >= 3 ? 's' + suf.slice(-3) : '';
+      list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, k: k, lit: lit, lits: lits, bin: bin });
     }
     list.sort(function (a, b) { return b.lit - a.lit; });
+    var bins = (list.bins = {});
+    list.forEach(function (tp, at) { (bins[tp.bin] || (bins[tp.bin] = [])).push(at); });
     return (I.compiled[lang] = list);
   }
 
   var LETTERS = /[A-Za-z]/;
   var SEPS = [' · ', ' / ', '; ', ', ', ' and '];
 
+  // How many pieces one top-level reading may look past the exact keys before it gives up on the rest.
+  var WORK = 400;
   function lookup(s, depth) {
     var d = I.dicts[I.lang];
     if (d[s] !== undefined) return pick(I.fem && d[s + '#f'] !== undefined ? d[s + '#f'] : d[s]);
@@ -175,7 +184,9 @@
     // 'the clerk of the court' for a label the code lower-cased.
     var lower = I.lower[I.lang] || lowerIndex(I.lang), lk = pick(lower[t.toLowerCase()]);
     if (lk !== undefined) return s.replace(t, lk);
-    if (depth > 7) { I.cutoffs++; return miss(s); }
+    // Past the depth, or past the work one reading may spend (a long line no key fits), the piece stays as written:
+    // a miss must not cost the page seconds. The reading keeps what it had worked out.
+    if (depth > 7 || (I.memo && ++I.work > WORK)) { I.cutoffs++; return miss(s); }
     var fallback = null;
     // A pattern that reads every piece wins at once; one that leaves a piece in English is kept for last.
     var viaTpl = matchTemplate(t, depth, true);
@@ -297,8 +308,13 @@
     return lower[t.toLowerCase()] !== undefined ? pick(lower[t.toLowerCase()]) : null;
   }
   function matchTemplate(t, depth, strict) {
-    var tpls = I.compiled[I.lang] || compile(I.lang);
-    for (var i = 0; i < tpls.length; i++) {
+    var tpls = I.compiled[I.lang] || compile(I.lang), bins = tpls.bins;
+    // The patterns that could fit, in the order they are tried (the longest words of their own first).
+    var could = (bins['p' + t.slice(0, 3)] || []).concat(bins['s' + t.slice(-3)] || [], bins[''] || []).sort(function (a, b) { return a - b; });
+    for (var ci = 0; ci < could.length; ci++) {
+      var i = could[ci], held = true;
+      for (var li = 0; li < tpls[i].lits.length && held; li++) held = t.indexOf(tpls[i].lits[li]) >= 0;
+      if (!held) continue;
       var m = tpls[i].re.exec(t);
       if (!m) continue;
       var ok = true;
@@ -349,7 +365,16 @@
     // Read in a woman's line, a piece is kept apart from the same piece read plain.
     var ck = I.fem ? '\u2640' + s : s;
     if (I.cache[ck] !== undefined) return I.cache[ck];
-    var cut = I.cutoffs, r = lookup(s, depth);
+    // Inside one top-level reading, a piece met again at the same depth is worked out once, whether it was read or
+    // not and whether it met the depth cut-off on the way: without this, a long line no key fits (an older save's
+    // wording) is split and re-split down every path again, and one journal entry costs minutes.
+    var top = !I.memo;
+    if (top) { I.memo = {}; I.work = 0; }
+    var mk = depth + ck, hit = I.memo && I.memo[mk];
+    if (hit) { if (hit.cut) I.cutoffs++; return hit.r; }
+    var cut = I.cutoffs, r;
+    try { r = lookup(s, depth); } finally { if (top) I.memo = null; }
+    if (I.memo) I.memo[mk] = { r: r, cut: I.cutoffs !== cut };
     if (I.track && depth === 0) {
       if (r === s) I.missing[s] = (I.missing[s] || 0) + 1;
       // Half translated: English words left in the answer (the keys' caps aside) are as much a leak as none.

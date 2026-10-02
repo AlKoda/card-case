@@ -507,3 +507,34 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   CF.setLang('en');
   console.log('i18n: ' + fs2.length + ' person templates read as a woman for a woman');
 })();
+
+// An older save's journal reads in Arabic at once: a line this round reworded has no key of its own, and its reading
+// once split and re-split down every path (75 s for one page of the journal). Each entry, read cold, stays quick, and
+// the reworded Rival lines still read.
+(function oldJournals() {
+  CF.setLang('ar');
+  CF.T('Week {n}', { n: 1 });
+  var dir = path.join(root, 'tests', 'fixtures', 'saves'), worst = 0, at = '', n = 0;
+  fs.readdirSync(dir).forEach(function (f) {
+    var save = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).save || {};
+    (save.journal || []).forEach(function (j) {
+      [j.title, j.text].forEach(function (x) {
+        if (!x) return;
+        var best = Infinity;
+        for (var k = 0; k < 2; k++) {
+          CF.I18N.cache = {}; CF.I18N.cacheN = 0;
+          var t0 = Date.now(), r = CF.T(x);
+          best = Math.min(best, Date.now() - t0);
+          CF.T(r);
+        }
+        n++;
+        if (best > worst) { worst = best; at = f + ': ' + x.slice(0, 80); }
+      });
+    });
+  });
+  assert.ok(worst < 50, 'a journal entry reads in under 50 ms, worst ' + worst + ' ms (' + at + ')');
+  var rival = CF.T('Witness: Moll Bakker has had a visit and a purse from Anselm Vogt, and is suddenly leaving the city. Half a minute, if you want their word.');
+  assert.ok(!/[a-z]{3}/.test(rival), 'the old Rival line reads: ' + rival);
+  CF.setLang('en');
+  console.log('i18n: ' + n + ' journal lines from older saves read, the slowest in ' + worst + ' ms');
+})();

@@ -252,6 +252,14 @@ function run(e, verb, cards) {
   var cheapest = all.filter(function (t) { return t.state === 'open' || t.state === 'ordered'; }).sort(function (a, b) { return a.cost - b.cost; })[0];
   assert.ok(nk && cheapest && all.filter(function (t) { return t.key === nk; })[0].cost === cheapest.cost, 'the next is the cheapest within reach: ' + nk);
   assert.strictEqual(CF.Precinct.next([{ key: 'a', state: 'owned', cost: 1 }, { key: 'b', state: 'locked', cost: 2 }]), null, 'nothing within reach, no next');
+  // The tile marked Next can be acted on: an open instrument is petitioned from the board as a room is, once.
+  e.cardsOf('order', true).filter(function (c) { return c.data.order === 'kit'; }).forEach(function (c) { e.remove(c); });
+  var kitTile = function () { return CF.Precinct.goods(e).filter(function (t) { return t.key === 'kit'; })[0]; };
+  assert.strictEqual(kitTile().state, 'open', 'an instrument off the table is open on the board');
+  assert.ok(CF.Precinct.orderGood(e, 'kit'), 'an open instrument is petitioned from the board');
+  assert.strictEqual(kitTile().state, 'ordered', 'its Petition is on the table');
+  assert.ok(!CF.Precinct.orderGood(e, 'kit'), 'only one form at a time');
+  assert.ok(!CF.Precinct.orderGood(e, 'surveillance'), 'not past the office');
   delete e.s.flags.bought.prints;
   e.s.rank = 2;
 
