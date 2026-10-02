@@ -248,17 +248,26 @@ console.log('the rival races you: ok');
   assert.ok(u.choose(0));
   assert.strictEqual(u.s.flags.uprightPaid, 'the Lanternless');
   var purse0 = u.s.counts.purse;
+  // The Bell's purse week pays him (purse.js), and nothing else does: one Coin a week, not two.
   for (var w = 0; w < 2; w++) {
-    var f0 = u.cardsOf('funds', true).length, lines = u.rivalWeek();
+    u.s.week++;
+    var f0 = u.cardsOf('funds', true).length, lines = u.purseWeek();
     assert.ok(lines.indexOf(CF.UPRIGHT_WEEK.paid) >= 0, 'the boy comes: ' + lines);
     assert.strictEqual(u.cardsOf('funds', true).length, f0 + 1, 'with a Coin');
+    var fr = u.cardsOf('funds', true).length;
+    assert.ok(u.rivalWeek().indexOf(CF.UPRIGHT_WEEK.paid) < 0 && u.cardsOf('funds', true).length === fr, 'the Rival\'s week does not pay him again');
   }
   assert.strictEqual(u.s.counts.purse, purse0 + 1, 'the purse counted every other week');
+  var wk = CF.Engine.load(u.save()), wf = wk.cardsOf('funds', true).length;
+  wk.weekTick();
+  var told = wk.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.strictEqual(((told && told.text) || '').split(CF.UPRIGHT_WEEK.paid).length - 1, 1, 'the Bell tells the boy once: ' + (told && told.text));
+  u.s.flags.uprightBroken = true; // the verdict marks a band your Court broke
   u.remove(band);
-  var l2 = u.rivalWeek(), f1 = u.cardsOf('funds', true).length;
+  var l2 = u.purseWeek(), f1 = u.cardsOf('funds', true).length;
   assert.ok(l2.indexOf(CF.UPRIGHT_WEEK.broken) >= 0, 'the band broken: the boy stops coming');
   assert.ok(!u.s.flags.uprightPaid);
-  assert.ok(u.rivalWeek().indexOf(CF.UPRIGHT_WEEK.broken) < 0, 'and that is said once');
+  assert.ok(u.purseWeek().indexOf(CF.UPRIGHT_WEEK.broken) < 0, 'and that is said once');
   assert.strictEqual(u.cardsOf('funds', true).length, f1);
   console.log('the upright man pays weekly: ok');
 })();
@@ -278,6 +287,17 @@ console.log('the rival races you: ok');
   assert.strictEqual(rec.suspects.filter(function (x) { return !x.revealed; }).length, unnamed - 1, 'a name in that case');
   var told = p.s.journal.filter(function (j) { return j.title === 'The Note with the Purse: Find who left it'; })[0];
   assert.ok(told && told.text.indexOf(rec.title) > 0, 'told whose door it was: ' + (told && told.text));
+  // One of the Hill in the case is whose door it is (purse.js purseSender), before anyone else there.
+  var h = game(26), rh = h.openCases()[0];
+  var hill = rh.suspects.filter(function (x) { return !x.revealed && !x.cleared; }).slice(-1)[0];
+  hill.role = 'a patrician of the Hill';
+  rh.suspects.forEach(function (x) { if (x !== hill && /Hill|patrician|councillor|benefactor|judge|doctor of laws/i.test(x.role || '')) x.role = 'a carter'; });
+  h.offerChoice(spec('purse')); h.create('instinct');
+  assert.strictEqual(h.s.choice.ctx.caseId, rh.id, 'the note names the case');
+  assert.ok(h.choose(1));
+  assert.ok(hill.revealed, 'the door on the Hill is the patrician\'s');
+  var ht = h.s.journal.filter(function (j) { return j.title === 'The Note with the Purse: Find who left it'; })[0];
+  assert.ok(ht && ht.text.indexOf(hill.name + ', in ' + rh.title) > 0, 'and told by name: ' + (ht && ht.text));
   // Nobody left to name: the Informer on the Hill, as before.
   var q = game(23), rq = q.openCases()[0];
   rq.suspects.forEach(function (x) { x.revealed = true; });
