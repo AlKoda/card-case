@@ -126,6 +126,26 @@
     ],
   };
 
+  // What would have saved you: one line under a losing ending, with the threat's icon (a card
+  // def or a meter). s.over.cause, when the engine records one, makes it particular:
+  // { restIdle: true } says Rest stood empty while the clock ran.
+  CF.ENDING_LESSONS = {
+    burnout: { icon: 'burnout', text: 'Fever ends the file when its clock runs out. Fever alone in Rest cures it; Coin in Rest makes it quick.' },
+    collapse: { icon: 'fatigue', text: 'A third Weariness on top of a Fever is the end. Sleep each Weariness off in Rest as it comes.' },
+    consumed: { icon: 'obsession', text: 'A third Obsession on top of a Fixation is the end. Let go in Rest, or close the case that holds you.' },
+    dismissed: { icon: 'pressure', text: 'The Crowd filled. Cases gone cold and the accused who walk feed it; convictions quiet it.' },
+    corruption: { icon: 'scrutiny', text: 'Suspicion filled. Purses, doors broken without a writ and arranged proof feed it; entering the Rolls in Attend eases it.' },
+    death: { icon: 'wound', text: 'With no Health left and a Wound on you, the next blow is the end. Dress a Wound in Rest before you go out again.' },
+  };
+  CF.ENDING_REST_IDLE = 'Rest stood empty while the clock ran.';
+  // The lesson for ending `id`, or null for a won run or an ending without one.
+  Story.lesson = function (e, id) {
+    var l = CF.ENDING_LESSONS[id];
+    if (!l) return null;
+    var cause = (e.s.over && e.s.over.cause) || {};
+    return { icon: l.icon, text: cause.restIdle ? CF.ENDING_REST_IDLE + ' ' + l.text : l.text };
+  };
+
   // Five first mornings, one per origin (docs/CITY.md §2).
   CF.OPENINGS_WHO = {
     advocate: { title: 'The Commission', text: 'Ten years you stood before the Blood Court and argued the Carolina at the sworn men; this morning the Council hands you the other side of the table. A commission under the city\'s seal, a stipend, a desk under the stair. Your old clients are already asking one another what you know.' },

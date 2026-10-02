@@ -329,17 +329,26 @@
   // Every so often one comes for you. Each is a card with a clock; deal with
   // it in Rest before the clock runs out, or it takes something of yours:
   // permanently, if you had it to spare.
+  // deepen: what the first run-out costs when there is nothing to spare (said before the rule);
+  // debt: who stops asking the second time. Stress owes nobody: it costs the Crowd, not a debt.
   CF.NEEDS = {
     hunger: { takes: 'health', weight: 3, life: 110,
       arrive: 'You cannot remember your last hot meal. Your hands have started to shake on the stairs.',
-      loss: 'Hunger took what it wanted. You are less than you were.' },
+      loss: 'Hunger took what it wanted. You are less than you were.',
+      deepen: 'You go another day on small beer and nothing.',
+      debt: 'The cookshop has stopped asking, and the Market knows why.' },
     sickness: { takes: 'instinct', weight: 2, life: 130,
-      arrive: 'A cough from the river, a heat behind the eyes. The Warrens give it to everyone in the end.',
-      loss: 'The cough wore you down for a week. Something of your nose for the street went with it.' },
-    stress: { takes: 'focus', weight: 3, life: 110,
+      arrive: 'A cough from the river, and the river in your chest. The Warrens give it to everyone in the end.',
+      loss: 'The cough wore you down for a week. Something of your nose for the street went with it.',
+      deepen: 'The cough settles in your chest and will not leave.',
+      debt: 'The barber-surgeon has stopped asking, and the Market knows why.' },
+    stress: { takes: 'focus', weight: 3, life: 110, owes: false,
       arrive: 'You wake at the same hour every night with the same case behind your eyes. You have started to snap at the sergeant.',
-      loss: 'It has worn a groove in you. Some things you will never think as quickly again.' },
+      loss: 'It has worn a groove in you. Some things you will never think as quickly again.',
+      deepen: 'You shout at the sergeant in front of the whole Watch-house.',
+      debt: 'The sergeant has stopped asking why you snap at him. The whole Watch-house knows.' },
   };
+  CF.NEED_DEEPENS = '{deepen} With only one {ability} to your name, {need} cannot take it, so it takes your strength instead, and stays. It will come again.';
   function nextNeedIn(e) { return U.randInt(e.rng, 150, 240) + (e.perkHas('iron') ? 60 : 0); }
   P.needsTick = function (dt) {
     var s = this.s;
@@ -360,7 +369,8 @@
   };
   // The clock ran out: it takes what it came for, for good if you had a spare.
   // With nothing to spare it takes your strength and comes once more; left
-  // to run out a second time it stops asking, and the Market keeps the debt.
+  // to run out a second time it stops asking, and the Market keeps the debt
+  // (Stress owes nobody: the Watch-house talks, and the Crowd hears it).
   P.needExpired = function (card) {
     var spec = CF.NEEDS[card.def];
     var repeat = (card.data && card.data.repeat) || 0;
@@ -373,14 +383,44 @@
       this.remove(victim);
       this.story('Lost: ' + label, spec.loss + ' One ' + label + ' is gone, and it will not come back.', 'harm');
     } else if (repeat >= 1) {
-      this.count('debt');
+      if (spec.owes !== false) this.count('debt');
       this.meter('pressure', 1);
-      this.story(CF.CARDS[card.def].label + ' Deepens', 'You could not pay it, and it stopped asking. The cookshop and the barber are owed, and the Market knows it.', 'danger');
+      this.story(CF.CARDS[card.def].label + ' Deepens', spec.debt, 'danger');
     } else {
       this.create('fatigue');
       this.create(card.def, { lifetime: spec.life, data: { repeat: repeat + 1 } });
-      this.story(CF.CARDS[card.def].label + ' Deepens', spec.loss.split('.')[0] + '. With only one ' + label + ' to your name it cannot take that, so it takes your strength instead, and stays. It will come again.', 'danger');
+      this.story(CF.CARDS[card.def].label + ' Deepens', U.fill(CF.NEED_DEEPENS, { deepen: spec.deepen, ability: label, need: CF.CARDS[card.def].label }), 'danger');
     }
+  };
+
+  // ---- The Abbey Takes You In ------------------------------------------------------
+  // Once in a file, while you are new to it (no rank, the first four weeks), a strain ending
+  // (the Fever, Collapse, Lost in the Case) is not the end: the Abbey hospital keeps you a week.
+  // The strain goes, the week runs out to the Bell (if the Bell rings yet), and it costs a
+  // Standing and a Coin, or a debt. s.flags.abbey marks it used; the second time is the ending.
+  // gameOver asks first (one guarded line in engine.js).
+  CF.ABBEY = {
+    ends: ['burnout', 'collapse', 'consumed'], weeks: 4,
+    title: 'The Abbey Takes You In',
+    paid: 'The Brothers carry you to the Abbey hospital and keep you a week on broth and bells. The infirmarian takes a Coin for the bed, and the Council notices the empty desk. The Abbey does this once for a new examiner. Not twice.',
+    owed: 'The Brothers carry you to the Abbey hospital and keep you a week on broth and bells. The infirmarian writes the bed against your name, and the Council notices the empty desk. The Abbey does this once for a new examiner. Not twice.',
+  };
+  P.abbeyReprieve = function (id) {
+    var s = this.s, self = this;
+    if (CF.ABBEY.ends.indexOf(id) < 0 || s.flags.abbey || (s.rank || 0) > 0 || s.week > CF.ABBEY.weeks) return false;
+    s.flags.abbey = true;
+    var strain = id === 'consumed' ? ['tunnel', 'obsession'] : ['burnout', 'fatigue'];
+    strain.forEach(function (def) {
+      self.cardsOf(def).forEach(function (c) { self.remove(c); });
+    });
+    this.meter('reputation', -1);
+    var coin = this.cardsOf('funds')[0];
+    if (coin) this.remove(coin); else this.count('debt');
+    // A week passes: the Bell rings at the next tick, if it rings yet.
+    if (!s.flags.bellSilent) s.weekT = Math.max(s.weekT || 0, CF.WEEK);
+    this.story(CF.ABBEY.title, coin ? CF.ABBEY.paid : CF.ABBEY.owed, 'danger');
+    this.dirty = true;
+    return true;
   };
 
   // ---- The Rival ----------------------------------------------------------------
@@ -527,6 +567,40 @@
     text: '{name} has had three weeks to tidy up behind them. What you had on them would not stand before the Council now. Find it again.',
     line: 'The thread on {name} has gone cold.',
   };
+  // The Harbourmaster's Books: each exposed examiner leaves a leaf from the Customs House, and two
+  // open a case against the man who sends them (the engine lane's card, template and Rest recipe).
+  // While that case is open he sends nobody. Convict him and nobody is ever sent again
+  // (harbourmasterFalls, called at the verdict); let it end without him and the next one comes
+  // with 'He Has Friends', once for that case.
+  CF.HARBOURMASTER = {
+    template: 'harbourmaster',
+    title: 'The Harbourmaster\'s Books',
+    falls: { title: 'The Harbourmaster Falls', text: 'The Customs House is sealed. Nobody will send another examiner against you, because nobody is left who wants to.' },
+    friends: { title: 'He Has Friends', text: 'The Harbourmaster\'s books are back on their shelf, and another examiner has his desk: {name}. Catch them out two different ways, a week apart, and the Council sends them home too.' },
+    line: 'The Harbourmaster has friends, and another examiner.',
+  };
+  function isHarbourCase(rec) { return !!rec && (rec.template === CF.HARBOURMASTER.template || rec.title === CF.HARBOURMASTER.title); }
+  // The latest case against the Harbourmaster, open or ended; null if there has been none.
+  P.harbourCase = function () {
+    var cases = this.s.cases || {}, best = null;
+    for (var id in cases) if (isHarbourCase(cases[id]) && (!best || (cases[id].week || 0) >= (best.week || 0))) best = cases[id];
+    return best;
+  };
+  // At the verdict on the Harbourmaster's Books: the Harbourmaster himself convicted ends the
+  // examiners for good. His clerk convicted, or the wrong neck, leaves him at his desk.
+  P.harbourmasterFalls = function (rec, d) {
+    var s = this.s;
+    if (s.flags.harbourmasterFallen || !isHarbourCase(rec) || !d || !d.guilty) return false;
+    var g = (rec.suspects || []).filter(function (x) { return x.guilty; })[0];
+    if (!g || g.name !== d.name || !/harbourmaster$/i.test(g.role || '')) return false;
+    s.flags.harbourmasterFallen = true;
+    this.cardsOf('rival', true).forEach(function (c) { this.remove(c); }, this);
+    this.meter('reputation', 3);
+    this.favour().council -= 2;
+    this.story(CF.HARBOURMASTER.falls.title, CF.HARBOURMASTER.falls.text, 'major');
+    this.dirty = true;
+    return true;
+  };
   CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
   P.rivalWeek = function () {
     var s = this.s, lines = [];
@@ -535,6 +609,9 @@
     if (s.week < 5 || (s.intro && !s.intro.finished)) return lines;
     var r = this.cardsOf('rival', true)[0];
     if (!r) {
+      if (s.flags.harbourmasterFallen) return lines;
+      var books = this.harbourCase();
+      if (books && books.status === 'open') return lines;
       if (s.flags.rivalGone && s.flags.rivalGone > s.week) return lines;
       if (s.flags.rivalSeen && this.rng() > 0.25) return lines;
       if (!s.flags.rivalSeen && this.rng() > 0.4 && s.week < 8) return lines;
@@ -544,7 +621,11 @@
       s.flags.rivalSeen = true;
       s.flags.rivalName = name;
       this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
-      if (again) {
+      if (books && s.flags.harbourFriends !== books.id) {
+        s.flags.harbourFriends = books.id;
+        this.story(CF.HARBOURMASTER.friends.title, U.fill(CF.HARBOURMASTER.friends.text, { name: name }), 'danger');
+        lines.push(CF.HARBOURMASTER.line);
+      } else if (again) {
         this.story('Another Examiner', 'The Harbourmaster has found another: ' + name + ', with the same letter and the same desk in the Customs House. They will work your cases from the other side as the last one did. Catch them out two different ways, a week apart, and the Council sends them home too.', 'danger');
         lines.push('The Harbourmaster has sent another examiner.');
       } else {

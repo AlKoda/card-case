@@ -1648,6 +1648,7 @@
     var s = this.s;
     if (s.over) return;
     var end = CF.ENDINGS[id];
+    if (!end.win && this.abbeyReprieve && this.abbeyReprieve(id)) return; // once, for a new examiner (life.js)
     if (this.reformedCount) s.stats.reformed = this.reformedCount();
     var text = CF.Story ? CF.Story.ending(this, id) : end.text;
     s.over = { id: id, win: end.win, title: end.title, text: text, week: s.week, origin: s.origin, calling: s.calling };

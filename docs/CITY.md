@@ -406,6 +406,14 @@ their head down for a few weeks, and then a ballad tells the Market whose
 confession it was. The Rival never races a case of the bands, the Court
 or the Architect.
 
+The examiners have a master. Each one exposed leaves a leaf from the
+Customs House: what the Harbourmaster paid him, and for what. Two leaves in
+Rest open *The Harbourmaster's Books*, a case of the Council's own; while
+it is open he sends nobody. Convict the Harbourmaster himself and the
+Customs House is sealed: Standing +3, the Council's favour −2, and no
+examiner ever again. Convict his clerk, or let the case go cold, and he
+has friends: the next examiner is told as his.
+
 **9.3 Informers with nothing.** An informer who has nothing to sell says
 so before you pay: the meeting names what they have (a word on a case
 without a name, a sighting, a warning), or tells you to keep your Coin.
@@ -440,6 +448,18 @@ writ, pardons without a reason. The Reformer's ending hangs the King of
 Thunes by his name, the Scholar's sentences the Architect by name and
 trade. The Merciful Judge counts in words, as a chronicle would: seven
 sent home, four of them citizens.
+
+A losing ending says what would have saved you, in one line under the
+prose with the threat's icon: Fever alone in Rest cures it; a third
+Weariness on a Fever is the end; the Crowd is fed by cases gone cold and
+quieted by convictions. If Rest stood empty while the clock ran, it says
+that first.
+
+Once in a file, while you are new to the desk (no office yet, the first
+four weeks), the Fever, Collapse or Lost in the Case is not the end: the
+Abbey Takes You In. The strain goes, the week runs out to the Bell, and
+it costs a Standing and a Coin, or a debt for the bed. The story says it
+is once. The second time is the ending.
 
 Thirteen endings, plus the variant texts each already has. The user asked
 for as many as possible; the counts above make more cheap to add (a

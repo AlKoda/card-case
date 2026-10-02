@@ -467,3 +467,120 @@ console.log('choices: all OK');
   assert.ok(a.s.journal.some(function (j) { return j.title === 'The Harbourmaster\'s Examiner' && /two different ways/.test(j.text); }), 'the first examiner is told with the rule');
   console.log('the rival\'s thread fades: ok');
 })();
+
+// ---- The needs' second and third beats: each its own, and Stress owes nobody ----------------
+(function needBeats() {
+  function runOut(seed, need, take) {
+    var g = game(seed);
+    while (g.cardsOf(take, true).length > 1) g.remove(g.cardsOf(take, true)[0]);
+    g.create(need, { lifetime: 2 }); g.tick(2.01);
+    var first = g.s.journal.filter(function (j) { return /Deepens$/.test(j.title); })[0];
+    var d0 = g.s.counts.debt || 0, p0 = g.s.meters.pressure;
+    var again = g.cardsOf(need)[0]; again.life = 1; g.tick(1.01);
+    var second = g.s.journal.filter(function (j) { return /Deepens$/.test(j.title); })[0];
+    return { first: first.text, second: second.text, debt: (g.s.counts.debt || 0) - d0, crowd: g.s.meters.pressure - p0 };
+  }
+  var h = runOut(80, 'hunger', 'health');
+  assert.ok(h.first.indexOf(CF.NEEDS.hunger.deepen) === 0 && !/took what it wanted/.test(h.first), 'Hunger deepens without contradicting itself: ' + h.first);
+  assert.ok(/only one Health to your name, Hunger cannot take it/.test(h.first), h.first);
+  assert.strictEqual(h.second, CF.NEEDS.hunger.debt); assert.strictEqual(h.debt, 1, 'the cookshop is owed');
+  var k = runOut(81, 'sickness', 'instinct');
+  assert.strictEqual(k.second, CF.NEEDS.sickness.debt); assert.ok(/barber-surgeon/.test(k.second) && !/cookshop/.test(k.second));
+  var t = runOut(82, 'stress', 'focus');
+  assert.ok(/sergeant/.test(t.first) && /sergeant/.test(t.second) && !/cookshop|barber/.test(t.first + t.second), 'Stress talks of the sergeant: ' + t.second);
+  assert.strictEqual(t.debt, 0, 'Stress owes nobody');
+  assert.strictEqual(t.crowd, 1, 'but the Watch-house talks');
+  assert.ok(!/heat behind the eyes/.test(CF.NEEDS.sickness.arrive), 'Sickness is a cough, not a fever');
+  console.log('need beats: ok');
+})();
+
+// ---- The Harbourmaster's Books: no examiner while it is open, none after his fall ------------
+(function harbourmaster() {
+  var g = game(83); g.s.week = 8;
+  var rec = g.openCases()[0];
+  rec.template = CF.HARBOURMASTER.template; rec.special = true;
+  for (var i = 0; i < 40; i++) g.rivalWeek();
+  assert.strictEqual(g.cardsOf('rival', true).length, 0, 'no examiner while the books are open');
+  // The case goes cold: the next one has friends behind him, said once for that case.
+  g.goCold(rec.id); g.s.meters.pressure = 0;
+  var lines = [];
+  for (var j = 0; j < 40 && !g.cardsOf('rival', true).length; j++) lines = g.rivalWeek();
+  var r = g.cardsOf('rival', true)[0];
+  assert.ok(r, 'a case gone cold lets him send another');
+  assert.deepStrictEqual(lines, [CF.HARBOURMASTER.line]);
+  var told = g.s.journal.filter(function (x) { return x.title === CF.HARBOURMASTER.friends.title; });
+  assert.ok(told.length === 1 && told[0].text.indexOf(r.data.name) > 0, 'He Has Friends, with the name');
+  assert.strictEqual(g.s.flags.harbourFriends, rec.id);
+  g.remove(r); g.s.flags.rivalGone = 0;
+  for (var k = 0; k < 40 && !g.cardsOf('rival', true).length; k++) lines = g.rivalWeek();
+  assert.deepStrictEqual(lines, ['The Harbourmaster has sent another examiner.'], 'the next one is plain again');
+  // His clerk convicted leaves him at his desk; the Harbourmaster himself convicted ends it.
+  var books = { id: 'hb', template: CF.HARBOURMASTER.template, title: CF.HARBOURMASTER.title, status: 'closed',
+    suspects: [{ name: 'Gerolt Hase', role: 'the Harbourmaster\'s clerk', guilty: true }, { name: 'Diederik Kolbe', role: 'the Harbourmaster' }] };
+  assert.strictEqual(g.harbourmasterFalls(books, { name: 'Gerolt Hase', guilty: true }), false, 'the clerk is not the man');
+  books.suspects[0].guilty = false; books.suspects[1].guilty = true;
+  assert.strictEqual(g.harbourmasterFalls(books, { name: 'Gerolt Hase', guilty: false }), false, 'the wrong neck is not his fall');
+  var rep = g.s.meters.reputation, council = g.favour().council;
+  assert.strictEqual(g.harbourmasterFalls(books, { name: 'Diederik Kolbe', guilty: true }), true);
+  assert.ok(g.s.flags.harbourmasterFallen && !g.cardsOf('rival', true).length, 'fallen, and his examiner with him');
+  assert.strictEqual(g.s.meters.reputation, Math.min(g.meterMax('reputation'), rep + 3), 'Standing +3');
+  assert.strictEqual(g.favour().council, council - 2, 'the Council liked him better than it says');
+  assert.ok(g.s.journal[0].title === CF.HARBOURMASTER.falls.title);
+  assert.strictEqual(g.harbourmasterFalls(books, { name: 'Diederik Kolbe', guilty: true }), false, 'once');
+  g.s.flags.rivalGone = 0;
+  for (var m = 0; m < 60; m++) g.rivalWeek();
+  assert.strictEqual(g.cardsOf('rival', true).length, 0, 'nobody is left who wants to send one');
+  console.log('the harbourmaster\'s books: ok');
+})();
+
+// ---- The Abbey takes a new examiner in, once; the end paper says what would have saved you ----
+(function abbey() {
+  function strained(g) { g.create('burnout'); g.create('fatigue'); g.create('fatigue'); g.create('fatigue'); g.checkThresholds(); }
+  var g = game(84);
+  g.s.meters.reputation = 2; g.s.flags.bellSilent = false; g.s.weekT = 10;
+  var coins0 = g.cardsOf('funds', true).length, week0 = g.s.week;
+  assert.ok(coins0 > 0, 'a Coin to pay the infirmarian');
+  strained(g);
+  assert.ok(!g.s.over, 'the first collapse, new to the desk: not the end');
+  assert.ok(g.s.flags.abbey && !g.countOf('burnout') && !g.countOf('fatigue'), 'the strain is gone');
+  assert.strictEqual(g.s.meters.reputation, 1, 'a Standing for the empty desk');
+  assert.strictEqual(g.cardsOf('funds', true).length, coins0 - 1, 'and a Coin for the bed');
+  assert.strictEqual(g.s.journal[0].title, CF.ABBEY.title);
+  assert.ok(/Not twice\.$/.test(g.s.journal[0].text), 'it says it is once');
+  g.tick(0.01);
+  assert.strictEqual(g.s.week, week0 + 1, 'a week passes: the Bell rings');
+  strained(g);
+  assert.ok(g.s.over && g.s.over.id === 'collapse', 'the second time it is the end');
+  // No Coin: the bed is owed. A Fever run out goes the same way, while the Bell is silent.
+  var o = game(85);
+  o.cardsOf('funds', true).forEach(function (c) { o.remove(c); });
+  o.s.flags.bellSilent = true; o.s.weekT = 5;
+  var debt0 = o.s.counts.debt || 0, wk = o.s.week;
+  o.create('burnout', { lifetime: 1 }); o.tick(1.01);
+  assert.ok(!o.s.over && o.s.flags.abbey, 'the Fever run out, taken in');
+  assert.strictEqual(o.s.counts.debt, debt0 + 1, 'the bed is owed');
+  assert.strictEqual(o.s.journal.filter(function (j) { return j.title === CF.ABBEY.title; })[0].text, CF.ABBEY.owed);
+  assert.ok(o.s.week === wk && o.s.weekT < CF.WEEK, 'a silent Bell does not ring for it');
+  // Not after the first four weeks, not with an office, and never for another ending.
+  var late = game(86); late.s.week = 5; strained(late);
+  assert.ok(late.s.over && late.s.over.id === 'collapse', 'week five: the end');
+  var ranked = game(87); ranked.s.rank = 1; strained(ranked);
+  assert.ok(ranked.s.over && ranked.s.over.id === 'collapse', 'an officer: the end');
+  var dis = game(88); dis.gameOver('dismissed');
+  assert.ok(dis.s.over && dis.s.over.id === 'dismissed' && !dis.s.flags.abbey, 'the Crowd is not the Abbey\'s to stop');
+  // A save from before the Abbey loads and is taken in once.
+  var old = JSON.parse(game(89).save()); delete old.flags.abbey;
+  var ld = CF.Engine.load(JSON.stringify(old));
+  strained(ld);
+  assert.ok(!ld.s.over && ld.s.flags.abbey, 'an old save gets its one reprieve');
+  // The lessons.
+  ['burnout', 'collapse', 'consumed', 'dismissed', 'corruption', 'death'].forEach(function (id) {
+    var l = CF.Story.lesson(ld, id);
+    assert.ok(l && l.icon && l.text && !CF.ENDINGS[id].win, id + ' has a lesson');
+  });
+  assert.strictEqual(CF.Story.lesson(ld, 'master'), null, 'a won run needs none');
+  assert.ok(/Rest/.test(CF.Story.lesson(ld, 'burnout').text));
+  ld.s.over = { id: 'burnout', cause: { fever: 90, restIdle: true } };
+  assert.strictEqual(CF.Story.lesson(ld, 'burnout').text.indexOf(CF.ENDING_REST_IDLE), 0, 'Rest stood empty: said first');
+  console.log('the abbey and the lessons: ok');
+})();

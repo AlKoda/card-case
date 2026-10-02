@@ -357,6 +357,20 @@ The detective wears out on the same clock as the cases.
 on the table without its cure: if Rest is still closed when the first
 Weariness, Obsession, Fever or Fixation arrives, Rest opens with it.
 
+A need (Hunger, Sickness, Stress; `CF.NEEDS` in life.js) left to run out
+takes its ability for good if you have one to spare. With only one, it
+says its own `deepen` line, leaves a Weariness and comes once more; the
+second time it stops asking and says its `debt`: the cookshop and the
+barber-surgeon keep a debt and the Market knows (Crowd +1). Stress owes
+nobody (`owes: false`): the Watch-house talks, and only the Crowd rises.
+Sickness is the river cough; the word Fever belongs to the strain card.
+
+`P.abbeyReprieve(id)` (life.js) is asked first by `gameOver`: once a file,
+at rank 0 in the first four weeks, a Fever, Collapse or Lost in the Case
+becomes *The Abbey Takes You In* instead (`s.flags.abbey`). `Story.lesson(e,
+id)` (story.js, `CF.ENDING_LESSONS`) gives a losing ending its line and
+icon for the end paper; `s.over.cause.restIdle` puts the empty Rest first.
+
 Harm is told apart from bad news. A story of kind `harm` (a watchman dead
 or hurt, a wound, a beating, the Fever, an ability lost for good) shakes the
 table; the rest of the bad news (`danger`: a need arriving, the Rival, a
