@@ -94,7 +94,9 @@ html[data-flat] #tilt { transform: none; contain: paint; }
 html[data-flat] #table { perspective: none; }
 #board { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; will-change: transform; }
 #board::before { content: ''; position: absolute; left: -550px; top: -280px; width: 2960px; height: 1900px; border-radius: 18px; background: var(--art-ntable) center / 100% 100% no-repeat; pointer-events: none; z-index: 0; }
-#board > * { position: absolute; z-index: 1; }
+/* Every board child is placed from the board's origin by translate3d: left and top pinned to 0, or in Arabic
+   (right-to-left) a child with no left would hang off the board's right edge, a whole width off the camera. */
+#board > * { position: absolute; left: 0; top: 0; z-index: 1; }
 /* The token's small box: the magnet (the Bell's shows the weekly dues). */
 .verb .v-magnet { display: none; position: absolute; right: -10px; top: 60%; width: 46px; height: 46px; border-radius: 8px; background: #14161a; border: 2px solid #3a3d44; box-shadow: 0 3px 0 #0a0908, 0 5px 6px rgba(0, 0, 0, 0.6); color: var(--paper); font-family: var(--display); font-weight: 700; font-size: 19px; line-height: 42px; text-align: center; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
 .verb .v-magnet.asks, .verb .v-magnet.due { display: block; animation: boxIn 0.25s ease-out; }
@@ -320,6 +322,8 @@ html[data-flat] #table { perspective: none; }
 .card .c-face { box-shadow: 0 3px 4px rgba(0, 0, 0, 0.55); transition: transform 0.15s, box-shadow 0.15s, filter 0.15s; }
 /* The kind of crime, as a wax seal on the corner of a case. */
 .card .c-seal { position: absolute; right: -7px; top: -7px; width: 32px; height: 32px; background: center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.65)); pointer-events: none; }
+/* A token's later status (kept, matched, read in part): a smaller seal in the same corner, so the face keeps its words. */
+.card .c-status { right: -6px; top: -6px; width: 28px; height: 28px; }
 /* Case strings: a pinned rope from each case to what belongs to it. */
 #board .links { position: absolute; overflow: visible; pointer-events: none; z-index: 0; opacity: 0.6; }
 #board .links.pins { z-index: 5; opacity: 0.85; }
@@ -518,6 +522,7 @@ html[data-flat] #table { perspective: none; }
 .charge .ch-note { margin-top: 4px; font-size: 11.5px; line-height: 1.35; }
 .charge .ch-note.good { color: #2e7a3a; }
 .charge .ch-note.bad { color: var(--danger); }
+.charge .ch-note.ch-first { font-weight: 700; }
 .charge .ch-note.dim { color: #8a7a5a; }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
 .actions .plate-btn.go { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -898,11 +903,17 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   .title-scene .title-buttons .plate-btn .mi { width: 22px; height: 22px; margin: -4px 0; }
   #menu .plate-btn { border-width: 10px 20px; }
 }
-/* A narrow screen: the hint is a strip under the tool row (the opening is taught by it: Health onto Attend, open
-   Explore, the sergeant), a few lines at most, tappable like the bar on a desk. After the phone block, so it beats
-   the short window's 44% cap. */
-@media (max-width: 980px) {
+/* A narrow screen held upright: the hint is a strip under the tool row (the opening is taught by it: Health onto
+   Attend, open Explore, the sergeant), a few lines at most, tappable like the bar on a desk. After the phone block,
+   so it beats the short window's 44% cap. */
+@media (max-width: 980px) and (min-height: 521px) {
   #hint { left: 8px; right: 8px; top: 62px; width: auto; max-width: none; transform: none; padding: 7px 16px 7px 54px; text-align: start; font-size: 12px; line-height: 1.25; }
+}
+/* A phone on its side (the APK's only way): the verbs fill the top of the felt, so the hint docks at the foot, on the
+   left, clear of the toasts that grow up from the bottom-right. An open sheet covers it on purpose: the sheet is
+   what is being read. */
+@media (max-height: 520px) {
+  #hint { left: 8px; right: auto; top: auto; bottom: 8px; width: auto; max-width: min(520px, 56%); transform: none; padding: 7px 16px 7px 54px; text-align: start; font-size: 12px; line-height: 1.25; }
 }
 /* A narrow phone: the pause menu in one column; the bar's gaps close so the five meters, the badge and the controls fit 360px. */
 @media (max-width: 480px) {

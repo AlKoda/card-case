@@ -230,6 +230,7 @@
     applyTableSettings();
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
+    UI.introKey = null;
     UI.tidyUndo = null;
     UI.pick = null;
     UI.autoPaused = false;
@@ -624,7 +625,11 @@
     if (done.length) return tr('{verb} has finished: tap its tile, turn the cards over, then double-tap or Take all.', { verb: CF.VERBS[done[0]].label });
     return null;
   }
-  // What the best charge against an accused still lacks: the first short row.
+  // Every row met and still half proof: full proof wants word behind it (a witness, a confession, a token that
+  // names them), and nothing on the table says they did it.
+  var WORD_WANTED = 'a witness, a confession, or proof that names them';
+  function wantsWord(a) { return !a.contradictions && !(a.witnesses >= 1 || a.confession || a.corroboration >= 1); }
+  // What the best charge against an accused still lacks: the short rows, or (all met) word behind it.
   function stillWanted(e, suspectCard) {
     var rec = e.caseRec(suspectCard.caseId);
     if (!rec || !e.assessCharge) return null;
@@ -632,7 +637,8 @@
     var a = e.assessCharge(suspectCard, tokens);
     if (!a || a.tier === 'strong') return null;
     var rows = CF.Charge.describe(a).rows.filter(function (r) { return r.have < r.need; });
-    return rows.length ? { a: a, rows: rows } : null;
+    if (rows.length) return { a: a, rows: rows };
+    return a.n && wantsWord(a) ? { a: a, rows: [], word: true } : null;
   }
   // What to do next, read off the table: the first thing that applies.
   UI.advice = function () {
@@ -676,17 +682,27 @@
     if (raw && can('analyze')) return tr('Raw proof waits: put {label} into Study to read it.', { label: e.labelOf(raw) });
     var w = has('witness').filter(function (c) { return !c.data.asked; })[0];
     if (w && wit && can('interrogate')) return tr('A witness: put {name} into Question with Wit.', { name: e.labelOf(w) });
-    var lacking = null;
+    var lacking = null, confront = null;
     if (can('arrest')) for (var j = 0; j < open.length; j++) {
       var rec = open[j].rec, sc = table.filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; });
       var tokens = table.filter(function (c) { return (c.def === 'clue') && c.caseId === rec.id; });
+      var standing = sc.filter(function (c) { var su = e.suspectOf(c); return !su || !su.cleared; });
       for (var k = 0; k < sc.length; k++) {
         var a = e.assessCharge(sc[k], tokens);
         if (a && a.tier === 'strong') return tr('The proof is enough: put {name} and the tokens into the Court.', { name: e.labelOf(sc[k]) });
         var sw = stillWanted(e, sc[k]);
-        if (sw && (!lacking || sw.a.score > lacking.a.score)) lacking = { a: sw.a, row: sw.rows[0], card: sc[k] };
+        if (sw && sw.rows.length && (!lacking || sw.a.score > lacking.a.score)) lacking = { a: sw.a, row: sw.rows[0], card: sc[k] };
+        // Every row met, and no word behind it: the accused it points to (or the only one left) can be confronted
+        // with a token of the case. A confession freely given is full proof.
+        var only = standing.length === 1 && standing[0] === sc[k];
+        if (sw && sw.word && !confront && (rec.identified === sc[k].data.key || only) && !e.unavailableReason(sc[k]) &&
+          !tokens.some(function (t) { return t.data.confession === 'free'; })) {
+          var tok = tokens.filter(function (t) { return !e.unavailableReason(t); })[0];
+          if (tok) confront = sc[k];
+        }
       }
     }
+    if (confront && wit && can('interrogate')) { UI.hintGo = { uid: confront.uid }; return tr('Confront {name}: put them into Question with a token of the case and Wit. A confession freely given is full proof.', { name: e.labelOf(confront) }); }
     if (lacking) return tr('To charge {name} you still want {kind} {n}: {from}.', { name: e.labelOf(lacking.card), kind: tr(CF.ASPECTS[lacking.row.aspect].label), n: lacking.row.need - lacking.row.have, from: tr(ASPECT_FROM[lacking.row.aspect] || '') });
     var unasked = table.filter(function (c) { if (c.def !== 'suspect' || e.unavailableReason(c)) return false; var su = e.suspectOf(c); return su && !su.questioned; })[0];
     if (unasked && wit && can('interrogate')) return tr('Question {name} with Wit: people say more than they mean to.', { name: e.labelOf(unasked) });
@@ -695,7 +711,25 @@
     if (fat >= 2 && can('reflect')) return tr('Weariness is piling up: put one into Rest before the fever takes you.');
     if (has('funds').length < 2 && hp && can('duty')) return tr('Coin is short: Attend with Health earns your keep.');
     if (!open.length && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
-    if (open.length && can('investigate')) return tr('The trail is thin. Search the scene again, or go door to door with the Quarter.');
+    // The scene is searched out (the rule above caught every other): another search only feeds an Obsession. Door to
+    // door, if the case's own Quarter is on the table and somebody there is still to be met; else charge or let go.
+    if (can('investigate')) for (var dd = 0; dd < open.length; dd++) {
+      var orec = open[dd].rec;
+      var quarter = has('district').filter(function (c) { return c.data.district === orec.district; })[0];
+      if (quarter && ((orec.witnesses || []).length || (orec.suspects || []).some(function (x) { return !x.revealed && !x.cleared; }))) { UI.hintGo = { uid: open[dd].card.uid }; return tr('Go door to door: {title} with {quarter} in Explore.', { title: orec.title, quarter: e.labelOf(quarter) }); }
+    }
+    if (can('arrest')) {
+      var half = null;
+      open.forEach(function (o) {
+        var toks = table.filter(function (c) { return c.def === 'clue' && c.caseId === o.rec.id; });
+        table.forEach(function (c) {
+          if (c.def !== 'suspect' || c.caseId !== o.rec.id || e.unavailableReason(c)) return;
+          var su = e.suspectOf(c), ha = !(su && su.cleared) && e.assessCharge(c, toks);
+          if (ha && ha.tier === 'reasonable' && (!half || ha.score > half.a.score)) half = { a: ha, card: c };
+        });
+      });
+      if (half) { UI.hintGo = { uid: half.card.uid }; return tr('Charge {name} on half proof, or let it go.', { name: e.labelOf(half.card) }); }
+    }
     // Nothing pressing: the nearest way to grow.
     if (CF.growthWays) {
       var best = null;
@@ -732,6 +766,15 @@
     if (pressing) { UI.hintGo = null; showAdvice(hint, pressing); return; }
     var text = e.introHint ? e.introHint() : null;
     if (text) {
+      // A lesson whose cue is long met gives way to the advisor while the player sits idle: the beat is twenty
+      // seconds old, the same words have stood twenty seconds, and the advisor has something to say.
+      if (UI.introKey !== text) { UI.introKey = text; UI.introAt = e.s.t; }
+      var it = e.s.intro, stale = it && it.lastBeatT !== undefined && e.s.t - it.lastBeatT >= 20 && e.s.t - UI.introAt >= 20;
+      if (stale && performance.now() - (UI.lastInput || 0) > 6000 && !UI.drag && !UI.openVerbs.length && !UI.modal) {
+        var word = cachedAdvice();
+        if (word) { showAdvice(hint, word); return; }
+      }
+      UI.hintGo = null; // a lesson names no place on the table
       if (UI.hintMode !== 'intro' || hint.textContent !== tr(text)) { hint.textContent = tr(text); hint.classList.remove('gone', 'advice', 'go'); UI.hintMode = 'intro'; adviceShown = null; }
       return;
     }
@@ -795,6 +838,12 @@
       '<div class="i-meter"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span><h4>' + esc(info.title) + '</h4></div>' +
       '<div class="i-kind">' + esc(tr('Now: {word}', { word: (CF.METER_WORDS[key] || [])[meterLevel(key)] || '' })) + '</div>' +
       '<p>' + esc(info.what) + '</p><p>' + esc(info.ends) + '</p>';
+    if (key === 'pressure' && UI.e) {
+      // The tally the broadsheet-sellers keep (engine weekTick): the count, the threshold, and the way to lower it.
+      var ue = UI.e, abroad = ue.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length + ue.countOf('gang') * 2 + ue.countOf('syndicate') * 3;
+      box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + esc(tr('Thieves abroad: {n}. At four the Market sings them, and the Crowd rises every other week (every week from Bailiff). A band counts two, the Coquille three.', { n: abroad })) + '</p>' +
+        '<p>' + esc('A hue and cry takes a name off the wall: Work the Quarter in Explore, or Old Ghosts in Rest.') + '</p>');
+    }
     if (key === 'reputation') {
       // Where the ladder ends for you, and what holds the next letter back.
       var e = UI.e, s = e.s;
@@ -853,22 +902,13 @@
     threat: 'imed-10', court: 'cwax-03', order: 'ilaw-05', career: 'ilaw-17', district: 'iinv-17', place: 'iplace-16', room: 'iplace-10', teammate: 'rrole-03', personnel: 'ilaw-11', hospital: 'imed-02',
     equipment: 'iinv-16', intel: 'cwit-01', criminal: 'csus-02', condemned: 'ilaw-06', calling: 'cwax-02', ability: 'cres-02', funds: 'itrade-20', health: 'imed-01', focus: 'cres-05', instinct: 'iinv-06',
     trial: 'cwax-03', atlarge: 'ilaw-18', rung: 'ilaw-01', sentence: 'ilaw-01', plea: 'ilaw-13', paper: 'ilaw-21', temptation: 'itrade-20', insight: 'imyst-05', fatigue: 'imed-13', burnout: 'imed-10', wound: 'imed-09' };
-  var PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
-  var SHORTS = [
-    [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
-    [/^Found at .*House$/, 'The House'], [/^Corroborated: /, 'Corroborated'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
-    [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
-  ];
+  // The seal of a token's later status: kept past its case (a key), matched to a hand (a tick), read only in part (a query).
+  var STATUS_ART = { Kept: 'cstamp-04', Matched: 'cok-01', Partial: 'cmark-05' };
+  // The face's words come from CF.cardFace (js/i18n.js); a case card is its crime.
   function cardTitle(card) {
-    var e = UI.e, def = CF.CARDS[card.def], label = e.labelOf(card);
-    if (def.kind === 'case') { var rec = e.caseRec(card.caseId); return (rec && rec.highProfile ? '★ ' : '') + (rec ? rec.short : label); }
-    for (var i = 0; i < SHORTS.length; i++) if (SHORTS[i][0].test(label)) return SHORTS[i][1];
-    var at = label.indexOf(': ');
-    if (at < 0) return label;
-    var head = label.slice(0, at), tail = label.slice(at + 2);
-    if (PERSONS[card.def]) return (head === 'Prime Suspect' ? '★ ' : '') + tail;
-    if (card.def === 'order' || card.def === 'personnel' || def.kind === 'calling' || card.def === 'gang') return tail;
-    return head;
+    var e = UI.e, def = CF.CARDS[card.def];
+    if (def.kind === 'case') { var rec = e.caseRec(card.caseId); return (rec && rec.highProfile ? '★ ' : '') + (rec ? rec.short : e.labelOf(card)); }
+    return CF.cardFace(card, e.labelOf(card)).text;
   }
   UI.cardTitle = cardTitle;
 
@@ -932,6 +972,14 @@
     }
     if (band) face.appendChild(band);
     face.appendChild(body);
+    // A status the token gained later is a small seal in the corner, not a word on the face.
+    var face0 = def.kind === 'case' ? null : CF.cardFace(card, e.labelOf(card));
+    if (face0 && face0.status.length && STATUS_ART[face0.status[0]]) {
+      var stamp = h('div', 'c-seal c-status');
+      stamp.style.backgroundImage = art(STATUS_ART[face0.status[0]]);
+      stamp.title = face0.status.map(function (x) { return tr(x); }).join(' · ');
+      face.appendChild(stamp);
+    }
     if (def.kind === 'case' || def.kind === 'coldcase') {
       var crec2 = def.kind === 'case' ? e.caseRec(card.caseId) : { template: card.data.template };
       var seal = h('div', 'c-seal');
@@ -970,8 +1018,8 @@
   // ---------------------------------------------------------------- Board
   function applyView() {
     var v = UI.view;
+    // Only the board moves: a custom property set on #table would restyle every card under it on each zoom step.
     $('#board').style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')';
-    $('#table').style.setProperty('--z', v.z);
   }
 
   // Measured once per render; a pinch asks for it on every move.
@@ -988,12 +1036,21 @@
     return (boundsCache = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
   }
 
+  // On a phone or a short window the tool row sits on the felt's top edge: the camera keeps the band under it free,
+  // so no tile is ever under the buttons (a tap there would hit them).
+  function toolBand(r) {
+    var short = false;
+    try { short = typeof matchMedia === 'function' && !!matchMedia('(max-height:520px)').matches; } catch (err) { short = false; }
+    if (!narrow() && !short) return 0;
+    var z = $('#zoom');
+    return z ? Math.max(0, z.getBoundingClientRect().bottom - r.top + 6) : 0;
+  }
   // Fit the whole board into the table area.
   UI.fitView = function () {
     if (!UI.e) return;
     var r = $('#table').getBoundingClientRect();
     var b = boardBounds();
-    var dockH = 0;
+    var dockH = toolBand(r);
     // Fit what is on the table, and lean in when there is little of it.
     var z = U.clamp(Math.min((r.width - 60) / b.w, (r.height - dockH - 60) / b.h), 0.5, 1.25);
     UI.view = { x: (r.width - b.w * z) / 2 - b.x * z, y: dockH + Math.max(20, (r.height - dockH - b.h * z) / 2) - b.y * z, z: z };
@@ -1059,7 +1116,7 @@
     if (!c || !c.loc || c.loc.t !== 'table') return false;
     var r = $('#table').getBoundingClientRect(), v = UI.view;
     if (v.z < 0.9) v.z = 1;
-    var dockH = 0;
+    var dockH = toolBand(r);
     v.x = r.width / 2 - (c.loc.x + T.CW / 2) * v.z;
     v.y = dockH + (r.height - dockH) / 2 - (c.loc.y + T.CH / 2) * v.z;
     clampView(); applyView();
@@ -1094,7 +1151,7 @@
   function clampView() {
     if (!UI.e) return;
     var r = $('#table').getBoundingClientRect(), v = UI.view, b = boardBounds();
-    var margin = 80, dockH = 0;
+    var margin = 80, dockH = toolBand(r);
     v.x = U.clamp(v.x, margin - (b.x + b.w) * v.z, r.width - margin - b.x * v.z);
     v.y = U.clamp(v.y, dockH + margin - (b.y + b.h) * v.z, r.height - margin - b.y * v.z);
   }
@@ -1226,8 +1283,8 @@
   }
   function panToBoard(x, y, w, h, done) {
     var r = $('#table').getBoundingClientRect(), v = UI.view;
-    var z = Math.max(v.z, 0.95);
-    var tx = r.width / 2 - (x + w / 2) * z, ty = r.height / 2 - (y + h / 2) * z;
+    var z = Math.max(v.z, 0.95), band = toolBand(r);
+    var tx = r.width / 2 - (x + w / 2) * z, ty = band + (r.height - band) / 2 - (y + h / 2) * z;
     var from = { x: v.x, y: v.y, z: v.z }, t0 = null;
     function step(now) {
       if (!t0) t0 = now;
@@ -1868,9 +1925,12 @@
     // tokens give, above the slots, and the tokens that hurt it are marked.
     var charge = vid === 'arrest' && pv && pv.detail && pv.detail.charge ? pv.detail.charge : null;
     var bad = {};
+    // The first case of the office (the opening's): a charge on Indicia is said, in red, to walk.
+    var pcard = primaryCard ? e.card(primaryCard) : null, prec = pcard && pcard.caseId ? e.caseRec(pcard.caseId) : null;
+    var firstCase = !!(prec && prec.opening);
     if (charge) {
       var cbox = h('div', 'charge-box');
-      cbox.innerHTML = chargeHtml(charge);
+      cbox.innerHTML = chargeHtml(charge, firstCase);
       pane.insertBefore(cbox, pane.firstChild);
       (charge.bad || []).forEach(function (u) { bad[u] = true; });
     }
@@ -1923,7 +1983,7 @@
     var rbox = h('div', 'recipe');
     if (pv) {
       rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
-        (pv.detail && pv.detail.charge && !charge ? chargeHtml(pv.detail.charge) : '') +
+        (pv.detail && pv.detail.charge && !charge ? chargeHtml(pv.detail.charge, firstCase) : '') +
         (pv.strain ? '<div class="r-strain">' + esc(pv.strain) + '</div>' : '') +
         (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
         (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');
@@ -2118,8 +2178,9 @@
 
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
-  function chargeHtml(d) {
+  function chargeHtml(d, firstCase) {
     var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
+    if (firstCase && d.tier === 'weak') html += '<div class="ch-note bad ch-first">' + esc('The first case of your office. On Indicia the Court will let them go.') + '</div>';
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
       html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'iinv-05') + '"></span>' +
@@ -2178,7 +2239,8 @@
       if (rec) { var prof = CF.Charge.profileOf(rec); lines.push('To convict: ' + Object.keys(prof).map(function (k) { return CF.ASPECTS[k].label + ' ' + prof[k]; }).join(', ')); }
       var sw = rec && rec.status === 'open' ? stillWanted(e, card) : null;
       if (sw) lines.push(tr('Still wanted: {list}', { list: wantedList(sw.rows) }));
-      if (sus && sus.questioned) lines.push('Questioned already'); else lines.push('Question them with Wit');
+      if (sus && sus.questioned && !sus.cleared && rec && rec.status === 'open') lines.push('Confront them in Question with a token of the case');
+      else if (sus && sus.questioned) lines.push('Questioned already'); else lines.push('Question them with Wit');
     } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
       if (rec) lines.push('Case: ' + rec.title);
       if (k === 'evidence') lines.push(card.data.item && card.data.item.needs ? 'Raw proof: read it in Study with the right instrument' : 'Raw proof: read it in Study before it counts');
@@ -2268,7 +2330,7 @@
           lines.push(band ? tr('Sworn of {band}', { band: tr(band.data.name.replace(/^the /, 'The ')) }) : crim.organization === 'syndicate' ? 'Of the Coquille' : 'Sworn of a band');
         }
         if (crim.heat) lines.push(tr('Heat {n}', { n: crim.heat }));
-        lines.push('Hunt: a Sighting or their Unanswered case in Rest; Disguise (Bailiff); walk their Quarter');
+        lines.push('Hunt: Work the Quarter in Explore; Old Ghosts (their Unanswered case) or a Sighting in Rest; Disguise (Bailiff)');
       }
     } else if (card.def === 'wound') {
       lines.push('Another blow before this knits will kill you.');
@@ -2279,7 +2341,7 @@
     return lines.slice(0, k === 'case' ? 8 : 6);
   }
   // The rows a charge still lacks: each kind of proof with how much is wanting.
-  function wantedList(rows) { return rows.map(function (r) { return tr(CF.ASPECTS[r.aspect].label) + ' ' + (r.need - r.have); }).join(', '); }
+  function wantedList(rows) { return rows.length ? rows.map(function (r) { return tr(CF.ASPECTS[r.aspect].label) + ' ' + (r.need - r.have); }).join(', ') : tr(WORD_WANTED); }
   // What the best charge on the table against a case's accused still lacks; nothing when there is no accused, or a charge is strong.
   function caseWanted(rec) {
     var e = UI.e, best = null, strong = false;
@@ -2291,7 +2353,7 @@
       if (!a) return;
       if (a.tier === 'strong') { strong = true; return; }
       var rows = CF.Charge.describe(a).rows.filter(function (r) { return r.have < r.need; });
-      if (rows.length && (!best || a.score > best.score)) best = { score: a.score, rows: rows };
+      if ((rows.length || (a.n && wantsWord(a))) && (!best || a.score > best.score)) best = { score: a.score, rows: rows };
     });
     return best && !strong ? wantedList(best.rows) : null;
   }

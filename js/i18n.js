@@ -237,6 +237,33 @@
 
   // ---- Static markup. A paragraph with only <b>/<i> inside is one unit, so
   // the translation can reorder it; anything else is walked text by text.
+  // The few words on the face of a card, read off its label: a person's card
+  // is their name, a token's card is what kind of token it is. A status a
+  // token gained later (kept past its case, matched, read only in part) is
+  // looked through, so the face says what the token is and the status is a
+  // seal beside it. DOM-free, so the tests can check every face a game makes
+  // has its words in each language. The table's case cards are titled by the
+  // interface from their case.
+  var FACE_SHORTS = [
+    [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
+    [/^Found at .*House$/, 'The House'], [/^Corroborated: /, 'Corroborated'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
+    [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
+  ];
+  var FACE_STATUS = /^(Kept|Matched|Partial): (?=\S)/;
+  var FACE_PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
+  CF.cardFace = function (card, label) {
+    var def = (CF.CARDS && CF.CARDS[card.def]) || {}, status = [], m;
+    label = String(label || '');
+    while ((m = FACE_STATUS.exec(label))) { status.push(m[1]); label = label.slice(m[0].length); }
+    for (var i = 0; i < FACE_SHORTS.length; i++) if (FACE_SHORTS[i][0].test(label)) return { text: FACE_SHORTS[i][1], status: status };
+    var at = label.indexOf(': ');
+    if (at < 0) return { text: label, status: status };
+    var head = label.slice(0, at), tail = label.slice(at + 2);
+    if (FACE_PERSONS[card.def]) return { text: (head === 'Prime Suspect' ? '★ ' : '') + tail, status: status, person: true };
+    if (card.def === 'order' || card.def === 'personnel' || def.kind === 'calling' || card.def === 'gang') return { text: tail, status: status };
+    return { text: head, status: status };
+  };
+
   var INLINE = { B: 1, I: 1, EM: 1, STRONG: 1, BR: 1, KBD: 1 };
   var ATTRS = ['title', 'placeholder', 'aria-label'];
   function inlineOnly(el) {

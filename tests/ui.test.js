@@ -626,6 +626,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
   var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var ui = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
   var topbar = /#topbar \{[^}]*\}/.exec(css)[0];
   assert.ok(/flex-wrap:\s*nowrap/.test(topbar) && /overflow:\s*hidden/.test(topbar), 'the top bar never wraps');
   assert.ok(/@media \(max-width: 1500px\)[^}]*\.meter \.m-label \{ display: none/.test(css), 'the meter names go first');
@@ -647,7 +648,15 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/\.title-buttons \.plate-btn, #menu \.plate-btn \{ display: flex; align-items: center;[^}]*gap: 10px/.test(css) && /\.plate-btn \.mi \{ display: block; flex: none;[^}]*margin: -6px 0;/.test(css), 'a plate with an icon is a flex row, the icon never over its words');
   assert.ok(/@media \(max-height: 520px\) \{[^@]*\.title-scene \.title-buttons \{ display: grid; grid-template-columns: 1fr 1fr/.test(css) && />Install<\/button>/.test(html), 'the title plates go two abreast on a short screen; Install is one word');
   assert.ok(/#hint \{[^}]*top: 10px;[^}]*pointer-events: auto/.test(css) && /#hint::before \{[^}]*bround-17/.test(css) && /#hint::after \{[^}]*clabel-06/.test(css), 'the hint is a painted bar under the verbs');
-  assert.ok(!/#hint \{ display: none/.test(css) && /@media \(max-width: 980px\) \{[^@]*#hint \{ left: 8px; right: 8px; top: 62px;[^}]*max-width: none; transform: none/.test(css), 'on a phone the hint is a strip under the tool row, never hidden');
+  assert.ok(!/#hint \{ display: none/.test(css) && /@media \(max-width: 980px\) and \(min-height: 521px\) \{[^@]*#hint \{ left: 8px; right: 8px; top: 62px;[^}]*max-width: none; transform: none/.test(css), 'on a phone held upright the hint is a strip under the tool row, never hidden');
+  // A phone on its side: the verbs fill the top of the felt, so the strip would lie across every tile (a tap on a verb
+  // hit the hint). The hint docks at the foot instead, on the left, clear of the toasts at the bottom-right.
+  var hintShort = /@media \(max-height: 520px\) \{\s*#hint \{[^}]*\}/.exec(css);
+  assert.ok(hintShort && /top: auto; bottom: 8px;/.test(hintShort[0]) && /left: 8px; right: auto;/.test(hintShort[0]) && /transform: none/.test(hintShort[0]), 'on a phone on its side the hint docks at the foot, off the verbs');
+  assert.ok(css.indexOf(hintShort[0]) > css.indexOf('@media (max-width: 980px) and (min-height: 521px)'), 'after the upright strip, so a short window never takes the strip');
+  assert.ok(/function toolBand\(r\)/.test(ui) && /UI\.fitView = function \(\) \{[\s\S]{0,200}var dockH = toolBand\(r\)/.test(ui) && /var margin = 80, dockH = toolBand\(r\)/.test(ui) && /band \+ \(r\.height - band\) \/ 2/.test(ui), 'the camera keeps the band under the tool row free on a phone: fit, clamp and the pan to a choice');
+  // Arabic: every board child is placed from the board's origin, so the city's question is where the camera goes.
+  assert.ok(/#board > \* \{ position: absolute; left: 0; top: 0; z-index: 1; \}/.test(css), 'board children are pinned to the origin, so right-to-left never moves the choice off the camera');
   var box = /\.screen-box \{ width: 100%[^}]*\}/.exec(css)[0];
   assert.ok(/display: flex; flex-direction: column/.test(box) && /overflow: hidden/.test(box), 'a screen is a column that never outgrows the page');
   assert.ok(/\.help-paper, \.settings-paper, \.precinct-paper, \.archive-body \{ flex: 1 1 auto; min-height: 0; overflow: auto; max-height: none/.test(css), 'the paper scrolls, the buttons stay');
@@ -817,6 +826,120 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(sp3 && /data:image\/svg\+xml/.test(sp3) && (sp3.match(/l24 20-24 20/g) || []).length === 3, 'speed 3 wears three chevrons');
   assert.ok(/data-speed="3" title="Fastest \(3\)" style="--i:var\(--art-bround-06\)"><\/button>/.test(html) && !/<small>/.test(html), 'over bround-06, with no numeral');
   console.log('ui: the glows, the seals, the paper journal, the flat table and the third speed hold');
+})();
+
+// ---- Round 8, lane 2: the way to full proof is taught (confront the accused), the advisor never sends a player
+// back to a searched-out scene, the camera leaves #table's style alone, the Crowd names its tally, and the first
+// case's Court says in red that Indicia walk.
+(function fullProof() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 29 });
+  UI.attach(e);
+  ['interrogate', 'arrest', 'investigate', 'duty'].forEach(function (v) { e.verb(v).unlocked = true; });
+  var rec = e.openCases()[0];
+  rec.searches = 1;
+  e.tableCards().forEach(function (c) { if (c.def === 'evidence' || c.def === 'witness' || c.def === 'insight') e.remove(c); });
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  rec.identified = rec.culprit;
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  var sus = e.suspectOf(sc);
+  sus.questioned = true;
+  // Every row of the case met, and no word behind it: half proof that nothing on the table can finish.
+  var prof = CF.Charge.profileOf(rec), toks = [];
+  Object.keys(prof).forEach(function (k) { var a = {}; a[k] = prof[k]; toks.push(e.create('clue', e.clueSpec(rec, { label: 'Proof of ' + k, text: 'It shows.', aspects: a }))); });
+  var a = e.assessCharge(sc, toks);
+  assert.notStrictEqual(a.tier, 'strong', 'rows alone are not full proof');
+  var wit = e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table' && !e.unavailableReason(c); })[0] || e.create('focus');
+  var say = UI.advice();
+  assert.ok(/^Confront /.test(say) && /token of the case and Wit/.test(say), 'the advisor teaches the confrontation: ' + say);
+  assert.strictEqual(UI.hintGo && UI.hintGo.uid, sc.uid, 'and the hint goes to the accused');
+  UI.selected = sc.uid;
+  render(e);
+  var peek = $('#peek').innerHTML;
+  assert.ok(/Still wanted: a witness, a confession, or proof that names them/.test(peek), 'the dossier says what full proof still wants: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 400));
+  assert.ok(/Confront them in Question with a token of the case/.test(peek) && !/Questioned already/.test(peek), 'and a questioned accused can still be confronted');
+  UI.selected = e.caseCard(rec.id).uid;
+  render(e);
+  assert.ok(/Still wanted: a witness, a confession, or proof that names them/.test($('#peek').innerHTML), 'the case dossier says it too');
+  UI.selected = null;
+  // A searched-out scene: never 'search again'. Door to door when the case's Quarter is on the table.
+  e.remove(wit);
+  e.cardsOf('focus').forEach(function (c) { if (c.loc.t === 'table') e.remove(c); });
+  while (e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; }).length < 2) e.create('funds');
+  rec.found = rec.items.length;
+  if (!rec.witnesses.length) rec.witnesses.push('a carter');
+  var q = e.create('district', { data: { district: rec.district } });
+  say = UI.advice();
+  assert.ok(/^Go door to door: /.test(say) && say.indexOf(rec.title) >= 0, 'the advisor sends the player door to door: ' + say);
+  e.remove(q);
+  say = UI.advice();
+  assert.ok(/^Charge .* on half proof, or let it go\.$/.test(say), 'without a Quarter: charge on half proof, or let it go: ' + say);
+  assert.ok(!/search|Search/.test(say), 'never the searched-out scene');
+  // A free confession on the table is full proof.
+  var conf = e.create('clue', e.clueSpec(rec, { label: 'Confession: ' + sus.name, text: 'Freely.', aspects: { testimony: 3, motive: 1 } }, [], { confession: 'free' }));
+  assert.strictEqual(e.assessCharge(sc, toks.concat([conf])).tier, 'strong', 'a confession freely given finishes it');
+  assert.ok(/^The proof is enough/.test(UI.advice()), 'and the advisor says so');
+  // The camera moves only the board: no custom property on #table to restyle every card on each zoom step.
+  UI.fitView();
+  assert.ok(!Object.keys($('#table').style).some(function (k) { return /^--z$/.test(k); }), 'the zoom writes nothing on #table');
+  // The Crowd's help names the tally of names abroad, the threshold and the ways to lower it.
+  e.create('atlarge', { label: 'Abroad: Kaspar Ohm', data: { name: 'Kaspar Ohm' } });
+  UI.showMeterInfo('pressure');
+  var mp = $('#peek').innerHTML;
+  assert.ok(/Thieves abroad: \d+\. At four/.test(mp) && /Work the Quarter/.test(mp) && /Old Ghosts/.test(mp), 'the Crowd names the tally and the levers: ' + mp.replace(/<[^>]+>/g, ' ').slice(0, 300));
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  console.log('ui: confronting is taught, a searched-out scene is never sent to, the Crowd names its tally');
+})();
+
+(function firstCourt() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 13 });
+  UI.attach(e);
+  e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  assert.ok(sc && e.autoSlot('arrest', sc.uid), 'the accused goes before the Court');
+  UI.openWindow('arrest');
+  render(e);
+  var pane = $('#windows').querySelector('.vwin .vw-body');
+  assert.ok(/tier-weak/.test(pane.firstChild.innerHTML) || pane.firstChild.querySelector('.charge.tier-weak'), 'no tokens: Indicia');
+  assert.ok(!pane.querySelector('.ch-first'), 'an ordinary case has no first-case line');
+  $('#windows').querySelector('.vw-close').click();
+  render(e);
+  rec.opening = true;
+  if (!e.verb('arrest').slots[e.primaryKey('arrest')]) e.autoSlot('arrest', sc.uid);
+  UI.openWindow('arrest');
+  render(e);
+  var wins = $('#windows').querySelectorAll('.vwin');
+  pane = wins[wins.length - 1].querySelector('.vw-body'); // the one closing a moment ago is still leaving
+  var first = pane.querySelector('.ch-first');
+  assert.ok(first && /On Indicia the Court will let them go/.test(first.textContent), 'the first case of the office says, in red, that Indicia walk');
+  wins[wins.length - 1].querySelector('.vw-close').click();
+  render(e);
+  console.log('ui: the first case\'s Court warns that Indicia walk');
+})();
+
+// A lesson whose cue is long met gives way to the advisor while the player sits idle, and comes back on a touch.
+(function staleLesson() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 31, guided: true });
+  UI.attach(e);
+  var lesson = e.introHint();
+  assert.ok(lesson, 'a guided start has a lesson');
+  UI.lastInput = performance.now();
+  e.s.intro.lastBeatT = e.s.t;
+  render(e);
+  assert.strictEqual($('#hint').textContent, lesson, 'the lesson shows');
+  e.s.choice = { id: 'stale', title: 'A question', text: 'Well?', options: [{ label: 'Yes', text: '' }] };
+  UI.lastInput = performance.now() - 7000; UI.adviceAt = undefined;
+  render(e);
+  assert.strictEqual($('#hint').textContent, lesson, 'a fresh lesson holds even when the player is idle');
+  e.s.t += 25; UI.adviceAt = undefined;
+  render(e);
+  assert.ok(/clock waits/.test($('#hint').textContent) && $('#hint').classList.contains('advice'), 'twenty seconds on, the advisor speaks over it: ' + $('#hint').textContent);
+  UI.lastInput = performance.now();
+  render(e);
+  assert.strictEqual($('#hint').textContent, lesson, 'and the lesson returns when the player moves');
+  e.s.choice = null;
+  console.log('ui: a stale lesson gives way to the advisor while the player is idle');
 })();
 
 void realSetTimeout;

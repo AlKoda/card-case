@@ -41,6 +41,22 @@ assert.strictEqual(CF.T('Week {n}', { n: 4 }).indexOf('{'), -1, 'placeholders ar
 CF.setLang('en');
 assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
 
+// A token's face says what kind of token it is, and looks through a status it gained later (a seal instead).
+(function faces() {
+  var f = CF.cardFace({ def: 'clue' }, 'Kept: Warning: The Hook');
+  assert.strictEqual(f.text, 'Warning', 'a kept warning still reads Warning on its face');
+  assert.deepStrictEqual(f.status, ['Kept'], 'and Kept is its seal');
+  assert.strictEqual(CF.cardFace({ def: 'clue' }, 'Matched: Deposition: Anna Weber').text, 'Deposition', 'a matched deposition reads Deposition');
+  assert.strictEqual(CF.cardFace({ def: 'clue' }, 'Partial: A Bloody Shoe').text, 'A Bloody Shoe', 'a partial reading shows the token it is');
+  assert.strictEqual(CF.cardFace({ def: 'clue' }, 'Kept: Sighting: Jakob Hess').text, 'A Sighting', 'the short names apply under a status');
+  assert.strictEqual(CF.cardFace({ def: 'suspect' }, 'Prime Suspect: Jakob Hess').text, '★ Jakob Hess', 'a person is their name');
+  CF.setLang('ar');
+  ['Partial', 'Deposition', 'Kept', 'Alibi', 'Confession', 'Warning', 'Theory', 'Matched', 'Traced', 'Confirmed Identification', 'False Confession', 'Letter', 'Left Behind', 'A Tavern Token', 'Take On', 'Petition For'].forEach(function (head) {
+    assert.ok(!/[A-Za-z]/.test(CF.T(head)), 'the face \'' + head + '\' reads in Arabic: ' + CF.T(head));
+  });
+  CF.setLang('en');
+})();
+
 // A played game, read in Arabic: nothing the player could see stays English.
 CF.setLang('ar');
 CF.I18N.track = true;
@@ -52,6 +68,8 @@ function read(s) { if (s) CF.T(s); }
   Object.keys(e.s.cards).forEach(function (uid) {
     var c = e.s.cards[uid];
     read(e.labelOf(c)); read(e.descOf(c));
+    // The face: the few words a card shows on the table, and its status seal's name.
+    if (CF.CARDS[c.def].kind !== 'case') { var face = CF.cardFace(c, e.labelOf(c)); read(face.text); face.status.forEach(read); }
     if (c.loc && c.loc.t === 'table') read(e.unavailableReason(c));
   });
   e.s.journal.forEach(function (j) { read(j.title); read(j.text); });
