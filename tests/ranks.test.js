@@ -93,7 +93,7 @@ function run(e, verb, cards) {
   }
   assert.strictEqual(e.s.rank, 3);
   Object.keys(CF.POWERS).forEach(function (v) { assert.ok(e.powerOpen(v), v); });
-  assert.strictEqual(e.maxOpenCases(), 4);
+  assert.strictEqual(e.maxOpenCases(), 5, 'a Magistrate is sent five cases at once');
   e.s.meters.reputation = 30;
   e.checkThresholds();
   assert.strictEqual(byDef(e, 'promotion').length, 0, 'no board past the top rank');

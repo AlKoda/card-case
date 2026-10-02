@@ -70,6 +70,11 @@
     syndicate: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'wheel', capital: true },
     architect: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'rope' },
     harbourmaster: { rungs: ['pardon', 'fine', 'banish', 'sword', 'rope'], custom: 'banish' },
+    receiver: { rungs: ['pardon', 'fine', 'pillory', 'banish', 'brand'], custom: 'pillory', repeat: 'banish' },
+    weights: { rungs: ['pardon', 'fine', 'pillory', 'banish'], custom: 'pillory', repeat: 'banish' },
+    searchers: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'rope', capital: true },
+    mint: { rungs: ['pardon', 'fine', 'banish', 'sword', 'wheel'], custom: 'wheel', capital: true, wheel: 'The Fire' },
+    gloryhand: { rungs: ['pardon', 'banish', 'brand', 'rope'], custom: 'rope' },
   };
   Sen.ladderOf = function (tid) { return CF.LADDERS[tid] || CF.LADDERS.burglary; };
   Sen.rungLabel = function (tid, rung) {
@@ -150,7 +155,7 @@
     var rng = this.rng;
     // The patron who commissioned the case always pleads.
     if (patron === 'bishop' || rng() < (penitent ? 0.8 : 0.25)) pleas.push({ from: 'church', label: 'The Bishop\'s Plea', text: 'The Bishop\'s chaplain writes that ' + d.name + ' has made a good confession and asks mercy for a penitent. The Church counts pardons.' });
-    if (patron === 'guild' || (['burglary', 'fraud', 'coining', 'extortion'].indexOf(rec.template) >= 0 && rng() < 0.3)) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: 'The wardens of ' + d.name + '\'s guild ask that a brother be fined and shamed, not hanged. They would remember the favour.' });
+    if (patron === 'guild' || (['burglary', 'fraud', 'coining', 'extortion', 'weights'].indexOf(rec.template) >= 0 && rng() < 0.3)) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: 'The wardens of ' + d.name + '\'s guild ask that a brother be fined and shamed, not hanged. They would remember the favour.' });
     if (rng() < 0.5) {
       var purse = rng() < 0.4;
       pleas.push({ from: 'family', purse: purse, label: 'A Family\'s Plea', text: d.name + '\'s ' + U.pick(rng, ['mother', 'wife', 'brother', 'father', 'sister']) + ' waits at the Watch-house door with a letter for the Examiner.' + (purse ? ' The letter is heavier than paper.' : '') });

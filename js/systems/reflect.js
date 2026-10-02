@@ -189,8 +189,9 @@
     clues.forEach(function (c) { var r = e.caseRec(c.caseId); if (r && titles.indexOf(r.title) < 0) titles.push(r.title); });
     ctx.give('thread', {
       label: 'Thread: ' + front.name,
-      desc: titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Rest with a Band or Coquille card to close in.',
-      data: { front: front.id, cases: titles },
+      desc: front.fence ? U.fill('{cases} both lead to {front}. A receiver of stolen goods keeps it. Bring the Thread to Rest alone to open a case against him.', { cases: titles.join(' and '), front: front.name })
+        : titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Rest with a Band or Coquille card to close in.',
+      data: { front: front.id, cases: titles, fence: !!front.fence },
     });
     e.revealFront(front);
     e.pathGain('master', 2, 'found a connection');

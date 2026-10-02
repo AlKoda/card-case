@@ -361,12 +361,47 @@
         { role: 'the night-clerk', motive: 'The clerk had been skimming from the books, and the books were in the counting-room.' },
       ],
       items: [
-        { type: 'evidence', label: 'The Smell Under the Smoke', text: 'The floor stinks of lamp-oil under the char.', needs: 'bio',
-          result: { label: 'The Oil Named', text: 'Rape-oil cut with spirit, a blend sold by one chandler in the Abbey Close.', aspects: { forensic: 2, opportunity: 1 } } },
-        { type: 'clue', label: 'A Bond on the Building', text: 'The building stands pledged to a lender on the Hill for three times its worth, and the lender takes the loss if it burns. Sealed six weeks ago.', aspects: { financial: 2, motive: 1 } },
         { type: 'clue', label: 'Moved Stock', text: 'The good stock was carted out of the building the week before. Someone knew.', aspects: { financial: 1, opportunity: 1 } },
         { type: 'evidence', label: 'A Scorched Ledger', text: 'Half-burned, the leaves brittle.', needs: 'lab',
           result: { label: 'The Accounts Recovered', text: 'The leaves that survived show coin leaving the business for months.', aspects: { financial: 3 } } },
+      ],
+      // The written case. Three threads leave the ashes: the Fire-warden's
+      // Count (body: three seats of fire, and the oil), the Lender on the
+      // Hill (coin: the bond, and who profits) and the Bucket-chain (word).
+      // Any two convict.
+      leads: [
+        { id: 'scene', verb: 'investigate', label: 'Walk the Ashes', duration: 30,
+          preview: 'Go in behind the fire-warden while the beams still tick. Count where it started.',
+          gives: [
+            { type: 'clue', label: 'The Fire-warden\'s Count', text: 'Three seats of fire: the stair, the counting-room, the store. Fires do not start in three places.', aspects: { forensic: 1, opportunity: 1 } },
+            { type: 'evidence', key: 'oil', label: 'The Smell Under the Smoke', text: 'The floor stinks of lamp-oil under the char.', needs: 'bio',
+              result: { label: 'The Oil Named', text: 'Rape-oil cut with spirit, a blend sold by one chandler in the Abbey Close.', aspects: { forensic: 2, opportunity: 1 } } },
+          ],
+          reveal: 'any', district: true, fatigue: 0.25,
+          story: { title: 'The Ashes', text: 'The fire-warden walks you through {scene} with a wet cloth over his mouth and stops three times. Here, here and here. You come away with {found}.' } },
+        { id: 'oil', verb: 'analyze', label: 'Name the Oil', duration: 25, needs: { item: 'oil', tool: 'bio' }, consume: true,
+          preview: 'Scrape the boards, warm the scrapings, and smell what comes off them.',
+          gives: [{ type: 'clue', label: 'The Chandler\'s Book', text: 'Rape-oil cut with spirit, a blend one chandler in the Abbey Close sells. His book has three jugs this month, to one buyer: "{seen}"', aspects: { forensic: 2, testimony: 1 }, trait: true }],
+          story: { title: 'The Oil', text: 'One chandler sells that blend, and he remembers the three jugs and the one who carried them.' } },
+        { id: 'buckets', verb: 'investigate', label: 'Ask the Bucket-chain', duration: 30, needs: { after: ['scene'], without: ['district', 'tool', 'focus'] },
+          preview: 'Every man on the bucket-chain saw the building from the front. One of them saw the side.',
+          gives: [
+            { type: 'clue', label: 'The Side Door', text: 'Somebody came out of the side door before the smoke, walking, not running, and shut it behind them.', aspects: { testimony: 1, opportunity: 1 } },
+            { type: 'witness', who: 'a man on the bucket-chain, who was nearest the side door', knows: true },
+          ],
+          fatigue: 0.25,
+          story: { title: 'The Bucket-chain', text: 'The men on the chain all saw the same fire. One of them was at the end by the side door, and saw something before it.' } },
+        { id: 'lender', verb: 'investigate', label: 'The Lender on the Hill', duration: 30, needs: { aspects: ['focus'], after: ['scene'] },
+          preview: 'The building was pledged. Somebody on the Hill lent the money. Wit reads a lender\'s face.',
+          gives: [
+            { type: 'evidence', key: 'bond', label: 'A Bond on the Building', text: 'Sealed six weeks ago before a notary on the Hill, for three times what the building was worth.', needs: null,
+              result: { label: 'Who Profits by the Fire', text: 'The lender takes the loss if it burns. The payment went to another purse.', aspects: { financial: 2, motive: 1 } } },
+          ],
+          story: { title: 'The Lender', text: 'The lender on the Hill is very sorry about the fire, and sorrier about the bond. He shows it to you before you ask.' } },
+        { id: 'profit', verb: 'analyze', label: 'Read the Bond', duration: 20, needs: { item: 'bond' }, consume: true,
+          preview: 'Clause by clause. Who is paid if it burns?',
+          gives: [{ type: 'clue', label: 'Who Profits by the Fire', text: 'The lender takes the loss if it burns. The payment went to another purse, and the notary remembers the one who sealed for it: "{seen}"', aspects: { financial: 2, motive: 1 }, trait: true }],
+          story: { title: 'The Bond', text: 'A bond for three times the building, sealed six weeks before the fire. Somebody was paid to watch it burn.' } },
       ],
       witnesses: ['a man on the bucket-chain', 'a drunk asleep in the doorway opposite', 'a child who could not sleep'],
       hints: [{ text: 'Someone came out the side door just before the smoke. They weren\'t running. They were walking.' }, { text: 'There was a smell, like a lamp, but strong. An hour before.' }, { text: 'I saw a light in the upper room at matins. There\'s never anyone there at matins.' }],
@@ -407,11 +442,43 @@
         { role: 'a stallholder who pays', motive: 'The stallholder who pays gets a discount for pointing out who does not.' },
       ],
       items: [
-        { type: 'clue', label: 'The Collector\'s Round', text: 'Chalked on the back of a broadsheet: market days, stall numbers, sums.', aspects: { financial: 2, opportunity: 1 } },
-        { type: 'evidence', label: 'A Threatening Letter', text: '"Pay or burn." Written left-handed, in a hand that is trying not to be a hand.', needs: 'prints', echoes: 'lefty',
-          result: { names: true, label: 'The Hand on the Paper', text: 'Whoever wrote this was careful with the letters and careless with the thumb that held the paper.', aspects: { forensic: 3 } } },
         { type: 'clue', label: 'The Slashed Awning', text: 'Cut from the street, an hour before the gate bell, when the lane is still busy. They wanted to be seen.', aspects: { opportunity: 1, testimony: 1 } },
         { type: 'clue', label: 'The Victim\'s Account', text: '{victim} tells you everything, hands shaking, and begs you not to write their name down.', aspects: { testimony: 2 } },
+      ],
+      // The written case. Three threads leave the stall: the Collector's
+      // Round (coin: whose purse the tally fills), the Cookshop (word: the
+      // woman who counts every face on market day) and the Hand on the
+      // Letter (body, and a name). Any two convict.
+      leads: [
+        { id: 'scene', verb: 'investigate', label: 'Search the Stall', duration: 30,
+          preview: 'Start at {victim}\'s stall. Count what was spoiled, and what was left.',
+          gives: [
+            { type: 'evidence', key: 'tally', label: 'The Collector\'s Round', text: 'Chalked on the back of a broadsheet: market days, stall numbers, sums.', needs: null,
+              result: { label: 'Whose Purse It Fills', text: 'The sums on the tally go into one purse on market night, counted on the corner.', aspects: { financial: 2, opportunity: 1 } } },
+            { type: 'evidence', key: 'letter', label: 'A Threatening Letter', text: '"Pay or burn." Written left-handed, in a hand that is trying not to be a hand.', needs: 'prints', echoes: 'lefty',
+              result: { names: true, label: 'The Hand on the Paper', text: 'Whoever wrote this was careful with the letters and careless with the thumb that held the paper.', aspects: { forensic: 3 } } },
+          ],
+          reveal: 'any', district: true, fatigue: 0.25,
+          story: { title: 'The Stall', text: 'The awning at {scene} hangs in ribbons and the stock is still in the gutter. Pinned under a crate, out of the rain, {victim} kept what they left. You come away with {found}.' } },
+        { id: 'round', verb: 'analyze', label: 'Trace the Tally', duration: 20, needs: { item: 'tally' }, consume: true,
+          preview: 'Add the sums. Follow them to the purse they fill.',
+          gives: [{ type: 'clue', label: 'Whose Purse It Fills', text: 'The sums on the tally go into one purse on market night, counted on the corner, bold as brass. The one who carries it: "{seen}"', aspects: { financial: 2, opportunity: 1 }, trait: true }],
+          story: { title: 'The Tally', text: 'Every sum adds to the same total each market day, and the total goes into one purse. The stallholders know who carries it.' } },
+        { id: 'cookshop', verb: 'investigate', label: 'Sit in the Cookshop', duration: 30, needs: { after: ['scene'], without: ['district', 'tool'] },
+          preview: 'A bowl of pottage by the cookshop window, on market day. Watch who comes for the money.',
+          gives: [
+            { type: 'clue', label: 'The Cookshop Count', text: 'The woman who keeps the cookshop counts every face on market day. Two came in with the collector, and only one of them ate.', aspects: { testimony: 1, opportunity: 1 } },
+            { type: 'witness', who: 'the woman who keeps the cookshop, and counts every face on market day', knows: true },
+          ],
+          fatigue: 0.25,
+          story: { title: 'The Cookshop', text: 'She sets down the bowl and does not ask why the Examiner is eating pottage at her window. She has been waiting a long time for somebody to ask her what she sees from it.' } },
+        { id: 'hand', verb: 'analyze', label: 'Match the Hand', duration: 25, needs: { item: 'letter', tool: 'prints', suspects: 1 }, consume: true,
+          preview: 'The thumb on the letter, and the hands in the casebook.',
+          gives: [{ type: 'clue', label: 'The Hand on the Letter: {culprit}', text: 'The thumb that held the paper is {culprit}\'s. The hand that wrote it tried not to be a hand. The thumb did not try.', aspects: { forensic: 3 }, points: 'culprit', noMisread: true }],
+          story: { title: 'The Hand on the Letter', kind: 'major', text: 'A careful hand wrote "Pay or burn". A careless thumb held the paper. The thumb is {culprit}\'s.' } },
+        { id: 'letter_nomatch', verb: 'analyze', label: 'Read the Hand', duration: 10, needs: { item: 'letter', tool: 'prints' }, once: false,
+          preview: 'A thumb on the paper, and nobody to hold it against.',
+          story: { title: 'Nobody to Hold It Against', text: 'A clean thumb on the letter, and no accused to hold it against. Find an accused first, then bring it back.' } },
       ],
       witnesses: ['a frightened stallholder', 'a carrier\'s boy', 'the woman who keeps the cookshop'],
       hints: [{ text: 'He comes on market day. Always market day. He talks like a sergeant.', role: 'a sergeant of the Watch' }, { text: 'They count the money on the corner, bold as brass.' }, { text: 'There are two of them. One talks, one watches.' }],
@@ -494,16 +561,172 @@
         { role: 'a discharged soldier', motive: 'The soldier learned to cast bullets in Flanders and found a better use for lead.' },
         { role: 'a moneychanger', motive: 'The changer buys clippings by weight and asks no questions, and lately has been selling them.' },
       ],
-      items: [
-        { type: 'evidence', label: 'The Bad Coin', text: 'A handful of it. Bright where it should be worn.', needs: 'bio',
-          result: { label: 'The Coin Assayed', text: 'The apothecary\'s acid finds lead under the silver, and the same flaw in the Emperor\'s eye on every piece. One die.', aspects: { forensic: 3 } } },
-        { type: 'clue', label: 'Clippings', text: 'A twist of paper with the shaved edges of good coin in it. Somebody is weighing their harvest.', aspects: { financial: 2 } },
-        { type: 'clue', label: 'Smoke After Curfew', text: 'A furnace burning past the gate bell, in a quarter where no forge is licensed.', aspects: { opportunity: 2 } },
-        { type: 'evidence', label: 'A Plaster Mould', text: 'Broken in half in a midden.', needs: 'prints',
-          result: { names: true, label: 'The Mould Read', text: 'Vinegar brings up the hand that pressed the plaster: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
+      // The written leads give the takings; the generic search draws from
+      // the structure, the generic pool and the trait token afterwards.
+      items: [],
+      // The written case. Three threads leave the takings: the Coin (body, or
+      // coin by the scale), the Charcoal (presence, and the kindling boy's
+      // word) and the Market (the market-woman, the mould and the thumb on
+      // it). Any two convict. Order matters: the first lead whose needs are
+      // met is the one that runs.
+      leads: [
+        { id: 'scene', verb: 'investigate', label: 'Count the Takings', duration: 30,
+          preview: 'Start where the bad coin was taken. Count the takings again.',
+          gives: [
+            { type: 'evidence', key: 'coin', label: 'The Bad Coin', text: 'A handful of it. Bright where it should be worn.', needs: 'bio',
+              result: { label: 'The Coin Assayed', text: 'The apothecary\'s acid finds lead under the silver, and the same flaw in the Emperor\'s eye on every piece. One die.', aspects: { forensic: 3 } } },
+            { type: 'clue', label: 'Who Paid It In', text: '{victim} keeps a slate of who paid in silver. Three names this week paid in new coin.', aspects: { financial: 1, opportunity: 1 } },
+          ],
+          reveal: 'any', district: true, fatigue: 0.25,
+          story: { title: 'The Takings', text: 'You tip the takings onto the counter at {scene} and bite every third coin. The bad ones are too bright, too light, and every one has the same squint in the Emperor\'s eye. You come away with {found}.' } },
+        { id: 'charcoal', verb: 'investigate', label: 'Follow the Charcoal', duration: 30, needs: { after: ['scene'], without: ['district', 'tool'] },
+          preview: 'A furnace eats charcoal. Somebody sold it.',
+          gives: [
+            { type: 'clue', label: 'Sacks After Curfew', text: 'The kindling boy sold three sacks of charcoal a night for a week, carried in by the back lane and paid for in new coin. Nobody bakes that much.', aspects: { opportunity: 2 } },
+            { type: 'witness', who: 'the kindling boy, who carried the sacks', knows: true },
+          ],
+          fatigue: 0.25,
+          story: { title: 'The Charcoal', text: 'The boy has never been asked a question by a sworn man and answers all of them twice.' } },
+        { id: 'canvass', verb: 'investigate', label: 'Go Door to Door', duration: 30, needs: { aspects: ['district'], sameDistrict: true },
+          preview: 'Ask the Market who was paid in it. Somebody has not forgiven it.',
+          gives: [
+            { type: 'witness', who: 'a market-woman who was paid in it, and has not forgiven it', knows: true },
+            { type: 'evidence', key: 'mould', label: 'A Plaster Mould', text: 'Broken in half in a midden.', needs: 'prints',
+              result: { names: true, label: 'The Mould Read', text: 'Vinegar brings up the hand that pressed the plaster: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
+          ],
+          reveal: 'any',
+          story: { title: 'Door to Door', text: 'Half the Market was paid in it, and the half that was paid wants a name. In a midden behind {scene}, a mould broken in two.' } },
+        { id: 'weigh', verb: 'analyze', label: 'Weigh the Coin', duration: 20, needs: { item: 'coin', when: function (ctx) { return !ctx.e.hasTool(ctx, 'bio'); } }, consume: true,
+          preview: 'No acid, but a good scale. Weigh it against the Mint\'s standard.',
+          gives: [{ type: 'clue', label: 'Short Weight', text: 'Against the Mint\'s standard each piece is light by a grain and a half: a clipper\'s harvest melted down and passed again.', aspects: { financial: 2, digital: 1 } }],
+          story: { title: 'The Scale', text: 'A grain and a half light, every piece. Somebody is melting clippings and passing them again.' } },
+        { id: 'clippings', verb: 'analyze', label: 'Match the Thumb', duration: 25, needs: { item: 'mould', tool: 'prints', suspects: 1 }, consume: true,
+          preview: 'The thumb in the plaster, and the hands in the casebook.',
+          gives: [{ type: 'clue', label: 'The Thumb Matched: {culprit}', text: 'A thumb with a missing nail pressed the plaster, and {culprit} is missing that nail.', aspects: { forensic: 3 }, points: 'culprit', noMisread: true }],
+          story: { title: 'The Thumb', kind: 'major', text: 'The thumb in the plaster has no nail. Neither has {culprit}\'s.' } },
+        { id: 'mould_nomatch', verb: 'analyze', label: 'Read the Mould', duration: 10, needs: { item: 'mould', tool: 'prints' }, once: false,
+          preview: 'A thumb with no nail, and nobody to hold it against.',
+          story: { title: 'Nobody to Hold It Against', text: 'A thumb with no nail, and no accused to hold it against. Find an accused first, then bring it back.' } },
       ],
       witnesses: ['the Mintmaster\'s assayer', 'a market-woman who was paid in it', 'a boy who sells kindling'],
       hints: [{ text: 'They paid in new coin. Too new. Nobody in the Market has new coin.' }, { text: 'I sold them charcoal three nights running. Sacks of it. Nobody bakes that much.' }, { text: 'Their fingers were burned. Little burns, all over, like a cook\'s.' }],
+    },
+
+    // The receiver of stolen goods, opened from a Thread on his door (js/systems/network.js).
+    receiver: {
+      label: 'The Receiver', title: 'The Receiver at {scene}', lesser: 'receiving, not theft', lifetime: 300, difficulty: 7, special: true, guiltyRole: 'the receiver',
+      keyAspects: ['financial', 'testimony', 'opportunity'], districts: ['market'],
+      charge: { financial: 3, testimony: 2, opportunity: 2 },
+      scenes: ['{last}\'s Pawnshop'],
+      brief: 'Two of your cases went through one door: {scene}. What is stolen in the city is sold there, and the man who keeps it buys without asking. Prove he knew.',
+      roles: [
+        { role: 'the receiver', sex: 'm', motive: 'Buys what the city steals, and sells it back to the city.' },
+        { role: 'the receiver\'s wife', sex: 'f', motive: 'Keeps the book of what came in, in her own hand.' },
+        { role: 'his journeyman', sex: 'm', motive: 'Carries the goods out by the back lane, and is paid by the piece.' },
+      ],
+      items: [
+        { type: 'clue', label: 'The Back-room Book', text: 'Every piece that came in, and from whom, in a careful hand. Some of the names are your cases.', aspects: { financial: 2, digital: 1 } },
+        { type: 'evidence', label: 'A Ring from Your Case', text: 'A ring on the back-room shelf that a victim of yours described to the letter.', needs: null,
+          result: { label: 'The Ring Known', text: 'The victim knows the ring, and the receiver knows who brought it in. He paid a third of its worth.', aspects: { testimony: 2, financial: 1 } } },
+        { type: 'clue', label: 'The Back Lane', text: 'A handcart in the back lane after the bell, and the gate oiled.', aspects: { opportunity: 2 } },
+        { type: 'clue', label: 'Paid Under Weight', text: 'He pays a third of what a thing is worth, by weight, in old coin, and says nothing.', aspects: { financial: 1, testimony: 1 } },
+      ],
+      witnesses: ['a thief who sold to him once', 'the woman at the next stall', 'a carter who uses the back lane'],
+      hints: [{ text: 'He never asks where a thing came from. He asks what it weighs.', role: 'the receiver' }, { text: 'The back gate opens after the bell, and a handcart goes in.' }, { text: 'His wife writes everything down. He does not know she does.' }],
+    },
+    // A Market crime for a new Examiner: a drilled pound weight.
+    weights: {
+      label: 'False Weights', title: 'The Light Pound of {scene}', lesser: 'short measure, not fraud', lifetime: 240, difficulty: 5,
+      keyAspects: ['financial', 'forensic', 'testimony'], districts: ['market'],
+      charge: { financial: 2, forensic: 2, testimony: 2 },
+      scenes: ['the Weigh-house', '{last}\'s Grain Stall', 'the Salt Market'],
+      brief: 'The Market Warden had {victim}\'s pound weight tried against the Mint\'s standard and found it a quarter-ounce light. {victim} swears the weight was true at Easter. Somebody drilled it, and somebody has been buying by it.',
+      roles: [
+        { role: 'the weigh-master\'s deputy', sex: 'm', motive: 'Is paid by the grain factors, and has lately bought a mule.' },
+        { role: 'a grain factor', motive: 'Buys by the light pound and sells by the true one.' },
+        { role: 'a rival stallholder', sex: 'f', motive: 'Lost her best customers to the stall at Candlemas.' },
+        { role: 'the Warden\'s runner', motive: 'Carries the weights to the Mint and back, alone.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Pound Weight', text: 'Stamped with the city\'s eagle. It rings a little wrong on the counter.', needs: 'bio',
+          result: { label: 'The Weight Opened', text: 'Lead drilled from under the stamp and the hole stopped with wax. A careful hand, and a small drill.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'The Factor\'s Book', text: 'Bought by the pound on the Market\'s scale, sold by the pound at the Harbour. The two pounds are not the same.', aspects: { financial: 2 } },
+        { type: 'clue', label: 'Flour in the Scale Pan', text: 'The pan was cleaned, all but the hinge.', aspects: { forensic: 1, opportunity: 1 } },
+        { type: 'clue', label: 'The Short Sack', text: 'A miller\'s wife weighed her flour again at home. A quarter-ounce short in every pound, every week since Easter.', aspects: { testimony: 2 } },
+      ],
+      witnesses: ['a miller\'s wife', 'the salt-seller', 'a boy who sweeps the weigh-house'],
+      hints: [{ text: 'The weights go to the Mint and back in a basket. Nobody watches the basket.' }, { text: 'Somebody bought a little drill from the clockmaker. For fine work, he said.' }, { text: 'The factor pays somebody behind the weigh-house on market day, in coin, and does not count it.' }],
+    },
+    // A death the searchers of the dead called plague.
+    searchers: {
+      label: 'The Searchers', title: 'A Plague Death in {scene}', lesser: 'a hidden death, not murder', lifetime: 260, difficulty: 7,
+      keyAspects: ['forensic', 'testimony', 'opportunity'], districts: ['warrens', 'canal'],
+      charge: { forensic: 3, testimony: 2, opportunity: 2 },
+      scenes: ['{last} Row', 'the Tenement by the Abbey Wall', 'the Room over {last}\'s Shop'],
+      brief: 'The searchers of the dead wrote "plague" against {victim}\'s name, and the cart took the body before noon. But the searchers were paid twice that day, and plague does not leave a bruise the shape of a thumb.',
+      roles: [
+        { role: 'the searcher', sex: 'f', motive: 'Is paid fourpence a body by the parish, and more by the family.' },
+        { role: 'the heir', motive: 'Inherits the lease the day the red cross comes down.' },
+        { role: 'the landlord', motive: 'Wanted the room, and the plague clears a room.' },
+        { role: 'a barber-surgeon', sex: 'm', motive: 'Bled the dead one on the Monday and has not been seen since.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Body at the Pit', text: 'Lime on it already, and the bearers in a hurry.', needs: 'bio',
+          result: { label: 'Not the Plague', text: 'No buboes, no tokens on the skin. Thumbs, on the throat. Song Ci would have known it from the door.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'The Red Cross Painted Early', text: 'The cross on the door is dry. It was painted before the searchers came.', aspects: { opportunity: 2 } },
+        { type: 'clue', label: 'The Bill of Mortality', text: 'Two plague deaths in the parish this week, and one of them walked to Mass on Sunday.', aspects: { digital: 1, testimony: 1 } },
+        { type: 'clue', label: 'Fourpence Twice', text: 'The parish paid the searcher fourpence for the body. Somebody paid her a gulden for the word.', aspects: { testimony: 1, financial: 1 } },
+      ],
+      witnesses: ['the bearer who drove the cart', 'a neighbour across the court', 'the parish clerk'],
+      hints: [{ text: 'The cart came before noon. It never comes before noon.' }, { text: 'There was shouting in that room on the Sunday. Plague does not shout.' }, { text: 'The searcher went in and came out again in the time it takes to say a Paternoster.', role: 'the searcher' }],
+    },
+    // A Magistrate's crime: the Mint itself strikes light.
+    mint: {
+      label: 'The Mint', title: 'The Light Gulden of {scene}', lesser: 'false account, not coining', lifetime: 280, difficulty: 8, council: true,
+      keyAspects: ['financial', 'digital', 'forensic'], districts: ['uptown'],
+      charge: { financial: 3, digital: 2, forensic: 2 },
+      scenes: ['the Mint', 'the Assay Office', 'the {last} Counting-house'],
+      brief: 'At the Trial of the Pyx the Mint\'s own coins were weighed against the city\'s standard before the Council, and every one was light. Not clipped, not worn: struck light, under the city\'s eagle. The Mint\'s warden, {victim}, has asked for the Watch, which is brave of a warden. The Council wants it answered quietly, before the Emperor hears.',
+      roles: [
+        { role: 'the Mint\'s assayer', motive: 'Weighs every melt alone, and signs for it.' },
+        { role: 'the die-cutter', motive: 'Cuts the dies, and keeps the old ones he was told to break.' },
+        { role: 'the Mintmaster\'s wife', sex: 'f', motive: 'Keeps a house on the Hill above the Mintmaster\'s salary.' },
+        { role: 'a silver merchant', motive: 'Sells the Mint its silver, and buys back what it does not use.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Trial of the Pyx', text: 'Twelve coins from the Mint\'s own box, sealed by the Council.', needs: 'lab',
+          result: { label: 'The Pyx Weighed', text: 'Twelve coins from the Mint\'s own box against the city\'s standard: every one a grain light, the same grain.', aspects: { financial: 2, forensic: 1 } } },
+        { type: 'evidence', label: 'The Die-Cutter\'s Ledger', text: 'Dies cut, dies broken, in a neat hand.', needs: null,
+          result: { label: 'Two Dies Never Broken', text: 'Every die is entered twice: cut, and broken before the Council. Two are entered once.', aspects: { digital: 3 } } },
+        { type: 'clue', label: 'Silver Bought After Curfew', text: 'Silver came in by the river gate after the bell, and the Mint\'s book has no line for it.', aspects: { financial: 2, digital: 1 } },
+        { type: 'evidence', label: 'The Assay Scales, Filed', text: 'The Mint\'s own scales. One arm is brighter than the other.', needs: 'bio',
+          result: { label: 'The Beam Read', text: 'A file has taken a hair off one arm of the beam. The scales weigh true for silver going out and false for silver coming in.', aspects: { forensic: 3 } } },
+      ],
+      witnesses: ['a Mint apprentice', 'the river-gate keeper', 'the Mintmaster\'s cook'],
+      hints: [{ text: 'The assayer weighs alone. The Mintmaster made that rule, and then forgot it.' }, { text: 'A boat comes to the river gate after the bell, and nobody writes it down.' }, { text: 'The die-cutter drinks better wine than a die-cutter.', role: 'the die-cutter' }],
+    },
+    // A Magistrate's crime: a house asleep, and a hanged man's hand gone from the gibbet.
+    gloryhand: {
+      label: 'The Hand of Glory', title: 'A Hand of Glory at {scene}', lesser: 'theft, not burglary by witchcraft', lifetime: 260, difficulty: 8, heresy: true,
+      keyAspects: ['forensic', 'opportunity', 'testimony'], districts: ['uptown', 'market', 'canal'],
+      charge: { forensic: 3, opportunity: 2, testimony: 2 },
+      scenes: ['the {last} House', '{last} the Goldsmith\'s', 'the Abbey Guest-house'],
+      brief: 'Every soul in {victim}\'s house slept through the night like the dead, the dogs too, and in the morning the plate was gone. On the sill, a stub of candle in a ring of grease. On the Ravenstone gibbet, a hanged man is missing his right hand. The Dominicans call it witchcraft. A thief calls it a Hand of Glory.',
+      roles: [
+        { role: 'the executioner\'s knecht', sex: 'm', motive: 'Cuts down the hanged for the pit, and is paid by the piece for what the pit does not need.' },
+        { role: 'an apothecary', motive: 'Sells mandrake and poppy by the ounce, and asks nothing.' },
+        { role: 'a housebreaker of the Stews', motive: 'Breaks houses, and believes what the old thieves told him.' },
+        { role: 'a maidservant of the house', sex: 'f', motive: 'Mixed the household\'s posset that night, and nobody else touched it.' },
+      ],
+      items: [
+        { type: 'evidence', label: 'The Candle-Stub in the Hand', text: 'Grey tallow in a ring of grease on the sill. It smells sweet.', needs: 'bio',
+          result: { label: 'Fat and Poppy', text: 'Song Ci would not believe in the hand. He would believe the candle: tallow cut with poppy and henbane, enough to keep a house asleep in a shut room.', aspects: { forensic: 3 } } },
+        { type: 'clue', label: 'The Gibbet Ladder', text: 'A ladder left against the Ravenstone gibbet, with the mud of the Stews on the rungs.', aspects: { opportunity: 2 } },
+        { type: 'clue', label: 'Mandrake Sold by the Ounce', text: 'The apothecary\'s poison book: mandrake and poppy, three ounces, the week before. A name in a bad hand.', aspects: { testimony: 1, forensic: 1 } },
+        { type: 'clue', label: 'The Posset', text: 'The household drank its posset at nine and slept by ten. The cook says it was bitter.', aspects: { testimony: 2 } },
+      ],
+      witnesses: ['the night-watchman on the Hill', 'the hangman\'s boy', 'the cook of the house'],
+      hints: [{ text: 'There was a light in the window, and nobody holding it.' }, { text: 'Somebody climbed the Ravenstone after the gate shut. The crows were up.' }, { text: 'He bought poppy enough to put a regiment to sleep, and said it was for his teeth.' }],
     },
 
     // --- Special cases -------------------------------------------------
@@ -771,10 +994,12 @@
   // The crimes by rank (js/engine.js casePool): an Examiner gets the plain
   // ones, a Sworn Examiner the deaths and the frauds, a Bailiff the strange
   // and the professional, a Magistrate the rest.
-  CF.CASE_TIERS = [['burglary', 'extortion', 'coining', 'arson'], ['missing', 'harbor', 'poison', 'fraud'], ['witch', 'scriptorium', 'contract'], ['threedays']];
+  CF.CASE_TIERS = [['burglary', 'extortion', 'coining', 'arson', 'weights'], ['missing', 'harbor', 'poison', 'fraud', 'searchers'], ['witch', 'scriptorium', 'contract'], ['threedays', 'mint', 'gloryhand']];
   // How often an ordinary case is one the whole city watches, by rank.
   CF.HIGH_PROFILE_CHANCE = [0, 0.08, 0.15, 0.2];
-  CF.ORDINARY_CASES = ['burglary', 'missing', 'harbor', 'arson', 'fraud', 'extortion', 'poison', 'coining', 'scriptorium', 'witch', 'contract', 'threedays'];
+  CF.ORDINARY_CASES = ['burglary', 'missing', 'harbor', 'arson', 'fraud', 'extortion', 'poison', 'coining', 'scriptorium', 'witch', 'contract', 'threedays', 'weights', 'searchers', 'mint', 'gloryhand'];
+  // The written mysteries with one answer: sent once a run (js/engine.js casePool, s.flags.seenCases).
+  CF.ONCE_CASES = ['threedays', 'scriptorium', 'witch'];
   // Crimes that arrive on their own clock: the Pattern, once a run, from week six.
   CF.RARE_CASES = ['pattern'];
   // Crimes the city breeds only after the Court of Miracles is scattered.

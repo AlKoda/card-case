@@ -30,7 +30,7 @@ function run(e, verb, cards) {
 
 // ---- Every new crime is a whole crime -----------------------------------------
 (function whole() {
-  ['scriptorium', 'witch', 'highway', 'contract'].forEach(function (tid) {
+  ['scriptorium', 'witch', 'highway', 'contract', 'weights', 'searchers', 'mint', 'gloryhand'].forEach(function (tid) {
     var T = CF.CASE_TEMPLATES[tid];
     assert.ok(T && T.lesser && T.items.length >= 4 && T.witnesses.length >= 3 && T.hints.length >= 3 && T.roles.length >= 3, tid + ' is complete');
     assert.ok(CF.STRUCTURES[tid] && CF.STRUCTURES[tid].length >= 1, tid + ' has structures');
@@ -49,7 +49,37 @@ function run(e, verb, cards) {
   });
   assert.ok(CF.ORDINARY_CASES.indexOf('scriptorium') >= 0 && CF.ORDINARY_CASES.indexOf('witch') >= 0 && CF.ORDINARY_CASES.indexOf('contract') >= 0);
   assert.ok(CF.ORDINARY_CASES.indexOf('highway') < 0, 'the highway is not an ordinary crime');
+  // The new crimes sit in their offices' tiers, with a ladder and three structures each.
+  assert.ok(CF.CASE_TIERS[0].indexOf('weights') >= 0 && CF.CASE_TIERS[1].indexOf('searchers') >= 0, 'false weights for an Examiner, the searchers for a Sworn Examiner');
+  assert.ok(CF.CASE_TIERS[3].indexOf('mint') >= 0 && CF.CASE_TIERS[3].indexOf('gloryhand') >= 0, 'the Mint and the Hand of Glory for a Magistrate');
+  assert.ok(CF.CASE_TEMPLATES.mint.council && CF.CASE_TEMPLATES.gloryhand.heresy, 'the Council wants the Mint quiet; the Dominicans smell the Hand of Glory');
+  assert.ok(CF.LADDERS.mint.wheel === 'The Fire' && CF.LADDERS.weights.custom === 'pillory', 'coiners burn; short measure stands in the pillory');
   console.log('whole: ok');
+})();
+
+// ---- A written mystery with one answer comes once a run ----------------------------
+(function onceARun() {
+  var e = game(31);
+  e.s.rank = 3;
+  CF.ONCE_CASES.forEach(function (tid) { assert.ok(e.casePool().indexOf(tid) >= 0, tid + ' is in a Magistrate\'s pool before it is sent'); });
+  var rec = e.caseRec(e.spawnCase('threedays', { quiet: true }).caseId);
+  assert.strictEqual(rec.template, 'threedays');
+  assert.deepStrictEqual(e.s.flags.seenCases, ['threedays'], 'the Apple in the Chest is remembered');
+  assert.ok(e.casePool().indexOf('threedays') < 0, 'and not sent again');
+  assert.ok(e.casePool().indexOf('scriptorium') >= 0 && e.casePool().indexOf('mint') >= 0, 'the rest of the pool stands');
+  for (var i = 0; i < 60; i++) { var c = e.spawnCase(null, { quiet: true }); assert.notStrictEqual(e.caseRec(c.caseId).template, 'threedays', 'never twice'); e.goCold(c.caseId); }
+  // An older save has seen the mysteries on its record.
+  var old = JSON.parse(e.save());
+  delete old.flags.seenCases;
+  var g = CF.Engine.load(old);
+  assert.deepStrictEqual(g.s.flags.seenCases.filter(function (t) { return t === 'threedays'; }), ['threedays'], 'an older save remembers from its cases');
+  assert.ok(g.casePool().indexOf('threedays') < 0);
+  var fresh = JSON.parse(game(32).save());
+  delete fresh.flags.seenCases;
+  assert.deepStrictEqual(CF.Engine.load(fresh).s.flags.seenCases, [], 'and a save with none has seen none');
+  // The harbour's body is found at its own scene.
+  assert.ok(/\{scene\}/.test(CF.CASE_TEMPLATES.harbor.title));
+  console.log('once a run: ok');
 })();
 
 // ---- The Witch Mark is always the Council's; the Fire waits at the top ----------
@@ -382,7 +412,10 @@ console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, name
   // A culprit whose mark the case describes: the scene item and the raw proof read from it carry it.
   var e2 = game(5);
   var rec2 = e2.caseRec(e2.spawnCase('extortion', { quiet: true, culpritTrait: 'lefty' }).caseId);
-  var letter = CF.CASE_TEMPLATES.extortion.items.filter(function (it) { return it.echoes === 'lefty'; })[0];
+  // The letter is the written case's (the stall's lead gives it).
+  var XT = CF.CASE_TEMPLATES.extortion, xgives = XT.items.slice();
+  (XT.leads || []).forEach(function (l) { xgives = xgives.concat(l.gives || []); });
+  var letter = xgives.filter(function (it) { return it.echoes === 'lefty'; })[0];
   assert.ok(letter, 'the threatening letter echoes a left hand');
   rec2.suspects.forEach(function (x) { if (!x.guilty) assert.notStrictEqual(x.trait, 'lefty'); });
   e2.s.verbs.analyze.unlocked = true;

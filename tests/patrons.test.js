@@ -395,7 +395,8 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   var none = asked(761, 0);
   assert.ok(!none.s.choice || none.s.choice.id !== 'election', 'no patron, no question');
   var slight = game(762); slight.s.flags.firstCase = true; slight.favour().council = 1; slight.s.week = CF.Patrons.ELECTION_EVERY - 1; slight.s.choice = null;
-  assert.ok(slight.patronsWeek().some(function (l) { return /elects next week/.test(l); }) && !slight.s.choice, 'favour 1: told, not asked');
+  // (Round 8: a patron of favour 1 asks only to be seen at his door, the canvass; never how you stand.)
+  assert.ok(slight.patronsWeek().some(function (l) { return /elects next week/.test(l); }) && (!slight.s.choice || slight.s.choice.id === 'canvass'), 'favour 1: told, not asked how you stand');
   // Stand with him: Coin paid; the count told the next week, and its return either way.
   var held = false, lost = false;
   for (var i = 0; i < 40 && !(held && lost); i++) {

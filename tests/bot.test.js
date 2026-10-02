@@ -21,6 +21,21 @@ function clueWeight(c) { var a = CF.clueAspects(c), w = 0; for (var k in a) w +=
 function wordOf(c) { var d = c.data || {}; return (d.confession ? 3 : 0) + (d.stake && !d.coerced ? 2 : 0) + (d.points ? 2 : 0) + (d.corroborated ? 1 : 0); }
 function namesOne(c) { var d = c.data || {}; return !d.alibi && (d.points || d.trait) ? 1 : 0; }
 
+// The four tokens that make the strongest charge against the accused: the
+// heaviest first, and when those fall short of full proof, every four of the
+// best eight (a great case asks for more kinds than four slots hold at once).
+var TIER = { weak: 0, reasonable: 1, strong: 2 };
+function bestProof(e, target, proof) {
+  var first = proof.slice(0, 4), a = e.assessCharge(target, first);
+  if (a.tier === 'strong' || proof.length <= 4 || Math.floor(e.s.t) % 5) return { cards: first, a: a };
+  var pool = proof.slice(0, 8), best = { cards: first, a: a };
+  for (var i = 0; i < pool.length; i++) for (var j = i + 1; j < pool.length; j++) for (var k = j + 1; k < pool.length; k++) for (var l = k + 1; l < pool.length; l++) {
+    var set = [pool[i], pool[j], pool[k], pool[l]], b = e.assessCharge(target, set);
+    if (TIER[b.tier] > TIER[best.a.tier] || (TIER[b.tier] === TIER[best.a.tier] && b.score > best.a.score)) best = { cards: set, a: b };
+  }
+  return best;
+}
+
 function tryRun(e, vid, cards) {
   var v = e.verb(vid);
   if (!v.unlocked || v.status !== 'idle') return false;
@@ -46,6 +61,45 @@ function answerChoice(e) {
   CF.VERB_ORDER.forEach(function (vid) { if (e.verb(vid).status === 'idle') e.clearSlots(vid); });
   for (var j = 0; j < c.options.length; j++) if (e.canChoose(j)) return e.choose(j);
   return false;
+}
+
+// The late arcs a player meets: the Pattern read and its next door, a Thread
+// pulled and closed in on, the Coquille gone down to, parleyed with or ruled,
+// and a case cried before it goes cold.
+function lateArcs(e, temper) {
+  var s = e.s, team = of(e, 'teammate'), funds = of(e, 'funds');
+  // (a) Two doors of the Pattern in Rest, then the next door with Instinct or a watchman.
+  var doors = table(e, function (c) { return c.def === 'clue' && c.data.pattern; });
+  if (doors.length >= 2) tryRun(e, 'reflect', doors.slice(0, 2));
+  var next = table(e, function (c) { return asp(c).nextdoor; })[0];
+  if (next) tryRun(e, 'investigate', [next, of(e, 'instinct')[0] || team[0]]);
+  // (b) Two chits naming one door, from two cases, in Rest: a Thread; then close in.
+  var byLink = {};
+  table(e, function (c) { return c.def === 'clue' && c.data.link; }).forEach(function (c) { (byLink[c.data.link] = byLink[c.data.link] || []).push(c); });
+  Object.keys(byLink).some(function (k) {
+    var l = byLink[k], other = l.filter(function (c) { return c.caseId !== l[0].caseId; })[0];
+    return other && tryRun(e, 'reflect', [l[0], other]);
+  });
+  var thread = of(e, 'thread')[0];
+  if (thread) {
+    var front = e.fronts()[thread.data.front] || {};
+    tryRun(e, 'reflect', front.fence || front.society ? [thread] : [thread, of(e, 'gang')[0] || of(e, 'syndicate')[0]]);
+  }
+  var syn = of(e, 'syndicate')[0], court = e.court ? e.court() : {};
+  // (c) The Reformer goes down to the Court: a leaf of the ledger at a time, then the case against it.
+  if (syn && s.calling === 'crusader' && s.rank >= 2 && temper !== 'schemer' && of(e, 'health').length) tryRun(e, 'investigate', [syn, of(e, 'instinct')[0], team[0]]);
+  // (d) The schemer deals with the Court: a parley, or its trial and in time its throne.
+  if (syn && temper === 'schemer' && s.rank >= 2) {
+    if (court.inside && e.canTakeThrone()) tryRun(e, 'investigate', [syn, of(e, 'instinct')[0]]);
+    else if (!court.stance && !court.inside && (s.seed || 0) % 2) tryRun(e, 'investigate', [syn, of(e, 'focus')[0]]);
+    else if (!court.stance && !court.inside && funds.length >= 2) tryRun(e, 'investigate', [syn, of(e, 'instinct')[0], funds[0], funds[1]]);
+  }
+  if (temper === 'schemer' && of(e, 'tribute')[0]) tryRun(e, 'duty', [of(e, 'tribute')[0]]);
+  // (e) A case the whole city watches, close to going cold: have it cried.
+  if (s.rank >= 3 && funds.length >= 2) {
+    var hp = of(e, 'case').filter(function (c) { var r = e.caseRec(c.caseId); return r && r.highProfile && !r.major && c.life < 60; })[0];
+    if (hp) tryRun(e, 'duty', [hp, of(e, 'focus')[0], funds[0], funds[1]]);
+  }
 }
 
 function step(e, temper) {
@@ -99,6 +153,7 @@ function step(e, temper) {
     var work = table(e, function (c) { return e.rivalWork(c); })[0];
     if (work && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0], work]);
   } else if (rival && of(e, 'focus')[0]) tryRun(e, 'interrogate', [rival, of(e, 'focus')[0]]);
+  lateArcs(e, temper);
 
   // Sentence, by temperament: merciful takes the lightest rung, brutal the
   // heaviest, custom what the Council would do, corrupt whatever a purse asks.
@@ -111,7 +166,7 @@ function step(e, temper) {
     var pick = null;
     if (temper === 'merciful') pick = rungs[0];
     else if (temper === 'brutal') pick = rungs[rungs.length - 1];
-    else if (temper === 'corrupt') pick = pleas.some(function (p) { return p.data.purse; }) ? rungs[0] : rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
+    else if (temper === 'corrupt' || temper === 'schemer') pick = pleas.some(function (p) { return p.data.purse; }) ? rungs[0] : rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
     else pick = rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
     // One who wants the Seat answers the Bishop's and the Guilds' commissions as they wish: their seals vote.
     var crec = e.caseRec(cond.data.caseId || cond.caseId), com = crec && crec.commission;
@@ -120,7 +175,7 @@ function step(e, temper) {
       pick = rungs.filter(function (r) { return wish.indexOf(r.data.rung) >= 0; })[0] || pick;
     }
     var purse = pleas.filter(function (p) { return p.data.purse; })[0];
-    if (pick) tryRun(e, 'sentence', [cond, pick, temper === 'corrupt' && purse ? purse : pleas[0]]);
+    if (pick) tryRun(e, 'sentence', [cond, pick, (temper === 'corrupt' || temper === 'schemer') && purse ? purse : pleas[0]]);
   }
   // Temptations.
   if (temper === 'corrupt') {
@@ -159,8 +214,8 @@ function step(e, temper) {
     // Arrest when solid or out of time.
     var target = prime || (cc.life < 40 ? suspects[0] : null);
     if (target) {
-      var a = e.assessCharge(target, proof.slice(0, 4));
-      if (a.tier === 'strong' || cc.life < 40) { tryRun(e, 'arrest', [target].concat(proof.slice(0, 4))); return; }
+      var bp = bestProof(e, target, proof);
+      if (bp.a.tier === 'strong' || cc.life < 40) { tryRun(e, 'arrest', [target].concat(bp.cards)); return; }
     }
     // A hand with no name yet: hold it against the accused, one at a time.
     var hand = clues.filter(function (c) { return c.data.names && !c.data.points; })[0];
@@ -235,18 +290,24 @@ module.exports = { step: step, play: function (e, ticks, temper) { for (var t = 
 if (require.main !== module) return;
 var GAMES = +process.argv[2] || 45;
 var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
+// The schemer deals with the Coquille (a parley, its trial, its throne). Its games
+// come after the main ones and are counted apart, so the seeded run stays as it was.
+var SCHEMERS = Math.max(2, Math.round(GAMES / 10)), schemerEnds = {};
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
 var earlyCoquille = 0, drifts = {}, attacks = {}, seatWins = [];
 var restTicks = 0, allTicks = 0, tallyGames = 0, trained = 0, perks = 0;
+var threadGames = 0, receivers = 0, byCalling = {};
 var rivalCame = 0, rivalExposed = 0, rivalClosed = 0, rivalCaught = 0, stagedRead = 0, harbour = { opened: 0, fell: 0, friends: 0 };
-for (var g = 0; g < GAMES; g++) {
+for (var g = 0; g < GAMES + SCHEMERS; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
-  var temper = TEMPERS[Math.floor(g / 3) % 4];
+  var temper = g < GAMES ? TEMPERS[Math.floor(g / 3) % TEMPERS.length] : 'schemer';
+  var main = g < GAMES;
   // The whole city: the needs and the choices run from the first day.
   var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who, life: true });
   e.on(function (type, p) {
+    if (!main) return;
     if (type === 'story' && /^Lost: /.test(p.title)) lost++;
     if (type === 'chosen') choices++;
     if (type === 'story' && /^Your .* is more than it was\.$/.test(p.title)) trained++;
@@ -259,12 +320,13 @@ for (var g = 0; g < GAMES; g++) {
     if (type === 'story' && p.title === 'The Harbourmaster Falls') harbour.fell++;
     if (type === 'story' && p.title === 'He Has Friends') harbour.friends++;
   });
-  var band = null, reached2 = false, below = 0, early = false, tallied = false;
+  var band = null, reached2 = false, below = 0, early = false, tallied = false, threaded = false;
+  e.on(function (type, p) { if (type === 'story' && p.title === 'These Cases Are One') threaded = true; if (main && type === 'story' && p.title === 'The Receiver') receivers++; });
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
     step(e, temper);
     CF.VERB_ORDER.forEach(function (vid) { var v = e.s.verbs[vid]; if (v.status === 'running') seen[v.recipe] = true; });
-    allTicks++;
-    if (e.s.verbs.reflect && e.s.verbs.reflect.status === 'running') restTicks++;
+    if (main) allTicks++;
+    if (main && e.s.verbs.reflect && e.s.verbs.reflect.status === 'running') restTicks++;
     if (!tallied && e.abroadTally().n >= 4) tallied = true;
     e.tick(1);
     if (!band && e.countOf('gang')) band = { week: e.s.week, rank: e.s.rank };
@@ -273,7 +335,11 @@ for (var g = 0; g < GAMES; g++) {
     if (calling === 'crusader' && e.s.rank < 2 && !early && e.countOf('syndicate') &&
       !e.s.journal.some(function (j) { return j.title === 'The Coquille' && /^The bands have stopped/.test(j.text); })) early = true;
   }
+  if (!main) { var sid = calling.slice(0, 4) + ':' + (e.s.over ? e.s.over.id : 'survived'); schemerEnds[sid] = (schemerEnds[sid] || 0) + 1; continue; }
   if (early) earlyCoquille++;
+  if (threaded) threadGames++;
+  byCalling[calling] = byCalling[calling] || {};
+  byCalling[calling][e.s.over ? e.s.over.id : 'survived'] = (byCalling[calling][e.s.over ? e.s.over.id : 'survived'] || 0) + 1;
   if (tallied) tallyGames++;
   perks += Object.keys(e.s.perks || {}).length;
   rivalExposed += e.s.stats.rivalExposed || 0;
@@ -352,8 +418,22 @@ console.log('attacks per game by calling', JSON.stringify(Object.keys(attacks).r
 console.log('per game: needs met', (needsMet / GAMES).toFixed(2), '| abilities lost', (lost / GAMES).toFixed(2), '| choices answered', (choices / GAMES).toFixed(2));
 console.log('a mark left to be found, read in Rest:', stagedRead, '| the Harbourmaster\'s books', JSON.stringify(harbour));
 console.log('Rest busy', (100 * restTicks / Math.max(1, allTicks)).toFixed(1) + '% of ticks | the Crowd\'s tally reached 4 in', tallyGames, 'of', GAMES, 'games | Insights learned', trained, '| tricks kept', perks);
+console.log('endings by calling', JSON.stringify(byCalling), '| the schemer', JSON.stringify(schemerEnds));
+console.log('the network: a Thread found in', threadGames, 'of', GAMES, 'games | the receiver\'s case opened', receivers, 'times | the Pattern read', seen.ref_deduce ? 'yes' : 'no', '| the next door', !!seen.inv_next_door, '| cried', !!seen.major_declare, '| the Court\'s trial', !!seen.undercover_trial, '| the throne', !!seen.undercover_throne, '| a parley', !!seen.undercover_parley);
 console.log('the Rival: came', rivalCame, '| exposed', rivalExposed, '| closed a case', rivalClosed, '| beaten on their case', rivalCaught);
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
+// The network is found in play: two chits to one door, laid together in Rest.
+if (GAMES >= 20) assert.ok(threadGames >= 1, 'a Thread is found in at least one game: ' + threadGames + ' of ' + GAMES);
+// Soft checks (printed, never failing): over a long run (45 games) every calling should reach
+// its own ending at least once, and none be dismissed in more than two games in five. A miss
+// is a gap in the design or in this bot, to be read, not a broken build.
+var OWN = { commissioner: 'commissioner', master: 'master', crusader: 'crusader' };
+Object.keys(OWN).forEach(function (cl) {
+  var b = byCalling[cl] || {}, runs = Object.keys(b).reduce(function (n, k) { return n + b[k]; }, 0);
+  var line = cl + ': own ending ' + (b[OWN[cl]] || 0) + ', dismissed ' + (b.dismissed || 0) + ' of ' + runs;
+  var ok = (b[OWN[cl]] || 0) >= 1 && (b.dismissed || 0) <= runs * 0.4;
+  console.log((ok ? 'soft check ok: ' : 'SOFT CHECK MISSED' + (GAMES < 45 ? ' (in ' + GAMES + ' games; meant for 45)' : '') + ': ') + line);
+});
 // The Rival is a race, not a Standing faucet: caught only at their own work, so in a run of games they win one.
 if (GAMES >= 20) assert.ok(rivalClosed >= 1, 'the Rival closes a case in at least one game: ' + rivalClosed);
 assert.ok(rivalExposed <= rivalCame, 'never exposed more often than sent');

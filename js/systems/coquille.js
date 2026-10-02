@@ -34,6 +34,8 @@
     missing: { role: 'Envoyeur', desc: 'a sender: people who are not seen again' },
     poison: { role: 'Blanc coulon', desc: 'a sleeper: the drugged cup in the inn dormitory' },
     arson: { role: 'Espieur', desc: 'a scout: watches, marks, and sometimes burns' },
+    weights: { role: 'Beffleur', desc: 'a decoy: lures the trusting into rigged games' },
+    gloryhand: { role: 'Crocheteur', desc: 'a lock-picker: in and out without a mark' },
   };
   Coq.roleOf = function (c) {
     var t = c && c.role || (c && c.history && c.history.length ? c.history[0].template : null);

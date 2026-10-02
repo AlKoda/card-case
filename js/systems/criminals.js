@@ -166,14 +166,16 @@
   // the Inquisitor took the case, 'rival' when the Harbourmaster's examiner
   // hanged them, nothing while the Hole still holds them. 'alibi' is where
   // the wrong name really was (one of CF.PROSE.alibis: their own, when they
-  // gave one), kept for the ballad.
-  P.hideCriminal = function (c, rec, how, alibi) {
+  // gave one), kept for the ballad. 'wrong' is the accused who answered for
+  // it: their sex is kept (wrongSex) for the mother who comes to the door.
+  P.hideCriminal = function (c, rec, how, alibi, wrong) {
     c.hidden = true;
     c.surfaceWeek = this.s.week + U.randInt(this.rng, 2, 4);
     c.wrongfulTitle = rec.title;
     c.wrongfulCase = rec.id;
     c.wrongfulHow = how || null;
     c.wrongfulAlibi = Crim.trueAlibi(alibi) ? alibi : Crim.alibiFor(c.name + '|' + rec.title);
+    c.wrongSex = (wrong && wrong.sex) || null;
     c.district = rec.district;
     return c;
   };
@@ -230,7 +232,7 @@
     var tid = this.criminalTrade(c);
     var T = CF.CASE_TEMPLATES[tid];
     var district = U.pick(this.rng, T.districts);
-    this.s.nextCase = { template: tid, district: district, extraTime: 0 };
+    this.s.nextCase = { template: tid, district: district, extraTime: 0, told: false };
     this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
     this.create('intel', {
       label: 'Warning: ' + T.label,
@@ -270,6 +272,7 @@
         lines.push(c.name + ' has done it again: ' + self.caseRec(card.caseId).title + '.');
       } else {
         // A full desk: the crime waits its turn, and the week says so.
+        spec.told = false;
         self.s.nextCase = spec;
         lines.push(c.name + ' has done it again. The Watch-house will hear of it when a desk is clear.');
       }

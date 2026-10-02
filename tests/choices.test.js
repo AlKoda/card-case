@@ -201,4 +201,127 @@ assert.ok(m.s.over.text.indexOf('{') < 0, 'nothing left unfilled');
 CF.ENDING_VARIANTS.master.forEach(function (v) { assert.ok(/your own lintel, and you rub them out with your thumb\.$/.test(v.text), 'the Scholar ends at the lintel'); });
 console.log('the ending\'s numbers: ok');
 
+// ---- The late questions: the powers you live with ask too --------------------------------
+(function late() {
+  CF.Patrons.register();
+  var ids = ['harbourtable', 'wrongmother', 'kingswine', 'inquisitorlist', 'canvass', 'hangmansdaughter'];
+  ids.forEach(function (id) {
+    var c = spec(id);
+    assert.ok(c, id + ' is one of the city\'s questions');
+    assert.ok(c.options.some(function (o) { return !o.cost; }), id + ' has an answer that costs nothing');
+    c.options.forEach(function (o) { assert.ok(o.gain && o.text && typeof o.effect === 'function', id + ': ' + o.label + ' says what it gives'); });
+  });
+  // The questions a verb invites come again ten weeks on, in other words.
+  ['lamplighter', 'pawnbroker', 'confessor', 'tapster'].forEach(function (id) { assert.ok(spec(id).again && spec(id).again !== spec(id).text, id + ' has a second wording'); });
+  var g0 = game(40);
+  assert.ok(CF.CHOICES.some(function (c) { return c.id === 'kingswine'; }), 'a new game keeps them');
+
+  // The Harbourmaster's table: a thread, a lost week, or Standing.
+  var e = game(41);
+  e.s.week = 9;
+  assert.ok(!e.choiceOpenFor(spec('harbourtable')), 'no examiner, no supper');
+  var r = e.create('rival', { label: 'The Rival: ' + CF.RIVAL_NAMES[0], data: { name: CF.RIVAL_NAMES[0], heat: 0, stalled: 0 } });
+  assert.ok(e.choiceOpenFor(spec('harbourtable')), 'the examiner at the table');
+  var saved = e.save();
+  e.offerChoice(spec('harbourtable'));
+  assert.ok(e.choose(0), 'go, and listen');
+  assert.strictEqual(e.cardsOf('rival', true)[0].data.heat, 1, 'a thread on the Rival');
+  var e2 = CF.Engine.load(saved);
+  e2.offerChoice(spec('harbourtable'));
+  assert.ok(e2.choose(1), 'go, and pour');
+  assert.strictEqual(e2.cardsOf('rival', true)[0].data.stalled, e2.s.week + 1, 'they lose a week');
+  assert.ok(!e2.choiceOpenFor(spec('harbourtable')), 'and are not at table while they sleep it off');
+  var e3 = CF.Engine.load(saved), rep = e3.s.meters.reputation;
+  e3.offerChoice(spec('harbourtable'));
+  assert.ok(e3.choose(2) && e3.s.meters.reputation === rep + 1, 'send regrets: Standing');
+
+  // The mother of the wrong name, at the Bell after the ballad, once.
+  var m = game(42);
+  m.s.flags.firstCase = true;
+  var rec = m.openCases()[0], cul = rec.suspects.filter(function (x) { return x.guilty; })[0], wrong = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  wrong.sex = 'm';
+  var k = m.criminalEscapes(rec, cul, 'wrongful');
+  m.hideCriminal(k, rec, 'rope', wrong.alibi, wrong);
+  assert.strictEqual(k.wrongSex, 'm');
+  m.patronsWeek();
+  assert.ok(!m.s.choice || m.s.choice.id !== 'wrongmother', 'not while the name is hidden');
+  m.s.choice = null;
+  m.surfaceCriminal(k);
+  m.patronsWeek();
+  assert.ok(m.s.choice && m.s.choice.id === 'wrongmother', 'his mother at the door');
+  assert.ok(m.s.choice.text.indexOf('Her son answered for ' + rec.title + '.') >= 0, m.s.choice.text);
+  var mercy = m.s.counts.mercy;
+  assert.ok(m.choose(0) && m.s.counts.mercy === mercy + 1, 'said on the steps: Mercy');
+  m.patronsWeek();
+  assert.ok(!m.s.choice, 'she comes once');
+  var md = game(43); md.s.flags.firstCase = true;
+  var rd = md.openCases()[0], kd = md.criminalEscapes(rd, rd.suspects.filter(function (x) { return x.guilty; })[0], 'wrongful');
+  md.hideCriminal(kd, rd, null, null, { sex: 'f' });
+  md.surfaceCriminal(kd);
+  md.patronsWeek();
+  assert.ok(md.s.choice && /Her daughter answered for .*\. The ballad says she did not do it\./.test(md.s.choice.text), md.s.choice && md.s.choice.text);
+  // An older save's record has no sex for the wrong name: her son, as before.
+  var oldM = JSON.parse(md.save()); oldM.choice = null; delete oldM.choicesSeen.wrongmother; delete oldM.criminals[kd.id].wrongSex; delete oldM.flags.canvassed;
+  var lm = CF.Engine.load(oldM);
+  assert.strictEqual(lm.s.criminals[kd.id].wrongSex, null, 'an older record loads without it');
+  assert.strictEqual(lm.s.flags.canvassed, null, 'and an older save has canvassed nobody');
+  lm.patronsWeek();
+  assert.ok(lm.s.choice && /Her son answered/.test(lm.s.choice.text), 'and her son it is');
+
+  // The King's wine, under the Treaty: a name, or the cask sent back.
+  var kw = game(44);
+  assert.ok(!kw.choiceOpenFor(spec('kingswine')), 'no Treaty, no wine');
+  kw.court().stance = 'treaty';
+  assert.ok(kw.choiceOpenFor(spec('kingswine')), 'the King\'s compliments');
+  var purses = kw.s.counts.purse;
+  kw.offerChoice(spec('kingswine'));
+  assert.ok(kw.choose(0));
+  var kr = kw.openCases()[0];
+  var named = kw.tableCards().filter(function (c) { return c.def === 'clue' && kw.labelOf(c) === 'The King\'s Name'; })[0];
+  assert.ok(named && named.data.points === kr.culprit && kw.s.counts.purse === purses + 1, 'a token that names a name, and a Purse');
+
+  // The Inquisitor's question: a name from the Rolls, nothing, or the Council's business.
+  var iq = game(45);
+  assert.ok(!iq.choiceOpenFor(spec('inquisitorlist')));
+  iq.s.flags.inquisitor = true;
+  assert.ok(iq.choiceOpenFor(spec('inquisitorlist')), 'the Inquisitor asks');
+  iq.offerChoice(spec('inquisitorlist'));
+  assert.ok(!iq.canChoose(0), 'no Unanswered case, no name to give');
+  assert.ok(iq.canChoose(2), 'the Council\'s business is free');
+  iq.create('coldcase', { label: 'Unanswered: The Old Case', data: {} });
+  var bishop = iq.favour().bishop, cruel = iq.s.counts.cruelty;
+  assert.ok(iq.choose(0));
+  assert.ok(!iq.cardsOf('coldcase', true).length && iq.favour().bishop === bishop + 2 && iq.s.counts.cruelty === cruel + 1, 'the file given: the Bishop warms, and Cruelty');
+
+  // The canvass: a patron of favour 1 asks to see you at his door, and the seat is safer for it.
+  function canvassed(seed, be) {
+    var c = game(seed); c.s.flags.firstCase = true; c.favour().council = 1; c.s.week = CF.Patrons.ELECTION_EVERY - 1; c.s.choice = null;
+    c.patronsWeek();
+    assert.ok(c.s.choice && c.s.choice.id === 'canvass', 'the canvass is put');
+    c.choose(be ? 0 : 1);
+    if (be) assert.strictEqual(c.s.flags.canvassed, c.s.week + 1);
+    c.s.week++;
+    c.s.choice = null;
+    c.patronsWeek();
+    assert.ok(!c.s.flags.canvassed || c.s.flags.canvassed >= c.s.week, 'kept only to the count');
+    return c.favour().council === 0;
+  }
+  var lostSeen = 0, lostAway = 0;
+  for (var i = 0; i < 120; i++) { if (canvassed(500 + i, true)) lostSeen++; if (canvassed(500 + i, false)) lostAway++; }
+  assert.ok(lostSeen < lostAway, 'seen at his door, he loses less often: ' + lostSeen + ' against ' + lostAway);
+
+  // The executioner's daughter: for a hard examiner or the hangman's child.
+  var hd = game(46);
+  assert.ok(!hd.choiceOpenFor(spec('hangmansdaughter')));
+  hd.s.counts.cruelty = 3;
+  assert.ok(hd.choiceOpenFor(spec('hangmansdaughter')), 'the hangman asks a hard examiner');
+  hd.s.counts.cruelty = 0; hd.s.who = 'hangman';
+  assert.ok(hd.choiceOpenFor(spec('hangmansdaughter')), 'and his own trade');
+  // A question held open in a save comes back with its answers.
+  hd.offerChoice(spec('hangmansdaughter'));
+  var back = CF.Engine.load(hd.save());
+  assert.ok(back.s.choice && back.s.choice.id === 'hangmansdaughter' && back.s.choice.options.length === 2, 'kept across a save');
+  console.log('the late questions: ok (canvassed lost ' + lostSeen + ', not ' + lostAway + ' of 120)');
+})();
+
 console.log('choices: all OK');

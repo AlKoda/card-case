@@ -157,3 +157,79 @@ function gangUp(e) {
   assert.strictEqual(e2.fronts()[front.id].name, front.name);
   console.log('network: ok');
 })();
+
+// ---- The receiver of stolen goods: a front with no band, from the first office ------------
+(function receiver() {
+  var e = game(64);
+  assert.ok(!e.fenceFront(), 'no receiver for an Examiner');
+  var rng0 = e.rng.getState ? e.rng.getState() : null;
+  e.promote();
+  var fence = e.fenceFront();
+  assert.ok(fence && fence.fence && fence.district === 'market' && !fence.known, 'the first office: a receiver keeps a door in the Market');
+  assert.ok(/Pawnshop|Lock-up/.test(fence.name), fence.name);
+  if (rng0 !== null) assert.strictEqual(e.rng.getState(), rng0, 'nobody is told, and the dice are not touched');
+  assert.ok(!e.s.journal.some(function (j) { return j.text.indexOf(fence.name) >= 0; }), 'nobody is told');
+  e.promote();
+  assert.strictEqual(Object.keys(e.fronts()).filter(function (k) { return e.fronts()[k].fence; }).length, 1, 'one receiver');
+  // The thefts go through his door; the deaths do not.
+  var thefts = 0, deaths = 0;
+  for (var i = 0; i < 40; i++) {
+    var b = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId); if (b.front === fence.id) thefts++; e.goCold(b.id);
+    var h = e.caseRec(e.spawnCase('harbor', { quiet: true }).caseId); if (h.front) deaths++; e.goCold(h.id);
+  }
+  assert.ok(thefts > 5 && thefts < 30, 'some thefts pass through the receiver: ' + thefts);
+  assert.strictEqual(deaths, 0, 'no killing goes through a pawnshop');
+  e.s.meters.pressure = 0; e.s.meters.retaliation = 0; e.s.over = null;
+  byDef(e, 'atlarge').concat(byDef(e, 'coldcase')).forEach(function (c) { e.remove(c); });
+  // Two chits from two cases: the dossier's quiet cue, then the Thread.
+  var r1 = null, r2 = null;
+  for (var j = 0; j < 60 && !(r1 && r2); j++) {
+    var r = e.caseRec(e.spawnCase(['burglary', 'coining', 'extortion', 'fraud'][j % 4], { quiet: true, lifetime: 900 }).caseId);
+    if (r.front === fence.id) { if (!r1) r1 = r; else r2 = r; } else e.goCold(r.id);
+  }
+  e.s.meters.pressure = 0; e.s.meters.retaliation = 0;
+  byDef(e, 'atlarge').concat(byDef(e, 'coldcase')).forEach(function (c) { e.remove(c); });
+  assert.ok(r1 && r2, 'two thefts through his door');
+  var l1 = r1.items.filter(function (it) { return it.link === fence.id; })[0], l2 = r2.items.filter(function (it) { return it.link === fence.id; })[0];
+  assert.ok(l1 && l1.text.indexOf(fence.name) >= 0, 'a chit names his door');
+  var a = e.create('clue', e.clueSpec(r1, l1, []));
+  assert.strictEqual(e.linkTwin(a), null, 'alone, no cue');
+  var b2 = e.create('clue', e.clueSpec(r2, l2, []));
+  assert.strictEqual(e.linkTwin(a), b2, 'another token on the table names the same door');
+  assert.ok(CF.Network.TWIN_LINE, 'the cue has words');
+  var res = run(e, 'reflect', [a, b2]);
+  var thread = res.out.filter(function (c) { return c.def === 'thread'; })[0];
+  assert.ok(thread && thread.data.fence && /A receiver of stolen goods keeps it\. Bring the Thread to Rest alone/.test(thread.desc), thread && thread.desc);
+  assert.ok(fence.known && byDef(e, 'front').some(function (c) { return /receiver of stolen goods/.test(c.desc); }), 'his door on the table');
+  // The Thread alone, in Rest: a case against the receiver.
+  var th = run(e, 'reflect', [thread]);
+  assert.strictEqual(th.id, 'ref_thread');
+  var rc = e.openCases().filter(function (x) { return x.template === 'receiver'; })[0];
+  assert.ok(rc && rc.scene === fence.name && rc.fenceFront === fence.id && rc.title === 'The Receiver at ' + fence.name, rc && rc.title);
+  assert.strictEqual(rc.suspects.filter(function (x) { return x.guilty; })[0].role, 'the receiver');
+  assert.ok(e.receiverOpen(fence.id));
+  // A case closed: its chit stays in the drawer.
+  var kept = e.create('clue', e.clueSpec(r1, l1, []));
+  e.clearCaseCards(r1.id);
+  assert.ok(e.card(kept.uid) && kept.data.kept, 'a chit to the receiver outlives its case');
+  // Convicted: his door shuts, and the open cases that went through it get their goods back.
+  var notes = [];
+  e.onConviction(rc, { guilty: true, name: rc.suspects.filter(function (x) { return x.guilty; })[0].name }, notes);
+  assert.ok(fence.fallen && !e.fenceFront(), 'his door is shut');
+  var back = byDef(e, 'clue').filter(function (c) { return e.labelOf(c) === 'Recovered Goods'; });
+  assert.ok(back.length >= 2 && back.every(function (c) { var rr = e.caseRec(c.caseId); return rr.front === fence.id && c.data.points === rr.culprit; }), 'Recovered Goods on every linked case, and who brought them');
+  assert.ok(notes.some(function (n) { return /is shut\. In the back room, goods from \d+ of your cases/.test(n); }), notes.join(' | '));
+  var after = 0;
+  for (var k = 0; k < 20; k++) { var x = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId); if (x.front === fence.id) after++; e.goCold(x.id); }
+  assert.strictEqual(after, 0, 'no more chits to a shut door');
+  // An older save: its fronts are bands', and past its first office the receiver opens his door on load.
+  var o = game(65); o.s.rank = 1;
+  var old = JSON.parse(o.save());
+  var lo = CF.Engine.load(old);
+  assert.ok(lo.fenceFront(), 'an older Sworn Examiner finds the receiver');
+  var o2 = game(66); o2.newFront('the Lanternless', 'docks');
+  var old2 = JSON.parse(o2.save()); Object.keys(old2.network.fronts).forEach(function (k2) { delete old2.network.fronts[k2].fence; delete old2.network.fronts[k2].fallen; });
+  var lo2 = CF.Engine.load(old2), fr2 = lo2.frontsFor()[0];
+  assert.ok(fr2.fence === false && fr2.fallen === false && !lo2.fenceFront(), 'an older band front stays a band\'s, and an Examiner has no receiver yet');
+  console.log('the receiver: ok (' + thefts + ' of 40 thefts through his door)');
+})();

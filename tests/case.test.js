@@ -377,7 +377,8 @@ function jointure(d) {
 // ---- A dry scene says so, and a strain card never waits without Rest ----------
 (function dryAndRest() {
   var e = CF.Engine.newGame({ seed: 61, calling: 'master' });
-  var rec = e.caseRec(e.spawnCase('arson', { quiet: true }).caseId), card = e.caseCard(rec.id);
+  // A crime with no written leads: the Quarter goes door to door at once.
+  var rec = e.caseRec(e.spawnCase('fraud', { quiet: true }).caseId), card = e.caseCard(rec.id);
   var d = e.giveDistrict(rec.district);
   e.autoSlot('investigate', card.uid); e.autoSlot('investigate', d.uid);
   assert.strictEqual(e.currentRecipe('investigate').recipe.id, 'inv_canvass');
@@ -512,4 +513,151 @@ function jointure(d) {
   }
   assert.ok(alive > 5 && alive < 30 && !wrong, 'alive in ' + alive + ' of 80, never where they walked out');
   console.log('the Vanished alive: ok (' + alive + ' of 80)');
+})();
+
+// ---- The first crimes are written cases too: coining, protection, fire ---------------
+// Each has three threads; any two make a full proof before an Examiner's Court.
+function written(seed, tid, tools) {
+  var d = new Detective(seed), e = d.e;
+  e.s.flags.marketOpen = true;
+  d.byDef('case').forEach(function (c) { e.goCold(c.caseId); });
+  e.s.meters.pressure = 0; e.s.meters.retaliation = 0;
+  d.byDef('atlarge').forEach(function (c) { e.remove(c); });
+  var kase = e.spawnCase(tid, { quiet: true, lifetime: 900 });
+  d.rec0 = e.caseRec(kase.caseId);
+  d.kase = kase;
+  (tools || []).forEach(function (t) { d.give(t); });
+  var out = d.run('investigate', [kase]);
+  assert.strictEqual(e.verb('investigate').recipe, 'lead_' + tid + '_scene', tid + ': the scene is written');
+  d.found = out;
+  return d;
+}
+function tok(d, re) { var c = d.byLabel(re)[0]; assert.ok(c, 'no token ' + re + ' among ' + d.e.tableCards().map(function (x) { return d.e.labelOf(x); }).join(', ')); return c; }
+function named(d) { var rec = d.rec(); if (!d.suspectCard(rec.culprit)) d.e.revealSuspect(rec, null, { key: rec.culprit }); }
+function deposition(d) {
+  var e = d.e, w = d.cards(function (c) { return c.def === 'witness' && c.caseId === d.rec().id && c.data.knows; })[0];
+  assert.ok(w, 'a witness who saw');
+  d.run('interrogate', [w, d.byDef('focus')[0] || d.give('focus')]);
+  return tok(d, /^Deposition/);
+}
+function homeQuarter(d) { var rec = d.rec(); return d.cards(function (c) { return c.def === 'district' && c.data.district === rec.district; })[0] || d.e.giveDistrict(rec.district); }
+
+// Coining: the Coin (assayed with the kit, or weighed without it), the Charcoal, the Market.
+function coinAssayed(d) { var r = d.run('analyze', [tok(d, /^The Bad Coin$/), d.byDef('kit')[0]]); var t = r.filter(function (c) { return /Coin Assayed/.test(d.e.labelOf(c)); })[0]; assert.ok(t && CF.clueAspects(t).forensic === 3, 'the acid finds lead'); return t; }
+function coinWeighed(d) {
+  var r = d.run('analyze', [tok(d, /^The Bad Coin$/)]);
+  assert.strictEqual(d.e.verb('analyze').recipe, 'lead_coining_weigh', 'without the kit, the scale');
+  var t = r.filter(function (c) { return /^Short Weight$/.test(d.e.labelOf(c)); })[0];
+  assert.ok(t && CF.clueAspects(t).financial === 2 && CF.clueAspects(t).digital === 1, 'a grain and a half light');
+  return t;
+}
+function charcoal(d) {
+  d.run('investigate', [d.kase]);
+  assert.strictEqual(d.e.verb('investigate').recipe, 'lead_coining_charcoal');
+  var t = tok(d, /^Sacks After Curfew$/);
+  assert.ok(CF.clueAspects(t).opportunity === 2 && /kindling boy/.test(d.cards(function (c) { return c.def === 'witness' && c.caseId === d.rec().id; })[0].desc), 'the boy and his sacks');
+  return t;
+}
+function thumb(d, re, recipe) {
+  d.run('investigate', [d.kase, homeQuarter(d)]);
+  named(d);
+  var r = d.run('analyze', [tok(d, re), d.byDef('prints')[0]]);
+  assert.strictEqual(d.e.verb('analyze').recipe, recipe);
+  var t = r.filter(function (c) { return c.data && c.data.points === d.rec().culprit; })[0];
+  assert.ok(t && CF.clueAspects(t).forensic === 3, 'the thumb names the culprit');
+  return t;
+}
+(function coiningCoinAndMould() {
+  var d = written(71, 'coining', ['kit', 'prints']);
+  assert.ok(d.found.some(function (c) { return /Bad Coin/.test(d.e.labelOf(c)); }) && d.byLabel(/^Who Paid It In$/).length, 'the takings give the coin and the slate');
+  var a = coinAssayed(d), m = thumb(d, /^A Plaster Mould$/, 'lead_coining_clippings');
+  d.charge([a, m, tok(d, /^Who Paid It In$/)]);
+  console.log('coining, the Coin and the Mould: convicted');
+})();
+(function coiningMouldAndCharcoal() {
+  var d = written(73, 'coining', ['prints']);
+  var s = charcoal(d), m = thumb(d, /^A Plaster Mould$/, 'lead_coining_clippings');
+  d.charge([m, s, tok(d, /^Who Paid It In$/)]);
+  console.log('coining, the Mould and the Charcoal: convicted');
+})();
+(function coiningCoinAndCharcoal() {
+  var d = written(79, 'coining', []);
+  var w = coinWeighed(d), s = charcoal(d), dep = deposition(d);
+  d.charge([w, s, dep]);
+  console.log('coining, the Coin weighed and the Charcoal: convicted');
+})();
+
+// Protection: the Collector's Round, the Cookshop, the Hand on the Letter.
+function purse(d) {
+  var r = d.run('analyze', [tok(d, /^The Collector's Round$/)]);
+  assert.strictEqual(d.e.verb('analyze').recipe, 'lead_extortion_round');
+  var t = r.filter(function (c) { return /^Whose Purse It Fills$/.test(d.e.labelOf(c)); })[0];
+  assert.ok(t && t.data.trait === d.rec().suspects.filter(function (x) { return x.guilty; })[0].trait, 'the purse-bearer is described');
+  return t;
+}
+function cookshop(d) {
+  d.run('investigate', [d.kase]);
+  assert.strictEqual(d.e.verb('investigate').recipe, 'lead_extortion_cookshop');
+  return tok(d, /^The Cookshop Count$/);
+}
+(function extortionRoundAndCookshop() {
+  var d = written(81, 'extortion', []);
+  assert.ok(d.byLabel(/^A Threatening Letter$/).length, 'the stall gives the letter');
+  var p = purse(d), c = cookshop(d), dep = deposition(d);
+  d.charge([p, c, dep]);
+  console.log('protection, the Round and the Cookshop: convicted');
+})();
+(function extortionRoundAndHand() {
+  var d = written(83, 'extortion', ['prints']);
+  var p = purse(d), h = thumb(d, /^A Threatening Letter$/, 'lead_extortion_hand');
+  d.charge([p, h]);
+  console.log('protection, the Round and the Hand: convicted');
+})();
+(function extortionHandAndCookshop() {
+  var d = written(87, 'extortion', ['prints']);
+  var c = cookshop(d), dep = deposition(d), h = thumb(d, /^A Threatening Letter$/, 'lead_extortion_hand');
+  d.charge([h, c, dep]);
+  console.log('protection, the Hand and the Cookshop: convicted');
+})();
+
+// Fire: the Fire-warden's Count and the oil, the Lender on the Hill, the Bucket-chain.
+function oil(d) {
+  var r = d.run('analyze', [tok(d, /^The Smell Under the Smoke$/), d.byDef('kit')[0]]);
+  assert.strictEqual(d.e.verb('analyze').recipe, 'lead_arson_oil');
+  var t = r.filter(function (c) { return /^The Chandler's Book$/.test(d.e.labelOf(c)); })[0];
+  assert.ok(t && CF.clueAspects(t).forensic === 2 && t.data.trait, 'the chandler remembers the buyer');
+  return t;
+}
+function buckets(d) {
+  d.run('investigate', [d.kase]);
+  assert.strictEqual(d.e.verb('investigate').recipe, 'lead_arson_buckets');
+  return tok(d, /^The Side Door$/);
+}
+function lender(d) {
+  d.run('investigate', [d.kase, d.byDef('focus')[0] || d.give('focus')]);
+  assert.strictEqual(d.e.verb('investigate').recipe, 'lead_arson_lender');
+  var r = d.run('analyze', [tok(d, /^A Bond on the Building$/)]);
+  assert.strictEqual(d.e.verb('analyze').recipe, 'lead_arson_profit');
+  var t = r.filter(function (c) { return /^Who Profits by the Fire$/.test(d.e.labelOf(c)); })[0];
+  assert.ok(t && CF.clueAspects(t).financial === 2, 'the bond read');
+  return t;
+}
+(function arsonOilAndBuckets() {
+  var d = written(91, 'arson', ['kit']);
+  assert.ok(d.byLabel(/^The Fire-warden's Count$/).length, 'three seats of fire');
+  var o = oil(d), s = buckets(d), dep = deposition(d);
+  d.charge([o, tok(d, /^The Fire-warden's Count$/), dep, s]);
+  console.log('fire, the Count and the Bucket-chain: convicted');
+})();
+(function arsonOilAndLender() {
+  var d = written(93, 'arson', ['kit']);
+  var o = oil(d), l = lender(d);
+  d.charge([o, l, tok(d, /^The Fire-warden's Count$/)]);
+  console.log('fire, the Count and the Lender: convicted');
+})();
+(function arsonLenderAndBuckets() {
+  var d = written(97, 'arson', []);
+  var s = buckets(d), dep = deposition(d), l = lender(d);
+  d.charge([l, s, dep]);
+  console.log('fire, the Lender and the Bucket-chain: convicted');
 })();

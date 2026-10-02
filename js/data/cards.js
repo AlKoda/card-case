@@ -249,7 +249,7 @@
     intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. Your informers cool off here every week, and now and then a new one takes a seat. A token that points at a front names it at once.' },
     training: { label: 'The Drill Yard', order: 'training', desc: 'Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.' },
     lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, no raw proof needs a special instrument, a token goes back to the bench without the Key, and what the body says reads one point stronger.' },
-    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you, and every week the belfry sees who uses a known front.' },
+    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you, and every week the belfry sees who uses a known front: a band\'s door, or the receiver\'s, where the city\'s stolen goods are sold.' },
     thieftakers: { label: 'The Thief-takers\' Office', order: 'thieftakers', desc: 'A room let to men who know every fence in the city. Put a Case in Attend with 2 Coin and they get the goods back for a cut, without a trial. Some of what they bring back is a frame.' },
   };
   CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'thieftakers', 'lab', 'survroom'];
@@ -305,7 +305,7 @@
     { id: 'inspector', label: 'Bailiff', rep: 7, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
       text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).',
       scene: 'The Council gives you the white staff and the key to the Hole\'s outer door. The sergeants stand when you come in. Some of them mean it.' },
-    { id: 'chief', label: 'Magistrate', rep: 12, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
+    { id: 'chief', label: 'Magistrate', rep: 12, salary: 4, maxCases: 5, badge: 3, dispatch: 10,
       text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.',
       scene: 'A red gown, a seat at the end of the bench, and the Burgomaster\'s hand on your shoulder for exactly as long as the chamber is watching. Everything that goes wrong in the city is yours now.' },
   ];

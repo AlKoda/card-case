@@ -155,7 +155,7 @@
     var tid = U.pick(this.rng, this.casePool());
     var T = CF.CASE_TEMPLATES[tid];
     var district = U.pick(this.rng, T.districts);
-    this.s.nextCase = { template: tid, district: district, extraTime: extraTime || 0 };
+    this.s.nextCase = { template: tid, district: district, extraTime: extraTime || 0, told: false };
     this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
     return {
       label: 'Warning: ' + T.label,

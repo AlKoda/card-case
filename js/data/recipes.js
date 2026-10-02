@@ -1314,13 +1314,27 @@
       return { title: 'The Eumenides', kind: 'major', text: 'Two torsos, one door: the Hospital of St Julian, whose board of charity is half the Council. Behind its chapter house there is a room with a drain in the floor. You have a case now. You do not yet have a friend on the Hill.' };
     },
   });
+  // A Thread to the receiver's door needs no band: it opens a case against him.
+  function fenceOf(ctx) { var f = ctx.e.fronts()[ctx.primary.data.front]; return f && f.fence ? f : null; }
   R.push({
     id: 'ref_thread', verb: 'reflect', label: 'Close In', duration: 30,
-    preview: 'The thread and the band it leads to. Think about who goes in and out, and when.',
-    blocked: function (ctx) { return ctx.has('gang') || ctx.has('syndicate') ? null : 'Add the Band or Coquille card the thread leads to.'; },
+    preview: function (ctx) { var f = fenceOf(ctx); return f ? U.fill('Two of your cases went through {front}. Write down what he bought, and from whom, and open a case against the receiver.', { front: f.name }) : 'The thread and the band it leads to. Think about who goes in and out, and when.'; },
+    blocked: function (ctx) {
+      var f = fenceOf(ctx), e = ctx.e;
+      if (f) return f.fallen ? 'The receiver is answered for. His door is shut.' : e.receiverOpen(f.id) ? 'The case against the receiver is already open.' : !e.roomForCase(1) ? 'The desk is full. Close or let go of a case before you open another.' : null;
+      return ctx.has('gang') || ctx.has('syndicate') ? null : 'Add the Band or Coquille card the thread leads to.';
+    },
     requires: { primary: 'thread' },
     run: function (ctx) {
       var e = ctx.e, th = ctx.primary;
+      var fence = fenceOf(ctx);
+      if (fence) {
+        ctx.consume(th);
+        fence.watched = true;
+        e.pathGain('master', 1, 'closed in on the network');
+        e.openReceiver(fence, ctx);
+        return { title: 'The Receiver', kind: 'major', text: U.fill('What is stolen in the city is sold at {front}, and the man who keeps it buys without asking. You have two cases that went through his door. Now you have one against him.', { front: fence.name }) };
+      }
       var target = ctx.first('gang') || ctx.first('syndicate');
       var front = e.fronts()[th.data.front];
       if (front) front.watched = true;
@@ -2001,9 +2015,11 @@
     blocked: function (ctx) { return ctx.e.s.nextCase ? 'Something is already on its way to your desk.' : null; },
     run: function (ctx) {
       var e = ctx.e, d = ctx.primary.data.district;
-      var here = CF.ORDINARY_CASES.filter(function (t) { return CF.CASE_TEMPLATES[t].districts.indexOf(d) >= 0; });
-      var tid = U.pick(ctx.rng, here.length ? here : CF.ORDINARY_CASES);
-      e.s.nextCase = { template: tid, district: d, extraTime: 60 };
+      // The office's own crimes, in that Quarter (a mystery already sent is not sent again).
+      var pool = e.casePool();
+      var here = pool.filter(function (t) { return CF.CASE_TEMPLATES[t].districts.indexOf(d) >= 0; });
+      var tid = U.pick(ctx.rng, here.length ? here : pool);
+      e.s.nextCase = { template: tid, district: d, extraTime: 60, told: false };
       e.s.dispatchT = Math.min(e.s.dispatchT, 30);
       return { title: 'Eyes on ' + CF.DISTRICTS[d].label, text: 'Every watchman with a lantern spends the week in ' + CF.DISTRICTS[d].label + '. Whatever happens there next, you will hear first.' };
     },

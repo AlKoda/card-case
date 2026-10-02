@@ -133,6 +133,9 @@
     };
     var e = new Engine(s);
     e.initPaths();
+    // The questions kept outside the city's list (the calling's, the powers'): registered before the clock asks.
+    if (CF.Callings && CF.Callings.register) CF.Callings.register();
+    if (CF.Patrons && CF.Patrons.register) CF.Patrons.register();
     CF.VERB_ORDER.forEach(function (id) {
       s.verbs[id] = { id: id, status: 'idle', slots: {}, held: [], ctxSlots: {}, out: [], recipe: null,
         elapsed: 0, duration: 0, story: null, unlocked: CF.VERBS[id].rank === 0 };
@@ -283,6 +286,17 @@
     if (s.councilCount === undefined) s.councilCount = null;
     // The Council's favour past the last office (round 8): an older save has been written no writ yet.
     if (typeof s.flags.favourStep !== 'number') s.flags.favourStep = 0;
+    // The receiver of stolen goods (round 8): an older front is a band's; an older save past its first office has his door already.
+    Object.keys(s.network.fronts || {}).forEach(function (k) { var fr = s.network.fronts[k]; if (fr.fence === undefined) fr.fence = false; if (fr.fallen === undefined) fr.fallen = false; });
+    // A canvass before the count (round 8): an older save has canvassed nobody.
+    if (s.flags.canvassed === undefined) s.flags.canvassed = null;
+    // The wrong name's sex, for the mother at the door (round 8): an older record does not know it.
+    Object.keys(s.criminals).forEach(function (k) { if (s.criminals[k].wrongfulTitle && s.criminals[k].wrongSex === undefined) s.criminals[k].wrongSex = null; });
+    // The written mysteries come once a run (round 8): an older save has seen the ones on its record.
+    if (!Array.isArray(s.flags.seenCases)) {
+      s.flags.seenCases = [];
+      Object.keys(s.cases || {}).forEach(function (id) { var t = s.cases[id].template; if ((CF.ONCE_CASES || []).indexOf(t) >= 0 && s.flags.seenCases.indexOf(t) < 0) s.flags.seenCases.push(t); });
+    }
     // The Council election is asked a week ahead (round 8): an older save has answered nothing.
     if (s.flags.election === undefined) s.flags.election = null;
     // A patron's seal (round 8): an older save has been sent none, and gets one when Favour next reaches 3.
@@ -357,6 +371,8 @@
     if (s.choiceHook && !(s.t - s.choiceHook.t <= 6)) s.choiceHook = null;
     var e = new Engine(s);
     e.initPaths();
+    // An older save past its first office has the receiver's door already (round 8).
+    if ((s.rank || 0) >= 1 && e.seedFence) e.seedFence();
     e.layoutVerbs();
     // A file finished before the ending told what became of them (round 8): told from what it kept.
     if (s.over && s.over.epilogue === undefined) s.over.epilogue = e.epilogue();
@@ -463,6 +479,9 @@
     if (spec.caseId) card.caseId = spec.caseId;
     var life = spec.lifetime !== undefined ? spec.lifetime : spec.decay !== undefined ? spec.decay : def.lifetime;
     if (life) { card.life = life; card.maxLife = life; }
+    // Fields a save fills on load are filled when the card is made, so a save round-trips.
+    if (defId === 'informant') this.s.flags.hadInformer = true;   // a first that stays ticked when the informer is gone
+    if (defId === 'atlarge' && card.data.innocent === undefined) card.data.innocent = false;
     this.s.cards[card.uid] = card;
     return card;
   };
@@ -470,7 +489,6 @@
   // Create a card directly on the table.
   P.create = function (defId, spec, prefer) {
     var card = this.make(defId, spec);
-    if (defId === 'informant') this.s.flags.hadInformer = true;   // a first that stays ticked when the informer is gone
     if (defId === 'witness' && card.life && this.perkHas('longmemory')) { card.life = Math.round(card.life * 1.5); card.maxLife = card.life; }
     this.placeOnTable(card, prefer);
     this.dirty = true;
@@ -2787,6 +2805,8 @@
     });
     this.layoutVerbs();
     this.addOrdersForRank(s.rank);
+    // The receiver of stolen goods opens his door with the first office (nobody is told).
+    if (s.rank === 1 && this.seedFence) this.seedFence();
     // The office serves what you want: a promotion feeds the path you walk.
     this.pathGain(s.calling || 'commissioner', 1, 'promoted');
     // The office teaches as well as pays: its own Insights open now.
@@ -2875,7 +2895,7 @@
       if (f && !f.known) {
         self.revealFront(f);
         self.roomUsed('intel');
-        self.story('The Informers\' Bench', 'Someone on the bench knows ' + self.labelOf(c) + ' at once: ' + f.name + '. ' + f.gang.replace(/^the /, 'The ') + ' works through it.', 'major');
+        self.story('The Informers\' Bench', 'Someone on the bench knows ' + self.labelOf(c) + ' at once: ' + f.name + '. ' + self.frontWho(f), 'major');
       }
     }
   };
@@ -2924,10 +2944,11 @@
   // Generate a case record and put its card on the table (or into ctx output).
   // The crimes an office is sent: the tiers up to your rank, the first tier
   // always; a new tier joins a week after the promotion that opened it.
+  // A written mystery with one answer (CF.ONCE_CASES) is sent once a run.
   P.casePool = function () {
-    var s = this.s, pool = [], rank = this.caseRank();
+    var s = this.s, pool = [], rank = this.caseRank(), seen = (s.flags && s.flags.seenCases) || [];
     CF.CASE_TIERS.forEach(function (tier, i) { if (i <= rank) pool = pool.concat(tier); });
-    return pool;
+    return pool.filter(function (t) { return (CF.ONCE_CASES || []).indexOf(t) < 0 || seen.indexOf(t) < 0; });
   };
   // The office a new case is sent to: the rank, but in the week of a
   // promotion still the one before it (its crimes and its charges).
@@ -2973,7 +2994,7 @@
       gang: opts.gangName || 'the gang', culprit: opts.culpritName || '',
     };
     if (from && from.vars) for (var fv in from.vars) vars[fv] = from.vars[fv];
-    var scene = from && from.scene ? from.scene : U.fill(U.pick(rng, T.scenes), vars);
+    var scene = from && from.scene ? from.scene : opts.scene || U.fill(U.pick(rng, T.scenes), vars);
     vars.scene = scene;
     // Two cases on one desk do not share a title: on a clash the next surname,
     // the victim's next surname (when the story did not name one) and the next
@@ -3072,7 +3093,7 @@
     // on (a front's door takes its place when the crime went through one),
     // and the generic find if there is room. Without a structure, the trait
     // and up to three template items, one of them generic. Four at most.
-    var front = opts.frontId && s.network.fronts[opts.frontId] ? s.network.fronts[opts.frontId] : !T.special ? this.frontForCase(opts) : null;
+    var front = opts.frontId && s.network.fronts[opts.frontId] ? s.network.fronts[opts.frontId] : !T.special ? this.frontForCase(opts, tid, id + '|' + victim) : null;
     var trait = traits[guiltyIdx];
     var traitItem = { type: 'clue', label: trait.clue.label, text: trait.clue.text, aspects: trait.clue.aspects, trait: trait.id, own: true };
     var tItems = T.items.map(function (it) { return fillItem(it, vars); });
@@ -3082,16 +3103,16 @@
       var covers = tItems.filter(function (it) { return itemCovers(it, T.keyAspects[0]); });
       var key1 = covers.length ? U.pick(rng, covers) : tItems.length ? U.pick(rng, tItems) : null;
       items = [traitItem].concat(structure.items.map(function (it) { var f = fillItem(it, vars); f.own = true; return f; }));
-      var rest = front ? [this.linkItem(front)] : [];
+      var rest = front ? [this.linkItem(front, id + '|' + victim)] : [];
       if (key1) rest.push(key1);
       rest.push(generic);
       while (items.length < 4 && rest.length) items.push(rest.shift());
     } else if (T.special) {
       // A great case's scene holds everything its template has: the charge asks for every kind.
-      items = [traitItem].concat(front ? [this.linkItem(front)] : [], tItems);
+      items = [traitItem].concat(front ? [this.linkItem(front, id + '|' + victim)] : [], tItems);
     } else {
       var picked = U.sample(rng, tItems, Math.min(2, tItems.length));
-      if (front) picked = [this.linkItem(front)].concat(picked.slice(0, 1));
+      if (front) picked = [this.linkItem(front, id + '|' + victim)].concat(picked.slice(0, 1));
       items = [traitItem].concat(picked, [generic]);
     }
     // On the culprit, the words are a mark: the token says whose.
@@ -3131,7 +3152,7 @@
       witnesses: U.shuffle(rng, T.witnesses), work: 0, searches: 0, identified: null, status: 'open', leads: {},
       special: !!T.special, atLargeUid: opts.atLargeUid || null, gangUid: opts.gangUid || null,
       reopened: !!opts.reopened, criminalId: opts.criminalId || null,
-      structure: structure ? structure.id : null, front: front ? front.id : null,
+      structure: structure ? structure.id : null, front: front ? front.id : null, foundAlive: false,
     };
     rec.week = s.week;
     // The Vanished may be alive (round 8): only where they left or never got home, never on the
@@ -3150,6 +3171,8 @@
     if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: councilSus ? councilSus.key : null, deadline: s.t + (T.lifetime || 250) * 0.66, days: CF.daysLeft((T.lifetime || 250) * 0.66) };
     s.cases[id] = rec;
     s.stats.cases++;
+    // A written mystery with one answer, kept so the pool does not send it again.
+    if ((CF.ONCE_CASES || []).indexOf(tid) >= 0) { s.flags.seenCases = s.flags.seenCases || []; if (s.flags.seenCases.indexOf(tid) < 0) s.flags.seenCases.push(tid); }
     // A leaf read from the old book in Rest belongs to the case again.
     if (from && from.id) for (var ok in s.cards) { if (s.cards[ok].caseId === from.id) { s.cards[ok].caseId = id; s.cards[ok].fresh = true; } }
 
@@ -3338,7 +3361,7 @@
       if (c.caseId !== caseId || spare.indexOf(c) >= 0) continue;
       // A clue that names a society's door outlives its case: the thread needs two of them.
       var f = c.def === 'clue' && c.data && c.data.link && fronts[c.data.link];
-      if (f && f.society && c.loc) {
+      if (f && (f.society || f.fence) && c.loc) {
         if (!c.data.kept) { c.data.kept = true; c.label = 'Kept: ' + this.labelOf(c); c.life = 400; c.maxLife = 400; this.dirty = true; }
         continue;
       }
@@ -3499,7 +3522,7 @@
     } else if (culprit) {
       var w = this.criminalEscapes(rec, culprit, 'rival');
       if (this.atLargeCardFor(w)) this.refreshAtLarge(w);
-      else this.hideCriminal(w, rec, 'rival', hanged && hanged.alibi);
+      else this.hideCriminal(w, rec, 'rival', hanged && hanged.alibi, hanged);
       if (hanged) text += ' ' + hanged.name + ' hangs for it. You read the file once, and you are not sure.';
     }
     this.story('Answered by the Rival', text, 'danger');
@@ -3708,7 +3731,7 @@
         if (!rec.special) {
           var crimW = this.criminalEscapes(rec, culprit, 'wrongful');
           if (this.atLargeCardFor(crimW)) this.refreshAtLarge(crimW);
-          else this.hideCriminal(crimW, rec, null, (rec.suspects.filter(function (x) { return x.name === d.name; })[0] || {}).alibi);
+          else { var wrongS = rec.suspects.filter(function (x) { return x.name === d.name; })[0] || {}; this.hideCriminal(crimW, rec, null, wrongS.alibi, wrongS); }
         }
       }
       var lesser = tier !== 'strong' && !d.solid && !rec.special && d.confession !== 'free';
@@ -3838,6 +3861,7 @@
       notes.push('The Coquille is broken.');
     }
     if (rec.template === 'eumenides' && d.guilty && this.eumenidesBroken) this.eumenidesBroken(rec, d, notes);
+    if (rec.template === 'receiver' && d.guilty && this.receiverConvicted) this.receiverConvicted(rec, notes);
     if (rec.template === 'architect') {
       if (d.guilty && this.pathOpen('master')) { this.gameOver('master'); return; }
       s.flags.architect = false;
