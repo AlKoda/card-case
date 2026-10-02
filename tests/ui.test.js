@@ -335,9 +335,15 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   UI.attach(e);
   assert.strictEqual(e.rankCap(), 2, 'a hangman ends at Bailiff');
   e.s.rank = 2; e.s.meters.reputation = 5;
+  // Past the last office the rules write a favour every few Standing (favourNext): the meter climbs toward it.
+  var fn0 = e.favourNext;
+  assert.ok(typeof fn0 === 'function' && UI.repTarget(e).max === e.favourNext().at && UI.repTarget(e).max > CF.RANK_REP[2], 'at the cap, Standing climbs to the Council\'s next favour, never to an office: ' + UI.repTarget(e).max);
+  // Where no favour comes, the meter is full.
+  e.favourNext = function () { return null; };
   render(e);
   var rep = $('#meters').querySelector('.meter[data-meter=reputation]');
   assert.ok(rep.classList.contains('lvl-4'), 'at the cap the meter is full, not measured against an office that will not come: ' + rep.className);
+  e.favourNext = fn0;
   assert.ok(/cres-09/.test(rep.querySelector('.m-icon').style.backgroundImage), 'Standing wears the crown');
   assert.ok(/cres-04/.test($('#meters').querySelector('.meter[data-meter=pressure] .m-icon').style.backgroundImage), 'the Crowd wears the fire');
   UI.showMeterInfo('reputation');
@@ -2011,7 +2017,16 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(ropeEl && !ropeEl.querySelector('.c-patron'), 'and none on a hard one');
   UI.selected = cond.uid;
   render(e);
-  assert.ok(/The Bishop asks for: /.test($('#peek').textContent), 'the Condemned says what the Bishop asked: ' + $('#peek').textContent.slice(0, 300));
+  // Said once: the rules write the ask into the Condemned's own description (data.patronWants), so no second line.
+  assert.strictEqual(($('#peek').textContent.match(/The Bishop asks/g) || []).length, 1, 'the Condemned says what the Bishop asked, once: ' + $('#peek').textContent.slice(0, 300));
+  // A Condemned from before the rules wrote it: the dossier line says it.
+  var condOld = e.create('condemned', { label: 'Old Hand', data: { name: 'Old Hand', caseId: rec.id, template: rec.template, custom: cond.data.custom } });
+  e.cardsOf('rung', true).filter(function (r) { return r.data.condemned === cond.uid; }).forEach(function (r) { r.data.condemned = condOld.uid; });
+  UI.selected = condOld.uid;
+  render(e);
+  assert.ok(/The Bishop asks for: /.test($('#peek').textContent), 'an older Condemned says what the Bishop asked: ' + $('#peek').textContent.slice(0, 300));
+  e.cardsOf('rung', true).filter(function (r) { return r.data.condemned === condOld.uid; }).forEach(function (r) { r.data.condemned = cond.uid; });
+  e.remove(condOld);
   UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
   // The rules' own mark wins: a rung marked for the Guilds wears theirs.
   rope.data.patron = 'guild';
@@ -2613,10 +2628,16 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var cap = e.rankCap ? e.rankCap() : CF.TOP_RANK, oldEvery = CF.FAVOUR_EVERY;
   e.s.rank = cap; e.s.calling = 'master'; e.s.meters.reputation = CF.RANK_REP[cap] + 5;
   delete CF.FAVOUR_EVERY;
+  var fn1 = e.favourNext;
+  e.favourNext = undefined;
   var t0 = UI.repTarget(e);
   assert.ok(t0.max === e.s.meters.reputation && t0.line === 'You hold the last office open to you.', 'without favours: full, and no promise of a letter');
   CF.FAVOUR_EVERY = 4; e.s.flags.favourStep = 1;
   var t1 = UI.repTarget(e);
+  e.favourNext = fn1;
+  // The rules' own writ (engine favourNext) is what the meter aims at, where they keep one.
+  var tw = UI.repTarget(e);
+  assert.ok(tw.max === e.favourNext().at && /grants you a favour/.test(tw.line), 'the rules\' next writ: ' + tw.max + ' ' + tw.line);
   assert.ok(t1.max === CF.RANK_REP[cap] + 8 && /every 4 Standing the Council grants you a favour/.test(t1.line), 'the next favour: ' + t1.max + ' ' + t1.line);
   UI.showMeterInfo('reputation');
   assert.ok(/grants you a favour/.test($('#peek').innerHTML) && !/At each threshold/.test($('#peek').innerHTML), 'the popover says what comes next, not a threshold that never will');
@@ -2628,11 +2649,20 @@ function render(e) { e.dirty = true; UI.renderNow(); }
 
   // Item 105: the Council's count in the Bell's pane, where the rules keep one.
   e.verb('time').unlocked = true;
-  e.councilQuota = function () { return { closed: 1, expect: 3 }; };
+  // The engine's count (councilExpects: n answered of m, from Bailiff).
+  var ce0 = e.councilExpects;
+  e.councilExpects = function () { return { n: 1, m: 3, weeksLeft: 1 }; };
   UI.openWindow('time'); render(e);
   var q = $('#windows').querySelector('.quota');
   assert.ok(q && q.querySelectorAll('.q-pips i').length === 3 && q.querySelectorAll('.q-pips i.on').length === 1 && /1 of 3 this fortnight/.test(q.innerHTML), 'a pip a case, one filled');
+  e.councilExpects = undefined;
+  e.councilQuota = function () { return { closed: 2, expect: 3 }; };
+  e.s.week++; render(e);
+  q = $('#windows').querySelector('.quota');
+  assert.ok(q && q.querySelectorAll('.q-pips i.on').length === 2, 'the older shape reads the same');
   e.councilQuota = undefined;
+  e.councilExpects = ce0;
+  assert.strictEqual(e.s.rank < 2 ? UI.councilQuota(e) : null, null, 'below Bailiff the Council counts nothing');
   e.s.week++; render(e);
   assert.ok(!$('#windows').querySelector('.quota'), 'no count where the rules keep none');
   while (UI.openVerbs.length) UI.back();
@@ -2705,8 +2735,20 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var wb = $('#weekbar');
   if (!wb) { wb = new El('div'); wb.id = 'weekbar'; var sh = new El('div'); sh.className = 'wb-shade'; wb.appendChild(sh); body.appendChild(wb); }
   e.s.week = 27;
+  // The rules' own year (engine season(): { id, name, line, effect }): the week bar and the Bell's first lines.
+  assert.ok(typeof e.season === 'function' && UI.seasonNow(e).id === 'plague' && UI.seasonNow(e).label === 'The Plague Summer', 'week 27 is the Plague Summer, by the rules');
+  render(e);
+  assert.strictEqual(wb.title, 'Week 27. The Plague Summer', 'the week bar names it: ' + wb.title);
+  e.verb('time').unlocked = true;
+  if (e.verb('time').x === undefined) e.layoutVerbs();
+  UI.openWindow('time');
+  render(e);
+  var sl = $('#windows').querySelectorAll('.vw-season');
+  assert.ok(sl[0] && sl[0].textContent === 'Week 27. The Plague Summer: the Abbey cart goes round twice a day.' && sl[1] && sl[1].textContent === e.season().effect, 'the Bell\'s first lines: the season, and what it changes');
+  while (UI.openVerbs.length) UI.back();
+  var season0 = e.season, oldSeasons = CF.SEASONS;
+  e.season = undefined; CF.SEASONS = undefined;
   assert.strictEqual(UI.seasonNow(e), null, 'no seasons in the rules: none shown');
-  var oldSeasons = CF.SEASONS;
   CF.SEASONS = [{ id: 'lent', label: 'Lent', from: 1, to: 13 }, { id: 'plague', label: 'The Plague Summer', line: 'the Abbey cart goes round twice a day.', from: 27, to: 39 }];
   assert.strictEqual(UI.seasonNow(e).id, 'plague', 'week 27 is the Plague Summer');
   e.s.week = 53;
@@ -2722,10 +2764,82 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(first && first.textContent === 'Week 27. The Plague Summer: the Abbey cart goes round twice a day.', 'the Bell\'s first line: ' + (first && first.textContent));
   while (UI.openVerbs.length) UI.back();
   assert.ok(/\.vwin \.vw-desc\.vw-season \{/.test(css), 'the season line has its style');
-  CF.SEASONS = oldSeasons;
+  CF.SEASONS = oldSeasons; e.season = season0;
   // The Long Service ending has its picture.
   assert.ok(/longservice: 'cherald-05'/.test(main), 'the Long Service: the rose');
   console.log('ui: a chit\'s door, the new crimes\' cards, the sliders heard, the season on the week and the Bell');
+})();
+
+// ---- Round 8, after the merge: the interface reads the rules' own fields, under the names the rules gave them.
+(function mergedFields() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 29 });
+  UI.attach(e);
+  // How loud a bad story lands is the rules' cue (engine story(): entry.cue), whatever its title.
+  assert.strictEqual(UI.dangerWeight({ kind: 'danger', title: 'In the Council\'s Service', cue: 'harm' }), 'harm', 'a cue of harm is the alarm and the shake');
+  assert.strictEqual(UI.dangerWeight({ kind: 'danger', title: 'Anything', cue: 'need' }), 'need', 'a need is a heartbeat');
+  assert.strictEqual(UI.dangerWeight({ kind: 'danger', title: 'Fever', cue: 'quiet' }), 'quiet', 'quiet is quiet');
+  assert.strictEqual(UI.dangerWeight(e.story('Beaten on the Stair', 'x', 'danger')), 'harm', 'the engine\'s own story carries it');
+  assert.strictEqual(UI.dangerWeight(e.story('The Rival Boasts', 'x', 'danger')), 'omen', 'and no cue is an omen');
+  // A story told in sentences is read a sentence at a time, in the journal and its toast.
+  var parts = ['Lodging and dues take 2.', 'The ledger: no case closed; 1 open; 3 Coin in hand.'];
+  var st = e.story('Week 3', parts, 'week');
+  assert.ok(st.parts && UI.storyText(st) === parts.join(' '), 'in English, the sentences joined');
+  if (!CF.I18N.dicts.ar || !CF.I18N.dicts.ar['the Rolls']) fs.readdirSync(path.join(__dirname, '..', 'js/lang/ar')).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js/lang/ar', f), 'utf8'), { filename: f }); });
+  CF.setLang('ar');
+  var arText = UI.storyText(st);
+  assert.ok(arText === parts.map(function (x) { return CF.T(x); }).join(' ') && !/[A-Za-z]{3}/.test(arText), 'in Arabic, each sentence on its own: ' + arText);
+  CF.setLang('en');
+  render(e);
+  assert.ok($('#journal').textContent.indexOf(parts.join(' ')) >= 0, 'the journal shows the story');
+  // The Roads as the rules reckon them (callings.js roads(): how near in a word, and what it still wants).
+  var roads0 = e.roads;
+  e.roads = function () { return [{ id: 'merciful', title: 'The Merciful Judge', warn: false, frac: 0.5, near: 'Halfway', want: 'More mercies at the Court.' }, { id: 'dismissed', title: 'Dismissed', warn: true, frac: 1, near: 'Warned', want: 'The Crowd is near boiling.' }]; };
+  var jr = UI.journalRoads(e);
+  assert.ok(jr.length === 2 && jr[0].text === 'Halfway · More mercies at the Court.' && jr[1].warn, 'each road says how near and what it wants: ' + JSON.stringify(jr));
+  e.roads = roads0;
+  assert.ok(UI.journalRoads(e).every(function (r) { return typeof r.text === 'string' && r.text; }), 'the rules\' own roads all have words');
+  // A heresy case says what the rules say of it (patrons.js heresyWatch: their week, their gate).
+  var rec = e.openCases()[0], hw0 = e.heresyWatch, cc = e.caseCard(rec.id);
+  e.heresyWatch = function (r) { return r.id === rec.id ? { kept: false, week: 9, line: 'Smells of heresy: the Inquisitor\'s after week {n}', vars: { n: 9 } } : null; };
+  assert.ok(UI.dossierLines(cc).some(function (l) { return l === 'Smells of heresy: the Inquisitor\'s after week 9'; }), 'the Inquisitor\'s week is the rules\' own');
+  e.heresyWatch = function () { return null; };
+  assert.ok(!UI.dossierLines(cc).some(function (l) { return /heresy|Dominicans/.test(l); }), 'nothing where the rules see no heresy');
+  e.heresyWatch = hw0;
+  // The cards and cases the rules added wear pictures of their own, never the question mark.
+  ['mint', 'gloryhand', 'receiver'].forEach(function (t) { assert.ok(UI.caseArt(t) && UI.caseArt(t) !== 'csign-01', t + ' has its own card'); });
+  var seal = e.create('seal', { data: { patron: 'bishop' } }), writ = e.create('councilwrit');
+  assert.strictEqual(UI.cardPicture(seal).art, 'casp-04', 'the Bishop\'s seal wears his church');
+  assert.ok(UI.cardPicture(writ).art !== 'csign-01', 'the Council\'s writ has its picture');
+  e.remove(seal); e.remove(writ);
+  // The Court's word on each token is the rules' (assessCharge standing), when they give it.
+  var tok = { uid: 9999, def: 'clue', caseId: rec.id, data: {} };
+  assert.strictEqual(UI.tokenStanding({ standing: { 9999: { id: 'else', label: 'Someone else' } } }, { uid: 1 }, tok), 'other', 'the rules\' Someone else');
+  assert.strictEqual(UI.tokenStanding({ standing: { 9999: { id: 'names', label: 'Names them' } } }, { uid: 1 }, tok), 'names', 'the rules\' Names them');
+  // The Rolls name a case the Rival closed and one the Council took.
+  var screens = fs.readFileSync(path.join(__dirname, '..', 'js/screens.js'), 'utf8');
+  assert.ok(/rival: 'Answered by the Rival'/.test(screens) && /council: 'Taken by the Council'/.test(screens) && /rival: 'cwax-02', council: 'cwax-04'/.test(screens), 'the Rolls name the Rival\'s and the Council\'s cases');
+  // The Fever half a minute from the end: a heartbeat and a mark, once.
+  var fev = e.create('burnout');
+  played.length = 0;
+  e.emit('pressing', { uid: fev.uid, label: 'Fever', def: 'burnout', verb: 'reflect', ends: true });
+  e.emit('pressing', { uid: fev.uid, label: 'Fever', def: 'burnout', verb: 'reflect', ends: true });
+  assert.strictEqual(played.filter(function (k) { return k === 'heartbeat'; }).length, 1, 'one heartbeat for the pressing Fever');
+  e.remove(fev);
+  // The Crowd's tally is the rules' count (abroadTally), the Coquille one.
+  UI.showMeterInfo('pressure');
+  assert.ok(new RegExp('Thieves abroad: ' + e.abroadTally().n + '\\.').test($('#peek').innerHTML) && /the Coquille one/.test($('#peek').innerHTML), 'the tally the rules keep');
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  // The Standing past its office, held for a record (recordShort): said in the popover.
+  var rs0 = e.recordShort;
+  e.s.rank = 0; e.s.meters.reputation = CF.RANK_REP[1];
+  e.recordShort = function () { return 2; };
+  UI.showMeterInfo('reputation');
+  assert.ok(/the Council wants 2 more cases answered first/.test($('#peek').innerHTML), 'held for a record, and how many');
+  e.recordShort = rs0; e.s.meters.reputation = 0;
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  // A Mark from a case the Architect touched reads as a Mark.
+  assert.strictEqual(CF.cardFace({ def: 'clue' }, 'The Mark at The Burglary at Pauw\'s').text, 'The Mark', 'the Mark at a case is a Mark');
+  console.log('ui: after the merge, the rules\' own cues, sentences, roads, heresy, pictures, standing, outcomes, tally and record');
 })();
 
 void realSetTimeout;

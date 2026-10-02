@@ -1517,7 +1517,7 @@
     "A clerk brings a fold of paper with the Council's seal on it, and nothing written inside. You know what it means: one favour, when you need it.": "يأتيك كاتبٌ بورقة مطويّة عليها ختم المجلس، ولا شيء مكتوب في داخلها. تعرف ما تعنيه: حظوة واحدة، حين تحتاج إليها.",
     "The Bishop's chaplain leaves a seal on your desk, the Abbey's keys in red wax. One kindness, when you need it.": "يترك قسّيس الأسقف ختمًا على مكتبك، مفاتيح الدير في شمعٍ أحمر. معروفٌ واحد، حين تحتاج إليه.",
     "The Market Warden sends the guilds' seal round with a boy. One favour from the chest, when you need it.": "يبعث أمين السوق ختم النقابات مع صبي. حظوة واحدة من الصندوق، حين تحتاج إليها.",
-    "Cool": "فاتر",
+    "Cool": "فاترة",
     "Your patron": "راعيك",
     "At 3: Suspicion eases each week, and the Council's Seal.": "عند 3: تخفّ الريبة كل أسبوع، وختم المجلس.",
     "At -2: the Council holds your next office.": "عند -2: يحبس المجلس منصبك التالي.",
@@ -2815,5 +2815,10 @@
     "Left-handed.#f": "عسراء.",
     "Writes with a hooked wrist.": "يكتب بمعصم معقوف.",
     "Writes with a hooked wrist.#f": "تكتب بمعصم معقوف.",
+    "Thieves abroad: {n}. At four the Market sings them, and the Crowd rises every other week (every week from Bailiff). A band counts two, the Coquille one.": "اللصوص الطلقاء: {n}. عند الأربعة يغنّيهم السوق، ويعلو الحشد كل أسبوعين (وكل أسبوع منذ رئيس الحرس). العصابة تُعدّ باثنين، والكوكيّة بواحد.",
+    "Held: the Council wants one more case answered first.": "محجوب: يريد المجلس قضيةً أخرى مُجابة أولًا.",
+    "Held: the Council wants {n} more cases answered first.": { one: "محجوب: يريد المجلس قضيةً أخرى مُجابة أولًا.", two: "محجوب: يريد المجلس قضيتين أخريين مُجابتين أولًا.", few: "محجوب: يريد المجلس {n} قضايا أخرى مُجابة أولًا.", many: "محجوب: يريد المجلس {n} قضيةً أخرى مُجابة أولًا.", other: "محجوب: يريد المجلس {n} قضية أخرى مُجابة أولًا." },
+    "{near} · {want}": "{near} · {want}",
+    "Taken by the Council": "أخذها المجلس",
   });
 })(typeof window !== 'undefined' ? window : globalThis);
