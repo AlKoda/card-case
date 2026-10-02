@@ -46,12 +46,15 @@ CF.setLang('ar');
 CF.I18N.track = true;
 CF.I18N.missing = {};
 function read(s) { if (s) CF.T(s); }
+var FACE_KINDS = { clue: 1, evidence: 1, intel: 1, paper: 1 }, faces = [];
 [0, 1, 2].forEach(function (g) {
   var e = CF.Engine.newGame({ seed: 900 + g, calling: ['master', 'commissioner', 'crusader'][g], who: CF.ORIGIN_ORDER[g] });
   bot.play(e, 60 * 22, ['custom', 'merciful', 'brutal'][g]);
   Object.keys(e.s.cards).forEach(function (uid) {
     var c = e.s.cards[uid];
     read(e.labelOf(c)); read(e.descOf(c));
+    // A token's face: the head of its label, read through a status, and the status as a seal.
+    if (FACE_KINDS[e.def(c).kind]) { var f = e.cardFace(c); faces.push(f.title); if (f.seal) faces.push(f.seal); }
     if (c.loc && c.loc.t === 'table') read(e.unavailableReason(c));
   });
   e.s.journal.forEach(function (j) { read(j.title); read(j.text); });
@@ -63,4 +66,15 @@ var miss = Object.keys(CF.I18N.missing).filter(function (s) { return /[A-Za-z]{3
 CF.I18N.track = false;
 CF.setLang('en');
 assert.strictEqual(miss.length, 0, miss.length + ' strings from a played game stay English:\n  ' + miss.slice(0, 80).join('\n  '));
-console.log('i18n: a bot-played game reads fully in Arabic');
+CF.setLang('ar');
+var englishFaces = faces.filter(function (t, i) { return faces.indexOf(t) === i && /[A-Za-z]{3}/.test(CF.T(t)); });
+CF.setLang('en');
+assert.ok(faces.length > 20, 'token faces were read: ' + faces.length);
+assert.strictEqual(englishFaces.length, 0, 'token faces that stay English: ' + englishFaces.join(', '));
+// A status is read through: a kept Warning shows the Warning, with a seal.
+var fg = CF.Engine.newGame({ seed: 5, calling: 'master' });
+var kept = fg.create('clue', { label: 'Kept: Warning: Theft', data: {} });
+assert.deepStrictEqual(fg.cardFace(kept), { title: 'Warning', seal: 'Kept' });
+assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Partial: The Blade Read', data: {} })), { title: 'The Blade Read', seal: 'Partial' });
+assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Deposition: Hans Schmidt', data: {} })), { title: 'Deposition', seal: null });
+console.log('i18n: a bot-played game reads fully in Arabic, token faces too');

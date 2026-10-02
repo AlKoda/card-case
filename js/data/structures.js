@@ -260,13 +260,13 @@
           { type: 'evidence', label: '{item}', text: 'Left by a hand that did not think it was leaving anything.', needs: 'bio',
             result: { label: 'The Scent Named', text: 'Attar of roses, and under it something the apothecary\'s boy knows from one shop only.', aspects: { forensic: 2, testimony: 1 } } },
         ] },
-      { id: 'doors', vars: { time: ['before matins', 'in the fog', 'in the hour the lamps go out'], detail: ['every door faces the same way', 'every lane runs down to the river', 'every girl was found within a bell of the spinning-house'], item: ['a chalk mark on the lintel', 'a cut lock of hair returned, tied with ribbon', 'a coin under the tongue'] },
+      { id: 'doors', vars: { time: ['before matins', 'in the fog', 'in the hour the lamps go out'], detail: ['Every door in that lane faces the river', 'The lane runs straight down to the water', 'The door is a bell\'s walk from the spinning-house'], item: ['a chalk mark', 'a cut lock of hair, tied with ribbon', 'a coin pressed into the wood'] },
         brief: 'A girl of {scene} found {time}, hair cut off. {detail}. On the doorpost, {item}.',
         items: [
           { type: 'clue', label: 'The Doors', text: '{detail}. He chooses the door before the girl.', aspects: { opportunity: 2 }, pattern: true },
           { type: 'clue', label: '{item}', text: 'A signature, or a courtesy. He wants somebody to read it.', aspects: { motive: 1, forensic: 1 } },
         ] },
-      { id: 'attar', vars: { time: ['the night the perfumer\'s shop stayed lit', 'the night of the rose fair', 'the night after the players'], detail: ['the smell of attar in the lane', 'a phial with a shop\'s mark', 'petals in the gutter under the door'], item: ['a stoppered phial', 'a receipt for civet', 'a barber\'s strop'] },
+      { id: 'attar', vars: { time: ['the night the perfumer\'s shop stayed lit', 'the night of the rose fair', 'the night after the players came'], detail: ['the smell of attar in the lane', 'a phial with a shop\'s mark', 'petals in the gutter under the door'], item: ['a stoppered phial', 'a receipt for civet', 'a barber\'s strop'] },
         brief: 'A girl found {time} with her hair cut close, and in the doorway {detail}. Dropped nearby, {item}.',
         items: [
           { type: 'clue', label: 'The Scent', text: '{detail}. One shop in the city sells it.', aspects: { forensic: 2 }, pattern: true },

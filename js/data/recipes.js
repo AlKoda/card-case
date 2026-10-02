@@ -774,18 +774,18 @@
         if (!ind.sufficient) e.meter('scrutiny', 2);
         ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession Under the Question: ' + sus.name,
           text: sus.name + ' confessed, after eleven hours in the Hole with you. ' + (ind.sufficient ? 'The indicia were sufficient; the Carolina is satisfied so far.' : 'There were no sufficient indicia. The clerk wrote that down too.') + ' To stand as full proof it must be repeated freely, or agree with Body or Writ.',
-          aspects: { testimony: 4 } }, [], { confession: 'question', falseConfession: !sus.guilty, illegal: !ind.sufficient, noMisread: true })));
+          aspects: { testimony: 4 }, about: sus.key }, [], { confession: 'question', falseConfession: !sus.guilty, illegal: !ind.sufficient, noMisread: true })));
         return { title: 'A Confession', text: U.fill(U.pick(ctx.rng, P.suspectPressure), vars) + (ind.sufficient ? '' : ' There were no sufficient indicia for it. If the Council asks, and it will, you have no answer.') };
       }
 
       if (!sus.guilty && rec.template === 'threedays' && !sus.cleared && (/brother/.test(sus.role) || /porter/.test(sus.role))) {
         // Each confesses to save the other. A free confession, and a false one.
-        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession: ' + sus.name, text: sus.name + ' confesses freely, in a steady voice, to everything. Too much of everything: the wrong day, the wrong knife. They are lying to save somebody.', aspects: { testimony: 3, motive: 1 }, trait: sus.trait }, helpers, { noMisread: true, confession: 'free', falseConfession: true })));
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession: ' + sus.name, text: sus.name + ' confesses freely, in a steady voice, to everything. Too much of everything: the wrong day, the wrong knife. They are lying to save somebody.', aspects: { testimony: 3, motive: 1 }, trait: sus.trait, about: sus.key }, helpers, { noMisread: true, confession: 'free', falseConfession: true })));
         return { title: 'A Confession, Freely Given', text: sus.name + ' does not wait to be asked. The Council has three days and here is a confession in a steady voice. Look at the details before you take it to the Court. Look at who they keep glancing at.' };
       }
       if (!sus.guilty) {
         if (tunnel && ctx.rng() < 0.4) {
-          ctx.give('clue', e.clueSpec(rec, { label: 'Something to Hide', text: sus.name + ' is hiding something. You are sure of it. You have never been so sure.', aspects: { motive: 2 } }, [], {}));
+          ctx.give('clue', e.clueSpec(rec, { label: 'Something to Hide', text: sus.name + ' is hiding something. You are sure of it. You have never been so sure.', aspects: { motive: 2 }, about: sus.key }, [], {}));
           var made = ctx.out[ctx.out.length - 1];
           made.data.misread = true;
           return { title: 'Guilty Eyes', text: 'Every pause, every glance at the door: guilt. It has to be.' };
@@ -803,7 +803,7 @@
           return { title: 'Cleared: ' + sus.name, text: U.fill(U.pick(ctx.rng, P.suspectAlibi), vars) };
         }
         if (!sus.alibiGiven) ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
-          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
+          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key, about: sus.key }, helpers, { noMisread: true })));
         sus.alibiGiven = true;
         return { title: 'An Alibi', text: 'You try ' + sus.name + '\'s story: ' + sus.alibi + '. It will want checking.' };
       }
@@ -816,7 +816,7 @@
         var p = valid ? 0.5 + (weight >= 3 ? 0.2 : 0) + (ctx.has('focus') ? 0.1 : 0) : 0.05;
         if (ctx.rng() < p) {
           ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Confession: ' + sus.name, text: 'In their own words, written fair by the clerk, freely and out of the Hole. ' + sus.motive,
-            aspects: { testimony: 3, motive: 1 } }, helpers, { noMisread: true, confession: 'free' })));
+            aspects: { testimony: 3, motive: 1 }, about: sus.key }, helpers, { noMisread: true, confession: 'free' })));
           return { title: sus.name + ' Cracks', text: U.fill(U.pick(ctx.rng, P.suspectCracks), { suspect: sus.name, clue: e.labelOf(confront) }) };
         }
         return { title: 'Stone', text: sus.name + ' looks at ' + e.labelOf(confront) + ', then at you, and asks what it has to do with them. ' + (valid ? 'Nearly. They nearly broke.' : 'It is a fair question.') };
@@ -824,7 +824,7 @@
 
       if (ctx.has('instinct')) {
         if (ctx.rng() < 0.55) {
-          ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Slip of the Tongue', text: sus.name + ' knew something only the person who did it would know.', aspects: { opportunity: 2 } }, helpers)));
+          ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Slip of the Tongue', text: sus.name + ' knew something only the person who did it would know.', aspects: { opportunity: 2 }, about: sus.key }, helpers)));
           return { title: 'A Slip', text: U.fill(U.pick(ctx.rng, P.suspectBluff), vars) };
         }
         return { title: 'Nothing Shaken Loose', text: U.fill(U.pick(ctx.rng, P.suspectBluffFail), vars) };
@@ -836,10 +836,10 @@
         if (!sus.alibi) sus.alibi = vars.alibi;
         vars.alibi = sus.alibi;
         ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
-          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
+          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key, about: sus.key }, helpers, { noMisread: true })));
         return { title: 'An Alibi', text: 'You try ' + sus.name + '\'s story: ' + sus.alibi + '. It will want checking.' };
       }
-      ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Motive: ' + sus.name, text: sus.motive, aspects: { motive: 2 } }, helpers)));
+      ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Motive: ' + sus.name, text: sus.motive, aspects: { motive: 2 }, about: sus.key }, helpers)));
       return { title: 'A Reason', text: U.fill(U.pick(ctx.rng, P.suspectEmpathy), vars) };
     },
   });

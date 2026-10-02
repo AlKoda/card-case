@@ -37,10 +37,19 @@
   // Tunnel Vision made you misread, giving the charge's real strength.
   function score(rec, sus, clues, profile, skipMisread) {
     var res = { strength: 0, diversity: 0, corroboration: 0, contradictions: 0, illegal: 0, have: {}, notes: [], n: 0,
-      witnesses: 0, stakes: {}, fingerpost: false, sameStake: false, againstInterest: 0, confession: null, checked: false, bodyOrWrit: false, framed: 0 };
+      witnesses: 0, stakes: {}, fingerpost: false, sameStake: false, againstInterest: 0, confession: null, checked: false, bodyOrWrit: false, framed: 0,
+      elsewhere: [], elsewhereConfessions: 0 };
     var seen = {};
     clues.forEach(function (c) {
       if (skipMisread && c.data.misread) return;
+      // Another person's words (their confession, their motive, their story)
+      // prove nothing against this accused. Another's confession is the
+      // defence's best friend.
+      if (c.data.about && sus && c.data.about !== sus.key) {
+        res.elsewhere.push(c);
+        if (c.data.confession) { res.contradictions++; res.elsewhereConfessions++; }
+        return;
+      }
       res.n++;
       var a = CF.clueAspects(c);
       for (var k in a) {
@@ -123,6 +132,7 @@
       score: apparent.score, apparent: apparent.score, real: real.score, covered: apparent.covered,
       witnesses: apparent.witnesses, fingerpost: apparent.fingerpost, sameStake: apparent.sameStake, againstInterest: apparent.againstInterest,
       confession: apparent.confession, checked: apparent.checked, framed: apparent.framed,
+      elsewhere: apparent.elsewhere, elsewhereConfessions: apparent.elsewhereConfessions,
     };
     own.forEach(function (c) { if (c.data.coerced) res.coerced++; if (c.data.planted) res.planted++; if (c.data.illegal) res.unwarranted++; });
     res.tier = tierOf(apparent, need);
@@ -132,10 +142,48 @@
     // Which clues describe somebody else, for the preview.
     var self = this;
     res.contradicting = own.filter(function (c) {
-      return sus && ((c.data.points && c.data.points !== sus.key) || (c.data.trait && c.data.trait !== sus.trait));
+      if (!sus) return false;
+      if (c.data.about) return c.data.about !== sus.key;
+      return (c.data.points && c.data.points !== sus.key) || (c.data.trait && c.data.trait !== sus.trait);
     });
-    res.contradictingLabels = res.contradicting.map(function (c) { return self.labelOf(c); });
+    res.contradictingLabels = res.contradicting.filter(function (c) { return res.elsewhere.indexOf(c) < 0; }).map(function (c) { return self.labelOf(c); });
+    res.elsewhereLabels = res.elsewhere.map(function (c) { return self.labelOf(c); });
+    // Whose the stray words are, for the Court's note.
+    res.elsewhereOf = {};
+    res.elsewhere.forEach(function (c) {
+      var who = rec.suspects.filter(function (x) { return x.key === c.data.about; })[0];
+      res.elsewhereOf[c.uid] = who ? who.name : '';
+    });
+    // Every row is met, and full proof still wants a word behind it: a
+    // witness, a token that names them, or a confession freely given. The
+    // honest road there is to confront the accused (see confrontFor).
+    var profileRows = Object.keys(profile);
+    res.rowsMet = profileRows.length > 0 && profileRows.every(function (k) { return (res.have[k] || 0) >= profile[k]; });
+    res.wordWanted = res.rowsMet && res.tier !== 'strong' && res.contradictions === 0;
     return res;
+  };
+
+  // The honest road to full proof once the rows are met: put the accused in
+  // Question with a token of their own case (and Wit, if one is free). A
+  // culprit may break and confess freely. For the advisor and the dossier:
+  // { suspect, token, wit, ready } as uids and a flag, or null when they
+  // are cleared, their case is shut, a free confession of theirs already
+  // lies on the table, or there is no token of the case to show them.
+  P.confrontFor = function (suspectCard) {
+    var rec = suspectCard && this.caseRec(suspectCard.caseId);
+    var sus = rec && this.suspectOf(suspectCard);
+    if (!rec || !sus || sus.cleared || rec.status !== 'open') return null;
+    var self = this;
+    var table = this.tableCards().filter(function (c) { return !self.unavailableReason(c); });
+    var theirs = function (c) { return !c.data.about || c.data.about === sus.key; };
+    if (table.some(function (c) { return c.def === 'clue' && c.caseId === rec.id && c.data.confession === 'free' && theirs(c); })) return null;
+    var weight = function (c) { var a = CF.clueAspects(c), n = 0; for (var k in a) n += a[k]; return n; };
+    var tokens = table.filter(function (c) { return c.def === 'clue' && c.caseId === rec.id && theirs(c) && !c.data.confession; })
+      .sort(function (x, y) { return weight(y) - weight(x); });
+    if (!tokens.length) return null;
+    var wit = table.filter(function (c) { return c.def === 'focus'; })[0];
+    var v = this.verb('interrogate');
+    return { suspect: suspectCard.uid, token: tokens[0].uid, wit: wit ? wit.uid : null, ready: !!(v && v.unlocked && v.status !== 'running') };
   };
 
   // Lines for the Arrest window: what the case needs, what the clues give.
@@ -154,11 +202,21 @@
     if (a.diversity) notes.push({ kind: 'good', text: 'Independent kinds of proof: +' + a.diversity });
     if (a.corroboration) notes.push({ kind: 'good', text: 'Corroboration, or proof that names them: +' + a.corroboration });
     var bad = (a.contradicting || []).map(function (c) { return c.uid; });
-    if (a.contradictions) {
+    (a.elsewhere || []).forEach(function (c) { if (bad.indexOf(c.uid) < 0) bad.push(c.uid); });
+    var mine = a.contradictions - (a.elsewhereConfessions || 0);
+    if (mine > 0) {
       var names = (a.contradictingLabels || []).filter(Boolean);
-      var who = names.length ? names.join(' and ') : a.contradictions + ' token' + (a.contradictions > 1 ? 's' : '');
-      notes.push({ kind: 'bad', text: who + (a.contradictions > 1 ? ' describe' : ' describes') + ' somebody else: −' + a.contradictions * 2 });
+      var who = names.length ? names.join(' and ') : mine + ' token' + (mine > 1 ? 's' : '');
+      notes.push({ kind: 'bad', text: who + (mine > 1 ? ' describe' : ' describes') + ' somebody else: −' + mine * 2 });
     }
+    // Another person's words, laid against this accused.
+    (a.elsewhere || []).forEach(function (c, i) {
+      var label = (a.elsewhereLabels || [])[i] || c.label, name = (a.elsewhereOf || {})[c.uid];
+      var text = c.data.confession ? U.fill('{token}: another\'s confession. It proves nothing against this accused, and the advocate will use it: −2', { token: label })
+        : name ? U.fill('{token}: about {name}, not this accused. It counts for nothing here.', { token: label, name: name })
+        : U.fill('{token}: about somebody else. It counts for nothing here.', { token: label });
+      notes.push({ kind: 'bad', text: text });
+    });
     if (a.illegal) notes.push({ kind: 'bad', text: 'Beaten out, arranged, or found without a writ: −' + a.illegal + ', and the advocate may find out.' });
     if (a.foreign) notes.push({ kind: 'bad', text: a.foreign + ' token' + (a.foreign > 1 ? 's have' : ' has') + ' nothing to do with this case.' });
     // What the Court would make of it, and what full proof still wants.
@@ -166,9 +224,10 @@
     if (a.tier === 'reasonable') notes.push({ kind: 'bad', text: 'Half proof: the Court would convict of ' + (T && T.lesser ? T.lesser : 'the lesser crime') + ', and the ladder stops at banishment.' });
     if (a.tier !== 'strong') {
       var gaps = rows.filter(function (r) { return r.have < r.need; }).map(function (r) { return CF.ASPECTS[r.aspect].label + ' ' + (r.need - r.have); });
-      var wants = gaps.length ? gaps.join(', ') : 'proof that names them';
-      notes.push({ kind: 'dim', text: 'To full proof: ' + wants + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
+      // Every row met: full proof wants a word behind the rows, and confronting the accused is the honest road to one.
+      if (!gaps.length) notes.push({ kind: 'dim', text: 'To full proof: a witness, a token that names them, or a confession freely given. Confront them in Question with a token of the case.' });
+      else notes.push({ kind: 'dim', text: 'To full proof: ' + gaps.join(', ') + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
     }
-    return { rows: rows, notes: notes, bad: bad, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text };
+    return { rows: rows, notes: notes, bad: bad, wordWanted: !!a.wordWanted, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -180,6 +180,8 @@
     s.counts.debt = s.counts.debt || 0;
     // The week's ledger counts from the last bell: an older save starts counting now, not from the beginning.
     if (!s.weekSnap) s.weekSnap = { convictions: s.stats.convictions || 0, acquittals: s.stats.acquittals || 0, cold: s.stats.cold || 0 };
+    // The Crusader's word of the Coquille came with round 8: a save already past its week has had its warning.
+    if (s.flags.coquilleWord === undefined) s.flags.coquilleWord = (s.week || 0) > 6;
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
     // Saves from before the verbs grew: the cards below the verb row move down with it.
     if (!s.version || s.version < 2) {
@@ -377,6 +379,38 @@
 
   P.labelOf = function (card) { return card.label || this.def(card).label; };
   P.descOf = function (card) { return card.desc || this.def(card).desc; };
+  // What a card's face says, read without the DOM (the interface and the
+  // language test both ask). A token's face is the head of its label, read
+  // through a status (a kept Warning is a Warning, with a seal), and the
+  // status comes back as a seal for a small mark; a person's face is the
+  // name; a case's, its short title. Both strings are English: the
+  // interface translates them.
+  CF.FACE_SHORTS = [
+    [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
+    [/^Found at .*House$/, 'The House'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
+    [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
+  ];
+  CF.FACE_SEALS = ['Kept', 'Matched', 'Partial', 'Corroborated'];
+  var FACE_PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
+  P.cardFace = function (card) {
+    var def = this.def(card), label = this.labelOf(card), seal = null;
+    if (def.kind === 'case') { var rec = this.caseRec(card.caseId); return { title: (rec && rec.highProfile ? '★ ' : '') + (rec ? rec.short : label), seal: null }; }
+    if (!FACE_PERSONS[card.def]) {
+      for (var guard = 0; guard < 3; guard++) {
+        var at0 = label.indexOf(': ');
+        if (at0 < 0 || CF.FACE_SEALS.indexOf(label.slice(0, at0)) < 0) break;
+        seal = seal || label.slice(0, at0);
+        label = label.slice(at0 + 2);
+      }
+    }
+    for (var i = 0; i < CF.FACE_SHORTS.length; i++) if (CF.FACE_SHORTS[i][0].test(label)) return { title: CF.FACE_SHORTS[i][1], seal: seal };
+    var at = label.indexOf(': ');
+    if (at < 0) return { title: label, seal: seal };
+    var head = label.slice(0, at), tail = label.slice(at + 2);
+    if (FACE_PERSONS[card.def]) return { title: (head === 'Prime Suspect' ? '★ ' : '') + tail, seal: seal };
+    if (card.def === 'order' || card.def === 'personnel' || def.kind === 'calling' || card.def === 'gang') return { title: tail, seal: seal };
+    return { title: head, seal: seal };
+  };
   P.kindOf = function (card) { return this.def(card).kind; };
   P.stackKey = function (card) {
     var d = card.data || {};
@@ -1350,7 +1384,10 @@
     var coldBefore = (s.weekSnap || {}).cold || 0;
     if ((s.stats.cold || 0) === coldBefore && ret <= 1 && s.meters.retaliation > 0) this.meter('retaliation', -1);
     // The Crowd counts the thieves abroad: not while a hue and cry is up, and under a Bailiff every week, below that every other.
-    if (atLarge + gangs * 2 + synd * 3 >= 4 && !this.manhuntOpen() && (s.rank >= 2 || s.week % 2 === 0)) { this.meter('pressure', 1); lines.push('The broadsheet-sellers count the thieves abroad, and sing the number in the Market.'); }
+    // The week says the count, and says it a name early.
+    var tally = this.abroadTally();
+    if (tally.n >= tally.at && !tally.quiet && (s.rank >= 2 || s.week % 2 === 0)) { this.meter('pressure', 1); lines.push(U.fill('The broadsheet-sellers count {n} names abroad, and sing them in the Market.', { n: tally.n })); }
+    else if (tally.n === tally.at - 1 && !tally.quiet) lines.push('The broadsheet-sellers count three names abroad. At four they will sing them in the Market.');
     this.organise();
     lines = lines.concat(this.criminalsAct());
     if (this.banishedReturn) lines = lines.concat(this.banishedReturn());
@@ -1370,7 +1407,7 @@
       rec.victims = (rec.victims || 1) + 1;
       if ((s.week - rec.week) % 2 === 0) self.meter('pressure', 1); // the Crowd counts every other door
       var n = ['', 'first', 'second', 'third', 'fourth', 'fifth'][Math.min(5, rec.victims)];
-      self.create('clue', self.clueSpec(rec, { label: 'The ' + n.charAt(0).toUpperCase() + n.slice(1) + ' Door', text: 'Another girl of ' + rec.scene + ', another doorway, the hair cut close. The same lane runs down to the same river. ' + (rec.victims >= 3 ? 'The city has stopped sleeping.' : 'The quarter has begun to count.'), aspects: { opportunity: 1, forensic: 1 }, pattern: true }, []));
+      self.create('clue', self.clueSpec(rec, { label: 'The ' + n.charAt(0).toUpperCase() + n.slice(1) + ' Door', text: 'Another girl of ' + rec.scene + ', another doorway, the hair cut close. He chose the door the way he chose the last. ' + (rec.victims >= 3 ? 'The city has stopped sleeping.' : 'The quarter has begun to count.'), aspects: { opportunity: 1, forensic: 1 }, pattern: true }, []));
       lines.push('Another girl in ' + rec.scene + '. The ' + n + '.');
     });
     if (this.eumenidesWeek) lines = lines.concat(this.eumenidesWeek());
@@ -1486,10 +1523,31 @@
       gangs.slice(0, 2).forEach(function (c) { self.remove(c); });
       this.spawnSyndicate('The bands have stopped fighting each other. Someone under the Warrens has sworn them to one shell, and sits on a barrel in a cellar where the lame walk and the blind see. They call him the King of Thunes, and his kingdom the Coquille.');
     }
-    // The Crusader's enemy doesn't wait to be built from your failures.
-    if (s.calling === 'crusader' && (s.week >= 6 || this.countOf('ledger') >= 3) && !this.countOf('syndicate') && !s.flags.syndicateFallen) {
+    // The Crusader's enemy doesn't wait to be built from your failures, but
+    // it waits for the Bailiff's Disguise: below that rank the city only
+    // says its name.
+    var waiting = s.calling === 'crusader' && !this.countOf('syndicate') && !s.flags.syndicateFallen;
+    if (waiting && s.week >= 6 && s.rank < 2 && !s.flags.coquilleWord) {
+      s.flags.coquilleWord = true;
+      this.story('The Same Door', 'Every fence you question looks at the same door before he lies. Somebody under the Warrens is gathering the bands into one shell. When the Council makes you Bailiff, you can go among them.');
+    }
+    if (waiting && ((s.rank >= 2 && s.week >= 10) || this.countOf('ledger') >= 3)) {
       this.spawnSyndicate('You have seen the same advocate at every hearing, the same faces at every cellar door. Behind the city\'s crime there is a court, a barrel for a throne, and a king. They call it the Coquille. Go in Disguise to get at its books.');
     }
+  };
+
+  // The broadsheet's tally of the thieves abroad: a name on the wall counts
+  // one, a band two (its sworn stand behind it), the Coquille one (its
+  // weight is in the Vendetta, where the threat is), and nothing while you
+  // are inside it with a case. At four the Crowd rises,
+  // every week under a Bailiff and every other week below; a hue and cry
+  // quiets it. The interface reads this for the Crowd's help.
+  P.abroadTally = function () {
+    var s = this.s;
+    var atLarge = this.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length;
+    var synd = this.countOf('syndicate');
+    var inside = this.openCases().some(function (r) { return r.template === 'syndicate'; });
+    return { n: atLarge + this.countOf('gang') * 2 + (synd && !inside ? 1 : 0), at: 4, every: s.rank >= 2 ? 1 : 2, quiet: this.manhuntOpen() };
   };
 
   P.spawnSyndicate = function (text) {
@@ -2079,7 +2137,10 @@
     if (warning) this.revealSuspect(rec, null);
     if (known && known.traits.indexOf('pilloried') >= 0 && !warning) { this.revealSuspect(rec, null, { key: rec.culprit }); }
     if (!opts.quiet) {
-      this.story(opts.headline || (rec.commission ? 'A Commission from ' + CF.PATRONS[rec.commission.from].label + ': ' : 'New Case: ') + rec.title, (lead ? lead + ' ' : '') + brief + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''), 'case');
+      // A headline that ends in a colon is a heading for the case's own name ('The Pattern: ' + the title).
+      var head = opts.headline ? (/:\s*$/.test(opts.headline) ? opts.headline + rec.title : opts.headline)
+        : (rec.commission ? 'A Commission from ' + CF.PATRONS[rec.commission.from].label + ': ' : 'New Case: ') + rec.title;
+      this.story(head, (lead ? lead + ' ' : '') + brief + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''), 'case');
     }
     return card;
   };
@@ -2150,6 +2211,8 @@
     if (flags.stake) { data.stake = flags.stake; data.witness = flags.witness || null; data.againstInterest = !!flags.againstInterest; }
     if (item.pattern) data.pattern = true;
     if (item.alibi) data.alibi = item.alibi;
+    // Whose words these are: a confession, a motive or a story belongs to the one who gave it.
+    if (item.about || flags.about) data.about = item.about || flags.about;
     if (item.names) data.names = true;
     if (flags.confession) { data.confession = flags.confession; data.falseConfession = !!flags.falseConfession; }
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
@@ -2264,6 +2327,14 @@
   // Assess a charge. `apparent` is what you believe; `real` excludes misread clues.
   // assessCharge lives in js/systems/charge.js.
 
+  // Why the sworn men acquit on full proof, the rare time they do.
+  CF.FULL_PROOF_FAILS = [
+    'One of the sworn men had dined with the accused\'s guild the night before.',
+    'The accused\'s cousin sits on the Council, and the foreman knows it.',
+    'A sworn man is taken ill, and his place is filled from the accused\'s own street.',
+    'The advocate finds a clerk\'s error in the date of the deposition, and the sworn men take the way out it offers.',
+  ];
+
   P.verdict = function (trialCard) {
     var d = trialCard.data;
     this.remove(trialCard);
@@ -2275,7 +2346,7 @@
     var p;
     var tier = d.tier || (d.solid ? 'strong' : 'weak');
     if (d.guilty) {
-      p = d.solid ? 0.92 : tier === 'reasonable' ? U.clamp(0.35 + 0.4 * d.real / d.need, 0.35, 0.8) : U.clamp(0.15 + 0.5 * d.real / d.need, 0.15, 0.55);
+      p = d.solid ? 0.97 : tier === 'reasonable' ? U.clamp(0.35 + 0.4 * d.real / d.need, 0.35, 0.8) : U.clamp(0.15 + 0.5 * d.real / d.need, 0.15, 0.55);
     } else {
       p = U.clamp(0.08 + 0.25 * Math.min(1, d.real / d.need), 0, 0.35);
       if (d.coerced) p += 0.25;
@@ -2285,15 +2356,18 @@
     // under the question it must be repeated freely a day later, and the
     // Court checks it against the body of the thing. A false confession
     // that nothing contradicts convicts all the same [Carolina].
-    if (d.confession === 'free') p = Math.max(p, 0.9);
+    // A true free confession that nothing contradicts all but settles it.
+    if (d.confession === 'free') p = Math.max(p, d.guilty && !d.contradictions ? 0.98 : 0.9);
     else if (d.confession === 'question') {
       if (d.guilty) p = d.checked ? Math.max(p, 0.9) : Math.max(p, 0.6);
       else p = d.checked ? 0.12 : 0.8;
       if (!d.checked && rng() < 0.4) notes.push(d.guilty ? d.name + ' repeats the confession before the judge, freely, as the Carolina asks.' : d.name + ' recants before the judge, then, shown the Hole again, confesses a second time.');
       else if (d.checked && !d.guilty) notes.push('The confession says one thing and the body of the thing says another. The judge sees it.');
     }
+    var struck = false; // the defence took something out of the proof
     for (var i = 0; i < d.coerced; i++) {
       if (rng() < 0.3) {
+        struck = true;
         p -= 0.25;
         this.meter('scrutiny', 1);
         notes.push('The defence has the coerced statement thrown out. The judge asks, pointedly, how it was obtained.');
@@ -2301,6 +2375,7 @@
     }
     for (var q = 0; q < (d.illegal || 0); q++) {
       if (rng() < 0.3) {
+        struck = true;
         p -= 0.25;
         this.meter('scrutiny', 1);
         notes.push('The accused\'s advocate asks to see the writ for the search. There is no writ. The proof is struck out.');
@@ -2308,17 +2383,22 @@
     }
     if (d.planted && rng() < 0.3) {
       p = 0.03;
+      struck = true;
       this.meter('scrutiny', 3);
       notes.push('The accused\'s advocate takes your arranged proof apart before the sworn men. The court goes very quiet.');
     }
     for (var j = 0; j < (d.contradictions || 0); j++) {
       if (rng() < 0.35) {
         p -= 0.2;
+        struck = true;
         notes.push('The advocate reads your own proof back to the sworn men: it describes somebody else entirely.');
       }
     }
-    p = U.clamp(p, 0.02, 0.97);
+    p = U.clamp(p, 0.02, 0.98);
     var convicted = rng() < p;
+    // Full proof that fails anyway: the city saw the proof, and the week says what turned the sworn men.
+    var unlucky = !convicted && d.guilty && !struck && (d.solid || (d.confession === 'free' && !d.contradictions));
+    if (unlucky) notes.push(U.pick(rng, CF.FULL_PROOF_FAILS), 'The Market saw your proof, and blames the bench, not you.');
     rec.status = convicted ? 'closed' : 'acquitted';
     if (this.commissionVerdict) this.commissionVerdict(rec, d, convicted, notes);
     this.emit('resolved', this.caseRecord(rec, convicted ? (d.guilty ? 'convicted' : 'wrongful') : 'acquitted', d.name));
@@ -2380,7 +2460,7 @@
         (d.guilty ? '' : 'You tell yourself it was the right person. ') + notes.join(' '), 'victory');
     } else {
       s.stats.acquittals++;
-      this.meter('pressure', 1);
+      if (!unlucky) this.meter('pressure', 1);
       this.meter('retaliation', rec.special ? 2 : 1);
       this.meter('reputation', -1);
       if (tier === 'weak' && rng() < 0.5) {

@@ -189,6 +189,7 @@ var GAMES = +process.argv[2] || 45;
 var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
+var earlyCoquille = 0;
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
@@ -196,7 +197,7 @@ for (var g = 0; g < GAMES; g++) {
   // The whole city: the needs and the choices run from the first day.
   var e = CF.Engine.newGame({ seed: 500 + g, calling: calling, who: who, life: true });
   e.on(function (type, p) { if (type === 'story' && /^Lost: /.test(p.title)) lost++; if (type === 'chosen') choices++; });
-  var band = null, reached2 = false, below = 0;
+  var band = null, reached2 = false, below = 0, early = false;
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
     step(e, temper);
     CF.VERB_ORDER.forEach(function (vid) { var v = e.s.verbs[vid]; if (v.status === 'running') seen[v.recipe] = true; });
@@ -204,7 +205,10 @@ for (var g = 0; g < GAMES; g++) {
     if (!band && e.countOf('gang')) band = { week: e.s.week, rank: e.s.rank };
     if (band && e.s.rank < 2 && e.countOf('gang')) below++; // ticks the band sat on the table below Bailiff
     if (e.s.rank >= 2 && e.s.week <= 20) reached2 = true;
+    if (calling === 'crusader' && e.s.rank < 2 && !early && e.countOf('syndicate') &&
+      !e.s.journal.some(function (j) { return j.title === 'The Coquille' && /^The bands have stopped/.test(j.text); })) early = true;
   }
+  if (early) earlyCoquille++;
   insights += Object.keys(e.s.insights || {}).length;
   needsMet += e.s.stats.needsMet || 0;
   if (reached2) rank2By20++;
@@ -265,3 +269,12 @@ assert.ok(earlyBandDeaths.length <= lowBands.length / 4, 'a band at low rank is 
 var dismissed = Object.keys(endings).reduce(function (n, k) { return n + (/:dismissed$/.test(k) ? endings[k] : 0); }, 0);
 assert.ok(ranks[2] + ranks[3] >= GAMES / 4, 'Bailiff or better in ' + (ranks[2] + ranks[3]) + ' of ' + GAMES);
 assert.ok(dismissed < GAMES / 2, 'dismissed in ' + dismissed + ' of ' + GAMES);
+// No calling is a handicap. The Crusader's Coquille waits for the Bailiff's Disguise (unless the
+// bands build it themselves), and no calling is dismissed by the Crowd in most of its games. The
+// bot never goes in Disguise, so the bound is a loose one.
+assert.strictEqual(earlyCoquille, 0, 'a Crusader met the Coquille below Bailiff in ' + earlyCoquille + ' games');
+['comm', 'mast', 'crus'].forEach(function (cl) {
+  var played = Object.keys(endings).reduce(function (n, k) { return n + (k.indexOf(cl + ':') === 0 ? endings[k] : 0); }, 0);
+  var out = endings[cl + ':dismissed'] || 0;
+  assert.ok(out <= Math.ceil(played / 2), cl + ' dismissed in ' + out + ' of ' + played);
+});

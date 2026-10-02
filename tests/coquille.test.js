@@ -200,4 +200,55 @@ function run(e, verb, cards) {
   console.log('eradicate: ok');
 })();
 
+// ---- The Crusader's Coquille waits for the Bailiff's Disguise ---------------------
+(function crusaderWaits() {
+  var e = CF.Engine.newGame({ seed: 41, calling: 'crusader' });
+  e.s.week = 6; e.s.rank = 0;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 0, 'no Coquille at week 6 below Bailiff: nothing could touch it');
+  var word = e.s.journal.filter(function (j) { return j.title === 'The Same Door'; });
+  assert.strictEqual(word.length, 1, 'the city says its name instead');
+  e.s.week = 12; e.s.rank = 1;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 0, 'still none under a Sworn Examiner');
+  assert.strictEqual(e.s.journal.filter(function (j) { return j.title === 'The Same Door'; }).length, 1, 'said once');
+  e.s.rank = 2; e.s.week = 9;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 0, 'a new Bailiff gets a week or two first');
+  e.s.week = 10;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 1, 'at Bailiff from week ten the Coquille is there, and Disguise with it');
+  // The broadsheet's tally: the Coquille counts one, and nothing while you are inside it.
+  var t0 = e.abroadTally();
+  assert.strictEqual(t0.n, e.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length + e.countOf('gang') * 2 + 1);
+  assert.strictEqual(t0.at, 4);
+  assert.strictEqual(t0.every, 1, 'every week under a Bailiff');
+  // An older save past week six has had its warning; a newer one keeps what it has.
+  var old = JSON.parse(CF.Engine.newGame({ seed: 42, calling: 'crusader' }).save());
+  delete old.flags.coquilleWord; old.week = 9;
+  assert.strictEqual(CF.Engine.load(old).s.flags.coquilleWord, true, 'an old save past week six is not warned late');
+  var young = JSON.parse(CF.Engine.newGame({ seed: 43, calling: 'crusader' }).save());
+  delete young.flags.coquilleWord;
+  var ly = CF.Engine.load(young);
+  assert.strictEqual(ly.s.flags.coquilleWord, false, 'an old save before week six will hear it');
+  ly.s.week = 6; ly.organise();
+  assert.ok(ly.s.journal.some(function (j) { return j.title === 'The Same Door'; }));
+  console.log('crusader waits: ok');
+})();
+
+// ---- The broadsheet's tally names its count ----------------------------------------
+(function tally() {
+  var e = CF.Engine.newGame({ seed: 44, calling: 'master' });
+  e.s.week = 8;
+  for (var i = 0; i < 3; i++) e.create('atlarge', { label: 'Abroad: N' + i, data: { name: 'N' + i } });
+  assert.strictEqual(e.abroadTally().n, 3);
+  assert.strictEqual(e.abroadTally().every, 2, 'every other week below Bailiff');
+  e.spawnSyndicate('test');
+  var names = e.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length; // the King may walk abroad too
+  assert.strictEqual(e.abroadTally().n, names + 1, 'the Coquille counts one: its sworn feed the Vendetta, not the broadsheet');
+  e.s.cases.inside = { id: 'inside', template: 'syndicate', status: 'open', suspects: [], witnesses: [] };
+  assert.strictEqual(e.abroadTally().n, names, 'and nothing while a case against it is open');
+  console.log('tally: ok');
+})();
+
 console.log('coquille: king, treaty, rule, eradicate all OK');

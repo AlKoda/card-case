@@ -194,7 +194,7 @@
       if (c.traits.indexOf('spared') >= 0 && !self.s.nextCase && self.rng() < 0.5) { lines.push(self.sparedWarning(c)); return; }
       c.crimes++;
       c.heat++;
-      var spec = { template: self.criminalTrade(c), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again', lead: surfaced ? 'The hand is familiar. It should be: somebody else ' + Crim.wrongfulFate(c) + ' it.' : 'The hand is familiar.' };
+      var spec = { template: self.criminalTrade(c), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again: ', lead: surfaced ? 'The hand is familiar. It should be: somebody else ' + Crim.wrongfulFate(c) + ' it.' : 'The hand is familiar.' };
       self.refreshAtLarge(c);
       if (room) {
         var card = self.spawnCase(spec.template, spec);
