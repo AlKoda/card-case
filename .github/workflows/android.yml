@@ -36,6 +36,8 @@ jobs:
         run: |
           mkdir -p android/app/src/main/assets/www
           cp -r index.html css js manifest.webmanifest sw.js icons android/app/src/main/assets/www/
+          # The spare art is linked by nothing, and the app never registers the service worker.
+          rm -f android/app/src/main/assets/www/css/art/cm-spare.css android/app/src/main/assets/www/sw.js
       - name: Build the signed release APK
         working-directory: android
         env:

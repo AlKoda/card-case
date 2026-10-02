@@ -12,13 +12,30 @@
   var tr = CF.T;
   function store(key, val) { try { if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val); } catch (err) { /* storage unavailable */ } }
   function load(key) { try { return localStorage.getItem(key); } catch (err) { return null; } }
-  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); if (UI.wake) UI.wake(); }
+  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); holdStill(); if (UI.wake) UI.wake(); }
   function only(id) {
     document.querySelectorAll('.modal').forEach(function (m) { m.classList.toggle('hidden', m.id !== id); });
     UI.modal = !!id;
+    holdStill();
     if (UI.wake) UI.wake();
   }
   function click(id, fn) { $(id).addEventListener('click', function (ev) { CF.Audio.play('click'); fn(ev); }); }
+
+  // While a menu, a screen or a dialog is up the clock is still, and so is the table: its pulses pause
+  // (html.cf-still), and under a screen that covers it whole (html.cf-cover) the table is not drawn at all,
+  // so a phone left on a menu does not repaint sixty times a second for nothing. The classes follow the
+  // modals themselves, however they are opened or closed.
+  var COVER = '#title:not(.hidden), #settings:not(.hidden), #archive:not(.hidden), #precinct:not(.hidden)';
+  function holdStill() {
+    var root = document.documentElement;
+    root.classList.toggle('cf-still', !!document.querySelector('.modal:not(.hidden)'));
+    root.classList.toggle('cf-cover', !!document.querySelector(COVER));
+  }
+  if (window.MutationObserver) {
+    var stillWatch = new MutationObserver(holdStill);
+    document.querySelectorAll('.modal').forEach(function (m) { stillWatch.observe(m, { attributes: true, attributeFilter: ['class'] }); });
+  }
+  holdStill();
 
   // A styled yes/no dialog in place of the browser's confirm().
   var confirmYes = null, confirmFrom = null;
@@ -239,7 +256,7 @@
   click('t-settings', function () { openSettings('title'); });
   click('t-help', function () { returnTo = 'title'; only('help'); });
   // The language button on the title screen cycles through the languages.
-  function langButton() { var b = $('t-lang'); if (b) b.textContent = CF.LANGS[CF.lang()].name; }
+  function langButton() { var b = $('t-lang'), w = b && (b.querySelector('span') || b); if (w) w.textContent = CF.LANGS[CF.lang()].name; }
   click('t-lang', function () {
     var codes = Object.keys(CF.LANGS), next = codes[(codes.indexOf(CF.lang()) + 1) % codes.length];
     CF.Settings.save({ lang: next });

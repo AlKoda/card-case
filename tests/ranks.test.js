@@ -185,6 +185,17 @@ function run(e, verb, cards) {
   e.s.rooms.intel = true;
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'owned');
 
+  // A Clerk's petition from the board costs a Coin less, as the Council's forms do.
+  var ck = game(77);
+  ck.s.who = 'clerk';
+  var lockerOrder = CF.ROOMS.locker.order, full = CF.ORDERS[lockerOrder].cost;
+  assert.strictEqual(CF.Precinct.tiles(ck).filter(function (t) { return t.key === 'locker'; })[0].cost, Math.max(1, full - 1), 'the board shows the Clerk his price');
+  assert.ok(CF.Precinct.order(ck, 'locker'));
+  var form = ck.cardsOf('order', true).filter(function (c) { return c.data.order === lockerOrder; })[0];
+  assert.ok(form, 'the petition is on the table');
+  assert.strictEqual(form.data.discount, 1, 'the board petition carries the Clerk discount');
+  assert.ok(form.desc.indexOf('Costs ' + Math.max(1, full - 1) + ' Coin.') >= 0, form.desc);
+
   // Intelligence Office: a linked clue reveals its front at once.
   var g = game(76);
   g.s.rooms.intel = true;

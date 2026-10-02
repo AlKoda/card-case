@@ -765,7 +765,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/\.slot\[data-verb="arrest"\] \.s-box\.empty, \.slot\[data-slot="c1"\] \.s-box\.empty, [^{]*\{ --frame: var\(--art-cframe-01\)/.test(css), 'red before the Court');
   var sicon = rule('.slot .s-box.empty ~ .s-icon');
   assert.ok(/\* 0\.44\)/.test(sicon) && /width: 46%/.test(sicon) && /clip-path: circle\(41%\)/.test(sicon), 'the icon sits in the arch');
-  assert.ok(/\* 0\.805\)/.test(rule('.slot .s-box.empty ~ .s-label')), 'the name in the lower band');
+  // Round 8: the name sits under the slot, on the baseline of the filled ones (the room of the small icon).
+  assert.ok(!rule('.slot .s-box.empty ~ .s-label') && /margin-top: 25px/.test(rule('.slot .s-box.empty ~ .s-icon ~ .s-label')), 'the name under the slot, on one baseline');
   assert.ok(/drop-shadow\(0 0 3px rgba\(208, 86, 74, 1\)\)/.test(rule('.card.bad .c-face')), 'a bad token wears a red shadow');
   // The ending.
   var end = /<div class="modal screen hidden" id="end">([\s\S]*?)\n  <\/div>\n/.exec(html)[1];
@@ -2227,6 +2228,58 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   }
   assert.ok(/id="help-harbour" class="hidden"/.test(html), 'the Help\'s line waits hidden for the rules');
   console.log('ui: the Harbourmaster\'s leaves, Loose Ends that remember, the plate by tier, the lesson, the Bell\'s toll, a step in a word, a junior\'s info, one mark a thing');
+})();
+
+// ---- Round 8, items 81-88: the board's petition, the Dominican's empty threat, quiet empty slots,
+// the chrome leftovers, the title alive, the table still under menus.
+(function round8k() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var mainSrc = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+
+  // Item 82: the heresy line warns only when the seizure can come; a warm Bishop is said to keep it off.
+  var e = CF.Engine.newGame({ calling: 'master', seed: 53 });
+  UI.attach(e);
+  var rec = e.openCases()[0], tpl = rec.template;
+  try {
+    rec.template = 'scriptorium';
+    e.s.favour = e.s.favour || {};
+    var kase = e.caseCard(rec.id);
+    e.s.favour.bishop = 2; e.s.flags.inquisitor = false;
+    UI.selected = kase.uid; render(e);
+    assert.ok(/The Bishop has kept the Dominicans off this one/.test($('#peek').textContent) && !/Smells of heresy/.test($('#peek').textContent), 'a warm Bishop keeps the Dominicans off: ' + $('#peek').textContent.slice(0, 300));
+    e.s.favour.bishop = 0; e.dirty = true; render(e);
+    assert.ok(/Smells of heresy/.test($('#peek').textContent), 'a cool Bishop: the Inquisitor is after it');
+    e.s.favour.bishop = 2; e.s.flags.inquisitor = true; e.dirty = true; render(e);
+    assert.ok(/Smells of heresy/.test($('#peek').textContent), 'with the Inquisitor here, the Bishop\'s warmth does not help');
+  } finally {
+    rec.template = tpl; e.s.flags.inquisitor = false;
+    UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  }
+
+  // Item 83: an empty frame is quiet and wakes for a fitting drag; its caption sits under it.
+  assert.ok(/\n\.slot \.s-box\.empty, \.slot \.s-box\.empty ~ \.s-icon \{ opacity: 0\.55; filter: saturate\(0\.55\); \}/.test(css), 'an empty frame is quiet');
+  assert.ok(/opacity: 1/.test(rule('.slot.can-drop .s-box.empty') || '') && /drop-shadow\(0 0 6px rgba\(109, 187, 106/.test(rule('.slot.can-drop .s-box.empty') || ''), 'a fitting drag wakes it, green shadow kept');
+  assert.ok(!/\.slot \.s-box\.empty ~ \.s-label \{[^}]*position: absolute/.test(css), 'the empty slot\'s caption is not laid inside the frame');
+
+  // Item 84: the Journal closes with the red roundel; the language button is a plate with the Aa.
+  assert.ok(/--art-cok-02/.test(rule('#journal-close') || '') && /font-size: 0/.test(rule('#journal-close') || ''), 'the Journal\'s close is the red X');
+  assert.ok(/class="plate-btn dark lang" id="t-lang"[^>]*><i class="mi" style="--i:var\(--art-cset2-01\)"><\/i><span>English<\/span>/.test(html), 'the language plate carries the Aa');
+  assert.ok(/\$\('t-lang'\), w = b && \(b\.querySelector\('span'\) \|\| b\)/.test(mainSrc), 'naming the language keeps the icon');
+  assert.ok(/\.ctl\.dbi small:empty \{ display: none; \}/.test(css), 'an empty badge is not drawn');
+
+  // Item 85: the title fills the screen with its own room, the candle breathes, still under calm or reduced motion.
+  assert.ok(/var\(--art-dmenu\) center \/ cover/.test(rule('#title.modal') || ''), 'the bars are the room in shadow');
+  assert.ok(/animation: flicker/.test(rule('.title-scene::after') || '') && /animation: riverDrift/.test(rule('.title-scene::before') || ''), 'the candle and the river move');
+  assert.ok(/html\[data-calm\] \.title-scene::before, html\[data-calm\] \.title-scene::after \{ animation: none; \}/.test(css), 'and keep still when calm');
+
+  // Item 88: under a modal the table's pulses pause; under a covering screen it is not drawn.
+  assert.ok(/html\.cf-still #table \*[^{]*\{ animation-play-state: paused !important; \}/.test(css), 'the table holds still under a menu');
+  assert.ok(/html\.cf-cover #app \{ visibility: hidden; \}/.test(css), 'and is not drawn under a screen');
+  assert.ok(/function show\(id, on\) \{[^\n]*holdStill\(\);/.test(mainSrc) && /UI\.modal = !!id;\s*holdStill\(\);/.test(mainSrc) && /new MutationObserver\(holdStill\)/.test(mainSrc), 'the classes follow every modal');
+  assert.ok(css.indexOf('html.held') < 0 && mainSrc.indexOf("toggle('held'") < 0, 'not the .held class the table already uses');
+  console.log('ui: the Dominican\'s threat, quiet slots, the Journal\'s X, the language plate, the title alive, the table still');
 })();
 
 void realSetTimeout;

@@ -1018,5 +1018,6 @@
     "The dagger on the pillow is a warning. Lay it in Rest with two Coin for weeks of peace.": "الخنجر على الوسادة إنذار. ضعه في الراحة مع قطعتين من النقود لأسابيع من السلام.",
     "Rest stood idle the whole time.": "وقفت الراحة خاملة طوال الوقت.",
     "An examiner sent home leaves a leaf from the Customs House. Two, laid in Rest, open the Harbourmaster's Books. Convict the Harbourmaster himself, and no examiner comes again.": "المحقق الذي يُعاد إلى داره يترك ورقة من دار الجمارك. ورقتان، توضعان في الراحة، تفتحان دفاتر رئيس الميناء. أدِن رئيس الميناء نفسه، فلا يأتي محقق بعده أبداً.",
+    "The Bishop has kept the Dominicans off this one.": "أبعد الأسقفُ الدومينيكيّين عن هذه القضية.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -246,6 +246,9 @@ html[data-flat] #table { perspective: none; }
 /* The drawer's head is the small blue banner (cbar-02); the journal below it is paper. */
 .side-head { display: flex; justify-content: space-between; align-items: center; margin: 6px 10px 0; padding: 2px 6px 2px 14px; border: solid transparent; border-width: 20px 36px; border-image: var(--art-cbar-02) 46 60 fill / 20px 26px stretch; background: none; color: #1c1914; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; }
 .side-head button { background: none; border: none; color: #1c1914; font-size: 20px; cursor: pointer; padding: 0 4px; margin: -10px 0; }
+/* The Journal closes with the red roundel X, as the windows do. */
+#journal-close { width: 36px; height: 36px; padding: 0; border-radius: 50%; color: transparent; font-size: 0; background: var(--art-cok-02) center / 100% 100% no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+#journal-close:hover { filter: drop-shadow(0 0 6px rgba(255, 120, 100, 0.8)); }
 #journal { flex: 1; overflow: auto; padding: 12px 14px; min-height: 0; margin: 4px 10px 10px; background: rgba(239, 227, 198, 0.92); color: #1f1b15; border: 2px solid #b8913f; box-shadow: inset 0 0 0 4px rgba(239, 227, 198, 0.92), inset 0 0 0 5px #8f7440; }
 #btn-journal.on { color: var(--accent); }
 #btn-journal.unread::after { content: ''; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
@@ -525,6 +528,11 @@ html[data-flat] #table { perspective: none; }
 .edge-mark.hidden { display: none; }
 @keyframes markIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } }
 /* Less motion: the pulses hold still; a warning keeps a steady glow. */
+/* Under a menu, a screen or a dialog the table holds still (js/main.js, holdStill); under a screen that
+   covers it whole it is not drawn. */
+html.cf-still #table *, html.cf-still #table *::before, html.cf-still #table *::after,
+html.cf-still #topbar *, html.cf-still #topbar *::before, html.cf-still #topbar *::after { animation-play-state: paused !important; }
+html.cf-cover #app { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .verb.done .v-token::before, .verb.new .v-token::before, .verb.noticed .v-token::before, .card.urgent::after, .card.noticed::after, .card.merged::after, .meter.crit .m-icon::after, .edge-mark b::after, .verb .v-magnet.asks::after { animation: none; }
   .card.urgent::after, .meter.crit .m-icon::after { opacity: 0.8; }
@@ -553,7 +561,7 @@ html[data-flat] #table { perspective: none; }
 .slot.primary .s-box { border-style: solid; border-color: rgba(212, 162, 76, 0.8); box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6), 0 0 8px rgba(212, 162, 76, 0.25); }
 /* An empty slot is a framed card in the tone of what it takes: gold for the first slot, blue for an
    ability, red for the accused and the proof before the Court, grey for the rest. Its icon sits in
-   the frame's arch and its name in the lower band, as on a card. */
+   the frame's arch; its name sits under the slot, as under a filled one. */
 .slot .s-box.empty { --frame: var(--art-cframe-06); border: none; border-radius: 0; box-shadow: none; background: var(--frame) center / 100% 100% no-repeat; }
 .slot.primary .s-box.empty { --frame: var(--art-cframe-03); }
 .slot[data-slot="mind"] .s-box.empty, .slot[data-slot="grow"] .s-box.empty, .slot[data-slot="aid2"] .s-box.empty, .slot[data-slot="aid3"] .s-box.empty { --frame: var(--art-cframe-02); }
@@ -563,11 +571,22 @@ html[data-flat] #table { perspective: none; }
 .slot .s-label.st-names { color: #1d6a49; font-weight: 700; }
 .slot .s-label.st-other { color: var(--danger); font-weight: 700; }
 .slot .s-label.st-off { color: #8a7a5a; }
-.slot .s-box.empty ~ .s-label { position: absolute; left: 10%; right: 10%; top: calc((var(--card-h) * 0.72 + 10px) * 0.805); max-width: none; display: block; line-height: calc((var(--card-h) * 0.72 + 10px) * 0.135); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--paper-ink); font-size: 9px; pointer-events: none; }
+/* Every caption sits under its slot, empty or filled, on one baseline: an empty slot's icon is in its
+   frame, so its caption takes the room the small icon takes under a filled one. */
+.slot .s-box.empty ~ .s-icon ~ .s-label { margin-top: 25px; }
 /* A token that hurts the charge wears a red shadow. */
 .card.bad .c-face { filter: drop-shadow(0 0 3px rgba(208, 86, 74, 1)) drop-shadow(0 0 6px rgba(208, 86, 74, 0.7)); }
 .slot.can-drop .s-box { filter: drop-shadow(0 0 6px rgba(109, 187, 106, 0.9)); }
 .slot.drop-hover .s-box { filter: drop-shadow(0 0 10px rgba(109, 187, 106, 1)) brightness(1.2); }
+/* An empty frame stays quiet, so the cards laid are the loudest thing on the sheet; it wakes in its
+   own colour when a card that fits is dragged, when it is picked, or under the pointer. */
+.slot .s-box.empty, .slot .s-box.empty ~ .s-icon { opacity: 0.55; filter: saturate(0.55); }
+.slot.primary .s-box.empty, .slot.primary .s-box.empty ~ .s-icon { opacity: 0.9; }
+.slot .s-box.empty:hover, .slot .s-box.empty:hover ~ .s-icon { opacity: 1; filter: brightness(1.15); }
+.slot.picking .s-box.empty { opacity: 1; filter: drop-shadow(0 0 8px rgba(212, 162, 76, 0.9)); }
+.slot.can-drop .s-box.empty { opacity: 1; filter: drop-shadow(0 0 6px rgba(109, 187, 106, 0.9)); }
+.slot.drop-hover .s-box.empty { opacity: 1; filter: drop-shadow(0 0 10px rgba(109, 187, 106, 1)) brightness(1.2); }
+.slot.picking .s-box.empty ~ .s-icon, .slot.can-drop .s-box.empty ~ .s-icon, .slot.drop-hover .s-box.empty ~ .s-icon { opacity: 1; filter: none; }
 .recipe.mystery { border-style: dashed; }
 /* The way the verb has found: a bordered paper inset. */
 .recipe { border: 1px solid #a88a4c; border-radius: 6px; padding: 10px 12px; background: #f6efdc; color: var(--paper-ink); margin-bottom: 12px; box-shadow: inset 0 0 0 1px rgba(60, 40, 10, 0.12); }
@@ -788,7 +807,18 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .title-wrap { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
 /* The scene is laid out at its own aspect; the logo and the buttons sit on its painted plates. */
 .title-scene { position: relative; width: min(100vw, calc((100vh - 32px) * 1.777)); aspect-ratio: 1672 / 941; background: var(--art-dmenu) center / 100% 100% no-repeat; }
-#title.modal { background: #06161a; padding: 0; }
+/* Round the scene, the same room again at cover, darkened (no blur filter, which a phone's WebView pays for):
+   the bars a screen of another shape leaves are the room in shadow, not black. */
+#title.modal { background: linear-gradient(rgba(4, 14, 17, 0.62), rgba(4, 14, 17, 0.62)), var(--art-dmenu) center / cover no-repeat, #06161a; padding: 0; }
+.title-scene { box-shadow: 0 0 48px 24px rgba(4, 14, 17, 0.7); }
+/* The candle breathes and the river lights drift: a warm halo over the painted flame, a slow shimmer on the
+   water under the bridge. Both are still under reduced motion or the calm setting. */
+.title-scene::after { content: ''; position: absolute; left: 2.6%; top: 36.5%; width: 13%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255, 200, 110, 0.35), transparent 65%); mix-blend-mode: screen; pointer-events: none; animation: flicker 3.2s infinite steps(1); }
+.title-scene::before { content: ''; position: absolute; left: 78%; top: 56%; width: 21%; height: 7%; background: repeating-linear-gradient(90deg, transparent 0 7px, rgba(255, 205, 120, 0.9) 7px 9px, transparent 9px 17px); opacity: 0.15; mix-blend-mode: screen; pointer-events: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent); mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent); animation: riverDrift 8s ease-in-out infinite alternate; }
+@keyframes flicker { 0% { opacity: 0.85; transform: scale(1); } 23% { opacity: 1; transform: scale(1.04); } 41% { opacity: 0.75; transform: scale(1); } 67% { opacity: 0.95; transform: scale(0.98); } }
+@keyframes riverDrift { from { transform: translateX(0); } to { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) { .title-scene::before, .title-scene::after { animation: none; } }
+html[data-calm] .title-scene::before, html[data-calm] .title-scene::after { animation: none; }
 .title-scene .title-logo { position: absolute; left: 30%; top: 5%; width: 40%; aspect-ratio: 736 / 214; margin: 0; }
 .title-scene .title-buttons { position: absolute; left: 36%; top: 30%; width: 28%; display: flex; flex-direction: column; gap: 2.2%; }
 .title-scene .title-buttons .plate-btn { width: 100%; min-width: 0; margin: 0; font-size: clamp(11px, 1.5vw, 18px); letter-spacing: 0.12em; }
@@ -1144,7 +1174,9 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
 
 /* ---- Languages. Arabic reads right-to-left in fonts that carry its
    letters; letter-spacing would pull the joined script apart, so it is off. */
-.title-scene .title-buttons .plate-btn.lang { left: auto; right: 1.5%; top: 2%; width: auto; height: auto; padding: 5px 12px; background: rgba(14, 12, 9, 0.82); color: var(--paper); border: 1px solid #b8913f; border-radius: 4px; font-size: clamp(10px, 1.1vw, 14px); letter-spacing: 0.06em; }
+/* The language button is a small dark plate with the Aa of the Settings tab, among the painted plates. */
+.title-scene .title-buttons .plate-btn.lang { font-size: clamp(10px, 1.1vw, 14px); letter-spacing: 0.06em; }
+.title-scene .title-buttons .plate-btn.lang .mi { width: 22px; height: 22px; margin: -4px 0; }
 .lang-select { grid-column: 2 / 4; justify-self: end; min-width: 160px; background: #111416; color: var(--paper); border: 2px solid #b8913f; padding: 6px 12px; font-family: inherit; font-size: 14px; }
 [dir=rtl] {
   --serif: 'Amiri', 'Noto Naskh Arabic', 'Scheherazade New', 'Traditional Arabic', 'Sakkal Majalla', 'Geeza Pro', 'Tahoma', serif;

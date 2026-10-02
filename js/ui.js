@@ -3043,7 +3043,11 @@
       if (rec.rival) lines.push('The Rival works this too: the clock is half');
       if (harbourTemplate(rec.template)) lines.push('Convict the Harbourmaster himself, and no examiner comes again');
       var ctpl = CF.CASE_TEMPLATES && CF.CASE_TEMPLATES[rec.template];
-      if (ctpl && ctpl.heresy) lines.push(tr('Smells of heresy: the Inquisitor\'s after week {n}', { n: (rec.week || 0) + 2 }));
+      // The seizure only comes with the Inquisitor here or the Bishop not warm.
+      if (ctpl && ctpl.heresy) {
+        if (e.s.flags.inquisitor || !((e.s.favour || {}).bishop > 0)) lines.push(tr('Smells of heresy: the Inquisitor\'s after week {n}', { n: (rec.week || 0) + 2 }));
+        else lines.push('The Bishop has kept the Dominicans off this one.');
+      }
       if (e.s.flags.inquisitor) lines.push('The Inquisitor is in the city');
     } else if (card.def === 'suspect') {
       var sus = e.suspectOf(card);

@@ -113,6 +113,9 @@ var gradle = fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8'
 assert.ok(/targetSdk 35/.test(gradle) && /CF_VERSION_CODE/.test(gradle) && /signingConfigs/.test(gradle), 'gradle: current SDK, CI version code, a signing key');
 var wf = fs.readFileSync(path.join(root, '.github/workflows/android.yml'), 'utf8');
 assert.ok(/assembleRelease/.test(wf) && /CF_VERSION_CODE/.test(wf) && /apk-latest/.test(wf), 'CI builds a signed release with a rising version');
+assert.ok(/rm -f android\/app\/src\/main\/assets\/www\/css\/art\/cm-spare\.css android\/app\/src\/main\/assets\/www\/sw\.js/.test(wf), 'the APK ships neither the spare art nor the service worker it never registers');
+assert.ok(wf.indexOf('rm -f android/app/src/main/assets/www/css/art/cm-spare.css') > wf.indexOf('cp -r index.html css js'), 'and strips them after the copy');
+assert.ok(/!window\.CaseFileAndroid/.test(html.slice(html.indexOf("navigator.serviceWorker.register") - 200, html.indexOf("navigator.serviceWorker.register"))), 'the app does not register a worker');
 assert.ok(/--inset-l/.test(fs.readFileSync(path.join(root, 'css/style.css'), 'utf8')) && /s-haptics/.test(html), 'the page pads for the cutout and offers haptics');
 // ---- The Android wrapper: a bundle or a dead renderer reopens on the table; cutout insets alone.
 assert.ok(/web\.loadUrl\(savedInstanceState == null \? START : START \+ RESUME\)/.test(activity) && !/else web\.restoreState/.test(activity), 'the page loads after a restore, whether or not it worked');
