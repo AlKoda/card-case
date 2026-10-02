@@ -123,8 +123,9 @@ than the Court needs brings it closer. When full proof still fails, the
 Court says why: a sworn man is the accused's cousin, the witness recants
 under the advocate's eye. The first case of a run teaches the Court and
 does not gamble: on full proof it convicts. If the first case is lost
-some other way (a thin charge acquitted, the case gone unanswered), the
-Council has still seen you work: the first keep comes all the same, with
+some other way (a thin charge acquitted, the case gone unanswered,
+settled for a purse, or taken out of your hands by the Court of Miracles,
+the Inquisitor or the Rival), the Council has still seen you work: the first keep comes all the same, with
 one Coin instead of two, and the next case comes at once.
 
 The Court window repeats what you have already worked out. If your own
@@ -284,8 +285,8 @@ raid it with a Muster. This is the Crusader's road as now. For the
 Reformer the Coquille gathers only when there is something to be done
 about it: once the Council has given you the white staff (Bailiff, from
 week ten), or sooner if three ledgers point at it. Before that the street
-only says its name, once, in the sixth week: a story, and nothing on the
-meters. The Court of Miracles, raided, scatters into the countryside and comes back as
+only says its name, once, in the sixth week: a story, nothing on the
+meters, and the one answer below the staff: post the Watch on its stair. The Court of Miracles, raided, scatters into the countryside and comes back as
 **highwaymen** (a new case type on the roads outside the walls) unless the
 King is taken [Newgate: Turpin, Maclaine]. Breaking the Coquille ends the
 game as it does now, and Dread is what it costs, because you cannot raid
@@ -391,6 +392,16 @@ Mercy, Cruelty, Purse, Underworld Debt, Dread, and the stance.
 | **The Stake** | The Inquisitor's charge lands on *you* (heresy accusation from a patron you crossed, with Bishop Favour ≤ −2) | new |
 | **The Dagger on the Pillow** | The Order of the Mountain, warned once and ignored | Death (variant) |
 | **Dismissed / Burnout / Collapse / Death** | as now | as now |
+
+The endings say what happened, not what usually happens. A death names who
+struck the last blow: the Order's man in a servant's coat, the King who
+does not make the same mistake twice, the borrowed name that slipped; only
+the cudgel on the stair ends in the cellar by the Harbour. The Council's
+sergeants read a clean purse a different list: doors broken without a
+writ, pardons without a reason. The Reformer's ending hangs the King of
+Thunes by his name, the Scholar's sentences the Architect by name and
+trade. The Merciful Judge counts in words, as a chronicle would: seven
+sent home, four of them citizens.
 
 Thirteen endings, plus the variant texts each already has. The user asked
 for as many as possible; the counts above make more cheap to add (a

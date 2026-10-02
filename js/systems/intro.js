@@ -168,10 +168,18 @@
     this.dirty = true;
   };
 
+  // A lesson never stands over the one card whose clock ends the file: while a Fever runs,
+  // the hint says so instead (and the lesson comes back once it is slept off).
+  CF.INTRO_FEVER = 'Pressing: {card}. Into Rest now, or the file ends.';
+  function collapsing(e) {
+    return e.tableCards().filter(function (c) { var d = CF.CARDS[c.def]; return d && d.tags && d.tags.indexOf('collapse') >= 0 && c.maxLife; })[0] || null;
+  }
   P.introHint = function () {
-    var s = this.s;
+    var s = this.s, hint;
     if (!s.intro) return null;
-    if (!s.intro.finished) return s.intro.hint;
-    return s.intro.tailT > s.t && s.intro.tailWeek === s.week ? s.intro.hint : null;
+    if (!s.intro.finished) hint = s.intro.hint;
+    else hint = s.intro.tailT > s.t && s.intro.tailWeek === s.week ? s.intro.hint : null;
+    var fever = hint ? collapsing(this) : null;
+    return fever ? CF.util.fill(CF.INTRO_FEVER, { card: this.labelOf(fever) }) : hint;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

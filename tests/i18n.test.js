@@ -91,3 +91,43 @@ CF.setLang('en');
 assert.ok(Object.keys(heads).length >= 4, 'token heads were seen: ' + Object.keys(heads).join(', '));
 assert.strictEqual(bare.length, 0, 'token faces stay English in Arabic: ' + bare.join(', '));
 console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) reads in Arabic');
+
+// Every ending, in each of its tellings, reads in Arabic with the run's words and names filled
+// in: counts told in words ('Seven', 'four'), the King of Thunes and the Architect by name.
+(function endingsInArabic() {
+  CF.setLang('ar');
+  var vars = { sentHome: 'Seven', reformed: 'four', king: 'Hans Schmidt', architect: 'Hans Schmidt', architectRole: 'the great benefactor' };
+  var bad = [];
+  Object.keys(CF.ENDING_VARIANTS).forEach(function (id) {
+    CF.ENDING_VARIANTS[id].forEach(function (v) {
+      [v.text, v.named].forEach(function (t) {
+        if (!t) return;
+        var ar = CF.T(CF.util.fill(t, vars));
+        if (/[A-Za-z]{3}/.test(ar)) bad.push(id + ': ' + ar);
+      });
+    });
+  });
+  ['one', 'Two', 'Twelve'].forEach(function (w) { if (/[A-Za-z]/.test(CF.T(w))) bad.push(w); });
+  var fever = CF.T(CF.util.fill(CF.INTRO_FEVER, { card: 'Fever' }));
+  if (/[A-Za-z]/.test(fever)) bad.push(fever);
+  CF.setLang('en');
+  assert.strictEqual(bad.length, 0, 'endings that stay English in Arabic:\n  ' + bad.join('\n  '));
+  console.log('i18n: every ending reads in Arabic, names and counts filled');
+})();
+
+// The house terms (docs/GLOSSARY.md, 'Checked in every entry'): an entry whose English names the
+// term carries its Arabic, so 'Examiner' is never the coroner and 'Dominican' has one spelling.
+(function glossary() {
+  var md = fs.readFileSync(path.join(root, 'docs/GLOSSARY.md'), 'utf8');
+  var sec = md.split(/^## /m).filter(function (s) { return /^Checked in every entry/.test(s); })[0];
+  assert.ok(sec, 'docs/GLOSSARY.md has its checked terms');
+  var terms = sec.split('\n').map(function (l) { return /^- (.+?) → (\S.*)$/.exec(l.trim()); }).filter(Boolean);
+  assert.ok(terms.length >= 10, 'the checked terms are read: ' + terms.length);
+  var d = CF.I18N.dicts.ar, bad = [];
+  terms.forEach(function (m) {
+    var re = new RegExp('\\b' + m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+    Object.keys(d).forEach(function (k) { if (re.test(k) && d[k].indexOf(m[2]) < 0) bad.push(m[1] + ' (' + m[2] + '): ' + k.slice(0, 80) + ' => ' + d[k].slice(0, 80)); });
+  });
+  assert.strictEqual(bad.length, 0, 'entries that drift from the glossary:\n  ' + bad.join('\n  '));
+  console.log('i18n: ' + terms.length + ' house terms hold in every entry');
+})();

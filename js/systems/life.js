@@ -160,6 +160,8 @@
     e.dirty = true;
   }
   // The opening case, whatever became of it.
+  // A case still in your hands: on the desk, or before the sworn men.
+  var OPEN_STATUS = ['open', 'trial', 'closed'];
   function openingRec(e) {
     var cs = e.s.cases;
     for (var k in cs) if (cs[k].opening) return cs[k];
@@ -179,11 +181,12 @@
     var s = this.s, sc = this.openingScene();
     strainCure(this);
     if (!s.flags.opening) return;
-    // The opening case ended without a conviction (acquitted, or gone unanswered): the keep
-    // comes all the same, so the city does not stand still with an empty desk.
+    // The opening case ended without a conviction (acquitted, gone unanswered, settled for a
+    // purse or taken out of your hands): the keep comes all the same, so the city does not stand
+    // still with an empty desk. A conviction makes the keep itself (the verdict).
     if (s.flags.stage === 'hired') {
       var first = openingRec(this);
-      if (first && (first.status === 'acquitted' || first.status === 'cold')) { this.openingKeep(first.status); return; }
+      if (first && OPEN_STATUS.indexOf(first.status) < 0) { this.openingKeep(first.status === 'acquitted' ? 'acquitted' : 'cold'); return; }
     }
     var worked = (s.stats.verbs && s.stats.verbs.duty) || 0;
     if (s.flags.stage === 'work') {
@@ -373,8 +376,9 @@
   // (data.tampered, data.bribed) for the dossier.
   // The Reformer below the white staff hears of the Coquille before it can be touched: a story
   // in the week the bands begin to gather, and nothing on the meters. Once, and only while the
-  // Coquille has not yet formed (it forms for a Bailiff; see organise in engine.js).
-  CF.COQUILLE_FORETOLD = { title: 'The Word Nobody Says', text: 'Every fence you question looks at the same door before he lies. Somebody under the Warrens is gathering the bands into one shell. When the Council gives you the white staff, you can go among them.' };
+  // Coquille has not yet formed (see organise in engine.js). Until the staff, the Watch on its
+  // stair is the Reformer's answer to it (Attend, a watchman and the Coquille).
+  CF.COQUILLE_FORETOLD = { title: 'The Word Nobody Says', text: 'Every fence you question looks at the same door before he lies. Somebody under the Warrens is gathering the bands into one shell. Until you carry the Bailiff\'s staff you cannot go among them: post the Watch on its stair.' };
   function foretellCoquille(e) {
     var s = e.s, f = s.flags;
     if (s.calling !== 'crusader' || s.week < 6 || (s.rank || 0) >= 2 || f.coquilleForetold || f.syndicateFallen) return;
@@ -749,7 +753,7 @@
       options: [
         { label: 'A watchman walks you home', cost: 'funds', gain: 'Vendetta eases', text: 'A halberd on the stair every night for a week. The lane notices.', effect: function (e) { e.meter('retaliation', -2); } },
         { label: 'Change lodgings', cost: 'instinct', gain: 'Vendetta eases; Dread rises', text: 'A room over a chandler\'s, and nobody told. For a while.', effect: function (e) { e.meter('retaliation', -2); e.meter('dread', 1); } },
-        { label: 'Bar the door and sleep', gain: 'Nothing; he may come back', text: 'You sleep with the halberd by the bed.', effect: function (e) { if (e.rng() < 0.3) e.hurtYou('He did not lose his nerve the second time.'); } },
+        { label: 'Bar the door and sleep', gain: 'Nothing; he may come back', text: 'You sleep with the halberd by the bed.', effect: function (e) { if (e.rng() < 0.3) e.hurtYou('He did not lose his nerve the second time.', 'stair'); } },
       ] },
     { id: 'market', when: function (e) { return e.s.meters.dread >= 6; },
       title: 'The Empty Market', text: 'Stalls shut when you pass. The Market Warden asks, politely, whether the Examiner might be seen somewhere else on market day.',

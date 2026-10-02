@@ -491,7 +491,7 @@
     "The Beggar at the Door": "المتسوّلة عند الباب",
     "The Beggar at the Door: {choice}": "المتسوّلة عند الباب: {choice}",
     "A woman with a child on her hip has been at the Watch-house door since prime. She does not ask for anything. She just stands there, where the Council's clerks can see her.": "امرأة تحمل طفلاً على وركها واقفة عند باب دار الحرس منذ الصباح الباكر. لا تطلب شيئاً. تقف هناك فحسب، حيث يراها كتبة المجلس.",
-    "Give her a Coin": "أعطها من النقود",
+    "Give her a Coin": "أعطها قطعة نقد",
     "The child gets bread. The clerks get a story about you.": "ينال الطفل خبزاً. وينال الكتبة حكاية عنك.",
     "Have the sergeant move her on": "مُر الرقيب بإبعادها",
     "She goes. The lane remembers.": "تمضي. والزقاق يتذكّر.",

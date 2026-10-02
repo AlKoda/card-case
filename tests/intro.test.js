@@ -510,3 +510,46 @@ console.log('intro: ok');
   assert.ok(q.s.journal.some(function (j) { return j.title === 'Inherited'; }), 'a start without the opening inherits at once');
   console.log('successor desk: ok');
 })();
+
+// ---- An opening case taken out of your hands (settled for a purse, the Court, the Rival) ------
+// The keep comes all the same, and a new case within two weeks: no desk left without the Bell.
+(function openingTakenAway() {
+  ['settled', 'court', 'inquisitor', 'rival'].forEach(function (status, i) {
+    var e = CF.Engine.newGame({ seed: 120 + i, who: 'clerk', name: 'Away', opening: true, guided: true });
+    e.s.flags.stage = 'questioned';
+    var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+    rec.opening = true;
+    e.openingHired();
+    if (e.s.choice) e.choose(0);
+    e.remove(c); rec.status = status;
+    for (var t = 0; t < 2 * CF.WEEK && (e.s.flags.stage !== 'keep' || !e.openCases().length); t++) {
+      if (e.s.choice) e.choose(0);
+      e.tick(1);
+    }
+    assert.strictEqual(e.s.flags.stage, 'keep', status + ': the keep comes');
+    assert.ok(!e.s.flags.opening && e.verb('time').unlocked, status + ': the Bell rings');
+    assert.ok(e.openCases().length >= 1, status + ': a new case within two weeks (' + t + 's)');
+    var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+    assert.ok(keep && keep.text.indexOf(CF.OPENING_TEXT.keepCold) > 0, status + ': the keep says it went unanswered by you: ' + (keep && keep.text));
+  });
+  console.log('opening taken away: ok');
+})();
+
+// ---- A Fever outranks the lesson: the hint names it until it is slept off ----------------------
+(function feverOverLesson() {
+  var e = CF.Engine.newGame({ seed: 130, calling: 'master', guided: true });
+  var lesson = e.introHint();
+  assert.ok(lesson && !/Fever/.test(lesson), 'a lesson to begin with: ' + lesson);
+  var f = e.create('burnout');
+  assert.strictEqual(e.introHint(), 'Pressing: Fever. Into Rest now, or the file ends.', 'the Fever comes first');
+  e.remove(f);
+  assert.strictEqual(e.introHint(), lesson, 'and the lesson comes back');
+  // A Fixation has no clock: it does not take the lesson's place.
+  e.create('tunnel');
+  assert.strictEqual(e.introHint(), lesson, 'Fixation leaves the lesson');
+  // No lesson showing: nothing is said in its place (the advisor speaks then).
+  e.s.intro.finished = true; e.s.intro.tailT = 0;
+  e.create('burnout');
+  assert.strictEqual(e.introHint(), null, 'after the guided start, the hint is the advisor\'s');
+  console.log('fever over the lesson: ok');
+})();

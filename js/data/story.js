@@ -61,13 +61,23 @@
     ],
     corruption: [
       { when: function (st) { return st.convictions >= 6; }, text: 'The Council\'s sergeants come for you at first light. Your record of convictions was the best in the city, and every one of those cases is being read again now, leaf by leaf. The people you sent down are getting letters from advocates.' },
+      // A run that never took a purse and barely hurt anyone came here by the doors it broke.
+      { when: function (st, s) { var c = s.counts || {}; return (c.purse || 0) === 0 && (c.cruelty || 0) <= 1; }, text: 'The Council\'s sergeants come for you at first light. You never took a purse, and it does not matter: a door broken without a writ, a pardon without a reason, a name the Council wanted kept out of the dock. They kept a list. Lists do not ask why.' },
       { text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.' },
     ],
+    // Who struck the last blow (stats.killedBy, set by hurtYou's cause): the Order, the Court of
+    // Miracles, a borrowed name that slipped; the cudgel on the stair is the plain story.
     death: [
+      { when: function (st) { return st.killedBy === 'order'; }, text: 'The Order of the Mountain warned you once, with a dagger on the pillow. The second time it sent a man in a servant\'s coat. They give you a bell, a Mass and a line in the Rolls, and nobody in the city will say they saw him.' },
+      { when: function (st) { return st.killedBy === 'court'; }, text: 'The Court of Miracles threw you in the ditch once and let you climb out. The King does not make the same mistake twice. They give you a bell, a Mass and a line in the Rolls. Under the Warrens they drink your health, the wrong way.' },
+      { when: function (st) { return st.killedBy === 'cover'; }, text: 'Your borrowed name slipped one night too many. They find you in the Harbour with it still in your coat. They give you a bell, a Mass and a line in the Rolls.' },
       { when: function (st) { return st.attacks >= 2; }, text: 'They came for you twice and warned you both times. The third time there was no warning. They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     ],
-    merciful: [{ text: '{sentHome} times you sent a poor sinner home instead of to the Ravenstone, and {reformed} of them are citizens now with stalls in the Market and children who do not know what their parents were. The Council never understood it. The city did. When you go, they carry the bier themselves.' }],
+    merciful: [
+      { when: function (st) { return st.reformed === 1; }, text: '{sentHome} times you sent a poor sinner home instead of to the Ravenstone, and one of them is a citizen now with a stall in the Market and children who do not know what their parents were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
+      { text: '{sentHome} times you sent a poor sinner home instead of to the Ravenstone, and {reformed} of them are citizens now with stalls in the Market and children who do not know what their parents were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
+    ],
     hangmans: [
       { when: function (st, s) { return s.who === 'hangman'; }, text: 'You began outside the walls and you end there. The Council keeps you because the city is quiet, and the city is quiet because it knows what you are. The executioner\'s house by the Ravenstone was always going to be your house. The work goes on.' },
       { text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
@@ -100,14 +110,19 @@
       { text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
     ],
     master: [
-      { when: function (st, s) { return s.origin !== 'master'; }, text: 'You did not come to this city to find a pattern. The pattern found you. The Architect is sentenced on a grey Tuesday, and every case you ever worked turns out to have been a line in someone else\'s drawing. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
-      { when: function (st) { return st.cold >= 4; }, text: 'The Architect is sentenced on a grey Tuesday. Half your unanswered cases answer themselves the same week; the other half never will, and you know exactly which. The scriveners are already copying your casebook. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
-      { text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties, and it will be called after you for a hundred years. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
+      { when: function (st, s) { return s.origin !== 'master'; }, text: 'You did not come to this city to find a pattern. The pattern found you. The Architect is sentenced on a grey Tuesday, and every case you ever worked turns out to have been a line in someone else\'s drawing. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.',
+        named: 'You did not come to this city to find a pattern. The pattern found you. The Architect is sentenced on a grey Tuesday: {architect}, {architectRole}, who always asked so kindly after your cases. Every case you ever worked turns out to have been a line in someone else\'s drawing. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
+      { when: function (st) { return st.cold >= 4; }, text: 'The Architect is sentenced on a grey Tuesday. Half your unanswered cases answer themselves the same week; the other half never will, and you know exactly which. The scriveners are already copying your casebook. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.',
+        named: 'The Architect is sentenced on a grey Tuesday: {architect}, {architectRole}, who always asked so kindly after your cases. Half your unanswered cases answer themselves the same week; the other half never will, and you know exactly which. The scriveners are already copying your casebook. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
+      { text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties, and it will be called after you for a hundred years. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.',
+        named: 'The Architect is sentenced on a grey Tuesday: {architect}, {architectRole}, who always asked so kindly after your cases. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties, and it will be called after you for a hundred years. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
     ],
     crusader: [
       { when: function (st, s) { return s.meters.scrutiny >= 7; }, text: 'The Court of Miracles is a wet cellar with nobody in it. So, very nearly, is your file in the Council chamber: they have been keeping it for the day the Coquille fell, and now they open it. It cost you more than you will ever say, and it may cost your office yet. For one bright season, nobody in this city was above the law.' },
-      { when: function (st, s) { return s.origin !== 'crusader'; }, text: 'You never called yourself a reformer. The Court of Miracles is a wet cellar with nobody in it all the same, and the King of Thunes hangs on the Ravenstone. The city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law, and it was you.' },
-      { text: 'The Court of Miracles is a wet cellar with nobody in it. The King of Thunes hangs on the Ravenstone. It cost you more than you will ever say, and the city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law.' },
+      { when: function (st, s) { return s.origin !== 'crusader'; }, text: 'You never called yourself a reformer. The Court of Miracles is a wet cellar with nobody in it all the same, and the King of Thunes hangs on the Ravenstone. The city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law, and it was you.',
+        named: 'You never called yourself a reformer. The Court of Miracles is a wet cellar with nobody in it all the same, and the King of Thunes, {king}, hangs on the Ravenstone. The city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law, and it was you.' },
+      { text: 'The Court of Miracles is a wet cellar with nobody in it. The King of Thunes hangs on the Ravenstone. It cost you more than you will ever say, and the city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law.',
+        named: 'The Court of Miracles is a wet cellar with nobody in it. The King of Thunes, {king}, hangs on the Ravenstone. It cost you more than you will ever say, and the city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law.' },
     ],
   };
 
@@ -132,27 +147,55 @@
   };
   // A won run looks back, at the end, to the death it began with (the opening's victim).
   CF.ENDING_FIRST_CASE = 'The first case in your casebook is still the death of {victim}. You never needed to read it again.';
-  // The run's numbers for an ending. A save from before the count of those sent home still
-  // knows who was: every reformed citizen, and every rogue spared by a pardon, went home from
-  // the bench. So the count is never fewer than they.
-  function endingCounts(st, crim) {
-    var out = {}, home = 0;
-    for (var k in st) out[k] = st[k];
-    for (var id in crim || {}) { var c = crim[id]; if (c && (c.status === 'reformed' || (c.traits || []).indexOf('spared') >= 0)) home++; }
-    out.sentHome = Math.max(st.sentHome || 0, st.reformed || 0, home);
-    out.reformed = st.reformed || 0;
+  // A count told in words, as a chronicle would: 'seven', 'twelve'; digits past a dozen.
+  var WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+  Story.words = function (n, cap) {
+    var w = n >= 0 && n < WORDS.length && n === Math.floor(n) ? WORDS[n] : String(n);
+    return cap ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+  };
+  // Who the run named, for the endings that name them: the King of Thunes ({king}) and the
+  // Architect with what they were to the city ({architect}, {architectRole}).
+  function named(s) {
+    var out = {}, crim = s.criminals || {};
+    if (s.court && s.court.king && s.court.king.name) out.king = s.court.king.name;
+    for (var id in crim) if (!out.king && crim[id] && crim[id].king) out.king = crim[id].name;
+    for (var k in s.cases || {}) {
+      var rec = s.cases[k];
+      if (!rec || rec.template !== 'architect') continue;
+      var g = (rec.suspects || []).filter(function (x) { return x.guilty; })[0];
+      if (g && g.name && g.role && (!out.architect || rec.status === 'closed')) { out.architect = g.name; out.architectRole = g.role; }
+    }
     return out;
   }
-  // The ending's text, with the run's own numbers where it counts them ({sentHome}, {reformed}).
+  // The run's numbers for an ending. A save from before the count of those sent home still
+  // knows who was: every reformed citizen, and every rogue spared by a pardon, went home from
+  // the bench. So the count is never fewer than they. The counts the Merciful Judge reads aloud
+  // are words ({sentHome} opens its sentence).
+  function endingCounts(s) {
+    var st = s.stats || {}, crim = s.criminals, out = named(s), home = 0;
+    for (var k in st) out[k] = st[k];
+    for (var id in crim || {}) { var c = crim[id]; if (c && (c.status === 'reformed' || (c.traits || []).indexOf('spared') >= 0)) home++; }
+    out.sentHome = Story.words(Math.max(st.sentHome || 0, st.reformed || 0, home), true);
+    out.reformed = Story.words(st.reformed || 0);
+    return out;
+  }
+  // A variant's named telling, when the run knows every name it asks for.
+  function told(v, vars) {
+    if (!v.named) return v.text;
+    var need = v.named.match(/\{\w+\}/g) || [];
+    return need.every(function (p) { return vars[p.slice(1, -1)] !== undefined; }) ? v.named : v.text;
+  }
+  // The ending's text, with the run's own numbers and names where it has them.
   Story.ending = function (e, id) {
     var list = CF.ENDING_VARIANTS[id], text;
     if (!list || !list.length) text = CF.ENDINGS[id].text;
     else {
       // The first variant whose condition fits; otherwise one of the plain ones.
-      var fit = list.filter(function (v) { return v.when && v.when(e.s.stats, e.s); });
+      var fit = list.filter(function (v) { return v.when && v.when(e.s.stats || {}, e.s); });
       var plain = list.filter(function (v) { return !v.when; });
       var pool = plain.length ? plain : [list[list.length - 1]];
-      text = U.fill(fit.length ? fit[0].text : pool[e.s.seed % pool.length].text, endingCounts(e.s.stats || {}, e.s.criminals));
+      var vars = endingCounts(e.s);
+      text = U.fill(told(fit.length ? fit[0] : pool[e.s.seed % pool.length], vars), vars);
     }
     var victim = e.firstVictim ? e.firstVictim() : null;
     if (victim && CF.ENDINGS[id] && CF.ENDINGS[id].win) text += ' ' + U.fill(CF.ENDING_FIRST_CASE, { victim: victim });

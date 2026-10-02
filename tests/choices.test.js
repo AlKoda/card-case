@@ -326,15 +326,15 @@ var m = game(13);
 m.s.stats.sentHome = 9;
 for (var ci = 0; ci < 2; ci++) m.criminalFor('Citizen ' + ci, null).status = 'reformed';
 m.gameOver('merciful');
-assert.strictEqual(m.s.over.text.indexOf('9 times you sent a poor sinner home'), 0, 'the Merciful Judge counts the ones sent home: ' + m.s.over.text);
-assert.ok(m.s.over.text.indexOf('and 2 of them are citizens now') > 0, 'and the reformed');
+assert.strictEqual(m.s.over.text.indexOf('Nine times you sent a poor sinner home'), 0, 'the Merciful Judge counts the ones sent home, in words: ' + m.s.over.text);
+assert.ok(m.s.over.text.indexOf('and two of them are citizens now') > 0, 'and the reformed');
 assert.ok(m.s.over.text.indexOf('{') < 0, 'nothing left unfilled');
 // A save from before the count of those sent home: never fewer sent home than reformed.
 var m2 = game(14);
 delete m2.s.stats.sentHome;
 for (var cj = 0; cj < 3; cj++) m2.criminalFor('Burgher ' + cj, null).status = 'reformed';
 m2.gameOver('merciful');
-assert.strictEqual(m2.s.over.text.indexOf('3 times you sent a poor sinner home'), 0, 'an old save counts the reformed as sent home: ' + m2.s.over.text);
+assert.strictEqual(m2.s.over.text.indexOf('Three times you sent a poor sinner home'), 0, 'an old save counts the reformed as sent home: ' + m2.s.over.text);
 CF.ENDING_VARIANTS.master.forEach(function (v) { assert.ok(/your own lintel, and you rub them out with your thumb\.$/.test(v.text), 'the Scholar ends at the lintel'); });
 console.log('the ending\'s numbers: ok');
 
@@ -373,9 +373,43 @@ console.log('the ending\'s numbers: ok');
   var sp = g.criminalFor('Rogue B', null); sp.traits.push('spared');
   var sp2 = g.criminalFor('Rogue C', null); sp2.traits.push('spared');
   g.gameOver('merciful');
-  assert.strictEqual(g.s.over.text.indexOf('3 times you sent a poor sinner home'), 0, 'reformed and spared both went home: ' + g.s.over.text);
-  assert.ok(g.s.over.text.indexOf('and 1 of them are citizens now') > 0, 'one is a citizen');
+  assert.strictEqual(g.s.over.text.indexOf('Three times you sent a poor sinner home'), 0, 'reformed and spared both went home: ' + g.s.over.text);
+  assert.ok(g.s.over.text.indexOf('and one of them is a citizen now') > 0, 'one is a citizen');
   console.log('an old save\'s mercy counted: ok');
 })();
 
 console.log('choices: all OK');
+
+// ---- Endings say what happened: who struck the last blow, a list without purses, the names -----
+(function endingsName() {
+  function over(seed, id, set) { var g = game(seed); if (set) set(g); g.gameOver(id); return g.s.over.text; }
+  var bys = { order: /Order of the Mountain warned you once/, court: /Court of Miracles threw you in the ditch/, cover: /borrowed name slipped/ };
+  Object.keys(bys).forEach(function (by, i) {
+    var t = over(40 + i, 'death', function (g) { g.s.stats.killedBy = by; g.s.stats.attacks = 3; });
+    assert.ok(bys[by].test(t) && !/cellar by the Harbour/.test(t), by + ': ' + t);
+  });
+  assert.ok(/cellar by the Harbour/.test(over(43, 'death', function (g) { g.s.stats.killedBy = 'stair'; })), 'the cudgel on the stair keeps the plain telling');
+  // Never a purse and hardly a cruelty: the list is of doors and pardons.
+  var clean = over(44, 'corruption', function (g) { g.s.counts.purse = 0; g.s.counts.cruelty = 1; g.s.stats.convictions = 2; });
+  assert.ok(/You never took a purse/.test(clean) && !/the purses/.test(clean), clean);
+  var dirty = over(45, 'corruption', function (g) { g.s.counts.purse = 2; g.s.stats.convictions = 2; });
+  assert.ok(/the purses/.test(dirty), dirty);
+  // The King of Thunes, by name, when the run crowned one.
+  var crowned = over(46, 'crusader', function (g) { g.s.meters.scrutiny = 0; var k = g.criminalFor('Jost Krumm', null); k.king = true; });
+  assert.ok(/King of Thunes, Jost Krumm, hangs on the Ravenstone/.test(crowned), crowned);
+  assert.ok(/King of Thunes hangs on the Ravenstone/.test(over(47, 'crusader', function (g) { g.s.meters.scrutiny = 0; })), 'no King crowned: unnamed');
+  // The Architect, with what they were to the city.
+  var arch = over(48, 'master', function (g) {
+    var c = g.spawnCase('architect', { quiet: true }), rec = g.caseRec(c.caseId);
+    rec.status = 'closed';
+  });
+  assert.ok(/sentenced on a grey Tuesday: [^,]+, (the respected doctor of laws|a retired judge of the Blood Court|the great benefactor), who always asked so kindly after your cases\./.test(arch), arch);
+  assert.ok(/rub them out with your thumb\./.test(arch));
+  assert.strictEqual(arch.indexOf('{'), -1, 'nothing left unfilled');
+  assert.ok(/sentenced on a grey Tuesday\./.test(over(49, 'master')), 'no Architect on file: unnamed');
+  // Counts in words: one to twelve, digits past a dozen.
+  assert.strictEqual(CF.Story.words(7, true), 'Seven');
+  assert.strictEqual(CF.Story.words(12), 'twelve');
+  assert.strictEqual(CF.Story.words(15, true), '15');
+  console.log('endings name what happened: ok');
+})();
