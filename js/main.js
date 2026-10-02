@@ -12,12 +12,13 @@
   var tr = CF.T;
   function store(key, val) { try { if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val); } catch (err) { /* storage unavailable */ } }
   function load(key) { try { return localStorage.getItem(key); } catch (err) { return null; } }
-  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); holdStill(); if (UI.wake) UI.wake(); }
+  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); holdStill(); if (UI.wake) UI.wake(); if (UI.hushSync) UI.hushSync(); }
   function only(id) {
     document.querySelectorAll('.modal').forEach(function (m) { m.classList.toggle('hidden', m.id !== id); });
     UI.modal = !!id;
     holdStill();
     if (UI.wake) UI.wake();
+    if (UI.hushSync) UI.hushSync();
   }
   function click(id, fn) { $(id).addEventListener('click', function (ev) { CF.Audio.play('click'); fn(ev); }); }
 
@@ -82,7 +83,7 @@
     box.classList.remove('cer'); void box.offsetWidth; box.classList.add('cer');
     [1, 2, 3].forEach(function (i) { var el = $('promo-s' + i); el.style.animationDelay = el.classList.contains('empty') ? '' : (0.75 + 0.12 * dealt++) + 's'; });
     clearTimeout(promoStamp);
-    promoStamp = setTimeout(function () { if (!$('promo').classList.contains('hidden')) { CF.Audio.play('seal'); if (UI.haptic) UI.haptic(40); } }, 650);
+    promoStamp = setTimeout(function () { if (!$('promo').classList.contains('hidden')) { CF.Audio.play('seal'); if (UI.haptic) UI.haptic('heavy'); } }, 650);
   };
   var promoStamp = null;
   // The new rank's wax glows in the top bar for a moment once the dialog is put away.
@@ -141,6 +142,22 @@
   }
   UI.endLesson = endLesson;
 
+  // The epilogue's lines, read with care: a line is a sentence, or { text, vars, art, kind } (text a template with
+  // {placeholders} filled from vars). At most four; a line without a picture wears its kind's seal.
+  var EPI_ART = { pattern: 'cmyst-04', coquille: 'cherald2-01', king: 'cherald2-01', rival: 'cwax-02', rivals: 'cwax-02', abroad: 'cres-12', watch: 'cwit-03', watchman: 'cwit-03' };
+  function endEpilogue(e) {
+    var lines = [];
+    try { lines = CF.Story && typeof CF.Story.epilogue === 'function' ? CF.Story.epilogue(e) || [] : []; } catch (err) { lines = []; }
+    if (!(lines instanceof Array)) return [];
+    return lines.map(function (x) {
+      if (typeof x === 'string') return { text: tr(x), art: 'ccirc-01' };
+      if (!x || typeof x.text !== 'string' || !x.text) return null;
+      return { text: tr(x.text, x.vars || undefined), art: (typeof x.art === 'string' && /^[a-z0-9-]+$/.test(x.art) && x.art) || EPI_ART[x.kind] || 'ccirc-01' };
+    }).filter(Boolean).slice(0, 4);
+  }
+  UI.endEpilogue = endEpilogue;
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
   // Every save keeps the one before it, so a save that goes wrong is one step back, never gone.
   function save() {
     if (!(inGame && UI.e && !UI.e.s.over)) return;
@@ -178,6 +195,11 @@
     $('end-lesson').classList.toggle('hidden', !lesson);
     $('end-lesson-icon').style.backgroundImage = lesson ? 'var(--art-' + lesson.art + ')' : '';
     $('end-lesson-text').textContent = lesson ? lesson.text : '';
+    // What became of them: the run's own late story told back in a few lines (CF.Story.epilogue, where the story
+    // has one), each with its seal.
+    var epi = endEpilogue(e);
+    $('end-epi').classList.toggle('hidden', !epi.length);
+    $('end-epi-list').innerHTML = epi.map(function (x) { return '<li><i style="background-image:var(--art-' + x.art + ')"></i><span>' + esc(x.text) + '</span></li>'; }).join('');
     // The tally as painted counters: the crown, the eye, the moon, the fire, each with its number beside it.
     var tally = [
       ['Convictions', st.convictions, 'cres-09'], ['Acquittals', st.acquittals, 'cres-03'], ['Unanswered', st.cold, 'cres-12'], ['Wrongful', st.wrongful, 'cres-04'],
@@ -187,6 +209,8 @@
     var box = $('end').querySelector('.screen-box');
     box.classList.remove('dealt'); void box.offsetWidth; box.classList.add('dealt');
     countUp($('end-stats').querySelectorAll('em'), tally.map(function (x) { return x[1] || 0; }));
+    // The pad stops and the stinger rings alone.
+    if (CF.Audio.music) CF.Audio.music(false);
     CF.Audio.play(over.win ? 'victory' : 'defeat');
     only('end');
   };
@@ -350,6 +374,7 @@
     return false;
   };
   click('btn-help', function () { openHelp('game'); });
+  UI.openPrecinct = function () { if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } };
   click('btn-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   click('m-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   // On a phone the top bar keeps only the clock and the menu: the journal and the Help live here.

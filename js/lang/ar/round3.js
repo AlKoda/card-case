@@ -1089,5 +1089,13 @@
     "<b>Standing</b>: your name in the Council chamber. At each threshold, a new office.": "<b>المكانة</b>: اسمك في قاعة المجلس. وعند كل عتبة منصب جديد.",
     "<b>Token</b>: a card of proof from a case: what was found, read or said.": "<b>الأمارة</b>: ورقة بيّنة من قضية: ما وُجد أو قُرئ أو قيل.",
     "<b>Aspect</b>: a kind of proof a token carries (Body, Word, Motive, Presence, Writ, Coin) and how much of it.": "<b>نوع البيّنة</b>: ما تحمله الأمارة من بيّنة (الجسد، القول، الدافع، التواجد، الصك، النقود) ومقداره.",
+    "At {n} Standing the Council offers you the Seat.": "عند {n} من المكانة يعرض عليك المجلس المقعد.",
+    "Past the last office, every {n} Standing the Council grants you a favour.": "بعد آخر منصب، يمنحك المجلس حظوة عن كل {n} من المكانة.",
+    "You hold the last office open to you.": "أنت في آخر منصب مفتوح لك.",
+    "The Council counts: {n} of {m} this fortnight": "المجلس يعدّ: {n} من {m} في هذين الأسبوعين",
+    "Roads": "الطرق",
+    "Next": "التالي",
+    "There are many ways to end. The journal's <b>Roads</b> show the three you are nearest, and what each still wants. Your <b>Calling</b> leans you toward its own. Lodging and dues come out at every bell. Do not run dry.": "للنهاية طرق كثيرة. تُريك <b>الطرق</b> في اليوميات أقرب ثلاث منها إليك، وما بقي لكل منها. و<b>غايتك</b> تميل بك إلى طريقها. السكن والرسوم يُسحبان عند كل جرس. لا تدع كيسك ينضب.",
+    "What Became of Them": "ما صار إليه أمرهم",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

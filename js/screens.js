@@ -127,6 +127,24 @@
     e.dirty = true;
     return true;
   };
+  // The Petitions that are not rooms (the instruments, a key, and whatever else the Council will hear), as the
+  // board's second row: bought, the office it needs, its form on the table, or its price. Pure, like tiles().
+  var GOOD_ICONS = { camera: 'cstory-04', prints: 'cstory-02', kit: 'iinv-16', labpass: 'ilaw-19', surveillance: 'cverb-08' };
+  Precinct.goods = function (e) {
+    var bought = (e.s.flags && e.s.flags.bought) || {};
+    return Object.keys(CF.ORDERS).filter(function (k) { return !CF.ORDERS[k].room; }).map(function (k) {
+      var o = CF.ORDERS[k], give = o.give && CF.CARDS[o.give];
+      var onTable = e.cardsOf('order', true).some(function (c) { return c.data.order === k; });
+      var state = bought[k] ? 'owned' : e.s.rank < o.rank ? 'locked' : onTable ? 'ordered' : 'open';
+      return { key: k, good: true, label: o.label, desc: give ? give.desc : (o.desc || ''), cost: Math.max(1, o.cost - orderDiscount(e)), rank: o.rank, state: state, icon: GOOD_ICONS[k] || 'ccrime-07' };
+    });
+  };
+  // The next Petition to aim for: the cheapest one the office allows and not yet bought.
+  Precinct.next = function (list) {
+    var best = null;
+    list.forEach(function (t) { if ((t.state === 'open' || t.state === 'ordered') && (!best || t.cost < best.cost)) best = t; });
+    return best ? best.key : null;
+  };
   var ROOM_ICONS = { locker: 'iinv-11', suite: 'ilaw-06', archive: 'iinv-20', intel: 'cwit-03', training: 'ilaw-22', thieftakers: 'itrade-20', lab: 'imed-24', survroom: 'iinv-19' };
   Precinct.open = function (e) {
     Precinct.e = e;
@@ -137,14 +155,14 @@
     if (!e) return;
     var grid = $('precinct-grid');
     grid.innerHTML = '';
-    var owned = 0;
-    Precinct.tiles(e).forEach(function (t) {
-      if (t.state === 'owned') owned++;
+    var owned = 0, rooms = Precinct.tiles(e), all = rooms.concat(Precinct.goods(e)), next = Precinct.next(all);
+    all.forEach(function (t) {
+      if (t.state === 'owned' && !t.good) owned++;
       var d = document.createElement('div');
-      d.className = 'room ' + t.state;
-      d.innerHTML = '<div class="rm-icon" style="background-image:var(--art-' + (ROOM_ICONS[t.key] || 'iplace-10') + ')"></div><div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
-        '<div class="rm-foot">' + esc(Precinct.foot(t)) + '</div>';
-      if (t.state === 'open') {
+      d.className = 'room ' + t.state + (t.good ? ' good' : '') + (t.key === next ? ' next' : '');
+      d.innerHTML = '<div class="rm-icon" style="background-image:var(--art-' + (t.good ? t.icon : ROOM_ICONS[t.key] || 'iplace-10') + ')"></div><div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
+        '<div class="rm-foot">' + esc(t.good && t.state === 'owned' ? CF.T('Bought') : Precinct.foot(t)) + '</div>' + (t.key === next ? '<div class="rm-next">' + esc('Next') + '</div>' : '');
+      if (t.state === 'open' && !t.good) {
         var b = document.createElement('button');
         b.className = 'plate-btn teal small';
         b.textContent = tr('Petition');

@@ -104,6 +104,13 @@ assert.ok(/OnBackPressedCallback/.test(activity) && !/void onBackPressed\(/.test
 assert.ok(/onRenderProcessGone/.test(activity), 'a killed renderer is rebuilt');
 assert.ok(/CF\.Audio\.suspend/.test(activity) && /CF\.UI\.onBackground/.test(activity), 'the background silences and saves the game');
 assert.ok(/CF\.UI\.setInsets/.test(activity), 'the cutout reaches the page');
+// A felt cue by name: the touches through the system's own feedback with no flags (the touch-feedback setting
+// kept), the weights through the vibrator, each behind its API level.
+assert.ok(/@JavascriptInterface\s+public void haptic\(final String kind\)/.test(activity), 'the bridge plays a cue by name');
+assert.ok(/root\.performHapticFeedback\(HapticFeedbackConstants\.CLOCK_TICK\)/.test(activity) && /r30 \? HapticFeedbackConstants\.CONFIRM : HapticFeedbackConstants\.VIRTUAL_KEY/.test(activity) && /r30 \? HapticFeedbackConstants\.REJECT : HapticFeedbackConstants\.LONG_PRESS/.test(activity), 'tick, confirm, reject, with their fallbacks');
+assert.ok(!/performHapticFeedback\([^)]*,/.test(activity), 'no flags: the system setting is kept');
+assert.ok(/createPredefined\(VibrationEffect\.EFFECT_HEAVY_CLICK\)/.test(activity) && /new long\[\] \{0, 12, 140, 12\}/.test(activity) && /new long\[\] \{0, 30, 60, 30\}/.test(activity), 'heavy, toll and harm from the vibrator');
+assert.ok(/web\.setHapticFeedbackEnabled\(false\)/.test(activity), 'the WebView\'s own stays off');
 var mf = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
 assert.ok(/enableOnBackInvokedCallback="true"/.test(mf) && /dataExtractionRules/.test(mf) && /fullBackupContent/.test(mf) && /localeConfig/.test(mf) && /appCategory="game"/.test(mf), 'manifest: back, backup, languages, category');
 assert.ok(!/INTERNET/.test(mf), 'the game needs no network');
@@ -127,7 +134,7 @@ assert.ok(/reopens on the table, paused/.test(fs.readFileSync(path.join(root, 'd
 (function audio() {
   var timers = 0, cleared = 0, rains = 0, listeners = {};
   var node = function () { return { connect: function () {}, start: function () { if (this.loop) rains++; }, stop: function () {}, gain: { setValueAtTime: function () {}, setTargetAtTime: function () {}, exponentialRampToValueAtTime: function () {}, linearRampToValueAtTime: function () {} },
-    frequency: { setValueAtTime: function () {}, exponentialRampToValueAtTime: function () {}, linearRampToValueAtTime: function () {}, value: 0 }, detune: { value: 0 }, Q: { value: 0 } }; };
+    frequency: { setValueAtTime: function () {}, setTargetAtTime: function (v) { this.target = v; }, exponentialRampToValueAtTime: function () {}, linearRampToValueAtTime: function () {}, value: 0 }, detune: { value: 0 }, Q: { value: 0 } }; };
   function Ctx() { this.state = 'running'; this.currentTime = 0; this.sampleRate = 100; this.destination = {}; }
   Ctx.prototype.createGain = Ctx.prototype.createOscillator = Ctx.prototype.createBiquadFilter = node;
   Ctx.prototype.createBufferSource = function () { var n = node(); n.loop = false; return n; };
@@ -140,12 +147,26 @@ assert.ok(/reopens on the table, paused/.test(fs.readFileSync(path.join(root, 'd
   require('vm').runInNewContext(fs.readFileSync(path.join(root, 'js/audio.js'), 'utf8'), ctx, { filename: 'js/audio.js' });
   var A = win.CF.Audio;
   listeners.pointerdown();
-  assert.ok(A.ready && timers === 1 && rains === 1, 'the first gesture starts the pad and the rain');
+  assert.ok(A.ready && timers === 1 && rains === 2, 'the first gesture starts the pad and the rain (two layers of it)');
   A.suspend();
   assert.ok(cleared === 1 && A.ctx.state === 'suspended', 'suspend clears the pad timer and the context');
   A.resume();
-  assert.ok(A.ctx.state === 'running' && timers === 2 && rains === 1, 'resume restarts the pad without a second rain');
+  assert.ok(A.ctx.state === 'running' && timers === 2 && rains === 2, 'resume restarts the pad without a second rain');
   A.resume();
-  assert.ok(timers === 2 && rains === 1, 'a second resume changes nothing');
+  assert.ok(timers === 2 && rains === 2, 'a second resume changes nothing');
+  // The ending stops the pad, and a hidden page coming back does not start it again; a new game does.
+  A.music(false);
+  assert.strictEqual(cleared, 2, 'the ending clears the pad timer');
+  A.suspend(); A.resume();
+  assert.strictEqual(timers, 2, 'the pad stays silent behind the ending');
+  A.music(true);
+  assert.ok(timers === 3 && rains === 2, 'a new game starts the pad, the rain still one');
+  // Paused or under a menu, the pad is muffled; and back.
+  assert.ok(typeof A.hush === 'function' && typeof A.duck === 'function', 'hush and duck exist');
+  A.hush(true); A.hush(false);
+  // Danger is heard at once; calm comes back after twenty seconds of it.
+  assert.strictEqual(A.mood(2, 100), 2, 'danger at once');
+  assert.strictEqual(A.mood(0, 110), 2, 'not calm ten seconds on');
+  assert.strictEqual(A.mood(0, 121), 0, 'calm after twenty');
 })();
 console.log('pwa: service worker list, editions, art, fonts, shell, android inputs, audio OK');

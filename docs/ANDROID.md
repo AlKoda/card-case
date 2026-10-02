@@ -56,7 +56,7 @@ is the same code as the web page.
 | Silence when I switch away, sound when I return | Yes. |
 | It pauses when I look away | "Pause when you switch away" setting, on by default. |
 | The screen does not sleep on me mid-turn | Only while playing. |
-| A little haptic feedback on touches | A "Vibration" setting: a light tick when a card is picked up, dropped, turned over, or a choice is made. Off on devices without a vibrator. |
+| A little haptic feedback on touches | A "Vibration" setting. The page asks the bridge for a cue by name (`CaseFileAndroid.haptic`): a tick when a card or a tile is picked up, a confirm when a card goes into a slot or a choice is sealed, a reject for a refused drop, all the system's own touch feedback (so the phone's touch-feedback setting is kept); a heavy click for a verdict or a new office, a short double pulse for the week's toll and for harm done, from the vibrator. Off on devices without a vibrator. In a browser the same names are patterns for the Vibration API. |
 | No accidental zoom, no text selection, no long-press menus | `touch-action`, `user-select`, and the WebView's own zoom off. |
 | It speaks my language | First run follows the device language (English or Arabic); the picker changes it any time. |
 | I can see which version I have | The Settings screen shows the app version. |

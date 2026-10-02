@@ -2534,5 +2534,126 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the Help by chapter and a verb\'s way in, the patrons\' seals, the dossier\'s band and pips, an ending of its own, the first paint, no layers at rest');
 })();
 
+// ---- Lane 2, items 105-112: the Council's count, the Petitions' board, Standing past the last office, the Roads,
+// what became of them, a card's own way out, the music under menus and danger, felt cues by name.
+(function lane2r8c() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var e = CF.Engine.newGame({ calling: 'master', seed: 4 });
+  UI.attach(e);
+  render(e);
+
+  // Item 112: a cue by name. The app's bridge plays the name; the web plays its pattern; an unknown name nothing.
+  settings.haptics = true;
+  var buzz = [], named = [], oldVib = navigator.vibrate;
+  navigator.vibrate = function (p) { buzz.push(p); return true; };
+  UI.haptic('toll'); UI.haptic('reject'); UI.haptic('tick'); UI.haptic('nonsense');
+  assert.deepStrictEqual(buzz, [[12, 140, 12], [8, 40, 8], 8], 'the names as web patterns: ' + JSON.stringify(buzz));
+  globalThis.CaseFileAndroid = { haptic: function (k) { named.push(k); }, vibrate: function () { named.push('ms'); } };
+  UI.haptic('heavy'); UI.haptic(12);
+  assert.deepStrictEqual(named, ['heavy', 'ms'], 'the app plays the name itself, and milliseconds through its vibrator');
+  delete globalThis.CaseFileAndroid;
+  settings.haptics = false;
+  buzz.length = 0; UI.haptic('heavy');
+  assert.strictEqual(buzz.length, 0, 'the Vibration setting still rules');
+  navigator.vibrate = oldVib;
+  var uisrc = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+  assert.ok(/UI\.haptic\('heavy'\)/.test(uisrc) && /UI\.haptic\('harm'\)/.test(uisrc) && /UI\.haptic\('toll'\)/.test(uisrc) && /UI\.haptic\('reject'\)/.test(uisrc) && /UI\.haptic\('confirm'\)/.test(uisrc) && /UI\.haptic\('tick'\)/.test(uisrc), 'the verdict, harm, the week, a refusal, a slotting, a pick-up');
+  assert.ok(/UI\.haptic\('heavy'\)/.test(main), 'and the new office');
+
+  // Item 110: a card leaves the table as the rules say it went.
+  var spot = 0;
+  function gone(why) {
+    var c = e.create('clue', { label: 'A Thread ' + why });
+    c.loc.x = 2600 + 200 * spot++; c.loc.y = 2600; // a place of its own, not under another card
+    render(e);
+    var el = $('#board').querySelectorAll('.card').filter(function (x) { return String(x.dataset.uid) === String(c.uid); })[0];
+    assert.ok(el, 'the card is on the table');
+    e.emit('gone', { uid: c.uid, why: why });
+    e.remove(c);
+    render(e);
+    return el;
+  }
+  played.length = 0;
+  assert.ok(gone('lost').classList.contains('gone-burn') && played.indexOf('loss') >= 0, 'an ability lost for good burns, and is heard');
+  assert.ok(gone('faded').classList.contains('gone-ink'), 'a trail fades like ink');
+  assert.ok(gone('left').classList.contains('gone-walk'), 'a witness walks off');
+  assert.ok(gone('whatever').classList.contains('leaving'), 'anything else fades as before');
+  assert.ok(/@keyframes burn \{ 40% \{ filter: sepia\(1\) brightness\(0\.6\) contrast\(1\.3\); \}/.test(css) && /\[dir=rtl\] \.card\.gone-walk \.c-face \{ animation-name: walkoffRtl; \}/.test(css), 'the burn, and the walk the other way in Arabic');
+  assert.ok(/html\[data-calm\] \.card\.gone-burn \.c-face, html\[data-calm\] \.card\.gone-ink \.c-face, html\[data-calm\] \.card\.gone-walk \.c-face \{ animation-name: fadeOut; \}/.test(css), 'less motion: a plain fade');
+
+  // Item 111: the pad muffled while paused (not under a drag) or under a menu; darker under danger.
+  var hush = [], moods = [];
+  CF.Audio.hush = function (on) { hush.push(on); };
+  CF.Audio.mood = function (n) { moods.push(n); };
+  UI.setPaused(true); UI.setPaused(false);
+  UI.autoPaused = true; UI.setPaused(true); UI.autoPaused = false; UI.setPaused(false);
+  assert.deepStrictEqual(hush, [true, false, false, false], 'a pause hushes, a drag\'s does not: ' + JSON.stringify(hush));
+  e.create('fatigue');
+  UI.updateLive();
+  assert.ok(moods.length === 1 && moods[0] >= 1, 'a threat on the table darkens the music: ' + moods);
+  delete CF.Audio.hush; delete CF.Audio.mood;
+  assert.ok(/if \(CF\.Audio\.music\) CF\.Audio\.music\(false\);\n    CF\.Audio\.play\(over\.win \? 'victory' : 'defeat'\);/.test(main), 'the ending stops the pad before its stinger');
+  assert.ok(/if \(UI\.hushSync\) UI\.hushSync\(\);/.test(main), 'menus hush it');
+
+  // Item 107: Standing at the last office aims at the next favour where the rules grant them, and says so.
+  var cap = e.rankCap ? e.rankCap() : CF.TOP_RANK, oldEvery = CF.FAVOUR_EVERY;
+  e.s.rank = cap; e.s.calling = 'master'; e.s.meters.reputation = CF.RANK_REP[cap] + 5;
+  delete CF.FAVOUR_EVERY;
+  var t0 = UI.repTarget(e);
+  assert.ok(t0.max === e.s.meters.reputation && t0.line === 'You hold the last office open to you.', 'without favours: full, and no promise of a letter');
+  CF.FAVOUR_EVERY = 4; e.s.flags.favourStep = 1;
+  var t1 = UI.repTarget(e);
+  assert.ok(t1.max === CF.RANK_REP[cap] + 8 && /every 4 Standing the Council grants you a favour/.test(t1.line), 'the next favour: ' + t1.max + ' ' + t1.line);
+  UI.showMeterInfo('reputation');
+  assert.ok(/grants you a favour/.test($('#peek').innerHTML) && !/At each threshold/.test($('#peek').innerHTML), 'the popover says what comes next, not a threshold that never will');
+  e.s.calling = 'commissioner'; e.s.rank = CF.TOP_RANK; e.s.meters.reputation = 10;
+  assert.strictEqual(UI.repTarget(e).max, CF.COMMISSIONER_REP, 'a Commissioner aims at the Seat first');
+  if (oldEvery === undefined) delete CF.FAVOUR_EVERY; else CF.FAVOUR_EVERY = oldEvery;
+  delete e.s.flags.favourStep; e.s.calling = 'master'; e.s.rank = 0; e.s.meters.reputation = 0;
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+
+  // Item 105: the Council's count in the Bell's pane, where the rules keep one.
+  e.verb('time').unlocked = true;
+  e.councilQuota = function () { return { closed: 1, expect: 3 }; };
+  UI.openWindow('time'); render(e);
+  var q = $('#windows').querySelector('.quota');
+  assert.ok(q && q.querySelectorAll('.q-pips i').length === 3 && q.querySelectorAll('.q-pips i.on').length === 1 && /1 of 3 this fortnight/.test(q.innerHTML), 'a pip a case, one filled');
+  e.councilQuota = undefined;
+  e.s.week++; render(e);
+  assert.ok(!$('#windows').querySelector('.quota'), 'no count where the rules keep none');
+  while (UI.openVerbs.length) UI.back();
+
+  // Item 108: the Roads under the Firsts, from the rules' reckoning; a defeat's warning among them.
+  e.roads = function () { return [{ id: 'merciful', text: 'Mercy {m} of {at}', vars: { m: 9, at: 12 } }, { id: 'dismissed', text: 'The Crowd has warned you once', warn: true }, { bad: 1 }]; };
+  render(e);
+  var rb = $('#journal').querySelector('.roads');
+  assert.ok(rb && rb.querySelectorAll('.road').length === 2 && rb.querySelectorAll('.road.warn').length === 1 && /Mercy 9 of 12/.test(rb.innerHTML) && /The Merciful Judge/.test(rb.innerHTML), 'two roads, one a warning, each named');
+  e.roads = undefined; render(e);
+  assert.ok(!$('#journal').querySelector('.roads'), 'no Roads where the rules reckon none');
+  assert.ok(/The journal's <b>Roads<\/b> show the three you are nearest/.test(html), 'the Help says where to look');
+
+  // Item 109: what became of them, read with care from the story's epilogue.
+  var src = main.slice(main.indexOf('  var EPI_ART'), main.indexOf('  UI.endEpilogue = endEpilogue;'));
+  var fakeCF = { Story: { epilogue: function () { return ['He still walks the lanes.', { text: '{n} examiners sent home', vars: { n: 2 }, kind: 'rival' }, { text: 'x', art: 'bad"key' }, null, 'four', 'five']; } } };
+  var epi = new Function('CF', 'tr', src + '\nreturn endEpilogue;')(fakeCF, CF.T)(e);
+  assert.ok(epi.length === 4 && epi[1].text === '2 examiners sent home' && epi[1].art === 'cwax-02' && epi[2].art === 'ccirc-01', 'four lines at most, templates filled, a bad picture refused: ' + JSON.stringify(epi));
+  assert.deepStrictEqual(new Function('CF', 'tr', src + '\nreturn endEpilogue;')({}, CF.T)(e), [], 'no epilogue, no list');
+  assert.ok(/id="end-epi"><h6>What Became of Them<\/h6><ul id="end-epi-list"><\/ul>/.test(html), 'the list under the ending\'s words');
+
+  // Item 106: a Petition's dossier opens the Watch-house board.
+  var opened = 0;
+  UI.openPrecinct = function () { opened++; };
+  var ord = e.create('order', { label: 'Petition: Sketch-book', data: { order: 'camera', discount: 0 } });
+  UI.selected = ord.uid; render(e);
+  var bb = $('#peek').querySelector('.peek-board');
+  assert.ok(bb, 'the Watch-house button');
+  bb.click();
+  assert.strictEqual(opened, 1, 'it opens the board');
+  UI.selected = null; delete UI.openPrecinct; render(e);
+  console.log('ui: the Council\'s count, the Petitions\' board, Standing past the last office, the Roads, the epilogue, a card\'s way out, the music hushed and dark, felt cues by name');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

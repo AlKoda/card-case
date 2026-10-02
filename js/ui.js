@@ -286,6 +286,8 @@
   // ---------------------------------------------------------------- Setup
   UI.attach = function (engine) {
     UI.e = engine;
+    // A table dealt again has its music again (the ending stopped it).
+    if (CF.Audio && CF.Audio.music && !engine.s.over) CF.Audio.music(true);
     UI.openVerbs = [];
     UI.selected = null;
     UI.hover = null;
@@ -305,6 +307,7 @@
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
     pileEl = null; choiceEl = null; linkEl = null; pinEl = null;
+    Object.keys(goneWhy).forEach(function (k) { delete goneWhy[k]; });
     // The grid over the whole table: its cells line up with the tidy layout.
     var B = T.BOUNDS, grid = h('div', 'grid');
     grid.style.left = B.x + 'px'; grid.style.top = B.y + 'px'; grid.style.width = B.w + 'px'; grid.style.height = B.h + 'px';
@@ -381,13 +384,44 @@
     Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
   };
   // A pause by the player (not the brief one under a drag) is a moment to write the save: the next frame does it.
-  UI.setPaused = function (p) { UI.paused = p; if (p && !UI.autoPaused) UI.saveSoon = true; renderControls(); };
-  // A light tick on touches (the Vibration setting). The app's own vibrator
-  // first, the web Vibration API otherwise, nothing where there is neither.
-  // A pattern [on, off, on, ...] is played as it is on the web, and pulse by pulse through the app's bridge.
+  UI.setPaused = function (p) { UI.paused = p; if (p && !UI.autoPaused) UI.saveSoon = true; renderControls(); UI.hushSync(); };
+  // The pad is muffled while the player has paused (not the brief pause under a drag) or a menu is over the table;
+  // the title has the music whole.
+  UI.hushSync = function () {
+    if (!CF.Audio || !CF.Audio.hush) return;
+    var title = null;
+    try { title = document.getElementById('title'); } catch (err) { /* no page */ }
+    var onTitle = !!(title && title.classList && !title.classList.contains('hidden'));
+    CF.Audio.hush(!!((UI.paused && !UI.autoPaused) || (UI.modal && !onTitle)));
+  };
+  // The music's mood, once a second: darker when a meter is at its worst word or a threat lies on the table, and
+  // a low drone under it when Vendetta or Dread is there with a threat beside it.
+  var moodAt = 0;
+  function moodTick() {
+    var now = Date.now();
+    if (!CF.Audio || !CF.Audio.mood || now - moodAt < 1000) return;
+    moodAt = now;
+    var e = UI.e, crit = {};
+    ['pressure', 'scrutiny', 'retaliation', 'dread'].forEach(function (k) { crit[k] = meterLevel(k) >= 4; });
+    var threat = e.tableCards().some(function (c) { return CF.CARDS[c.def] && CF.CARDS[c.def].kind === 'threat'; });
+    var n = (crit.retaliation || crit.dread) && threat ? 2 : threat || crit.pressure || crit.scrutiny || crit.retaliation || crit.dread ? 1 : 0;
+    CF.Audio.mood(n);
+  }
+  // A felt cue (the Vibration setting). By name: a pick-up's tick, a card slotted home, a drop refused, the
+  // verdict and the new office (heavy), the week's toll, harm done. The app plays a name through the system's own
+  // feedback (CaseFileAndroid.haptic, which keeps to the phone's touch-feedback setting); elsewhere the name is a
+  // pattern for the web Vibration API. Milliseconds or a pattern [on, off, on, ...] still work: the app's vibrator
+  // first, pulse by pulse, the web's otherwise, nothing where there is neither.
+  var HAPTICS = { tick: 8, confirm: 12, reject: [8, 40, 8], heavy: 30, toll: [12, 140, 12], harm: [30, 60, 30] };
+  UI.HAPTICS = HAPTICS;
   UI.haptic = function (ms) {
     if (CF.Settings.get('haptics') === false) return;
     try {
+      if (typeof ms === 'string') {
+        if (window.CaseFileAndroid && CaseFileAndroid.haptic) { CaseFileAndroid.haptic(ms); return; }
+        if (!HAPTICS.hasOwnProperty(ms)) return;
+        ms = HAPTICS[ms];
+      }
       if (window.CaseFileAndroid && CaseFileAndroid.vibrate) {
         if (!(ms instanceof Array)) { CaseFileAndroid.vibrate(ms || 10); return; }
         var at = 0;
@@ -699,7 +733,7 @@
       setTimeout(function () { ts.remove(); }, 2000);
     }
     // The gavel, twice, as the stamp comes down; a bell tolls for the condemned, the crowd murmurs for the acquitted.
-    if (trial) { CF.Audio.play(outcome === 'acquitted' ? 'acquit' : 'convict'); UI.haptic(30); }
+    if (trial) { CF.Audio.play(outcome === 'acquitted' ? 'acquit' : 'convict'); UI.haptic('heavy'); }
   }
 
   // A strain card (the Fever, a Fixation) that a story just announced: the newest of its kind on the table.
@@ -725,6 +759,7 @@
   }
 
   function onEvent(type, payload) {
+    if (type === 'gone') cardGone(payload);
     if (type === 'resolved' && UI.onResolved) UI.onResolved(payload);
     if (type === 'resolved') stampVerdict(payload);
     // The Fever or a Fixation has come (the engine's 'strain' event where it sends one, else its story): an edge mark,
@@ -736,7 +771,7 @@
     if (type === 'story') {
       var k = payload.kind, cue = k === 'week' ? null : storySound(payload);
       if (!UI.modal && cue) CF.Audio.play(cue);
-      if (!UI.modal && dangerWeight(payload) === 'harm') { shake(); UI.haptic([30, 60, 30]); }
+      if (!UI.modal && dangerWeight(payload) === 'harm') { shake(); UI.haptic('harm'); }
       if (k === 'case' || k === 'danger' || k === 'harm' || k === 'need' || k === 'major' || k === 'victory' || k === 'week') toast(strainUid ? { title: payload.title, text: payload.text, kind: k, uid: strainUid } : payload);
       if (k === 'case' && !UI.replaying && CF.Settings.get('pauseOnCase')) UI.setPaused(true);
     }
@@ -796,6 +831,7 @@
       // Each Coin flies to the Bell and rings as it lands.
       payload.uids.forEach(function (u, i) {
         var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]);
+        markFlown(u);
         if (c && el) setTimeout(function () { flyTo(el, bell, c); setTimeout(function () { CF.Audio.play('coin'); }, 350); }, i * 220);
       });
     }
@@ -838,7 +874,7 @@
     var paid = payload.paid !== undefined ? payload.paid !== false : UI.duesWeek === e.s.week;
     CF.Audio.play(paid ? 'week' : 'weekUnpaid');
     if (CF.Audio.downbeat) CF.Audio.downbeat();
-    UI.haptic([12, 140, 12]);
+    UI.haptic('toll');
     var bell = verbEls.time;
     if (bell && !calm()) { bell.classList.remove('toll'); void bell.offsetWidth; bell.classList.add('toll'); setTimeout(function () { bell.classList.remove('toll'); }, 1300); }
     var glass = document.querySelector('#weekbar .wb-glass');
@@ -1321,9 +1357,10 @@
     UI.selected = null; UI.hover = null;
     box.dataset.uid = 'meter:' + key; box.dataset.sig = '';
     peekHead(METER_ICONS[key], info.title);
+    var ends = key === 'reputation' && UI.e ? repTarget(UI.e).line : info.ends;
     box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' +
       '<div class="i-kind">' + esc(tr('Now: {word}', { word: (CF.METER_WORDS[key] || [])[meterLevel(key)] || '' })) + '</div>' +
-      '<p>' + esc(info.what) + '</p><p>' + esc(info.ends) + '</p>';
+      '<p>' + esc(info.what) + '</p><p>' + esc(ends) + '</p>';
     if (key === 'pressure' && UI.e) {
       // The tally the broadsheet-sellers keep (engine weekTick): the count, the threshold, and the way to lower it.
       var ue = UI.e, abroad = ue.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length + ue.countOf('gang') * 2 + ue.countOf('syndicate') * 3;
@@ -1379,6 +1416,20 @@
   UI.HELP_AT = HELP_AT;
   // The highest office open to you: the origins system caps a hangman at Bailiff.
   function rankCap(e) { return e.rankCap ? e.rankCap() : CF.TOP_RANK; }
+  // What Standing is climbing toward: the next office up to the cap (a hangman's ends at Bailiff); at the top, the
+  // Seat for a Commissioner; past that, the Council's next favour where the rules grant them (CF.FAVOUR_EVERY
+  // Standing past the last office, s.flags.favourStep given so far); else nothing further. Its line says which.
+  function repTarget(e) {
+    var s = e.s, m = s.meters, cap = rankCap(e), every = CF.FAVOUR_EVERY;
+    if (s.rank < cap) return { max: CF.RANK_REP[s.rank + 1], line: 'At each threshold the Council writes: a new office, more cases, a bigger stipend, and the powers that come with the rank.' };
+    if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && m.reputation < CF.COMMISSIONER_REP) return { max: CF.COMMISSIONER_REP, line: tr('At {n} Standing the Council offers you the Seat.', { n: CF.COMMISSIONER_REP }) };
+    if (typeof every === 'number' && every > 0) {
+      var step = (s.flags && typeof s.flags.favourStep === 'number' ? s.flags.favourStep : 0) + 1;
+      return { max: CF.RANK_REP[cap] + every * step, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: every }) };
+    }
+    return { max: Math.max(m.reputation, 1), line: 'You hold the last office open to you.' };
+  }
+  UI.repTarget = repTarget;
   function meterLevel(key) {
     var e = UI.e, m = e.s.meters, max = e.meterMax(key);
     if (key === 'reputation') return Math.min(4, Math.floor(m.reputation / Math.max(1, CF.COMMISSIONER_REP) * 4.999));
@@ -1386,9 +1437,8 @@
   }
   function renderTop() {
     var e = UI.e, s = e.s, m = s.meters;
-    // The next office is the next threshold up to the rank cap (a hangman's ends at Bailiff); at the cap there is no next.
-    var cap = rankCap(e), chair = s.calling === 'commissioner' && s.rank === CF.TOP_RANK;
-    var nextRep = s.rank < cap ? CF.RANK_REP[s.rank + 1] : (chair ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
+    // Standing's bar fills toward what it is climbing to (repTarget).
+    var nextRep = repTarget(e).max;
     var vals = {};
     ['pressure', 'scrutiny', 'retaliation', 'dread'].forEach(function (k) { vals[k] = { val: m[k], max: e.meterMax(k) }; });
     vals.reputation = { val: m.reputation, max: nextRep };
@@ -2055,11 +2105,11 @@
       if (o.cost) toast({ title: 'You cannot pay for that', text: tr('It takes {card}, and there is none on the table.', { card: CF.CARDS[o.cost].label }), kind: 'minor' });
       return false;
     }
-    if (pel && ghost) flyTo(pel, b, ghost);
+    if (pel && ghost) { flyTo(pel, b, ghost); markFlown(pay.uid); }
     el.classList.add('answered');
     b.classList.add('taken');
     CF.Audio.play('seal');
-    UI.haptic(15);
+    UI.haptic('confirm');
     // What the answer gives comes out of it.
     if (typeof before === 'number') e.tableCards().forEach(function (x) { if (x.uid >= before) markSpawn(x.uid, b); });
     e.dirty = true;
@@ -2273,14 +2323,43 @@
     });
     Object.keys(cardEls).forEach(function (uid) {
       if (keep[uid] || lifted[uid]) return;
-      var el = cardEls[uid];
+      var el = cardEls[uid], gone = goneWhy[uid];
       delete cardEls[uid];
+      delete goneWhy[uid];
       if (el.parentNode !== board) return;
-      el.classList.add('leaving');
-      setTimeout(function () { el.remove(); }, 220);
+      leaveTable(el, gone);
     });
     syncVerbs();
   }
+
+  // How a card leaves the table, where the rules say why (the engine's 'gone' event, { uid, why }): an ability lost
+  // for good burns, a token or a trail fades like ink, a witness walks off, a Coin spent flies to the Bell. Anything
+  // else, and any card the rules say nothing of, fades as before. Less motion: a plain fade, as long.
+  var goneWhy = {};
+  var GONE = { lost: ['gone-burn', 900], faded: ['gone-ink', 700], left: ['gone-walk', 600] };
+  function leaveTable(el, gone) {
+    var why = gone && gone.why, g = GONE[why];
+    if (why === 'spent' && gone.card && !gone.flown && verbEls.time && !calm()) {
+      flyTo(el, verbEls.time, gone.card);
+      setTimeout(function () { CF.Audio.play('coin'); }, 350);
+      el.remove();
+      return;
+    }
+    if (g) { el.classList.add(g[0]); setTimeout(function () { el.remove(); }, g[1]); return; }
+    el.classList.add('leaving');
+    setTimeout(function () { el.remove(); }, 220);
+  }
+  function cardGone(p) {
+    if (!p || p.uid === undefined || p.uid === null) return;
+    var c = UI.e.card(p.uid), prev = goneWhy[p.uid];
+    goneWhy[p.uid] = { why: p.why, card: c ? cloneCard(c) : null, flown: !!(prev && prev.flown) };
+    // An ability lost for good is heard and felt: a low falling note, the paper catching, a double pulse.
+    if (p.why === 'lost' && !UI.replaying) { CF.Audio.play('loss'); UI.haptic([40, 60, 40]); }
+  }
+  // A card that has already flown somewhere (a choice's price, the Bell's dues) does not fly again as it goes.
+  function markFlown(uid) { goneWhy[uid] = goneWhy[uid] || { why: null }; goneWhy[uid].flown = true; }
+  function cloneCard(c) { try { return JSON.parse(JSON.stringify(c)); } catch (err) { return null; } }
+  UI.goneWhy = goneWhy;
 
   function verbStatus(vid) {
     var e = UI.e, v = e.verb(vid);
@@ -2454,6 +2533,7 @@
   function updateLive() {
     var e = UI.e;
     updateWeekBar();
+    if (!e.s.over) moodTick();
     if (!UI.drag) renderHint();
     advanceTyping();
     if (UI.notices.length) updateNotices();
@@ -2532,12 +2612,21 @@
   function closeAllWindows() { UI.openVerbs.slice().forEach(closeWindow); }
   UI.openWindow = openWindow;
 
+  // The Council's fortnightly count where the rules keep one (e.councilQuota(): { closed, expect }), else null.
+  function councilQuota(e) {
+    if (typeof e.councilQuota !== 'function') return null;
+    var q;
+    try { q = e.councilQuota(); } catch (err) { q = null; }
+    if (!q || typeof q.expect !== 'number' || q.expect <= 0) return null;
+    return { closed: Math.max(0, q.closed | 0), expect: Math.min(8, q.expect | 0) };
+  }
+  UI.councilQuota = councilQuota;
   function windowSig(vid) {
     var e = UI.e, v = e.verb(vid), pv = v.status === 'idle' ? e.preview(vid) : null;
     // The finds' face-down state is part of it, so a turned card redraws (with its flip) at once.
     return [v.status, JSON.stringify(v.slots), v.out.map(function (u) { var c = e.card(u); return u + (c && c.hidden ? 'h' : ''); }).join(','), v.held.join(','), v.story ? v.story.title : '', v.ask ? (v.ask.filled || 'open') : '',
       pv ? pv.label + '|' + pv.blocked + '|' + pv.text : '', e.lockReason(vid) || '', v.recipe || '',
-      vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : '', UI.about === vid ? 'about' + e.s.rank : ''].join('#');
+      vid === 'time' ? e.s.week + '/' + JSON.stringify(councilQuota(e)) : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : '', UI.about === vid ? 'about' + e.s.rank : ''].join('#');
   }
 
   function syncWindows() {
@@ -2620,6 +2709,17 @@
         });
       }
       pane.appendChild(h('p', 'vw-desc', 'Coin in a verb\'s slot counts at the Bell.'));
+      // The Council's count, from Bailiff where the rules keep one: cases answered this fortnight against what it
+      // expects, as wax pips. Short of it at the Bell, the Crowd stirs; met, it settles.
+      var quota = councilQuota(e);
+      if (quota) {
+        var qrow = h('div', 'quota' + (quota.closed >= quota.expect ? ' met' : ''));
+        var pips = '';
+        for (var qi = 0; qi < quota.expect; qi++) pips += '<i class="' + (qi < quota.closed ? 'on' : '') + '"></i>';
+        qrow.innerHTML = '<span class="q-seal" style="background-image:' + art(PATRON_ART.council) + '"></span><span class="q-text">' +
+          esc(tr('The Council counts: {n} of {m} this fortnight', { n: Math.min(quota.closed, quota.expect), m: quota.expect })) + '</span><span class="q-pips">' + pips + '</span>';
+        pane.appendChild(qrow);
+      }
       var orders = e.tableCards().filter(function (c) { return c.def === 'order' && CF.costOf; }).sort(function (a, b) { return CF.costOf(a) - CF.costOf(b); });
       if (orders[0] && CF.costOf(orders[0]) > money) pane.appendChild(h('p', 'vw-desc', tr('Cheapest petition: {label}, {n} Coin more', { label: e.labelOf(orders[0]), n: CF.costOf(orders[0]) - money })));
       var rv = e.cardsOf('rival', true)[0];
@@ -3024,9 +3124,25 @@
     { id: 'week', label: 'A week survived', done: function (e) { return e.s.week >= 2; } },
   ];
   function firstsSig(e) { return FIRSTS.map(function (f) { return f.done(e) ? 1 : 0; }).join(''); }
+  // The Roads: the endings this run is nearest, each with its seal and what it still wants, and the defeats that
+  // have warned you, from the rules' own reckoning (e.roads(): [{ id, text, vars, warn }], three or so). A line's
+  // text is a template; its picture is the ending's own.
+  function journalRoads(e) {
+    if (typeof e.roads !== 'function') return [];
+    var list;
+    try { list = e.roads() || []; } catch (err) { list = []; }
+    if (!(list instanceof Array)) return [];
+    return list.map(function (r) {
+      if (!r || !r.id || typeof r.text !== 'string') return null;
+      var end = (CF.ENDINGS || {})[r.id] || {};
+      return { id: r.id, title: tr(r.title || end.title || r.id), text: tr(r.text, r.vars || undefined), warn: !!r.warn, art: (UI.ENDING_ART || {})[r.id] || 'ccirc-01' };
+    }).filter(Boolean).slice(0, 4);
+  }
+  UI.journalRoads = journalRoads;
   function renderJournal() {
     var e = UI.e, j = e.s.journal;
-    var fsig = firstsSig(e);
+    var roads = journalRoads(e);
+    var fsig = firstsSig(e) + '|' + roads.map(function (r) { return r.id + ':' + r.text; }).join(';');
     if (shownJournal === j[0] && UI.journalLen === j.length && UI.firstsSig === fsig) return;
     shownJournal = j[0];
     UI.journalLen = j.length;
@@ -3044,6 +3160,13 @@
       fb.appendChild(sp);
     });
     pane.appendChild(fb);
+    if (roads.length) {
+      var rb = h('div', 'roads');
+      rb.innerHTML = '<h6>' + esc('Roads') + '</h6>' + roads.map(function (r) {
+        return '<div class="road' + (r.warn ? ' warn' : '') + '" data-end="' + esc(r.id) + '"><i style="background-image:' + art(r.art) + '"></i><b>' + esc(r.title) + '</b><span>' + esc(r.text) + '</span></div>';
+      }).join('');
+      pane.appendChild(rb);
+    }
     j.slice(0, 120).forEach(function (x) {
       var d = h('div', 'journal-entry k-' + x.kind);
       d.innerHTML = '<i class="j-icon" style="background-image:' + art(TOAST_ICONS[x.kind] || 'ccirc-01') + '"></i><div class="j-meta">' + esc(tr('Week {n}', { n: x.week })) + '</div><h6>' + esc(x.title) + '</h6><p>' + esc(x.text) + '</p>';
@@ -3459,8 +3582,13 @@
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     var canMark = card.loc && (card.loc.t === 'table' || card.loc.t === 'slot');
+    // A Petition (or the rules' ledger of them) opens the Watch-house board, where every one stands with its price.
+    var toBoard = def.kind === 'order' && typeof UI.openPrecinct === 'function';
     box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' + html +
-      (canMark ? '<button class="peek-mark plate-btn' + (card.data && card.data.mark ? ' dark' : '') + '">' + esc(card.data && card.data.mark ? 'Unmark' : 'Mark') + '</button>' : '');
+      (canMark ? '<button class="peek-mark plate-btn' + (card.data && card.data.mark ? ' dark' : '') + '">' + esc(card.data && card.data.mark ? 'Unmark' : 'Mark') + '</button>' : '') +
+      (toBoard ? '<button class="peek-board plate-btn teal">' + esc('The Watch-house') + '</button>' : '');
+    var pb = box.querySelector('.peek-board');
+    if (pb) pb.addEventListener('click', function (ev) { ev.stopPropagation(); CF.Audio.play('click'); UI.openPrecinct(); });
     var mk = box.querySelector('.peek-mark');
     if (mk) mk.addEventListener('click', function (ev) { ev.stopPropagation(); card.data = card.data || {}; card.data.mark = !card.data.mark; box.dataset.sig = ''; e.dirty = true; renderInspector(); CF.Audio.play('click'); });
     var shown = buildCard(card, 1);
@@ -3633,7 +3761,7 @@
           if (UI.drag !== dd || dd.started) return;
           dd.holdT = 0; dd.whole = true;
           var pt = { clientX: dd.x0, clientY: dd.y0 };
-          liftCard(dd, pt); moveLifted(dd, pt); UI.haptic(15);
+          liftCard(dd, pt); moveLifted(dd, pt); UI.haptic('tick');
         }, 400);
       }
       ev.preventDefault();
@@ -3676,7 +3804,7 @@
       under.lifted = true;
       UI.drag = under;
       under.el.classList.add('held');
-      UI.haptic(15);
+      UI.haptic('tick');
     }, LIFT_HOLD);
     return d;
   }
@@ -3752,7 +3880,7 @@
     if (d.holdT) { clearTimeout(d.holdT); d.holdT = 0; } // it moved: no hold
     if (d.kind === 'verb' || d.kind === 'pile') {
       if (!d.started) {
-        d.started = true; d.el.classList.add('dragging'); hideHint(); UI.haptic(8);
+        d.started = true; d.el.classList.add('dragging'); hideHint(); UI.haptic('tick');
         d.rect = $('#table').getBoundingClientRect();
         if (d.kind === 'verb') { var vv = UI.e.verb(d.verb); d.b0 = { x: vv.x, y: vv.y }; }
         if (UI.openVerbs.length) closeAllWindows();
@@ -3775,7 +3903,7 @@
     hideHint();
     var card = e.card(d.uid);
     d.started = true;
-    UI.haptic(8);
+    UI.haptic('tick');
     d.from = card.loc.t;
     d.fromVerb = card.loc.verb;
     var r = d.src.getBoundingClientRect();
@@ -4058,7 +4186,7 @@
       // With a verb open, a tap on a card that fits puts it in; the window stays.
       if (card && card.loc && card.loc.t === 'table' && UI.openVerbs.length) {
         var openVid = UI.openVerbs[UI.openVerbs.length - 1];
-        if (e.verb(openVid).status === 'idle' && e.autoSlot(openVid, card.uid)) { markSpawn(card.uid, d.src); CF.Audio.play('drop'); UI.haptic(10); e.dirty = true; return; }
+        if (e.verb(openVid).status === 'idle' && e.autoSlot(openVid, card.uid)) { markSpawn(card.uid, d.src); CF.Audio.play('drop'); UI.haptic('confirm'); e.dirty = true; return; }
       }
       select(d.uid);
       // Clicking a card in a slot sends it back to the table.
@@ -4080,7 +4208,7 @@
       else ok = !!e.autoSlot(t.verb, card.uid);
       if (ok) {
         openWindow(t.verb);
-        CF.Audio.play('drop'); UI.haptic(10);
+        CF.Audio.play('drop'); UI.haptic('confirm');
         absorb(d, t);
       } else {
         refused(t);
@@ -4115,7 +4243,7 @@
   // less motion), and the reason, where the rules give one, stands in the hint bar for two seconds.
   function refused(t) {
     var e = UI.e, vid = t.verb;
-    CF.Audio.play('refuse'); UI.haptic([18, 50, 18]);
+    CF.Audio.play('refuse'); UI.haptic('reject');
     var node = t.node;
     if (node) { node.classList.remove('refuse'); void node.offsetWidth; node.classList.add('refuse'); setTimeout(function () { node.classList.remove('refuse'); }, 320); }
     var v = vid ? e.verb(vid) : null, pv = v && v.status === 'idle' && e.preview ? e.preview(vid) : null;

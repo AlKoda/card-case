@@ -449,6 +449,17 @@ html[data-flat] #table { perspective: none; }
 @keyframes settle { 40% { transform: scale(0.96, 0.98); } 70% { transform: scale(1.01); } }
 .card.leaving { opacity: 0; }
 .card.leaving .c-face { transform: scale(0.9); }
+/* How a card leaves, where the rules say: an ability lost for good burns, a token fades like ink, a witness walks off. */
+.card.gone-burn, .card.gone-ink, .card.gone-walk { pointer-events: none; }
+.card.gone-burn .c-face { animation: burn 0.9s ease-in forwards; }
+@keyframes burn { 40% { filter: sepia(1) brightness(0.6) contrast(1.3); } 100% { filter: sepia(1) brightness(0.15); transform: scale(0.88) rotate(4deg); opacity: 0; } }
+.card.gone-ink .c-face { animation: inkfade 0.7s ease-in forwards; }
+@keyframes inkfade { to { filter: grayscale(1) blur(1px); transform: translateY(-8px); opacity: 0; } }
+.card.gone-walk .c-face { animation: walkoff 0.6s ease-in forwards; }
+@keyframes walkoff { to { transform: translateX(40px); opacity: 0; } }
+[dir=rtl] .card.gone-walk .c-face { animation-name: walkoffRtl; }
+@keyframes walkoffRtl { to { transform: translateX(-40px); opacity: 0; } }
+html[data-calm] .card.gone-burn .c-face, html[data-calm] .card.gone-ink .c-face, html[data-calm] .card.gone-walk .c-face { animation-name: fadeOut; }
 .card.no-anim { transition: none !important; }
 .card.urgent::after { --glow: rgba(208, 86, 74, 1); animation: urgent 0.9s infinite; }
 @keyframes urgent { 50% { opacity: 1; } }
@@ -512,7 +523,7 @@ html[data-flat] #table { perspective: none; }
 #peek .aspect-pop p { margin: 4px 0 0; color: var(--paper-ink); font-size: 12.5px; line-height: 1.4; }
 #peek .aspect-pop .ap-note { color: #5a4f3a; font-style: italic; }
 #peek .aspect-pop .ap-find { margin-top: 6px; padding: 3px 10px; border: 1px solid #a88a4c; border-radius: 6px; background: #efe3c6; color: var(--paper-ink); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; }
-#peek .peek-mark { display: block; margin: 8px auto 4px; min-width: 110px; font-size: 12px; padding: 0 14px; border-width: 12px 22px; }
+#peek .peek-mark, #peek .peek-board { display: block; margin: 8px auto 4px; min-width: 110px; font-size: 12px; padding: 0 14px; border-width: 12px 22px; }
 
 /* The verb window is the painted panel (cpanel3-01, 270x304, one tile pixel per CSS pixel): a dark
    title bar with the red X baked into its corner, paper below. The slices keep the bar (64), the X's
@@ -579,6 +590,7 @@ html.cf-cover #app { visibility: hidden; }
   .meter.bump::before, .meter.bump .m-icon::before { opacity: 0.9; }
   .meter.bump-up .m-icon::before { transform: rotate(-90deg); }
   .meter.bump-down .m-icon::before { transform: rotate(90deg); }
+  .card.gone-burn .c-face, .card.gone-ink .c-face, .card.gone-walk .c-face { animation-name: fadeOut; }
 }
 .vw-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; font-size: 15px; font-weight: 700; color: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
 .vw-close { position: absolute; top: 5px; right: -54px; width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%; color: transparent; font-size: 0; background: none; cursor: pointer; }
@@ -640,6 +652,14 @@ html.cf-cover #app { visibility: hidden; }
 .clock .ck-bar { height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.12); overflow: hidden; }
 .clock .ck-bar i { display: block; height: 100%; background: #6dbb6a; }
 .clock.urgent { color: var(--danger); }
+/* The Council's fortnightly count in the Bell's pane: its seal, the words, a pip a case. */
+.quota { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; color: #5a4f3a; }
+.quota .q-seal { flex: none; width: 24px; height: 24px; background: center / contain no-repeat; }
+.quota .q-text { flex: 1; min-width: 0; }
+.quota .q-pips { display: flex; gap: 3px; }
+.quota .q-pips i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #8a6a3a; background: transparent; }
+.quota .q-pips i.on { background: #b8892c; border-color: #7a5a1a; }
+.quota.met .q-pips i.on { background: #2f7a4a; border-color: #1f5a34; }
 .clock.urgent .ck-bar i { background: var(--danger); }
 .clock .ck-days { font-family: var(--mono); text-align: right; font-size: 11px; white-space: nowrap; }
 .charge { margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: rgba(255, 250, 238, 0.6); border: 1px solid #a88a4c; font-size: 12px; }
@@ -704,6 +724,14 @@ html.cf-cover #app { visibility: hidden; }
 .firsts .first { display: inline-block; margin-block: 2px; margin-inline: 0 8px; font-family: var(--serif); font-size: 12.5px; color: #6a5f4a; }
 .firsts .first i { display: inline-block; width: 18px; height: 18px; margin-block: -4px; margin-inline: 0 4px; vertical-align: middle; background: center / contain no-repeat; }
 .firsts .first.done { color: #1f1b15; }
+/* The Roads: the endings nearest, each with its seal and what it still wants; a defeat's warning in red. */
+.roads { margin: 0 0 14px; padding: 8px 10px; border: 1px solid #a88a4c; border-radius: 8px; background: rgba(255, 250, 238, 0.5); }
+.roads h6 { margin: 0 0 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a5a1a; }
+.roads .road { display: grid; grid-template-columns: 30px 1fr; column-gap: 8px; align-items: center; margin: 4px 0; }
+.roads .road i { grid-row: span 2; width: 30px; height: 30px; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4)); }
+.roads .road b { font-family: var(--display); font-size: 12.5px; color: #1f1b15; }
+.roads .road span { font-family: var(--serif); font-size: 12.5px; color: #4a4033; line-height: 1.3; }
+.roads .road.warn b, .roads .road.warn span { color: #8a2a1e; }
 .journal-entry .j-meta { font-family: var(--mono); font-size: 10px; color: #8a7a5a; text-transform: uppercase; letter-spacing: 0.08em; }
 .journal-entry h6 { margin: 2px 0 3px; font-size: 13px; font-family: var(--display); color: #2a1a10; }
 .journal-entry p { margin: 0; font-family: var(--serif); font-size: 13px; line-height: 1.45; color: #4a4033; }
@@ -810,6 +838,12 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 /* Under a loss: what would have saved you, beside the threat's seal. */
 .end-paper .end-lesson { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 6px 10px; border-inline-start: 3px solid rgba(160, 50, 40, 0.7); background: rgba(120, 90, 50, 0.1); color: #3a3127; font-size: 14px; line-height: 1.4; }
 .end-paper .end-lesson i { flex: none; width: 34px; height: 34px; background: center / contain no-repeat; }
+/* What became of them: the run's late story, a line each with its seal. */
+.end-paper .end-epi { margin: 0 0 10px; }
+.end-paper .end-epi h6 { margin: 0 0 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a5a1a; }
+.end-paper .end-epi ul { margin: 0; padding: 0; list-style: none; }
+.end-paper .end-epi li { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-family: var(--serif); font-size: 13.5px; line-height: 1.35; color: #2a241c; }
+.end-paper .end-epi li i { flex: none; width: 24px; height: 24px; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4)); }
 .end-card { position: relative; width: 100%; aspect-ratio: 320 / 236; background: var(--frame, var(--art-cwide-04)) center / 100% 100% no-repeat; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); }
 .end-win .end-card { --frame: var(--art-cwide-03); }
 .end-lose .end-card { --frame: var(--art-cwide-04); }
@@ -1065,6 +1099,9 @@ html[data-calm] .title-scene::before, html[data-calm] .title-scene::after { anim
 .room.locked { opacity: 0.55; border-color: #9a8c70; }
 .room.ordered .rm-foot { color: #7c1d15; }
 .room .plate-btn.small { align-self: flex-start; font-size: 12px; padding: 4px 14px; min-height: 30px; }
+/* The cheapest Petition the office allows and not yet bought: a gold edge and a small tag. */
+.room.next { border-color: #d4a24c; box-shadow: inset 0 0 0 1px rgba(60, 40, 10, 0.25), 0 0 0 2px rgba(212, 162, 76, 0.55); }
+.room .rm-next { position: absolute; bottom: 10px; inset-inline-end: 12px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a5a1a; }
 .modal.dialog { background: rgba(6, 9, 10, 0.7); z-index: 1300; }
 .dlg { position: relative; background: center / 100% 100% no-repeat; filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.7)); }
 .dlg-confirm { width: min(420px, 92vw); aspect-ratio: 360 / 307; background-image: var(--art-cpanel-01); }
