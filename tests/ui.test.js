@@ -1297,5 +1297,103 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: instruments in words, the tier glossed, the Calling\'s endings and origin, the Bell kept, the Abroad hint, the promotion, the serif');
 })();
 
+// ---- Round 8, lane 2, items 33-40: the Rolls by case, the short screen's banners, a choice from an old save,
+// the save on pause and on a hidden page, a token's portrait of whom it is about, fresh editions, Back.
+(function round8e() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 41 });
+  UI.attach(e);
+  UI.view = UI.view || { x: 0, y: 0, z: 1 };
+  render(e);
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var screens = fs.readFileSync(path.join(__dirname, '..', 'js/screens.js'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+
+  // The Rolls: each case wears its own crime card and an outcome wax; a sealed record its key.
+  assert.strictEqual(UI.caseArt('arson'), 'ccrime-03', 'a case\'s own crime card');
+  assert.strictEqual(UI.caseArt(undefined), UI.caseArt('no-such-case'), 'an old record without a template falls back');
+  assert.ok(/CF\.UI\.caseArt\(rec\.template\)/.test(screens) && !/CARD_ART\[rec\.outcome\]/.test(screens), 'the archive paints the case, not the outcome');
+  assert.ok(/convicted: 'cwax-03'/.test(screens) && /cold: 'cwax-05'/.test(screens) && /class="pc-seal"/.test(screens) && /class="pc-sealed" style="--s:var\(--art-cstamp-04\)"/.test(screens), 'the outcome is a wax, the seal a key');
+  assert.ok(/rec\.short \|\| \(tpl && tpl\.label\)/.test(screens), 'the strip names the kind of case, in either language');
+  assert.ok(/\.archive-grid \.pcard \.pc-seal \{ top: 3%; right: 3%;/.test(css), 'the wax sits in the corner');
+
+  // A short screen: slim banners and a sideways strip of rooms.
+  var shortBlock = css.slice(css.indexOf('/* Help, Settings, the Watch-house and the Rolls'));
+  assert.ok(/\.screen-box\.wide > \.banner span \{ font-size: 18px;/.test(shortBlock) && /\.precinct-grid \{ grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 270px; overflow-x: auto;/.test(shortBlock), 'the short window\'s banners and rooms');
+
+  // An old save's choice lists two options the player cannot pay; the question's own free answer is shown.
+  var swan = CF.CHOICES.filter(function (c) { return c.id === 'swan'; })[0];
+  e.cardsOf('funds', true).forEach(function (c) { e.remove(c); });
+  e.cardsOf('focus', true).forEach(function (c) { e.remove(c); });
+  e.s.choice = { id: 'swan', title: swan.title, text: swan.text, ctx: null,
+    options: [{ label: 'Take the room', text: 'x', cost: 'funds' }, { label: 'Work through', text: 'y', cost: 'focus' }] };
+  // Written to disk and read back, as a save from before round 7 would be.
+  var old = CF.Engine.load(e.save());
+  UI.attach(old);
+  render(old);
+  var opts = $('#board').querySelector('.choice').querySelectorAll('.ch-opt');
+  assert.strictEqual(opts.length, swan.options.length, 'the question\'s own options are shown');
+  assert.ok(/Sleep at the desk/.test(opts[2].textContent) && !opts[2].classList.contains('cant'), 'and the free one can be taken');
+  assert.ok(old.choose(2) && !old.s.choice, 'it answers the question');
+  render(old);
+  e.s.choice = null;
+  UI.attach(e);
+  render(e);
+  // A save of today keeps its own options.
+  e.offerChoice(swan);
+  assert.strictEqual(UI.choiceOptions(e, e.s.choice), e.s.choice.options, 'a current save shows what it stored');
+  e.s.choice = null;
+  render(e);
+
+  // The save: on an answered choice and on the player's pause (after the tick), and when the page is hidden.
+  var ui = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+  UI.saveSoon = false; UI.autoPaused = false;
+  UI.setPaused(true);
+  assert.ok(UI.saveSoon, 'a pause asks for a save');
+  UI.saveSoon = false; UI.autoPaused = true; UI.setPaused(true);
+  assert.ok(!UI.saveSoon, 'the brief pause under a drag does not');
+  UI.autoPaused = false; UI.setPaused(false);
+  assert.ok(/if \(type === 'chosen'\) UI\.saveSoon = true;/.test(ui) && /if \(UI\.saveSoon\) \{ UI\.saveSoon = false; saveT = 0; if \(UI\.onSave\) UI\.onSave\(\); \}/.test(ui), 'a choice is saved, after the tick');
+  assert.ok(/addEventListener\('visibilitychange', function \(\) \{ if \(document\.hidden\) save\(\); \}\)/.test(main) && /addEventListener\('pagehide', save\)/.test(main), 'a hidden page is saved');
+
+  // A token about one accused wears their portrait, and the dossier names them first.
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sus = rec.suspects.filter(function (x) { return x.key === rec.culprit; })[0];
+  var plate = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  var motive = e.create('clue', e.clueSpec(rec, { label: 'Motive: ' + sus.name, text: 'A reason.', aspects: { motive: 2 } }));
+  motive.data.about = sus.key;
+  var plain = e.create('clue', e.clueSpec(rec, { label: 'A Boot Print', text: 'Mud.', aspects: { forensic: 1 } }));
+  render(e);
+  var mEl = $('#board').querySelector('.card[data-uid=' + motive.uid + ']'), pEl = $('#board').querySelector('.card[data-uid=' + plain.uid + ']');
+  var pip = mEl && mEl.querySelector('.c-about');
+  assert.ok(pip, 'the Motive wears a portrait');
+  var plateFace = plate && $('#board').querySelector('.card[data-uid=' + plate.uid + ']').querySelector('.c-face');
+  assert.ok(plateFace && pip.style.backgroundImage === plateFace.style['--pic'], 'the picture of the nameplate: ' + pip.style.backgroundImage);
+  assert.ok(pEl && !pEl.querySelector('.c-about'), 'a token about nobody wears none');
+  assert.ok(!mEl.querySelector('.chip.trait'), 'and it is not the mark chip, which means a mark was found');
+  UI.selected = motive.uid; render(e);
+  var lines = $('#peek').querySelector('.i-lines');
+  assert.ok(lines && lines.children[0].textContent === 'About ' + sus.name, 'the dossier opens with whom it is about: ' + (lines && lines.children[0].textContent));
+  UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  e.remove(motive); e.remove(plain);
+  render(e);
+
+  // Back puts away the nearest thing first: the picker, the pinned dossier, the journal, then the windows, then the menu.
+  var menus = 0;
+  UI.onBack = function () { menus++; return true; };
+  UI.pick = { verb: 'duty', slot: 0 };
+  assert.ok(UI.back() && !UI.pick && menus === 0, 'Back closes the slot picker');
+  UI.selected = plate.uid; render(e);
+  assert.ok($('#peek').classList.contains('pinned'), 'the dossier is pinned');
+  assert.ok(UI.back() && !$('#peek').classList.contains('pinned') && !$('#peek').classList.contains('open') && UI.selected === null && menus === 0, 'Back closes the dossier');
+  UI.toggleJournal(true);
+  assert.ok(UI.back() && !$('#journal-drawer').classList.contains('open') && menus === 0, 'Back closes the journal');
+  UI.back();
+  assert.strictEqual(menus, 1, 'and only then opens the menu');
+  UI.onBack = null;
+  assert.ok(/else if \(ev\.key === 'Escape'\) closeNearest\(\);/.test(ui), 'Escape shares it');
+  console.log('ui: the Rolls by case, the short screen, an old choice answered, the save on pause, the portrait of whom, Back');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

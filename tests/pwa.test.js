@@ -44,7 +44,10 @@ assert.ok(!/c\.put\(ev\.request/.test(sw) && !/caches\.match\(ev\.request\)/.tes
 assert.ok(/caches\.open\(VERSION\)\.then\(function \(c\) \{\s*return c\.match\(p\)/.test(sw) && /if \(lazy && res && res\.ok\) c\.put\(p, res\.clone\(\)\)/.test(sw), 'files come from the VERSION cache alone; a lazy file is put there on its first fetch');
 assert.ok(/addEventListener\('message'/.test(sw) && /ev\.data === 'skip'/.test(sw) && /skipWaiting\(\)/.test(sw), 'a message of skip lets the new edition take over');
 assert.ok(!/addAll\(FILES\)\.then\(function \(\) \{ return self\.skipWaiting/.test(sw) && !/install[\s\S]*?skipWaiting[\s\S]*?\}\);\n\/\/ A new edition/.test(sw), 'the install itself does not skip waiting');
+// An edition is fetched past the HTTP cache, so two pushes ten minutes apart never mix their files.
+assert.ok(/function fresh\(f\) \{ return new Request\(f, \{ cache: 'reload' \}\); \}/.test(sw) && /c\.addAll\(FILES\.filter\([^\n]*\)\.map\(fresh\)\)/.test(sw) && /fetch\(fresh\(f\)\)/.test(sw) && /fetch\(lazy \? fresh\(p\) : ev\.request\)/.test(sw), 'the install, the icons and the lazy file use cache: \'reload\'');
 var reg = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+assert.ok(/visibilitychange/.test(reg) && /reg\.update\(\)/.test(reg) && /3600000/.test(reg), 'a page come back into view looks for a new edition, once an hour at most');
 ['updatefound', 'statechange', "w.state === 'installed'", 'navigator.serviceWorker.controller', 'CF.onUpdate(reg)', 'controllerchange', 'CF.updateAsked', 'location.reload()', 'reg.waiting'].forEach(function (k) {
   assert.ok(reg.indexOf(k) >= 0, 'the registration script handles the update: ' + k);
 });

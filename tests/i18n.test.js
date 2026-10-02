@@ -26,6 +26,14 @@ Object.keys(CF.LANGS).forEach(function (lang) {
   });
 });
 
+// The extractor reads a lowercase literal as a fragment unless it is a whole sentence of three words or more:
+// the ask's hints once started 'or drop a card...' and no test saw they had no Arabic.
+assert.strictEqual(extract.literalKind('or drop a card on the token. Ignore it and the work still finishes, but it finds less.'), 'key', 'a lowercase sentence is a key');
+assert.strictEqual(extract.literalKind('the {who} says'), 'fragment', 'a piece with a placeholder stays a fragment');
+assert.strictEqual(extract.literalKind('and then'), 'fragment', 'two words without a stop stay a fragment');
+assert.strictEqual(extract.literalKind('Rest'), 'key', 'a capitalised word is a key');
+assert.strictEqual(extract.literalKind('cwax-01'), 'skip', 'an art key is not text');
+
 // The lookup: exact, template, trailing stop, sentence run, list, name.
 CF.setLang('ar');
 var d = CF.I18N.dicts.ar;

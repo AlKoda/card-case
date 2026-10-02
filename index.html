@@ -346,6 +346,13 @@
           var w = reg.installing;
           if (w) w.addEventListener('statechange', function () { if (w.state === 'installed') ready(); });
         });
+        // A page left open for days (an installed app) looks for a new edition when it comes back into view, once an hour at most.
+        var lookedAt = Date.now();
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden || Date.now() - lookedAt < 3600000) return;
+          lookedAt = Date.now();
+          reg.update().catch(function () { /* offline */ });
+        });
       }).catch(function () { /* offline install unavailable */ });
       // The new worker took over after the tap: the page reloads onto it (never on a first install).
       navigator.serviceWorker.addEventListener('controllerchange', function () {

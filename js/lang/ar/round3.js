@@ -953,5 +953,6 @@
     "Mercy {m} of {at}": "الرحمة {m} من {at}",
     "Once {origin}; set out as {calling}": "كنت يوماً {origin}؛ وبدأت بصفة {calling}",
     "Their new crime: lay this beside it in Rest": "جريمته الجديدة: ضع هذه بجانبها في الراحة",
+    "About {name}": "بشأن {name}",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

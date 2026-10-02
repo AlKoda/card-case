@@ -134,7 +134,8 @@
   var KEY = 'casefile.archive.v1';
   var OPENED = 'casefile.archive.opened.v1';
   var PER_PAGE = 8;
-  var CARD_ART = { convicted: 'cback-03', wrongful: 'cback-01', acquitted: 'cback-05', cold: 'cback-04' };
+  // Each case wears its own crime card; the outcome is a wax in the corner.
+  var OUTCOME_WAX = { convicted: 'cwax-03', wrongful: 'cwax-01', acquitted: 'cok-02', cold: 'cwax-05', settled: 'cok-01', court: 'cwax-02', inquisitor: 'cwax-01' };
   var OUTCOMES = { convicted: 'Answered', wrongful: 'Closed', acquitted: 'Acquitted', cold: 'Unanswered', settled: 'Settled', court: 'Closed by the Court', inquisitor: 'Taken by the Inquisitor' };
 
   function readList(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (err) { return []; } }
@@ -155,6 +156,12 @@
   };
 
   function isOpened(rec) { return readList(OPENED).indexOf(rec.id) >= 0; }
+  // The strip names the kind of case ('Burglary'), which reads in both languages;
+  // an old record without a template keeps its whole title.
+  function shortTitle(rec) {
+    var tpl = CF.CASE_TEMPLATES && CF.CASE_TEMPLATES[rec.template];
+    return rec.short || (tpl && tpl.label) || rec.title || '';
+  }
 
   Archive.render = function () {
     var list = readList(KEY);
@@ -162,13 +169,16 @@
     Archive.page = Math.min(Archive.page, pages - 1);
     var grid = $('archive-grid');
     grid.innerHTML = '';
+    var openedIds = readList(OPENED);
     if (!list.length) grid.innerHTML = '<p class="archive-empty">' + esc('Nothing in the Rolls yet. Every case you answer, or lose, is entered here.') + '</p>';
     list.slice(Archive.page * PER_PAGE, (Archive.page + 1) * PER_PAGE).forEach(function (rec, i) {
       var idx = Archive.page * PER_PAGE + i;
       var b = document.createElement('button');
       b.className = 'pcard' + (idx === Archive.selected ? ' on' : '') + ' o-' + rec.outcome;
-      b.style.backgroundImage = 'var(--art-' + (CARD_ART[rec.outcome] || 'cback-04') + ')';
-      b.innerHTML = '<span class="pc-top">' + esc(rec.title) + '</span><span class="pc-bottom">' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</span>';
+      b.style.backgroundImage = 'var(--art-' + CF.UI.caseArt(rec.template) + ')';
+      b.title = tr(rec.title) + ' · ' + tr(OUTCOMES[rec.outcome] || rec.outcome);
+      b.innerHTML = '<span class="pc-top">' + esc(rec.title) + '</span><span class="pc-bottom">' + esc(shortTitle(rec)) + '</span>' +
+        '<i class="pc-seal" style="--s:var(--art-' + (OUTCOME_WAX[rec.outcome] || 'cwax-05') + ')"></i>' + (openedIds.indexOf(rec.id) >= 0 ? '' : '<i class="pc-sealed" style="--s:var(--art-cstamp-04)"></i>');
       b.addEventListener('click', function () { Archive.selected = idx; Archive.render(); });
       grid.appendChild(b);
     });
@@ -190,8 +200,9 @@
     else if (rec.outcome === 'wrongful') truth = tr('<b>{name}</b>, {role}, did it, and someone else went to the rope for it.', { name: esc(cul.name), role: esc(cul.role) }) + ' ' + esc(cul.motive || '');
     else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
     var portrait = CF.UI.personArt(cul.name || rec.title, cul.role || '');
-    box.innerHTML = '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
-      '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
+    // The portrait floats on the corner and the title and rows run beside it, in either direction, at any width.
+    box.innerHTML = '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +
+      '<div class="a-title"><span>' + esc(rec.title) + '</span></div>' +
       row('file', '<b>' + esc(OUTCOMES[rec.outcome] || rec.outcome) + '</b>' + esc(tr(', week {n}', { n: rec.week })) + (rec.highProfile ? esc(' · the city watched') : '') + '<br><span class="a-dim">' + esc(tr('Examiner {name}', { name: rec.detective })) + '</span>') +
       row('pin', esc(rec.scene) + '<br><span class="a-dim">' + esc((CF.DISTRICTS[rec.district] || {}).label || '') + '</span>') +
       row('person', esc(tr('Victim: {name}', { name: rec.victim })) + (rec.charged ? '<br>' + esc(tr('Charged: {name}', { name: rec.charged })) : '<br><span class="a-dim">' + esc('Nobody was charged.') + '</span>')) +

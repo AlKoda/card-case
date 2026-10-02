@@ -246,6 +246,9 @@
   click('end-archive', function () { openArchive('end'); });
   click('end-look', function () { only(null); });
   window.addEventListener('beforeunload', save);
+  // A phone browser may throw a hidden tab away without beforeunload: write the save as the page goes out of sight.
+  document.addEventListener('visibilitychange', function () { if (document.hidden) save(); });
+  window.addEventListener('pagehide', save);
 
   // Install in one tap: the browser's offer is kept and a plate button on the
   // title shows it. An offer prompts once, so the button goes with it.

@@ -242,6 +242,7 @@ cwax-01
 cwax-02
 cwax-03
 cwax-04
+cwax-05
 cwaxn-01
 cwaxn-02
 cwaxn-03

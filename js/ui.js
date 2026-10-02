@@ -187,6 +187,8 @@
     onGameOver: null, onSave: null,
   });
   UI.personArt = personArt;
+  // A case's own crime card, the picture it wears on the table (the Rolls reuse it).
+  UI.caseArt = function (tpl) { return (CASE_ART[tpl] || CASE_DEFAULT)[0]; };
 
   var T = CF.TABLE;
   UI.verbArt = function (v) { return VERB_TOKENS[v] || 'cvtok-investigate'; };
@@ -302,7 +304,8 @@
     // Open windows grow or shrink in place; keep them inside the table.
     Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
   };
-  UI.setPaused = function (p) { UI.paused = p; renderControls(); };
+  // A pause by the player (not the brief one under a drag) is a moment to write the save: the next frame does it.
+  UI.setPaused = function (p) { UI.paused = p; if (p && !UI.autoPaused) UI.saveSoon = true; renderControls(); };
   // A light tick on touches (the Vibration setting). The app's own vibrator
   // first, the web Vibration API otherwise, nothing where there is neither.
   // A pattern [on, off, on, ...] is played as it is on the web, and pulse by pulse through the app's bridge.
@@ -384,7 +387,7 @@
       if (ev.key === 'Enter' && /^(BUTTON|SELECT|TEXTAREA|A)$/.test(ev.target.tagName)) return;
       if (ev.code === 'Space') { ev.preventDefault(); UI.setPaused(!UI.paused); }
       else if (ev.key === '1' || ev.key === '2' || ev.key === '3') UI.setSpeed(+ev.key);
-      else if (ev.key === 'Escape') { if (UI.drag) cancelDrag(); else if (UI.openVerbs.length) closeWindow(UI.openVerbs[UI.openVerbs.length - 1]); }
+      else if (ev.key === 'Escape') closeNearest();
       else if (ev.key === '+' || ev.key === '=') $('#zoom [data-zoom=in]').click();
       else if (ev.key === '-') $('#zoom [data-zoom=out]').click();
       else if (ev.key === '0') UI.fitView();
@@ -452,6 +455,8 @@
             saveT += dt;
             if (saveT > 8 && UI.onSave) { saveT = 0; UI.onSave(); }
           }
+          // An answered choice or a pause is saved at once, after the tick, never in the middle of one.
+          if (UI.saveSoon) { UI.saveSoon = false; saveT = 0; if (UI.onSave) UI.onSave(); }
           var dirty = e.dirty;
           if (dirty) { e.dirty = false; render(); }
           // Nothing moves under a modal, and little while paused: the idle
@@ -562,6 +567,7 @@
       UI.viewBefore = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
       panToBoard(sp.x, sp.y, 380, 300);
     }
+    if (type === 'chosen') UI.saveSoon = true;
     if (type === 'chosen' && UI.viewBefore) {
       // Back to exactly where you were looking, at the same zoom.
       var back = UI.viewBefore; UI.viewBefore = null;
@@ -1021,8 +1027,22 @@
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
     return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden, card.data && card.data.trust, card.data && card.data.heat, card.data && card.data.mark ? 'm' : '',
-      card.def === 'coldcase' ? card.data.template : '', searchedOut(card) ? 'so' : ''].join('|');
+      card.def === 'coldcase' ? card.data.template : '', searchedOut(card) ? 'so' : '', card.data && card.data.about || ''].join('|');
   }
+  // The accused a token is about (data.about, a suspect's key: a Motive, a Confession, a Slip, a Deposition), with
+  // the picture of their nameplate, so the face can wear a small portrait of whom it concerns. Display only:
+  // the Court reads data.about itself. Null for a token about nobody, or from before tokens carried it.
+  function aboutOf(card) {
+    var e = UI.e;
+    if (!e || !card || !card.data || !card.data.about || !card.caseId || card.def === 'suspect') return null;
+    var rec = e.caseRec(card.caseId);
+    var sus = rec && rec.suspects && rec.suspects.filter(function (x) { return x.key === card.data.about; })[0];
+    if (!sus) return null;
+    var plate = Object.keys(e.s.cards).map(function (u) { return e.s.cards[u]; })
+      .filter(function (c) { return c.def === 'suspect' && c.caseId === card.caseId && c.data && c.data.key === sus.key; })[0];
+    return { sus: sus, art: plate ? cardPicture(plate).art : personArt(sus.name, sus.role) };
+  }
+  UI.aboutOf = aboutOf;
   // A case whose scene has given all it had: another search only feeds an Obsession.
   function searchedOut(card) {
     if (!card.caseId || CF.CARDS[card.def].kind !== 'case' || !UI.e) return false;
@@ -1092,6 +1112,14 @@
       stamp.style.backgroundImage = art(STATUS_ART[face0.status[0]]);
       stamp.title = face0.status.map(function (x) { return tr(x); }).join(' · ');
       face.appendChild(stamp);
+    }
+    // A token about one accused wears a small portrait of them on the corner, the picture of their nameplate.
+    var about = def.kind === 'case' ? null : aboutOf(card);
+    if (about) {
+      var pip = h('div', 'c-about');
+      pip.style.backgroundImage = art(about.art);
+      pip.title = tr('About {name}', { name: about.sus.name });
+      face.appendChild(pip);
     }
     if (def.kind === 'case' || def.kind === 'coldcase') {
       var crec2 = def.kind === 'case' ? e.caseRec(card.caseId) : { template: card.data.template };
@@ -1420,10 +1448,23 @@
     requestAnimationFrame(step);
   }
   var choiceEl = null;
+  // The options a waiting choice shows. The save keeps a copy from when it was asked, but choose(i) runs the
+  // question's own option i: when the copy no longer matches it (a save from before an option was added), or
+  // none of the copy's options can be paid, the question's own list is shown, so the free way out is never hidden.
+  UI.choiceOptions = function (e, c) {
+    var spec = c && CF.CHOICES && CF.CHOICES.filter(function (x) { return x.id === c.id; })[0];
+    var kept = (c && c.options) || [];
+    if (!spec || !spec.options) return kept;
+    var differs = kept.length !== spec.options.length || kept.some(function (o, i) { return o.label !== spec.options[i].label; });
+    var payable = kept.some(function (o, i) { return e.canChoose(i); });
+    if (!differs && payable) return kept;
+    return spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; });
+  };
   function syncChoice() {
     var e = UI.e, board = $('#board'), c = e.s.choice;
     if (!c) { if (choiceEl) { choiceEl.classList.add('gone'); var old = choiceEl; setTimeout(function () { old.remove(); }, 300); choiceEl = null; } return; }
-    if (choiceEl && choiceEl.dataset.id === c.id) {
+    var shown = UI.choiceOptions(e, c);
+    if (choiceEl && choiceEl.dataset.id === c.id && choiceEl.dataset.n === String(shown.length)) {
       choiceEl.querySelectorAll('.ch-opt').forEach(function (b, i) { b.classList.toggle('cant', !e.canChoose(i)); });
       return;
     }
@@ -1431,9 +1472,10 @@
     var spot = e.choiceSpot();
     var el = h('div', 'choice');
     el.dataset.id = c.id;
+    el.dataset.n = String(shown.length);
     el.innerHTML = '<div class="ch-title">' + esc(c.title) + '</div><p class="ch-text">' + esc(c.text) + '</p>';
     var opts = h('div', 'ch-options');
-    c.options.forEach(function (o, i) {
+    shown.forEach(function (o, i) {
       var b = h('button', 'ch-opt' + (e.canChoose(i) ? '' : ' cant'));
       // What the option takes: an ability comes back spent, unless it is taken for good.
       var took = o.cost ? tr(o.forGood ? 'Takes {card}, for good.' : 'Takes {card}.', { card: CF.CARDS[o.cost].label }) : '';
@@ -2384,6 +2426,8 @@
       if (sus && sus.questioned && !sus.cleared && rec && rec.status === 'open') lines.push('Confront them in Question with a token of the case');
       else if (sus && sus.questioned) lines.push('Questioned already'); else lines.push('Question them with Wit');
     } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
+      var aboutWho = aboutOf(card);
+      if (aboutWho) lines.push(tr('About {name}', { name: aboutWho.sus.name }));
       if (rec) lines.push('Case: ' + rec.title);
       if (k === 'evidence') lines.push(card.data.item && card.data.item.needs ? 'Raw proof: read it in Study with the right instrument' : 'Raw proof: read it in Study before it counts');
       else if (k === 'clue') lines.push(asp ? tr('Proves {asp}: into the Court with the Accused', { asp: asp }) : 'Into the Court with the Accused');
@@ -2962,9 +3006,24 @@
 
   // The tablet's Back button: undo the most recent thing that can be undone.
   // Returns false when there is nothing left to close (the host may leave).
-  UI.back = function () {
+  // Back (and Escape) puts away the nearest thing first: a card in hand, the slot picker, the pinned dossier
+  // or meter page, the journal, then the top window. True when something was put away.
+  function closeNearest() {
     if (UI.drag) { cancelDrag(); return true; }
+    if (UI.pick) { UI.pick = null; if (UI.e) UI.e.dirty = true; return true; }
+    var peek = $('#peek');
+    if (peek && peek.classList.contains('pinned')) {
+      UI.hover = null; select(null);
+      peek.classList.remove('open', 'pinned'); peek.dataset.uid = '';
+      return true;
+    }
+    var jd = $('#journal-drawer');
+    if (jd && jd.classList.contains('open')) { UI.toggleJournal(false); return true; }
     if (UI.openVerbs.length) { closeWindow(UI.openVerbs[UI.openVerbs.length - 1]); return true; }
+    return false;
+  }
+  UI.back = function () {
+    if (closeNearest()) return true;
     if (UI.onBack) return UI.onBack();
     return false;
   };

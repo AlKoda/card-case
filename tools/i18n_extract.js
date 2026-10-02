@@ -25,6 +25,18 @@ function isText(s) {
   if (!/\s/.test(s) && !/^[A-Z]/.test(s)) return false;
   return true;
 }
+// A string literal in the code: 'key' (a whole thing the player reads), 'fragment' (a piece of a built sentence,
+// which needs a {placeholder} key by hand) or 'skip' (not text at all).
+function literalKind(s) {
+  if (!isText(s)) return 'skip';
+  if (!/\s/.test(s) && !/^[A-Z][a-z]+$/.test(s)) return 'skip';
+  if (/^(BUTTON|SELECT|TEXTAREA|A)$|^[A-Z][a-z]+(Sans|Serif|Prime|One|English)/.test(s)) return 'skip';
+  // A lowercase start is usually a piece of a built sentence ('the {who} says'), but a run of three words or more
+  // that ends on a stop is a whole sentence the player reads ('or drop a card on the token. ... finds less.').
+  var sentence = /^[a-z][\s\S]*\s\S+\s\S+[.!?]$/.test(s) && !/[<>="{}]/.test(s);
+  if (/[<>="]|^[#.)%,:;]|^\s|\s$/.test(s) || (/^[a-z]/.test(s) && !sentence) || !/[A-Za-z]{2}.*[A-Za-z]/.test(s)) return 'fragment';
+  return 'key';
+}
 function walk(v, out, seen, depth) {
   if (depth > 12 || v === null) return;
   if (typeof v === 'string') { if (isText(v)) out[v] = 1; return; }
@@ -56,10 +68,10 @@ CODE.forEach(function (f) {
   var re = /'((?:\\.|[^'\\\n])*)'|"((?:\\.|[^"\\\n])*)"/g, m, keys = [], frags = [];
   while ((m = re.exec(src))) {
     var s = (m[1] !== undefined ? m[1] : m[2]).replace(/\\'/g, "'").replace(/\\"/g, '"');
-    if (!isText(s) || all[s]) continue;
-    if (!/\s/.test(s) && !/^[A-Z][a-z]+$/.test(s)) continue;
-    if (/^(BUTTON|SELECT|TEXTAREA|A)$|^[A-Z][a-z]+(Sans|Serif|Prime|One|English)/.test(s)) continue;
-    if (/[<>="]|^[#.)%,:;]|^\s|\s$|^[a-z]/.test(s) || !/[A-Za-z]{2}.*[A-Za-z]/.test(s)) { frags.push(s); continue; }
+    if (all[s]) continue;
+    var kind = literalKind(s);
+    if (kind === 'skip') continue;
+    if (kind === 'fragment') { frags.push(s); continue; }
     all[s] = 1; keys.push(s);
   }
   if (keys.length) byFile[f] = (byFile[f] || []).concat(keys);
@@ -96,7 +108,7 @@ function missing(lang) {
   });
   return { missing: miss, count: n, total: total };
 }
-module.exports = { keys: byFile, fragments: fragments, missing: missing };
+module.exports = { keys: byFile, fragments: fragments, missing: missing, literalKind: literalKind };
 if (require.main === module) cli();
 function cli() {
 var args = process.argv.slice(2);
