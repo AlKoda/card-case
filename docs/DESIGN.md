@@ -347,7 +347,14 @@ The detective wears out on the same clock as the cases.
   it finds is good evidence that the defence may get excluded. Ten and
   Internal Affairs comes for you.
 
-`CF.STRAIN` holds the thresholds and slowdowns.
+`CF.STRAIN` holds the thresholds and slowdowns. A strain card never lies
+on the table without its cure: if Rest is still closed when the first
+Weariness, Obsession, Fever or Fixation arrives, Rest opens with it.
+
+Harm is told apart from bad news. A story of kind `harm` (a watchman dead
+or hurt, a wound, a beating, the Fever, an ability lost for good) shakes the
+table; the rest of the bad news (`danger`: a need arriving, the Rival, a
+verdict gone wrong) only sounds.
 
 ## 10. Money
 

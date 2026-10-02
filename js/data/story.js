@@ -34,6 +34,7 @@
     3: { title: 'The Charge', text: 'An accused and the tokens that fit them make a charge. The Blood Court wants the right kinds of proof in enough weight, and it will tell you, before you commit, how it looks. Indicia will not convict alone. A thin charge can still hang someone, and an acquitted man walks out remembering your face.' },
     4: { title: 'The Sworn Men', text: 'The sworn men take as long as they take. The Watch-house does not wait: Attend is your hours, and your hours are Coin. Everything you will ever buy is bought there.' },
     5: { title: 'The Ladder', text: 'A conviction is not the end of a case. The Condemned wait in the Hole for your word, and the ladder is on your desk: from a Pardon to the Wheel, every rung with its price. Mercy and Cruelty are both counted, and the city remembers which you chose.' },
+    acquit: { title: 'The Sworn Men Acquit', text: 'Not every charge holds. The one who walked out is Abroad now, on a card of their own, and remembers your face. If they did it, fresh proof can take them again.' },
     desk: { title: 'The Desk', text: 'The rest of the office arrives with the morning: your stipend, the petitions the treasury will consider, a letter from someone who would serve under you, and the quarters themselves. Lodging and dues come out at every bell. Cases arrive on the city\'s clock, and the clock does not wait for you to be ready.' },
   };
   var CALLING_BEATS = {

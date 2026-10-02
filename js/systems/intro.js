@@ -108,11 +108,22 @@
         e.introUnlock(['duty']);
         return { hint: 'The sworn men are out. Meanwhile, Attend: Health walks a hard round for Coin, Wit keeps the day-book.' };
       } },
-    { beat: 5, cue: function (e) { return e.countOf('condemned') > 0 || e.countOf('trial') === 0; },
+    // The verdict: the ladder after a conviction, the sworn men's word after an acquittal
+    // (the Ladder is not told when nobody was convicted).
+    { beat: function (e) { return e.countOf('condemned') > 0 ? 5 : acquitted(e) ? 'acquit' : null; },
+      cue: function (e) { return e.countOf('condemned') > 0 || e.countOf('trial') === 0; },
       run: function (e) { return e.countOf('condemned') > 0 ? { hint: 'A conviction. The Condemned and a rung of the ladder go in The Court; say nothing and the Council sentences by custom.' } : null; } },
-    { cue: function (e) { return e.countOf('condemned') === 0; },
+    // The desk arrives once the Condemned is sentenced, and on the opening path not before
+    // the first keep (the Bell and the stipend come with it).
+    { cue: function (e) { return e.countOf('condemned') === 0 && !e.s.flags.opening; },
       run: function (e) { e.introFinish(); return null; } },
   ];
+
+  // Was any case of the guided start ended by an acquittal?
+  function acquitted(e) {
+    var cs = e.s.cases;
+    return Object.keys(cs).some(function (k) { return cs[k].status === 'acquitted'; });
+  }
 
   P.introSteps = function () { return STEPS; };
   P.introTick = function () {
@@ -129,7 +140,8 @@
       if (since < 8) return;
       if (verbsRun(this) <= (s.intro.lastBeatVerbs || 0) && since < 30) return;
     }
-    var beat = step.beat !== undefined ? CF.Story.beat(this, step.beat) : null;
+    var key = typeof step.beat === 'function' ? step.beat(this) : step.beat;
+    var beat = key !== undefined && key !== null ? CF.Story.beat(this, key) : null;
     var res = step.run(this);
     s.intro.step++;
     if (beat) { this.story(beat.title, beat.text, 'major'); s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); }
@@ -145,7 +157,12 @@
     this.introUnlock(CF.VERB_ORDER.filter(function (id) { return CF.VERBS[id].rank === 0 && !(id === 'time' && s.flags.bellSilent); }));
     var all = s.intro.stash.map(function (it) { return it.def; });
     this.introReveal(all);
-    s.intro.hint = null;
+    // A lesson the first keep gave while the Court was still being taught (the Bell and its
+    // dues) stays on a little after the desk arrives: until the Bell rings, or a minute on.
+    var after = s.intro.after;
+    s.intro.hint = after && after.week === s.week && !s.intro.silent ? after.text : null;
+    if (s.intro.hint) { s.intro.tailT = s.t + 60; s.intro.tailWeek = s.week; }
+    delete s.intro.after;
     var beat = CF.Story.beat(this, 'desk');
     this.story(beat.title, (why ? why + ' ' : '') + beat.text, 'major');
     this.dirty = true;
@@ -153,6 +170,8 @@
 
   P.introHint = function () {
     var s = this.s;
-    return s.intro && !s.intro.finished ? s.intro.hint : null;
+    if (!s.intro) return null;
+    if (!s.intro.finished) return s.intro.hint;
+    return s.intro.tailT > s.t && s.intro.tailWeek === s.week ? s.intro.hint : null;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -98,6 +98,10 @@
     hiredWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. Or question {name} with Wit.',
     hiredNoWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. When your Wit comes back from the sergeant, question {name} with it.',
     keepText: 'The Council pays a stipend to the examiner who answered a case, and the landlord, who has heard, sends up the bill. The Bell rings from today: lodging and dues at every turn of the week. You are an examiner now, and the cases will come on the city\'s clock.',
+    // The opening case ended without a conviction: the desk is earned all the same.
+    keepAcquitted: 'The sworn men did not convict, but the Council has seen you work: the desk is yours, and so is the Bell. Lodging and dues at every turn of the week, and the next case on the city\'s clock.',
+    keepCold: 'The case went unanswered, but the Council has seen you work: the desk is yours, and so is the Bell. Lodging and dues at every turn of the week, and the next case on the city\'s clock.',
+    bellHint: 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.',
   };
   P.openingScene = function () { return CF.OPENING_SCENES[this.s.who] || CF.OPENING_SCENES.none; };
   // Whose death began the casebook: kept at the first keep. A save from before
@@ -140,9 +144,32 @@
     });
     e.dirty = true;
   }
+  // The opening case, whatever became of it.
+  function openingRec(e) {
+    var cs = e.s.cases;
+    for (var k in cs) if (cs[k].opening) return cs[k];
+    return null;
+  }
+  // A strain card (Weariness, Obsession, Fever, Fixation) never sits on the table without its
+  // cure: Rest opens with the first of them, even before the guided start would open it.
+  function strainCure(e) {
+    var s = e.s;
+    if (!s.verbs.reflect || s.verbs.reflect.unlocked || !e.introUnlock) return;
+    var strain = e.tableCards().filter(function (c) { var d = CF.CARDS[c.def]; return d && d.tags && d.tags.indexOf('strain') >= 0; })[0];
+    if (!strain) return;
+    e.introUnlock(['reflect']);
+    hint(e, U.fill('Rest is open: put {card} in it to ease it before more come.', { card: e.labelOf(strain) }));
+  }
   P.openingTick = function () {
     var s = this.s, sc = this.openingScene();
+    strainCure(this);
     if (!s.flags.opening) return;
+    // The opening case ended without a conviction (acquitted, or gone unanswered): the keep
+    // comes all the same, so the city does not stand still with an empty desk.
+    if (s.flags.stage === 'hired') {
+      var first = openingRec(this);
+      if (first && (first.status === 'acquitted' || first.status === 'cold')) { this.openingKeep(first.status); return; }
+    }
     var worked = (s.stats.verbs && s.stats.verbs.duty) || 0;
     if (s.flags.stage === 'work') {
       if (worked < 2) {
@@ -228,8 +255,10 @@
     else hint(this, 'You have the desk. Study what you found, question who you meet, and build a charge. The Court opens when you have an accused and a token.');
     if (s.flags.callingOpen) s.flags.callingDue = true; // put to you from openingTick, once Explore is idle or ten seconds on
   };
-  // The first conviction: stipend, lodging, the Bell, and the city's clock.
-  P.openingKeep = function () {
+  // The first conviction: stipend, lodging, the Bell, and the city's clock. Without a
+  // conviction (why: 'acquitted' or 'cold') the keep still comes, with one Coin, not two,
+  // and the next case at once if the desk is empty.
+  P.openingKeep = function (why) {
     var s = this.s;
     if (!s.flags.opening || s.flags.stage === 'keep') return;
     s.flags.stage = 'keep';
@@ -240,13 +269,19 @@
     s.needT = U.randInt(this.rng, 150, 240) + 60;
     s.choiceT = 90;
     if (this.introReveal) this.introReveal(['funds', 'order', 'district', 'camera', 'teammate', 'informant', 'notes', 'coldcase', 'atlarge', 'gang', 'syndicate']);
-    for (var i = 0; i < 2; i++) this.create('funds');
+    var won = !why;
+    for (var i = 0; i < (won ? 2 : 1); i++) this.create('funds');
     this.layoutVerbs();
     // The one you knew is buried, and the casebook remembers whose death began it.
     var sc = this.openingScene();
     s.flags.firstVictim = sc.missing;
-    this.story(CF.OPENING_TEXT.keep, (sc.kept ? sc.kept + ' ' : '') + CF.OPENING_TEXT.keepText, 'major');
-    hint(this, 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.');
+    var text = won ? CF.OPENING_TEXT.keepText : why === 'acquitted' ? CF.OPENING_TEXT.keepAcquitted : CF.OPENING_TEXT.keepCold;
+    this.story(CF.OPENING_TEXT.keep, (sc.kept ? sc.kept + ' ' : '') + text, 'major');
+    if (!won && !this.openCases().length) s.dispatchT = Math.min(s.dispatchT, 5);
+    // The Bell's lesson: now, and kept on for a while after the desk arrives (introFinish),
+    // since the Court's own lessons may still have the hint when the guided start ends.
+    hint(this, CF.OPENING_TEXT.bellHint);
+    if (s.intro && !s.intro.finished) s.intro.after = { text: CF.OPENING_TEXT.bellHint, week: s.week };
   };
 
   // ---- Needs -----------------------------------------------------------------
@@ -295,7 +330,7 @@
     if (have.length >= 2) {
       var victim = have.filter(function (c) { return c.loc && c.loc.t === 'table'; })[0] || have[0];
       this.remove(victim);
-      this.story('Lost: ' + label, spec.loss + ' One ' + label + ' is gone, and it will not come back.', 'danger');
+      this.story('Lost: ' + label, spec.loss + ' One ' + label + ' is gone, and it will not come back.', 'harm');
     } else if (repeat >= 1) {
       this.count('debt');
       this.meter('pressure', 1);
@@ -326,6 +361,48 @@
     e.story(CF.COQUILLE_FORETOLD.title, CF.COQUILLE_FORETOLD.text);
   }
 
+  // What the Rival could do at the Bell of week `wk`: race you on a case you have opened and
+  // held a week, close one they have raced two, spoil a token, or buy a witness.
+  function rivalOptions(e, wk) {
+    var open = e.openCases();
+    return {
+      mine: open.filter(function (x) { return !x.rival && x.searches > 0 && wk - (x.week || 0) >= 1; }),
+      ripe: open.filter(function (x) { return x.rival && wk - (x.rivalSince || 0) >= 2; }),
+      clues: e.tableCards().filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && CF.CLUE_ASPECTS.some(function (k) { return CF.aspectsOf(c)[k] > 0; }); }),
+      witnesses: e.tableCards().filter(function (c) { return c.def === 'witness' && c.life > 40; }),
+    };
+  }
+  // The target of a foreseen move, if it is still there to be taken.
+  function rivalAim(next, o) {
+    var list = { poach: o.mine, close: o.ripe, tamper: o.clues, bribe: o.witnesses }[next.act] || [];
+    for (var i = 0; i < list.length; i++) if ((list[i].uid || list[i].id) === next.id) return list[i];
+    return null;
+  }
+  CF.RIVAL_FORESEEN = {
+    poach: '{name} means to take up {target} at the next Bell.',
+    close: '{name} means to close {target} at the next Bell, before you do.',
+    tamper: '{name}\'s people mean to spoil {target} at the next Bell.',
+    bribe: '{name} means to buy {target} at the next Bell.',
+    none: '{name} has nothing of yours in hand yet.',
+  };
+  // A weakness found shows the Rival's next move: chosen now, kept for the Bell (rivalWeek
+  // makes it if it still can), and said in one line for the story that found it.
+  P.rivalForesee = function () {
+    var s = this.s, r = this.cardsOf('rival', true)[0];
+    if (!r) return null;
+    var o = rivalOptions(this, s.week + 1), acts = [];
+    if (o.ripe.length) acts.push('close');
+    if (o.mine.length) acts.push('poach');
+    if (o.clues.length) acts.push('tamper');
+    if (o.witnesses.length) acts.push('bribe');
+    if (!acts.length) { delete r.data.next; return U.fill(CF.RIVAL_FORESEEN.none, { name: r.data.name }); }
+    var act = U.pick(this.rng, acts);
+    var t = U.pick(this.rng, { poach: o.mine, close: o.ripe, tamper: o.clues, bribe: o.witnesses }[act]);
+    r.data.next = { act: act, id: t.uid || t.id };
+    this.dirty = true;
+    return U.fill(CF.RIVAL_FORESEEN[act], { name: r.data.name, target: t.uid ? this.labelOf(t) : t.title });
+  };
+
   CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
   P.rivalWeek = function () {
     var s = this.s, lines = [];
@@ -343,23 +420,18 @@
       s.flags.rivalName = name;
       this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
       if (again) {
-        this.story('Another Examiner', 'The Harbourmaster has found another: ' + name + ', with the same letter and the same desk in the Customs House. They will work your cases from the other side as the last one did. Find their weakness twice and the Council sends them home too.', 'danger');
+        this.story('Another Examiner', 'The Harbourmaster has found another: ' + name + ', with the same letter and the same desk in the Customs House. They will work your cases from the other side as the last one did. Question them and shadow them, a week apart, and the Council sends them home too.', 'danger');
         lines.push('The Harbourmaster has sent another examiner.');
       } else {
-        this.story('The Harbourmaster\'s Examiner', name + ' has the Harbourmaster\'s letter and a desk in the Customs House. The Harbourmaster wants the Council to see it has a choice. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice and the Council sends them home.', 'danger');
+        this.story('The Harbourmaster\'s Examiner', name + ' has the Harbourmaster\'s letter and a desk in the Customs House. The Harbourmaster wants the Council to see it has a choice. They will work your cases from the other side: close them first, spoil your scenes, pay your witnesses to forget. Question them, buy them, frighten them, or shadow them; find their weakness twice, once by questioning and once by shadowing, a week apart, and the Council sends them home.', 'danger');
         lines.push('The Harbourmaster has sent an examiner of his own.');
       }
       return lines;
     }
     if (r.data.stalled && r.data.stalled >= s.week) return lines;
-    var open = this.openCases();
-    // Only a case you have opened and held a week is worth racing you on.
-    var mine = open.filter(function (x) { return !x.rival && x.searches > 0 && s.week - (x.week || 0) >= 1; });
-    var theirs = open.filter(function (x) { return x.rival; });
-    var ripe = theirs.filter(function (x) { return s.week - (x.rivalSince || 0) >= 2; });
-    var boast = theirs.filter(function (x) { return s.week - (x.rivalSince || 0) === 1 && !x.rivalBoasted; });
-    var clues = this.tableCards().filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && CF.CLUE_ASPECTS.some(function (k) { return CF.aspectsOf(c)[k] > 0; }); });
-    var witnesses = this.tableCards().filter(function (c) { return c.def === 'witness' && c.life > 40; });
+    var o = rivalOptions(this, s.week);
+    var mine = o.mine, ripe = o.ripe, clues = o.clues, witnesses = o.witnesses;
+    var boast = this.openCases().filter(function (x) { return x.rival && s.week - (x.rivalSince || 0) === 1 && !x.rivalBoasted; });
     var name2 = r.data.name;
     // The week before they close a case they boast of it: the warning is yours to use.
     boast.forEach(function (x) {
@@ -372,23 +444,26 @@
     if (mine.length) acts.push('poach');
     if (clues.length) acts.push('tamper');
     if (witnesses.length) acts.push('bribe');
+    // A move foreseen (rivalForesee) is the move made, if it can still be made.
+    var next = r.data.next, aim = next ? rivalAim(next, o) : null;
+    delete r.data.next;
     if (!acts.length) { this.dirty = true; return lines; }
-    var act = U.pick(this.rng, acts);
+    var act = aim ? next.act : U.pick(this.rng, acts);
     if (act === 'poach') {
-      var rec = U.pick(this.rng, mine), card = this.caseCard(rec.id);
+      var rec = aim || U.pick(this.rng, mine), card = this.caseCard(rec.id);
       rec.rival = true;
       rec.rivalSince = s.week;
       if (card) card.life = Math.min(card.life, card.maxLife * 0.5);
       this.story('The Rival Takes a Case', name2 + ' is working ' + rec.title + ' from the other side, with the Harbourmaster\'s men. Answer it first, or they will.', 'danger');
       lines.push(name2 + ' has taken up one of your cases.');
     } else if (act === 'close') {
-      var rec2 = U.pick(this.rng, ripe);
+      var rec2 = aim || U.pick(this.rng, ripe);
       this.goCold(rec2.id);
       this.meter('reputation', -1);
       this.story('Answered by the Rival', name2 + ' has closed ' + rec2.title + ' with a confession the Harbourmaster is pleased with. The Council notes who was quicker.', 'danger');
       lines.push(name2 + ' closed a case of yours first.');
     } else if (act === 'tamper') {
-      var c = U.pick(this.rng, clues), asp = CF.aspectsOf(c);
+      var c = aim || U.pick(this.rng, clues), asp = CF.aspectsOf(c);
       var keys = CF.CLUE_ASPECTS.filter(function (k) { return asp[k] > 0; }), k2 = U.pick(this.rng, keys);
       c.aspects = c.aspects || {};
       c.aspects[k2] = (c.aspects[k2] || asp[k2]) - 1;
@@ -398,7 +473,7 @@
       this.story('A Scene Spoiled', 'Somebody has been at ' + this.labelOf(c) + ' before you could use it: moved, wiped, muddled. ' + name2 + '\'s people were seen in the lane.', 'danger');
       lines.push(name2 + ' spoiled a token of yours.');
     } else if (act === 'bribe') {
-      var w = U.pick(this.rng, witnesses);
+      var w = aim || U.pick(this.rng, witnesses);
       w.life = Math.min(w.life, 30);
       w.data = w.data || {};
       w.data.bribed = true;

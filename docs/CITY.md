@@ -118,6 +118,21 @@ own ladder:
 | **Half proof** | One credible witness (a Word clue from a witness of standing), or one witness plus the suspect's partial admission | The Court convicts of the lesser crime only (theft not burglary, manslaughter not murder), or acquits and lets the crowd decide. |
 | **Full proof** | Two credible witnesses agreeing, **or** a confession repeated freely a day after it was given [Carolina Art. 67] | Conviction. Sentence follows (§6). |
 
+Full proof is not a certainty, but it is close to one, and more proof
+than the Court needs brings it closer. When full proof still fails, the
+Court says why: a sworn man is the accused's cousin, the witness recants
+under the advocate's eye. The first case of a run teaches the Court and
+does not gamble: on full proof it convicts. If the first case is lost
+some other way (a thin charge acquitted, the case gone unanswered), the
+Council has still seen you work: the first keep comes all the same, with
+one Coin instead of two, and the next case comes at once.
+
+The Court window repeats what you have already worked out. If your own
+reasoning in Rest named a Prime Suspect and the charge names someone
+else, it says so; a free confession whose own words give it away (the
+wrong day, the wrong knife) is marked. Neither changes the tier: a false
+confession nothing contradicts still convicts [Carolina].
+
 **Corroboration** replaces the old contradiction penalty with the
 Fingerpost rule: two Word clues from witnesses with *different* motives
 establish a fact; two from witnesses with the *same* motive establish
@@ -332,6 +347,19 @@ whether you would or not. He is the design's answer to "the accused is
 guilty because he was accused": the only defence is proof so full he
 cannot ignore it, or getting the suspect into sanctuary first (the
 Physician-Monk's door).
+
+**9.2 The Harbourmaster's Examiner.** From the fifth week the Harbourmaster
+may send an examiner of his own, to show the Council it has a choice. At
+each Bell they act: take up a case you have held a week, close one they
+have raced two (boasting of it the week before), spoil a token, buy a
+witness. Exposing them is a short hunt, not a chore: one weakness a week,
+found once by questioning (Wit) and once by shadowing (Instinct). The
+first does not stop them; it shows their next move, and that is the move
+they make at the Bell if it can still be made. The second sends them home.
+
+**9.3 Informers with nothing.** An informer who has nothing to sell says
+so before you pay: the meeting names what they have (a word on a case
+without a name, a sighting, a warning), or tells you to keep your Coin.
 
 ## 10. Endings
 

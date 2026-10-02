@@ -556,7 +556,7 @@
     "Forgotten": "منسيّ",
     "Remembered": "مذكور",
     "Hunted": "مطارَد",
-    "Condemned": "محكوم عليك",
+    "Condemned": "محكوم",
     "Easy": "مطمئنّة",
     "Uneasy": "قلقة",
     "Wary": "حذرة",

@@ -336,3 +336,143 @@ console.log('intro: ok');
   assert.ok(/Indicia/.test(res.hint) && /walk free/.test(res.hint), 'the Charge hint warns of Indicia: ' + res.hint);
   console.log('court lesson: ok');
 })();
+
+// ---- The opening case lost in the Court: the keep comes all the same, and the beats fit ------
+// An acquittal (or the case gone unanswered) clears the opening: the Bell, one Coin, a new case
+// soon; the guided start tells the sworn men's word, not the Ladder, and the Desk only after the
+// keep. After a conviction the keep's Bell lesson outlives the Ladder's hint.
+(function openingLost() {
+  function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function titles(g) { return g.s.journal.map(function (j) { return j.title; }).reverse(); }
+  // Any question the city puts (the calling, a choice) is answered at once: the clock waits for it.
+  function tick(g, dt) { if (g.s.choice) g.choose(0); g.tick(dt); if (g.s.choice) g.choose(0); }
+  // A hired examiner with the opening case, its accused and a token, at the Court.
+  function atCourt(seed, who) {
+    var e = CF.Engine.newGame({ seed: seed, who: who, name: 'Lost', opening: true, guided: true });
+    e.s.flags.stage = 'questioned';
+    var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+    rec.opening = true;
+    e.openingHired();
+    if (e.s.choice) e.choose(0);
+    e.introUnlock(['arrest']);
+    e.s.intro.step = 4; e.s.intro.lastBeatT = -100;
+    var sus = tbl(e, 'suspect')[0] || e.revealSuspect(rec, null);
+    var clue = e.create('clue', { label: 'x', caseId: rec.id, aspects: { testimony: 1 } });
+    assert.ok(e.autoSlot('arrest', sus.uid) && e.autoSlot('arrest', clue.uid) && e.start('arrest'), 'the charge starts');
+    tick(e, e.verb('arrest').duration + 0.01); e.collect('arrest');
+    assert.strictEqual(rec.status, 'trial');
+    tick(e, 0.1);
+    assert.ok(e.s.flags.opening, 'a case at trial does not end the opening');
+    e.s.intro.lastBeatT = -100; // the sworn men are out a while: the next beat is not held back
+    return { e: e, rec: rec, trial: tbl(e, 'trial')[0] };
+  }
+  // The sworn men acquit (the dice held high for the verdict).
+  var a = atCourt(70, 'clerk'), e = a.e, rng = e.rng;
+  var coin = e.cardsOf('funds', true).length;
+  e.rng = function () { return 0.995; }; e.verdict(a.trial); e.rng = rng;
+  assert.strictEqual(a.rec.status, 'acquitted');
+  tick(e, 0.1);
+  assert.strictEqual(e.s.flags.stage, 'keep', 'the keep comes after an acquittal');
+  assert.ok(!e.s.flags.opening && !e.s.flags.bellSilent && e.verb('time').unlocked, 'the Bell rings from now on');
+  assert.strictEqual(e.cardsOf('funds', true).length, coin + 1, 'one Coin, not two');
+  var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+  assert.ok(keep && keep.text.indexOf(CF.OPENING_TEXT.keepAcquitted) > 0, 'the keep says the sworn men did not convict: ' + (keep && keep.text));
+  assert.ok(titles(e).indexOf('The Sworn Men Acquit') >= 0 && titles(e).indexOf('The Ladder') < 0, 'the sworn men\'s word, not the Ladder: ' + titles(e).join(' | '));
+  tick(e, 0.1);
+  assert.ok(e.s.intro.finished, 'the desk arrives once the keep is made');
+  assert.ok(titles(e).indexOf('The Desk') > titles(e).indexOf(CF.OPENING_TEXT.keep), 'the Desk after the keep, never while the Bell is silent');
+  assert.ok(/^The Bell rings from now on/.test(e.introHint() || ''), 'the Bell lesson is shown: ' + e.introHint());
+  for (var t = 0; t < 120 && !e.openCases().length; t++) tick(e, 1);
+  assert.ok(e.openCases().length >= 1, 'a new case within two minutes of the acquittal: ' + t + 's');
+  tick(e, 60);
+  assert.strictEqual(e.introHint(), null, 'the Bell lesson goes in time');
+  // A save stuck in the old limbo (acquitted, no keep) recovers on its first tick.
+  var b = atCourt(71, 'monk'), old;
+  b.e.rng = function () { return 0.995; }; b.e.verdict(b.trial); b.e.rng = rng;
+  old = JSON.parse(b.e.save());
+  assert.ok(old.flags.opening && old.flags.stage === 'hired', 'saved in the limbo');
+  var l = CF.Engine.load(old);
+  tick(l, 0.1);
+  assert.strictEqual(l.s.flags.stage, 'keep', 'a loaded limbo save gets its keep');
+  // The case gone unanswered: the keep, with its own words.
+  var c = atCourt(72, 'none');
+  c.e.remove(c.trial); c.rec.status = 'cold';
+  tick(c.e, 0.1);
+  var ck = c.e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+  assert.ok(ck && ck.text.indexOf(CF.OPENING_TEXT.keepCold) > 0, 'an unanswered first case: ' + (ck && ck.text));
+  // A conviction: the Ladder's hint first, then the Bell's once the Condemned is sentenced.
+  var d = atCourt(73, 'watchman'), g = d.e;
+  g.rng = function () { return 0; }; g.verdict(d.trial); g.rng = rng;
+  assert.strictEqual(g.s.flags.stage, 'keep');
+  tick(g, 0.1);
+  var cond = tbl(g, 'condemned')[0];
+  assert.ok(cond, 'a Condemned');
+  assert.ok(/^A conviction\./.test(g.introHint() || ''), 'the Ladder is taught: ' + g.introHint());
+  assert.ok(titles(g).indexOf('The Ladder') >= 0 && titles(g).indexOf('The Sworn Men Acquit') < 0);
+  g.remove(cond); tick(g, 0.1);
+  assert.ok(g.s.intro.finished);
+  assert.ok(/^The Bell rings from now on/.test(g.introHint() || ''), 'then the Bell, which was overwritten before: ' + g.introHint());
+  console.log('opening lost: ok');
+})();
+
+// ---- A strain card never sits without its cure: Rest opens with the first one -------------------
+(function strainOpensRest() {
+  var e = CF.Engine.newGame({ seed: 74, who: 'clerk', name: 'Strained', opening: true, guided: true });
+  e.s.flags.stage = 'search';
+  assert.ok(!e.verb('reflect').unlocked, 'Rest is shut before the hire');
+  e.create('obsession');
+  e.tick(0.1);
+  assert.ok(e.verb('reflect').unlocked, 'Obsession opens Rest');
+  assert.ok(/^Rest is open: put Obsession in it/.test(e.introHint() || ''), 'and the hint says what to do: ' + e.introHint());
+  var f = CF.Engine.newGame({ seed: 75, calling: 'master', guided: true });
+  assert.ok(!f.verb('reflect').unlocked);
+  f.create('fatigue'); f.tick(0.1);
+  assert.ok(f.verb('reflect').unlocked, 'Weariness opens Rest in the plain guided start too');
+  console.log('strain opens rest: ok');
+})();
+
+// ---- The Rival's next move, once foreseen, is the move made ----------------------------------
+(function rivalForeseen() {
+  function setup(seed, cases) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    e.s.week = 7;
+    e.tableCards().forEach(function (c) { if (c.def === 'clue' || c.def === 'evidence' || c.def === 'witness') e.remove(c); });
+    e.openCases().forEach(function (r) { r.searches = 0; });
+    var recs = [];
+    for (var i = 0; i < cases; i++) {
+      var r = e.openCases()[i] || e.caseRec(e.spawnCase(null, { quiet: true }).caseId);
+      r.searches = 1; r.week = 5; recs.push(r);
+    }
+    e.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 0, stalled: 0 } });
+    return { e: e, recs: recs };
+  }
+  var hits = 0;
+  for (var k = 0; k < 6; k++) {
+    var o = setup(80 + k, 2), e = o.e;
+    var line = e.rivalForesee();
+    var next = e.cardsOf('rival', true)[0].data.next;
+    assert.ok(next && next.act === 'poach', 'the only move is a case to race: ' + JSON.stringify(next));
+    var aim = e.caseRec(next.id);
+    assert.ok(line.indexOf('Piet Wieland means to take up ' + aim.title) === 0, 'the line names the case: ' + line);
+    var l = CF.Engine.load(e.save()); // a save keeps the foreseen move
+    l.rivalWeek();
+    assert.ok(l.caseRec(next.id).rival, 'the case foreseen is the case taken');
+    assert.ok(!l.cardsOf('rival', true)[0].data.next, 'the move is spent');
+    if (o.recs.filter(function (r) { return l.caseRec(r.id).rival; }).length === 1) hits++;
+  }
+  assert.strictEqual(hits, 6, 'one case taken each time, the foreseen one');
+  var n = setup(90, 0);
+  assert.ok(/has nothing of yours in hand yet/.test(n.e.rivalForesee()), 'nothing to take: it says so');
+  console.log('rival foreseen: ok');
+})();
+
+// ---- Harm is told apart from bad news ----------------------------------------------------------
+(function harmKind() {
+  var e = CF.Engine.newGame({ seed: 95, calling: 'master' });
+  while (e.cardsOf('health', true).length < 2) e.create('health');
+  var need = e.create('hunger', { lifetime: 1 });
+  e.needExpired(need);
+  var lost = e.s.journal.filter(function (j) { return /^Lost: /.test(j.title); })[0];
+  assert.ok(lost && lost.kind === 'harm', 'an ability lost for good is harm: ' + (lost && lost.kind));
+  console.log('harm kind: ok');
+})();

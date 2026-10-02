@@ -42,7 +42,7 @@
     "Place": "المكان",
     "Coquille": "الكوكيّة",
     "Court": "المحكمة",
-    "Condemned": "المحكوم",
+    "Condemned": "محكوم",
     "Sentence": "الحكم",
     "Plea": "الالتماس",
     "The Rolls": "السجلات",
