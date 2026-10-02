@@ -13,7 +13,7 @@
     ar: { name: 'العربية', dir: 'rtl', fonts: 'css/fonts-ar.css' },
   };
 
-  var I = (CF.I18N = { lang: 'en', dicts: {}, compiled: {}, lower: {}, cache: {}, cacheN: 0, missing: {}, track: false });
+  var I = (CF.I18N = { lang: 'en', dicts: {}, compiled: {}, lower: {}, cache: {}, cacheN: 0, cutoffs: 0, missing: {}, track: false });
 
   CF.addStrings = function (lang, map) {
     var d = I.dicts[lang] || (I.dicts[lang] = {});
@@ -94,7 +94,7 @@
     // 'the clerk of the court' for a label the code lower-cased.
     var lower = I.lower[I.lang] || lowerIndex(I.lang), lk = lower[t.toLowerCase()];
     if (lk !== undefined) return s.replace(t, lk);
-    if (depth > 5) return miss(s);
+    if (depth > 5) { I.cutoffs++; return miss(s); }
     var viaTpl = matchTemplate(t, depth);
     if (viaTpl !== null) return t === s ? viaTpl : s.replace(t, viaTpl);
     // A parenthesis in front: '(The Market) The crier has sung it.'
@@ -216,8 +216,11 @@
   function translate(s, depth) {
     if (I.lang === 'en' || !s || !I.dicts[I.lang]) return s;
     if (I.cache[s] !== undefined) return I.cache[s];
-    var r = lookup(s, depth);
+    var cut = I.cutoffs, r = lookup(s, depth);
     if (I.track && depth === 0 && r === s) I.missing[s] = (I.missing[s] || 0) + 1;
+    // A string read deep inside another may have met the depth cut-off on the way: that answer is only good for
+    // where it was asked, so it is not kept (else a name reached first in a long sentence stays English everywhere).
+    if (depth > 0 && I.cutoffs !== cut) return r;
     if (I.cacheN > 4000) { I.cache = {}; I.cacheN = 0; }
     I.cache[s] = r; I.cacheN++;
     return r;

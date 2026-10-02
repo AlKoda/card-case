@@ -38,6 +38,17 @@ assert.notStrictEqual(CF.T('Body 1, Word 2'), 'Body 1, Word 2', 'an aspect with 
 assert.ok(!/[A-Za-z]/.test(CF.T('Body 1, Word 2')), 'and nothing of it stays English: ' + CF.T('Body 1, Word 2'));
 assert.ok(!/[A-Za-z]/.test(CF.T('Wit and Instinct')) && /\sو\S/.test(CF.T('Health and Wit and Instinct')), '\'and\' joins a list');
 assert.strictEqual(CF.T('Week {n}', { n: 4 }).indexOf('{'), -1, 'placeholders are filled');
+// A name first reached deep inside a composed string (past the depth cut-off) is not kept in English: the card
+// face, the dossier and the windows still read it in Arabic afterwards.
+['Lorem', 'Ipsum', 'Dolor', 'Sitam', 'Ametx', 'Consec', 'Adipis', 'Elitus', 'Quarto'].forEach(function (x, n, all) {
+  var colons = all.slice(0, n + 1).join(': ') + ': Hans Schmidt', parens = 'Hans Schmidt';
+  for (var i = 0; i <= n; i++) parens = '(' + all[i] + ') ' + parens;
+  [colons, parens].forEach(function (deep) {
+    CF.setLang('ar');
+    CF.T(deep);
+    assert.ok(!/[A-Za-z]/.test(CF.T('Hans Schmidt')), 'a name met in \'' + deep + '\' still reads in Arabic: ' + CF.T('Hans Schmidt'));
+  });
+});
 CF.setLang('en');
 assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
 

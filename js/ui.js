@@ -552,7 +552,12 @@
     }
     if (type === 'expiring') {
       var fc = UI.e.card(payload.uid), need = fc && CF.NEEDS && CF.NEEDS[fc.def];
-      toast({ title: (need ? 'Pressing: ' : 'Fading: ') + payload.label, text: need ? 'Half a minute before it takes its due. Into Rest, now: Coin, or what you have.' : 'Half a minute before it is gone. Use it or lose it.', kind: 'danger', uid: payload.uid, verb: payload.verb });
+      // A token under a charge that would stand at half proof or better says whom to take to the Court.
+      var fch = fc && fc.def === 'clue' && UI.e.verb('arrest').unlocked ? chargeable(UI.e, fc.caseId, fc) : null;
+      var ftext = need ? 'Half a minute before it takes its due. Into Rest, now: Coin, or what you have.'
+        : fch ? tr('Into The Court with {accused} now, or lay it in a verb: a card\'s clock stops while a verb works on it.', { accused: UI.e.labelOf(fch.card) })
+        : 'Half a minute before it is gone. A card\'s clock stops while a verb works on it.';
+      toast({ title: (need ? 'Pressing: ' : 'Fading: ') + payload.label, text: ftext, kind: 'danger', uid: payload.uid, verb: payload.verb });
     }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
   }
@@ -640,6 +645,32 @@
     if (rows.length) return { a: a, rows: rows };
     return a.n && wantsWord(a) ? { a: a, rows: [], word: true } : null;
   }
+  // The accused a case's tokens on the table (and `extra`, a token elsewhere) would carry at half proof or better:
+  // the Prime Suspect first, then the best score. Null when nobody is chargeable.
+  function chargeable(e, caseId, extra) {
+    var rec = caseId && e.caseRec(caseId);
+    if (!rec || rec.status !== 'open' || !e.assessCharge) return null;
+    var table = e.tableCards(), best = null;
+    var toks = table.filter(function (c) { return c.def === 'clue' && c.caseId === rec.id; });
+    if (extra && toks.indexOf(extra) < 0) toks.push(extra);
+    table.forEach(function (c) {
+      if (c.def !== 'suspect' || c.caseId !== rec.id || e.unavailableReason(c)) return;
+      var su = e.suspectOf(c);
+      if (su && su.cleared) return;
+      var a = e.assessCharge(c, toks);
+      if (!a || (a.tier !== 'reasonable' && a.tier !== 'strong')) return;
+      var prime = !!rec.identified && c.data.key === rec.identified;
+      if (!best || (prime && !best.prime) || (prime === best.prime && a.score > best.a.score)) best = { card: c, a: a, prime: prime };
+    });
+    return best;
+  }
+  // Whether Attend takes the Order's dagger (Double the Guard, with a watchman): read off the verb, so the
+  // interface follows the rules whether or not they carry it.
+  function daggerGuard() {
+    var v = CF.VERBS.duty;
+    return !!(v && v.slots && v.slots.some(function (sl) { return (sl.accepts || []).indexOf('dagger') >= 0; }));
+  }
+  UI.chargeable = function (caseId, extra) { return UI.e ? chargeable(UI.e, caseId, extra) : null; };
   // What to do next, read off the table: the first thing that applies.
   UI.advice = function () {
     var e = UI.e, s = e.s;
@@ -667,9 +698,24 @@
       var accused = table.filter(function (c) { return c.def === 'suspect' && c.caseId === open[ci].rec.id && !e.unavailableReason(c); })[0];
       if (accused) { UI.hintGo = { uid: accused.uid }; return tr('{title} has {d} days left. Charge {name} with what you have, or let it go.', { title: open[ci].rec.title, d: CF.daysLeft(open[ci].card.life), name: e.labelOf(accused) }); }
     }
+    // A token about to fade from under a charge that would stand at half proof or better.
+    if (e.verb('arrest').unlocked) {
+      var fading = table.filter(function (c) { return c.def === 'clue' && c.caseId && c.maxLife && c.life < 60 && !e.unavailableReason(c); }).sort(function (a, b) { return a.life - b.life; });
+      for (var fi = 0; fi < fading.length; fi++) {
+        var ch = chargeable(e, fading[fi].caseId);
+        if (ch) { UI.hintGo = { uid: fading[fi].uid }; return tr('The proof against {name} fades in {t}. Charge now, or lose it.', { name: e.labelOf(ch.card), t: U.fmtTime(fading[fi].life) }); }
+      }
+    }
     // A need about to take its due.
-    var need = table.filter(function (c) { return CF.NEEDS && CF.NEEDS[c.def] && c.maxLife && c.life < 60; }).sort(function (a, b) { return a.life - b.life; })[0];
+    var need =table.filter(function (c) { return CF.NEEDS && CF.NEEDS[c.def] && c.maxLife && c.life < 60; }).sort(function (a, b) { return a.life - b.life; })[0];
     if (need) { UI.hintGo = { uid: need.uid }; return tr('{need} is on the table with {t} left: into Rest with a Coin, or a watchman, a Quarter, an informer.', { need: e.labelOf(need), t: U.fmtTime(need.life) }); }
+    // The Order's dagger: Rest answers it, and Attend with a watchman where the rules allow it.
+    var dagger = has('dagger')[0];
+    if (dagger) {
+      UI.hintGo = { uid: dagger.uid };
+      if (daggerGuard() && has('teammate').length && can('duty')) return tr('A dagger on the pillow, {t} left: into Rest with two Coin to buy a season, or into Attend with a watchman.', { t: U.fmtTime(dagger.life) });
+      return tr('A dagger on the pillow, {t} left: into Rest with two Coin to buy a season, or alone to endure it.', { t: U.fmtTime(dagger.life) });
+    }
     // The underworld's grudge, and nothing to meet it with.
     if (meterLevel('retaliation') >= 3 && !hp) return tr('The Vendetta is high and you are Winded: an attack now would find you without Health. Rest before the Bell.');
     // The Rival has acted twice and still has their desk.
@@ -687,9 +733,12 @@
       var rec = open[j].rec, sc = table.filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; });
       var tokens = table.filter(function (c) { return (c.def === 'clue') && c.caseId === rec.id; });
       var standing = sc.filter(function (c) { var su = e.suspectOf(c); return !su || !su.cleared; });
+      // Your own reasoning named somebody (Prime Suspect): full proof against anyone else is not offered.
+      var prime = rec.identified ? standing.filter(function (c) { return c.data.key === rec.identified; })[0] : null;
+      if (prime) { var pa = e.assessCharge(prime, tokens); if (pa && pa.tier === 'strong') { UI.hintGo = { uid: prime.uid }; return tr('The proof is enough: put {name} and the tokens into the Court.', { name: e.labelOf(prime) }); } }
       for (var k = 0; k < sc.length; k++) {
         var a = e.assessCharge(sc[k], tokens);
-        if (a && a.tier === 'strong') return tr('The proof is enough: put {name} and the tokens into the Court.', { name: e.labelOf(sc[k]) });
+        if (a && a.tier === 'strong' && !prime) return tr('The proof is enough: put {name} and the tokens into the Court.', { name: e.labelOf(sc[k]) });
         var sw = stillWanted(e, sc[k]);
         if (sw && sw.rows.length && (!lacking || sw.a.score > lacking.a.score)) lacking = { a: sw.a, row: sw.rows[0], card: sc[k] };
         // Every row met, and no word behind it: the accused it points to (or the only one left) can be confronted
@@ -993,12 +1042,16 @@
   }
 
   var CARD_RING_LEN = 2 * (122 + 174) - 8 * 12 + 2 * Math.PI * 12;
-  // A ring's dash, to the half pixel: written only when it moves that far.
-  function setDash(ring, len, total) {
-    var d = Math.round(len * 2) / 2;
+  // A ring's dash in 200 steps a lap (under a pixel at table zoom): written only when it moves a step, so a running
+  // verb repaints its token a few times a second, not every frame. A ring's glow (a wider pale stroke behind it,
+  // in place of a filter) takes the same dash.
+  function setDash(ring, len, total, step) {
+    step = step || total / 200;
+    var d = Math.round(Math.round(len / step) * step * 100) / 100;
     if (ring._dash === d) return;
     ring._dash = d;
     ring.style.strokeDasharray = d + ' ' + total;
+    if (ring._glow) ring._glow.style.strokeDasharray = d + ' ' + total;
   }
   function setText(el, text) { if (el._txt !== text) { el._txt = text; el.textContent = text; } }
   // The card's clock and ring. The children are found once and kept on the element.
@@ -1538,7 +1591,7 @@
         el.title = tr(def.label + ': ' + def.desc);
         var tok = h('div', 'v-token');
         tok.style.backgroundImage = art(VERB_TOKENS[vid] || 'cvtok-investigate');
-        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 248 248"><rect class="track" x="4" y="4" width="240" height="240" rx="20" /><rect x="4" y="4" width="240" height="240" rx="20" /></svg>');
+        tok.insertAdjacentHTML('beforeend', '<svg class="v-ring" viewBox="0 0 248 248"><rect class="track" x="4" y="4" width="240" height="240" rx="20" /><rect class="glow" x="4" y="4" width="240" height="240" rx="20" /><rect class="line" x="4" y="4" width="240" height="240" rx="20" /></svg>');
         if (vid === 'time') tok.appendChild(h('div', 'v-week', 'Wk ' + e.s.week));
         tok.appendChild(h('div', 'v-plate' + (def.label.length > 9 ? ' long' : ''), def.label));
         el.appendChild(tok);
@@ -1550,7 +1603,8 @@
         mag.title = tr(vid === 'time' ? 'Dues: what the Bell draws from the table each week' : 'Magnet: pull in the cards this verb\'s open slots take');
         el.appendChild(mag);
         // The live children, found once: the frame loop writes them without a query.
-        el._ring = tok.querySelector('.v-ring rect:not(.track)');
+        el._ring = tok.querySelector('.v-ring rect.line');
+        if (el._ring) el._ring._glow = tok.querySelector('.v-ring rect.glow');
         el._status = el.querySelector('.v-status');
         el._week = tok.querySelector('.v-week');
         el._magnet = mag;
@@ -1997,8 +2051,14 @@
     }
     pane.appendChild(rbox);
 
-    var act2 = h('div', 'actions');
+    var act2 = h('div', 'actions go-row');
     var go = h('button', 'plate-btn redfill go', pv ? pv.label + ' · ' + Math.round(pv.duration) + 's' : (primaryCard ? 'Nothing comes of it' : 'Put a card in'));
+    // The Court's Charge plate names the accused in a span a narrow phone hides (the charge panel names them too).
+    if (pv && vid === 'arrest' && pcard && pcard.def === 'suspect') {
+      var gname = tr(CF.cardFace(pcard, e.labelOf(pcard)).text.replace(/^★ /, '')), glab = go.textContent, gat = gname ? glab.indexOf(gname) : -1;
+      var raw = function (s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+      if (gat >= 0) go.innerHTML = raw(glab.slice(0, gat)) + '<span class="go-name">' + raw(gname) + '</span>' + raw(glab.slice(gat + gname.length));
+    }
     go.disabled = !pv || !!pv.blocked;
     go.addEventListener('click', function () { if (e.start(vid)) { CF.Audio.play('start'); e.dirty = true; } });
     act2.appendChild(go);
@@ -2332,6 +2392,13 @@
         if (crim.heat) lines.push(tr('Heat {n}', { n: crim.heat }));
         lines.push('Hunt: Work the Quarter in Explore; Old Ghosts (their Unanswered case) or a Sighting in Rest; Disguise (Bailiff)');
       }
+    } else if (card.def === 'dagger') {
+      // Which verbs answer it and what the Coin buys; Attend only where the rules let a watchman double the guard.
+      var grace = ((CF.Societies || {}).MOUNTAIN || {}).grace || 6;
+      lines.push(tr('Rest with two Coin: {n} weeks of peace', { n: grace }));
+      lines.push('Rest alone: endure it, and they may come anyway');
+      if (daggerGuard()) lines.push('Attend with a watchman: Double the Guard');
+      lines.push(e.s.flags.mountainIgnored ? 'Ignored once already: next time there is no warning' : 'Let it lie and they come back');
     } else if (card.def === 'wound') {
       lines.push('Another blow before this knits will kill you.');
       lines.push(tr('Knits in {t}', { t: U.fmtTime(card.life) }));
@@ -2373,7 +2440,7 @@
     box.dataset.uid = uid; box.dataset.sig = cardSig(card, 1);
     var def = CF.CARDS[card.def];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
-    var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' || card.def === 'wound' ? 'paper' : null;
+    var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' || card.def === 'wound' || card.def === 'dagger' ? 'paper' : null;
     var html = '<div class="i-card"></div>';
     var notes = dz ? dossierNotes(card) : def.kind === 'ability' ? abilityNotes(card) : [];
     var kindArt = KIND_ART[card.def] || KIND_ART[def.kind];

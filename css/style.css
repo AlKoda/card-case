@@ -247,8 +247,11 @@ html[data-flat] #table { perspective: none; }
 }
 /* The clock: a rounded square drawn just outside the token's edge, so the icon stays clear. */
 .verb .v-ring { position: absolute; left: -8px; top: -8px; width: calc(100% + 16px); height: calc(100% + 16px); overflow: visible; pointer-events: none; z-index: 1; }
-.verb .v-ring rect { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 0 999; filter: drop-shadow(0 0 3px rgba(212, 162, 76, 0.9)); }
-.verb .v-ring rect.track { stroke: rgba(12, 10, 8, 0.75); stroke-dasharray: none; filter: drop-shadow(0 0 1px rgba(255, 230, 180, 0.35)); }
+/* No filter on the ring: it is redrawn as it runs, and a filter repaints the whole token each time. The glow is a
+   wider pale stroke behind the line, sharing its dash; the track keeps no edge glow. */
+.verb .v-ring rect { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 0 999; }
+.verb .v-ring rect.glow { stroke-width: 14; stroke-opacity: 0.35; }
+.verb .v-ring rect.track { stroke: rgba(12, 10, 8, 0.75); stroke-dasharray: none; }
 .verb.locked .v-ring, .verb.time .v-ring rect.track { opacity: 0.5; }
 
 .verb .v-week { position: absolute; left: 50%; top: 42px; transform: translateX(-50%); background: #0e1112; color: var(--paper); font-family: var(--serif); font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
@@ -267,7 +270,7 @@ html[data-flat] #table { perspective: none; }
 .verb.done .v-token::before { --glow: rgba(109, 187, 106, 0.95); animation: pulse 1.4s infinite; }
 .verb .v-back { position: absolute; left: 50%; top: 20%; width: 92px; height: 128px; margin-left: -46px; border-radius: 6px; background: var(--art-cback-01) center / 100% 100% no-repeat; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.7); transform: rotate(-8deg) scale(0); transition: transform 0.2s; pointer-events: none; }
 .verb.done .v-back { transform: rotate(-8deg) scale(1); }
-.verb.done .v-ring rect { stroke: var(--good); filter: drop-shadow(0 0 3px rgba(109, 187, 106, 1)); }
+.verb.done .v-ring rect:not(.track) { stroke: var(--good); }
 .verb.done .v-status { color: #8fe08b; }
 .verb.locked .v-token { filter: grayscale(1) brightness(0.55); }
 .verb.locked .v-token::after { content: ''; position: absolute; left: 50%; top: 50%; width: 84px; height: 84px; transform: translate(-50%, -50%); background: var(--art-iinv-11) center / contain no-repeat; }
@@ -526,6 +529,21 @@ html[data-flat] #table { perspective: none; }
 .charge .ch-note.dim { color: #8a7a5a; }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
 .actions .plate-btn.go { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The window's plates come first and stay in sight while the body scrolls, at every width: the Court's Charge
+   never sits below the fold of a desk screen. */
+.vw-body { display: flex; flex-direction: column; }
+.vw-body > * { flex: none; }
+.vw-body .actions { order: -1; position: sticky; top: 0; z-index: 3; margin: 0 -4px 10px -2px; padding: 6px 4px; background: #f3e9cf; border-bottom: 1px solid #a88a4c; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
+/* The go plate and Clear share one row; the go plate gives way (its label ends in an ellipsis). */
+.vw-body .actions.go-row { flex-wrap: nowrap; }
+.actions.go-row .plate-btn { min-width: 0; padding-inline: 8px; letter-spacing: 0.05em; }
+.actions.go-row .go { flex: 1 1 auto; min-width: 0; }
+.actions.go-row .go + button { flex: none; padding-inline: 4px; }
+/* A narrow window (a phone's sheet, the desk's side window) drops the accused's name from the Charge plate, so
+   Charge and Clear share a row; the accused's card and the charge panel still name them. */
+.vw-body { container-type: inline-size; }
+@media (max-width: 480px) { .go-name { display: none; } }
+@container (max-width: 480px) { .go-name { display: none; } }
 .btn { background: var(--accent); color: #1a1508; border: none; border-radius: 7px; padding: 9px 16px; font-weight: 700; font-size: 14px; }
 .btn:disabled { background: #474a50; color: #888; cursor: not-allowed; }
 .progress { height: 8px; background: rgba(0, 0, 0, 0.15); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
@@ -875,9 +893,6 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   @keyframes winIn { from { opacity: 0; transform: translateY(16px); } }
   .slots { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
   .slot { flex: none; }
-  .vw-body { display: flex; flex-direction: column; }
-  .vw-body > * { flex: none; }
-  .vw-body .actions { order: -1; position: sticky; top: 0; z-index: 3; margin: 0 -4px 10px -2px; padding: 6px 4px; background: #f3e9cf; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
   #zoom { top: 10px; right: 10px; bottom: auto; }
   #zoom button.tool-art { width: 34px; padding: 0; font-size: 0; border: none; border-radius: 6px; background: var(--i) center / 100% 100% no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
   #zoom .tool-gap { width: 2px; }

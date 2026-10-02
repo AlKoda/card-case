@@ -913,5 +913,15 @@
     "Confront them in Question with a token of the case": "واجِهه في الاستجواب بأمارة من القضية",
     "Hunt: Work the Quarter in Explore; Old Ghosts (their Unanswered case) or a Sighting in Rest; Disguise (Bailiff)": "المطاردة: العمل في الحي في الاستكشاف؛ أشباح قديمة (قضيته التي بلا جواب) أو مشاهدة في الراحة؛ التنكّر (رئيس الحرس)",
     "a witness, a confession, or proof that names them": "شاهد، أو اعتراف، أو إثبات يسمّيهم",
+    "Into The Court with {accused} now, or lay it in a verb: a card's clock stops while a verb works on it.": "إلى المحكمة مع {accused} الآن، أو ضعها في فعل: ساعة البطاقة تتوقف ما دام فعلٌ يعمل عليها.",
+    "Half a minute before it is gone. A card's clock stops while a verb works on it.": "نصف دقيقة قبل أن تزول. ساعة البطاقة تتوقف ما دام فعلٌ يعمل عليها.",
+    "The proof against {name} fades in {t}. Charge now, or lose it.": "البيّنة على {name} تتلاشى خلال {t}. وجّه التهمة الآن، أو تخسرها.",
+    "A dagger on the pillow, {t} left: into Rest with two Coin to buy a season, or into Attend with a watchman.": "خنجر على الوسادة، بقي {t}: إلى الراحة مع قطعتين من النقود لتشتري موسماً، أو إلى الدوام مع حارس.",
+    "A dagger on the pillow, {t} left: into Rest with two Coin to buy a season, or alone to endure it.": "خنجر على الوسادة، بقي {t}: إلى الراحة مع قطعتين من النقود لتشتري موسماً، أو وحده لتصبر عليه.",
+    "Rest with two Coin: {n} weeks of peace": "الراحة مع قطعتين من النقود: {n} أسابيع من السلام",
+    "Rest alone: endure it, and they may come anyway": "الراحة وحده: تصبر عليه، وقد يأتون مع ذلك",
+    "Attend with a watchman: Double the Guard": "الدوام مع حارس: ضاعِف الحراسة",
+    "Ignored once already: next time there is no warning": "أُهمِل مرة من قبل: في المرة القادمة لا إنذار",
+    "Let it lie and they come back": "دَعْه ملقى ويعودون",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

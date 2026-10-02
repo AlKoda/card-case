@@ -942,5 +942,135 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: a stale lesson gives way to the advisor while the player is idle');
 })();
 
+// ---- Round 8, lane 2, items 9-16: a fading token says how to keep it and the advisor warns before the proof
+// goes; the Order's dagger is explained and advised; the Court's plates stay in sight; the ring repaints in steps
+// with no filter; the advisor's full proof prefers the Prime Suspect.
+(function fadingAndPrime() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 29 });
+  UI.attach(e);
+  ['interrogate', 'arrest', 'investigate', 'duty', 'reflect'].forEach(function (v) { e.verb(v).unlocked = true; });
+  var rec = e.openCases()[0];
+  rec.searches = 1;
+  e.tableCards().forEach(function (c) { if (c.def === 'evidence' || c.def === 'witness' || c.def === 'insight' || c.def === 'clue') e.remove(c); });
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  var prof = CF.Charge.profileOf(rec);
+  function proofs() { return Object.keys(prof).map(function (k) { var a = {}; a[k] = prof[k]; return e.create('clue', e.clueSpec(rec, { label: 'Proof of ' + k, text: 'It shows.', aspects: a })); }); }
+  var toks = proofs();
+  var tier = e.assessCharge(sc, toks).tier;
+  assert.ok(tier === 'reasonable' || tier === 'strong', 'the rows give half proof or better: ' + tier);
+  assert.ok(toks[0].maxLife, 'a token keeps a clock');
+  // The advisor: a token under the charge about to fade.
+  toks[0].life = 40;
+  var say = UI.advice();
+  assert.ok(/^The proof against .+ fades in 0:40\. Charge now, or lose it\.$/.test(say) && say.indexOf(e.labelOf(sc)) >= 0, 'the advisor warns before the proof fades: ' + say);
+  assert.strictEqual(UI.hintGo && UI.hintGo.uid, toks[0].uid, 'and the hint goes to the token');
+  // The toast: whom to take to the Court, and that a verb at work stops a card's clock.
+  e.emit('expiring', { uid: toks[0].uid, label: e.labelOf(toks[0]), verb: null });
+  var tb = $('#toasts').children[$('#toasts').children.length - 1].innerHTML;
+  assert.ok(tb.indexOf('Into The Court with ' + e.labelOf(sc) + ' now') >= 0 && /a card's clock stops while a verb works on it/.test(tb) && !/Use it or lose it/.test(tb), 'the fading toast names the accused and how to keep it: ' + tb);
+  // A token under no charge: only how to keep it.
+  toks.forEach(function (t) { e.remove(t); });
+  var lone = e.create('clue', e.clueSpec(rec, { label: 'A Stray Thread', text: 'Nothing much.', aspects: { motive: 1 } }));
+  e.emit('expiring', { uid: lone.uid, label: e.labelOf(lone), verb: null });
+  tb = $('#toasts').children[$('#toasts').children.length - 1].innerHTML;
+  assert.ok(/Half a minute before it is gone\. A card's clock stops while a verb works on it\./.test(tb) && !/Into The Court/.test(tb), 'a token under no charge says only how to keep it: ' + tb);
+  e.remove(lone);
+  toks = proofs();
+  // The Court's Charge plate: the plates share a row and the name sits in a span a narrow phone hides.
+  assert.ok(e.autoSlot('arrest', sc.uid), 'the accused goes before the Court');
+  toks.forEach(function (t) { e.autoSlot('arrest', t.uid); });
+  UI.openWindow('arrest');
+  render(e);
+  var wins = $('#windows').querySelectorAll('.vwin'), win = wins[wins.length - 1];
+  var go = win.querySelector('.go');
+  assert.ok(go && go.parentNode.classList.contains('go-row'), 'the go plate sits in the go row');
+  var gn = go.querySelector('.go-name');
+  assert.ok(gn && gn.textContent === CF.cardFace(sc, e.labelOf(sc)).text.replace(/^★ /, '') && /^Charge /.test(go.innerHTML), 'the accused\'s name is a span on the Charge plate: ' + go.innerHTML);
+  win.querySelector('.vw-close').click();
+  render(e);
+  e.clearSlots('arrest');
+  render(e);
+  // Full proof: the Prime Suspect is preferred, and full proof against anyone else is not offered when one is named.
+  var other = rec.suspects.filter(function (x) { return x.key !== rec.culprit; })[0];
+  e.revealSuspect(rec, null, { key: other.key });
+  var oc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.data.key === other.key; })[0];
+  var conf = e.create('clue', e.clueSpec(rec, { label: 'Confession: somebody', text: 'Freely.', aspects: { testimony: 3, motive: 1 } }, [], { confession: 'free' }));
+  toks.push(conf);
+  assert.strictEqual(e.assessCharge(sc, toks).tier, 'strong', 'a free confession is full proof against the culprit');
+  assert.strictEqual(e.assessCharge(oc, toks).tier, 'strong', 'and against the other');
+  [sc, oc].forEach(function (p) {
+    rec.identified = p.data.key;
+    var w = UI.advice();
+    assert.strictEqual(w, 'The proof is enough: put ' + e.labelOf(p) + ' and the tokens into the Court.', 'the advisor names the Prime Suspect: ' + w);
+    assert.strictEqual(UI.hintGo && UI.hintGo.uid, p.uid, 'and points to them');
+  });
+  // Named somebody the tokens cannot carry: no full proof is offered against the other.
+  rec.identified = rec.culprit;
+  var sus = e.suspectOf(sc);
+  var mark = CF.TRAITS.filter(function (t) { return t.id !== sus.trait; })[0];
+  e.remove(conf);
+  toks.pop();
+  conf = e.create('clue', e.clueSpec(rec, { label: 'Confession: somebody', text: 'Freely.', aspects: { testimony: 3, motive: 1 }, trait: mark.id }, [], { confession: 'free' }));
+  toks.push(conf);
+  assert.notStrictEqual(e.assessCharge(sc, toks).tier, 'strong', 'a token that describes somebody else spoils the Prime Suspect\'s charge');
+  say = UI.advice() || '';
+  assert.ok(!/^The proof is enough/.test(say), 'and full proof against another is not offered while your own reasoning named the Prime Suspect: ' + say);
+  console.log('ui: a fading token says how to keep it, the advisor warns, the Court\'s plates stay in sight, the Prime Suspect is preferred');
+})();
+
+(function daggerAndRing() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 33 });
+  UI.attach(e);
+  ['arrest', 'duty', 'reflect'].forEach(function (v) { e.verb(v).unlocked = true; });
+  e.tableCards().forEach(function (c) { if (c.def !== 'health' && c.def !== 'focus' && c.def !== 'funds') e.remove(c); });
+  var d = e.create('dagger');
+  var guard = CF.VERBS.duty.slots.some(function (sl) { return (sl.accepts || []).indexOf('dagger') >= 0; });
+  var say = UI.advice();
+  assert.ok(/^A dagger on the pillow, \d+:\d\d left: into Rest with two Coin to buy a season/.test(say), 'the advisor names the dagger\'s answer: ' + say);
+  if (!guard) assert.ok(/alone to endure it\.$/.test(say), 'Rest is its one door while Attend does not take it');
+  assert.strictEqual(UI.hintGo && UI.hintGo.uid, d.uid, 'and points to it');
+  UI.selected = d.uid;
+  render(e);
+  var peek = $('#peek').innerHTML;
+  var grace = CF.Societies.MOUNTAIN.grace;
+  assert.ok(peek.indexOf('Rest with two Coin: ' + grace + ' weeks of peace') >= 0 && /Rest alone: endure it/.test(peek) && /Time left: /.test(peek), 'the dossier says which verb takes it and what the Coin buys: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 400));
+  assert.strictEqual(/Attend with a watchman: Double the Guard/.test(peek), guard, 'Attend is named only where the rules let it take the dagger');
+  e.s.flags.mountainIgnored = true;
+  $('#peek').dataset.uid = '';
+  render(e);
+  assert.ok(/Ignored once already/.test($('#peek').innerHTML), 'a dagger ignored once says the next has no warning');
+  delete e.s.flags.mountainIgnored;
+  UI.selected = null;
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  render(e);
+  // The verb ring: a line and its glow share a dash written in 200 steps a lap.
+  var hp = e.tableCards().filter(function (c) { return c.def === 'health'; })[0] || e.create('health');
+  assert.ok(e.autoSlot('duty', hp.uid) && e.start('duty'), 'Attend runs');
+  e.verb('duty').elapsed = e.verb('duty').duration * 0.3337;
+  render(e);
+  UI.updateLive();
+  var tok = $('#board').querySelectorAll('.verb').filter(function (x) { return x.dataset.verb === 'duty'; })[0];
+  var line = tok.querySelector('rect.line'), glow = tok.querySelector('rect.glow');
+  assert.ok(line && glow, 'the ring has a line and a glow');
+  var len = 2 * (240 + 240) - 8 * 20 + 2 * Math.PI * 20, dash = parseFloat(line.style.strokeDasharray);
+  assert.ok(dash > 0 && Math.abs(dash / (len / 200) - Math.round(dash / (len / 200))) < 0.01, 'the dash is a whole step: ' + dash);
+  assert.strictEqual(glow.style.strokeDasharray, line.style.strokeDasharray, 'the glow follows the line');
+  var before = line.style.strokeDasharray;
+  e.verb('duty').elapsed += e.verb('duty').duration / 1000;
+  UI.updateLive();
+  assert.strictEqual(line.style.strokeDasharray, before, 'a move under a step writes nothing');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  assert.ok(!/filter/.test(rule('.verb .v-ring rect')) && !/filter/.test(rule('.verb .v-ring rect.track')) && !/filter/.test(rule('.verb.done .v-ring rect:not(.track)')), 'no filter on the ring');
+  assert.ok(/stroke-width: 14/.test(rule('.verb .v-ring rect.glow')) && /stroke-opacity: 0\.35/.test(rule('.verb .v-ring rect.glow')), 'the glow is a wider pale stroke');
+  // The window's plates stay in sight at every width, and a narrow phone drops the name from the Charge plate.
+  var phone = css.indexOf('@media (max-height: 520px), (max-width: 980px)'), acts = css.indexOf('\n.vw-body .actions {');
+  assert.ok(acts > 0 && acts < phone && /position: sticky; top: 0/.test(rule('.vw-body .actions')) && /border-bottom: 1px solid #a88a4c/.test(rule('.vw-body .actions')) && /order: -1/.test(rule('.vw-body .actions')), 'the sticky plates are outside the phone block');
+  assert.ok(/flex-wrap: nowrap/.test(rule('.vw-body .actions.go-row')) && /flex: 1 1 auto; min-width: 0/.test(rule('.actions.go-row .go')) && /flex: none/.test(rule('.actions.go-row .go + button')), 'the go plate and Clear share one row');
+  assert.ok(/@media \(max-width: 480px\) \{ \.go-name \{ display: none; \} \}/.test(css) && /@container \(max-width: 480px\) \{ \.go-name \{ display: none; \} \}/.test(css) && /container-type: inline-size/.test(rule('.vw-body')), 'and the name gives way on a narrow screen or in a narrow window');
+  console.log('ui: the dagger is advised and explained, the ring steps without a filter, the plates stay in sight');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');
