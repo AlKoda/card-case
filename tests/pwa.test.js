@@ -40,8 +40,8 @@ var stamp = deploy.match(/sed -i "s\/(\^var VERSION = '\[\^'\]\*';)\/var VERSION
 assert.ok(stamp, 'the deploy stamps VERSION with the commit');
 assert.ok(new RegExp(stamp[1], 'm').test(sw), 'and its pattern matches the line in sw.js');
 assert.ok(/rm -f _site\/css\/art\/cm-spare\.css/.test(deploy), 'the spare art is not shipped');
-assert.ok(!/c\.put\(ev\.request/.test(sw) && !/caches\.match\(ev\.request\)/.test(sw), 'the fetch handler never writes to the cache and serves the edition only');
-assert.ok(/caches\.open\(VERSION\)\.then\(function \(c\) \{ return c\.match\(p\); \}\)/.test(sw), 'files come from the VERSION cache alone');
+assert.ok(!/c\.put\(ev\.request/.test(sw) && !/caches\.match\(ev\.request\)/.test(sw), 'the fetch handler never writes a listed file to the cache and serves the edition only');
+assert.ok(/caches\.open\(VERSION\)\.then\(function \(c\) \{\s*return c\.match\(p\)/.test(sw) && /if \(lazy && res && res\.ok\) c\.put\(p, res\.clone\(\)\)/.test(sw), 'files come from the VERSION cache alone; a lazy file is put there on its first fetch');
 assert.ok(/addEventListener\('message'/.test(sw) && /ev\.data === 'skip'/.test(sw) && /skipWaiting\(\)/.test(sw), 'a message of skip lets the new edition take over');
 assert.ok(!/addAll\(FILES\)\.then\(function \(\) \{ return self\.skipWaiting/.test(sw) && !/install[\s\S]*?skipWaiting[\s\S]*?\}\);\n\/\/ A new edition/.test(sw), 'the install itself does not skip waiting');
 var reg = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -81,7 +81,7 @@ assert.strictEqual((fonts.match(/font-family: 'Cinzel'/g) || []).length, 1, 'one
 assert.ok(/font-weight: 600 700;/.test(fonts), 'serving 600 and 700');
 assert.ok(fonts.indexOf('IM Fell English SC') < 0 && fonts.indexOf('Amiri') < 0, 'no small-caps face, no Arabic in the Latin sheet');
 var fontsAr = fs.readFileSync(path.join(root, 'css/fonts-ar.css'), 'utf8');
-assert.ok(/font-family: 'Amiri'/.test(fontsAr) && cached.indexOf('css/fonts-ar.css') >= 0 && linked.indexOf('css/fonts-ar.css') < 0, 'the Arabic face is its own cached sheet, not linked by the page');
+assert.ok(/font-family: 'Amiri'/.test(fontsAr) && cached.indexOf('css/fonts-ar.css') < 0 && /var LAZY = \["css\/fonts-ar\.css"\]/.test(sw) && linked.indexOf('css/fonts-ar.css') < 0, 'the Arabic face is its own sheet, cached on first use, never at install, not linked by the page');
 var i18n = fs.readFileSync(path.join(root, 'js/i18n.js'), 'utf8');
 assert.ok(/fonts: 'css\/fonts-ar\.css'/.test(i18n) && /CF\.loadFonts\(CF\.LANGS\[lang\]\.fonts/.test(i18n), 'CF.setLang adds the language\'s fonts');
 

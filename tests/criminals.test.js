@@ -70,6 +70,30 @@ function run(e, verb, cards) {
   assert.ok(newRec.suspects.some(function (x) { return x.revealed; }), 'a first name on the board');
   assert.strictEqual(winf.data.trust, trust0 + 1, 'a warning that came true earns trust');
 
+  // A warning whose card runs out while its case still waits (the desk was
+  // full) keeps its promise: the case comes with the time and the name.
+  var w2 = game(43, 'crusader');
+  var winf2 = byDef(w2, 'informant')[0];
+  var k2; for (var m2 = 0; m2 < 30 && k2 !== 'warning'; m2++) { w2.rng.setState(m2 * 17 + 3); k2 = w2.informantTip(winf2); }
+  assert.strictEqual(k2, 'warning');
+  var warn2 = byDef(w2, 'intel')[0], trust2 = winf2.data.trust;
+  w2.s.nextCase.extraTime = 0;
+  w2.s.dispatchT = 1e9; // the case does not come yet
+  w2.expire(warn2);
+  assert.ok(!w2.card(warn2.uid), 'the card is gone');
+  assert.ok(w2.s.nextCase && w2.s.nextCase.warned && w2.s.nextCase.warned.informant === winf2.uid, 'its promise rides the queued case');
+  assert.strictEqual(winf2.data.trust, trust2, 'no trust lost for a full desk');
+  w2.s.dispatchT = 0.1;
+  var n2 = byDef(w2, 'case').length;
+  w2.tick(1);
+  var cases2 = byDef(w2, 'case');
+  assert.strictEqual(cases2.length, n2 + 1, 'the warned-of case arrived later');
+  var rec2 = w2.caseRec(cases2[cases2.length - 1].caseId);
+  assert.strictEqual(rec2.template, warn2.data.template);
+  assert.strictEqual(cases2[cases2.length - 1].maxLife, Math.round(CF.CASE_TEMPLATES[rec2.template].lifetime * w2.caseClock()) + CF.INFORMANT.warningExtraTime, 'with the extra time');
+  assert.ok(rec2.suspects.some(function (x) { return x.revealed; }), 'and the name');
+  assert.strictEqual(winf2.data.trust, trust2 + 1, 'and the informer is thanked');
+
   // A sighting plus the At Large card in Reflect starts a manhunt.
   var sg = game(44, 'crusader');
   var al = sg.create('atlarge', { label: 'At Large: Vance Zorn', data: { name: 'Vance Zorn', trait: 'van' } });

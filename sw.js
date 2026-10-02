@@ -11,7 +11,6 @@ var FILES = [
   "icons/icon-512.png",
   "css/style.css",
   "css/fonts.css",
-  "css/fonts-ar.css",
   "css/art/menu.css",
   "css/art/noir-tables.css",
   "css/art/deck-menu.css",
@@ -68,6 +67,9 @@ var FILES = [
 // another. The home-screen icons are rasterised at deploy time; a missing one
 // (a local checkout) does not stop the install.
 var ICONS = /\.png$/;
+// Files of the edition fetched only when first asked for (the Arabic face,
+// which English players never load) and kept in the same cache from then on.
+var LAZY = ["css/fonts-ar.css"];
 self.addEventListener('install', function (ev) {
   ev.waitUntil(caches.open(VERSION).then(function (c) {
     return c.addAll(FILES.filter(function (f) { return !ICONS.test(f); })).then(function () {
@@ -93,16 +95,23 @@ function scopePath(url) {
   return url.indexOf(base) === 0 ? url.slice(base.length).split(/[?#]/)[0] : null;
 }
 // Every file of the edition, the page itself included, comes from its cache
-// alone: never a mix. Nothing is put in the cache after the install. A file
-// not in the list (the spare art, an icon that was never built) goes to the
-// network as it would without a worker.
+// alone: never a mix. Nothing is put in the cache after the install except a
+// lazy file on its first fetch. A file not in either list (the spare art, an
+// icon that was never built) goes to the network as it would without a worker.
 self.addEventListener('fetch', function (ev) {
   if (ev.request.method !== 'GET') return;
   var p = scopePath(ev.request.url);
   if (p === null) return;
   if (p === '') p = 'index.html';
-  if (FILES.indexOf(p) < 0) return;
-  ev.respondWith(caches.open(VERSION).then(function (c) { return c.match(p); }).then(function (hit) {
-    return hit || fetch(ev.request);
+  var lazy = LAZY.indexOf(p) >= 0;
+  if (!lazy && FILES.indexOf(p) < 0) return;
+  ev.respondWith(caches.open(VERSION).then(function (c) {
+    return c.match(p).then(function (hit) {
+      if (hit) return hit;
+      return fetch(ev.request).then(function (res) {
+        if (lazy && res && res.ok) c.put(p, res.clone());
+        return res;
+      });
+    });
   }));
 });

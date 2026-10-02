@@ -1273,7 +1273,11 @@
     if (how === 'need') { this.needExpired(card); return; }
     if (how === 'ignored') {
       // A warning of a case still queued was not ignored: the desk was full.
-      if (card.data.kind === 'warning' && this.s.nextCase && this.s.nextCase.template === card.data.template) { this.remove(card); return; }
+      if (card.data.kind === 'warning' && this.s.nextCase && this.s.nextCase.template === card.data.template) {
+        // The card goes, but its benefit rides on the queued case.
+        this.s.nextCase.warned = { informant: card.data.informant || null };
+        this.remove(card); return;
+      }
       var inf = card.data.informant && this.card(card.data.informant);
       if (inf && inf.def === 'informant') { this.trustInformant(inf, -1); this.story('Nothing Came of It', inf.data.name + ' notices you did nothing with what they told you. They will be slower to tell you again.', 'minor'); }
       this.remove(card);
@@ -2049,12 +2053,12 @@
     var life = Math.round((opts.lifetime || T.lifetime) * this.caseClock()) + (opts.extraTime || 0);
     var brief = from ? 'The book opens where you closed it. ' + U.fill(T.brief, vars) : U.fill(opts.brief || (structure && !opts.culpritName ? structure.brief : T.brief), vars);
     // An informant's warning: you were ready for this one.
-    var warning = !T.special && this.warningFor(tid);
+    var warning = !T.special && (this.warningFor(tid) || (opts.warned ? { data: opts.warned } : null));
     if (warning) {
       life += CF.INFORMANT.warningExtraTime;
       var winf = warning.data.informant && this.card(warning.data.informant);
       if (winf && winf.def === 'informant') this.trustInformant(winf, 1);
-      this.remove(warning);
+      if (warning.uid) this.remove(warning);
       brief += ' You were warned, and you were ready: the scene is fresh, and you already have a name.';
     }
     var spec = {
