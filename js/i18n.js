@@ -31,6 +31,9 @@
       document.documentElement.setAttribute('dir', CF.LANGS[lang].dir);
       if (CF.LANGS[lang].fonts) CF.loadFonts(CF.LANGS[lang].fonts, 'fonts-' + lang);
       I.applyDOM(document.body);
+      // The tab, the app switcher and the recents read the game's name in the player's language.
+      if (I.docTitle === undefined) I.docTitle = document.title || 'Case File: The Free City';
+      document.title = translate(I.docTitle, 0);
     }
     return lang;
   };
@@ -135,7 +138,8 @@
       var hd = whole(head);
       // A quoted saying: '"A gold ring. Big, on the little finger." (Loves the accused.)'
       var qt = hd === null ? /^(["“])([\s\S]+?)(["”])$/.exec(head) : null;
-      if (qt) { var qin = whole(qt[2]); if (qin !== null) hd = qt[1] + qin + qt[3]; }
+      // Arabic quotes a saying in guillemets.
+      if (qt) { var qin = whole(qt[2]), rtl = CF.LANGS[I.lang].dir === 'rtl'; if (qin !== null) hd = (rtl ? '«' : qt[1]) + qin + (rtl ? '»' : qt[3]); }
       // A pattern that fits the run but leaves a piece of it in English is the wrong cut: a shorter run is tried.
       if (hd === null) hd = matchTemplate(head, depth + 1, true);
       if (hd === null) continue;

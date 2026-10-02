@@ -470,6 +470,9 @@
     // The Help tells of the Harbourmaster's Books only where the rules have them.
     var hh = $('#help-harbour');
     if (hh) hh.classList.toggle('hidden', !harbourArc());
+    // And of the offices' own Insights only where the rules give an Insight an office.
+    var ho = $('#help-office-growth');
+    if (ho) ho.classList.toggle('hidden', !Object.keys(CF.INSIGHTS || {}).some(function (id) { return typeof CF.INSIGHTS[id].rank === 'number'; }));
     $('#controls').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-speed]');
       if (!b) return;
@@ -478,6 +481,12 @@
       if (sp === 1 && narrow() && !UI.paused) sp = UI.speed >= 3 ? 1 : (UI.speed || 1) + 1;
       if (sp === 0) UI.setPaused(!UI.paused); else UI.setSpeed(sp);
     });
+    // Under a finger the banner itself is the way back: it says 'Tap to resume' and means it.
+    var pb = $('#pause-banner');
+    if (pb) {
+      pb.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); });
+      pb.addEventListener('click', function (ev) { ev.stopPropagation(); if (UI.paused) { UI.setPaused(false); CF.Audio.play('click'); } });
+    }
     $('#zoom').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-zoom]');
       if (!b) return;
@@ -732,7 +741,9 @@
       if (k === 'case' && !UI.replaying && CF.Settings.get('pauseOnCase')) UI.setPaused(true);
     }
     if (type === 'complete') {
-      CF.Audio.play('complete', UI.speed > 1 ? { vol: 0.7 } : null);
+      // The finish lands in the pad's chord, in the verb's own voice; the slab rises once before it glows.
+      if (payload.verb !== 'time') CF.Audio.play('complete', { vol: UI.speed > 1 ? 0.7 : 1, verb: payload.verb });
+      slabMove(payload.verb, 'risen', 320);
       var v = UI.e.verb(payload.verb);
       if (UI.openVerbs.indexOf(payload.verb) < 0 && v.story) toast({ title: CF.VERBS[payload.verb].label + ': ' + v.story.title, text: v.story.text, kind: 'verb', verb: payload.verb });
       if (CF.Settings.get('pauseOnVerb')) UI.setPaused(true);
@@ -761,7 +772,7 @@
       // An event runs a verb by itself: the cards are pulled in, the window opens.
       var tokEl = verbEls[payload.verb];
       payload.uids.forEach(function (u, i) { var c = UI.e.card(u); var el = cardEls[u]; if (c && el && tokEl) setTimeout(function () { flyTo(el, tokEl, c); el.remove(); delete cardEls[u]; }, i * 160); });
-      CF.Audio.play('start');
+      verbStarted(payload.verb);
       setTimeout(function () { openWindow(payload.verb); UI.notice({ verb: payload.verb, label: CF.VERBS[payload.verb].label }); }, 300);
     }
     if (type === 'unlock') UI.notice({ verb: payload.verb, label: CF.VERBS[payload.verb].label, fresh: true });
@@ -809,6 +820,19 @@
   // The week turns: the Bell tolls (cracked, when the lodging went unpaid), its tile swings, the hourglass on the
   // bar turns over and the bar flashes full instead of running back, the music starts again from its first
   // chord, and the stipend comes out of the Bell. Less motion keeps the sound and drops the swing and the turn.
+  // A verb set to work: the start's two notes, and its slab pressed down into the felt. Under less motion it keeps
+  // still and the sound is enough.
+  function verbStarted(vid) {
+    CF.Audio.play('start');
+    slabMove(vid, 'pressed', 250);
+  }
+  function slabMove(vid, cls, ms) {
+    var el = verbEls[vid];
+    if (!el || calm()) return;
+    el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+    setTimeout(function () { el.classList.remove(cls); }, ms);
+  }
+  UI.verbStarted = verbStarted;
   function weekTurns(payload) {
     var e = UI.e;
     var paid = payload.paid !== undefined ? payload.paid !== false : UI.duesWeek === e.s.week;
@@ -977,7 +1001,10 @@
     if (!e || s.over) return null;
     if (s.choice) { UI.hintGo = { spot: e.choiceSpot() }; return tr('The city is asking you something and the clock waits. Tap the question to answer it.'); }
     var verbs = CF.VERB_ORDER.filter(function (v) { return e.verb(v).unlocked; });
-    var can = function (v) { return e.verb(v).unlocked && !e.lockReason(v); };
+    // A line speaks only while the verb it sends to is free: a busy verb keeps its own counsel, the idle ones are
+    // still told what waits for them.
+    var idle = function (v) { return e.verb(v).status === 'idle'; };
+    var can = function (v) { return e.verb(v).unlocked && !e.lockReason(v) && idle(v); };
     var running = verbs.filter(function (v) { return e.verb(v).status === 'running'; });
     // What will cost the player dearly in a minute outranks a verb that has finished or asks.
     var urgent = urgentLine();
@@ -985,19 +1012,20 @@
     UI.hintGo = null;
     var pressing = pressingLine();
     if (pressing) return pressing;
-    if (running.length) return null;
     var table = e.tableCards(), has = function (d) { return table.filter(function (c) { return c.def === d && !e.unavailableReason(c); }); };
+    // A spent ability, the one nearest coming back: what a rule that wanted it says instead of falling silent.
+    var spentOf = function (ab) { return has(CF.CARDS[ab].spends || 'spent_' + ab).sort(function (a, b) { return a.life - b.life; })[0]; };
     var cases = table.filter(function (c) { return c.def === 'case'; });
     var open = cases.map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
     var wit = has('focus')[0], hp = has('health')[0];
     // A case about to go cold with somebody to charge.
-    if (e.verb('arrest').unlocked) for (var ci = 0; ci < open.length; ci++) {
+    if (e.verb('arrest').unlocked && idle('arrest')) for (var ci = 0; ci < open.length; ci++) {
       if (open[ci].card.life >= 120) continue;
       var accused = table.filter(function (c) { return c.def === 'suspect' && c.caseId === open[ci].rec.id && !e.unavailableReason(c); })[0];
       if (accused) { UI.hintGo = { uid: accused.uid }; return tr('{title} has {d} days left. Charge {name} with what you have, or let it go.', { title: open[ci].rec.title, d: CF.daysLeft(open[ci].card.life), name: e.labelOf(accused) }); }
     }
     // A token about to fade from under a charge that would stand at half proof or better.
-    if (e.verb('arrest').unlocked) {
+    if (e.verb('arrest').unlocked && idle('arrest')) {
       var fading = table.filter(function (c) { return c.def === 'clue' && c.caseId && c.maxLife && c.life < 60 && !e.unavailableReason(c); }).sort(function (a, b) { return a.life - b.life; });
       for (var fi = 0; fi < fading.length; fi++) {
         var ch = chargeable(e, fading[fi].caseId);
@@ -1005,14 +1033,14 @@
       }
     }
     // The Order's dagger: Rest answers it, and Attend with a watchman where the rules allow it.
-    var dagger = has('dagger')[0];
-    if (dagger) {
+    var dagger = has('dagger')[0], guardable = dagger && daggerGuard() && has('teammate').length && can('duty');
+    if (dagger && (guardable || idle('reflect'))) {
       UI.hintGo = { uid: dagger.uid };
-      if (daggerGuard() && has('teammate').length && can('duty')) return tr('A dagger on the pillow, {t} left: into Rest with two Coin to buy a season, or into Attend with a watchman.', { t: U.fmtTime(dagger.life) });
+      if (guardable) return tr('A dagger on the pillow, {t} left: into Rest with two Coin to buy a season, or into Attend with a watchman.', { t: U.fmtTime(dagger.life) });
       return tr('A dagger on the pillow, {t} left: into Rest with two Coin to buy a season, or alone to endure it.', { t: U.fmtTime(dagger.life) });
     }
     // The underworld's grudge, and nothing to meet it with.
-    if (meterLevel('retaliation') >= 3 && !hp) return tr('The Vendetta is high and you are Winded: an attack now would find you without Health. Rest before the Bell.');
+    if (meterLevel('retaliation') >= 3 && !hp && idle('reflect')) return tr('The Vendetta is high and you are Winded: an attack now would find you without Health. Rest before the Bell.');
     // The Rival has acted twice and still has their desk.
     // One thread a week (data.heatWeek), and the second found the other way (data.heatBy: the verb of the
     // first), where the engine keeps them; without them, the Wit line alone.
@@ -1025,6 +1053,8 @@
         if (dirt && can('interrogate')) { UI.hintGo = { uid: dirt.uid }; return tr('One thread on the Rival. Now catch them at it: Question {name} with {label}.', { name: rname, label: e.labelOf(dirt) }); }
       } else if (rnext !== 'investigate' && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
       else if (rnext !== 'interrogate' && inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
+      else if (rnext !== 'investigate' && !wit && spentOf('focus') && CF.VERBS.interrogate && e.verb('interrogate').unlocked) return spentLine('focus', spentOf('focus'));
+      else if (rnext !== 'interrogate' && !inst && spentOf('instinct') && e.verb('investigate').unlocked) return spentLine('instinct', spentOf('instinct'));
     }
     // Two leaves from the Customs House open the Harbourmaster's Books, where the rules have that case.
     var leafDef = customsLeafDef(), leafRec = recipeOf(leafDef), leaves = leafRec ? freeOf(leafDef).filter(function (c) { return c.loc.t === 'table'; }) : [];
@@ -1066,9 +1096,12 @@
     if (lacking) return tr('To charge {name} you still want {kind} {n}: {from}.', { name: e.labelOf(lacking.card), kind: tr(CF.ASPECTS[lacking.row.aspect].label), n: lacking.row.need - lacking.row.have, from: tr(aspectFrom(lacking.row.aspect, e, e.caseRec(lacking.card.caseId))) });
     var unasked = table.filter(function (c) { if (c.def !== 'suspect' || e.unavailableReason(c)) return false; var su = e.suspectOf(c); return su && !su.questioned; })[0];
     if (unasked && wit && can('interrogate')) return tr('Question {name} with Wit: people say more than they mean to.', { name: e.labelOf(unasked) });
+    // Somebody waits to be questioned and the Wit is spent: when it comes back, and what to do meanwhile.
+    if ((w || unasked || confront) && !wit && spentOf('focus') && e.verb('interrogate').unlocked) return spentLine('focus', spentOf('focus'));
     if (can('investigate')) for (var m = 0; m < open.length; m++) if (open[m].rec.found < open[m].rec.items.length) return tr('The scene has more to give: search {title} again.', { title: open[m].rec.title });
     var fat = has('fatigue').length;
     if (fat >= 2 && can('reflect')) return tr('Weariness is piling up: put one into Rest before the fever takes you.');
+    if ((has('funds').length < 2 || !open.length) && !hp && spentOf('health') && can('duty')) return spentLine('health', spentOf('health'));
     if (has('funds').length < 2 && hp && can('duty')) return tr('Coin is short: Attend with Health earns your keep.');
     if (!open.length && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
     // The scene is searched out (the rule above caught every other): another search only feeds an Obsession. Door to
@@ -1090,14 +1123,26 @@
       });
       if (half) { UI.hintGo = { uid: half.card.uid }; return tr('Charge {name} on half proof, or let it go.', { name: e.labelOf(half.card) }); }
     }
-    // Nothing pressing: the nearest way to grow.
-    if (CF.growthWays) {
+    // Nothing pressing and nothing at work: the nearest way to grow.
+    if (CF.growthWays && !running.length) {
       var best = null;
-      ['health', 'focus', 'instinct'].forEach(function (ab) { CF.growthWays(e, ab).forEach(function (w) { if (w.state === 'open' && (!best || w.n / w.need > best.n / best.need)) best = w; }); });
+      ['health', 'focus', 'instinct'].forEach(function (ab) { CF.growthWays(e, ab).forEach(function (w) { var at = wayRank(w); if (at !== null && (s.rank || 0) < at) return; if (w.state === 'open' && (!best || w.n / w.need > best.n / best.need)) best = w; }); });
       if (best) return tr('{ability} can grow: {how}', { ability: tr(CF.CARDS[CF.INSIGHTS[best.id].trains].label), how: tr(best.how) });
     }
     return null;
   };
+  // A spent ability's line: when it comes back on its own, that Rest brings it sooner, and the work the other
+  // ability can do for a Coin meanwhile, where it is on the table and Attend is free.
+  function spentLine(ab, card) {
+    var e = UI.e, t = U.fmtTime(card.life);
+    var other = ab === 'focus' ? 'health' : ab === 'health' ? 'focus' : null;
+    var free = other && e.tableCards().some(function (c) { return c.def === other && !e.unavailableReason(c); }) &&
+      e.verb('duty').unlocked && !e.lockReason('duty') && e.verb('duty').status === 'idle';
+    UI.hintGo = { uid: card.uid };
+    if (ab === 'focus') return free ? tr('Wits\' End: your Wit is back in {t}, sooner in Rest. Meanwhile Attend with Health for a Coin.', { t: t }) : tr('Wits\' End: your Wit is back in {t}, sooner in Rest.', { t: t });
+    if (ab === 'health') return free ? tr('Winded: your Health is back in {t}, sooner in Rest. Meanwhile Attend with Wit for a Coin.', { t: t }) : tr('Winded: your Health is back in {t}, sooner in Rest.', { t: t });
+    return tr('Restless: your Instinct is back in {t}, sooner in Rest.', { t: t });
+  }
   // The hint names a place on the table: a tap goes there.
   UI.hintTap = function () {
     var go = UI.hintGo;
@@ -1131,6 +1176,9 @@
   function renderHint() {
     var e = UI.e, hint = $('#hint');
     if (UI.hintHidden) return;
+    // Why a drop was refused, for two seconds.
+    if (UI.hintFlash && performance.now() < UI.hintFlash.until) { UI.hintGo = null; showAdvice(hint, UI.hintFlash.text); return; }
+    UI.hintFlash = null;
     // The fever, the Bell short or a need about to take its due, then a finished verb or an unanswered ask, come
     // before any lesson: the guided start waits until they clear.
     var urgent = e.s.over ? null : cachedUrgent();
@@ -1665,7 +1713,7 @@
       if (v.out.some(function (u) { var c = e.card(u); return c && c.hidden; })) revealAll(vid); else collectAll(vid);
       return;
     }
-    if (v.status === 'idle' && e.start(vid)) { CF.Audio.play('start'); e.dirty = true; }
+    if (v.status === 'idle' && e.start(vid)) { verbStarted(vid); e.dirty = true; }
   }
 
   function zoomAt(cx, cy, factor, rect) {
@@ -2702,7 +2750,7 @@
     }
     if (goTier) go.appendChild(h('span', 'go-tier', goTier));
     go.disabled = !pv || !!pv.blocked;
-    go.addEventListener('click', function () { if (e.start(vid)) { CF.Audio.play('start'); e.dirty = true; } });
+    go.addEventListener('click', function () { if (e.start(vid)) { verbStarted(vid); e.dirty = true; } });
     // Shut by the Fever: the plate is the way out, to Rest with the Fever laid in it.
     var fever = feverLock(vid);
     if (fever && go.disabled) {
@@ -3014,12 +3062,22 @@
     if (!ways.length) return lines;
     lines.push(tr('How {ability} grows (an Insight, taken to Rest):', { ability: tr(CF.CARDS[ab].label) }));
     ways.forEach(function (w) {
+      // An office's own Insight, not yet open: named, dim, with the office that opens it.
+      var at = wayRank(w);
+      if (at !== null && (w.state === 'locked' || (w.state === 'open' && (e.s.rank || 0) < at))) { lines.push(tr('At {rank}: {label}', { rank: tr(CF.RANKS[at]), label: tr(w.label) })); return; }
+      if (w.state === 'locked') return;
       if (w.state === 'learned') lines.push(tr('{label}: learned.', { label: tr(w.label) }));
       else if (w.state === 'waiting') lines.push(tr('{label}: the Insight is on the table. Put it into Rest.', { label: tr(w.label) }));
       else lines.push(tr('{label}: {how} ({n} of {need})', { label: tr(w.label), how: tr(w.how), n: w.n, need: w.need }));
     });
     return lines;
   }
+  // The office an Insight opens at, where the rules give one (the way's own rank, else its spec's), else null.
+  function wayRank(w) {
+    var spec = CF.INSIGHTS && CF.INSIGHTS[w.id], r = typeof w.rank === 'number' ? w.rank : spec && typeof spec.rank === 'number' ? spec.rank : null;
+    return r !== null && CF.RANKS && CF.RANKS[r] ? r : null;
+  }
+  UI.wayRank = wayRank;
   function dossierNotes(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, lines = [];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
@@ -3887,6 +3945,7 @@
         CF.Audio.play('drop'); UI.haptic(10);
         absorb(d, t);
       } else {
+        refused(t);
         if (card.loc.t === 'table' && d.from === 'out') {
           // It left the verb's output but found no slot: drop it by the pointer.
           UI.spawn[card.uid] = { cx: ev.clientX, cy: ev.clientY, gx: d.gx, gy: d.gy };
@@ -3914,6 +3973,18 @@
     e.dirty = true;
   }
 
+  // A drop the verb will not take: a dull knock, a short buzz, the tile or slot shakes its head (a red edge under
+  // less motion), and the reason, where the rules give one, stands in the hint bar for two seconds.
+  function refused(t) {
+    var e = UI.e, vid = t.verb;
+    CF.Audio.play('refuse'); UI.haptic([18, 50, 18]);
+    var node = t.node;
+    if (node) { node.classList.remove('refuse'); void node.offsetWidth; node.classList.add('refuse'); setTimeout(function () { node.classList.remove('refuse'); }, 320); }
+    var v = vid ? e.verb(vid) : null, pv = v && v.status === 'idle' && e.preview ? e.preview(vid) : null;
+    var why = vid ? e.lockReason(vid) || (pv && pv.blocked) : null;
+    UI.hintFlash = why ? { text: tr(why), until: performance.now() + 2000 } : null;
+  }
+  UI.refused = refused;
   // A card dropped into a slot shrinks into it.
   function absorb(d, t) {
     var el = d.el;

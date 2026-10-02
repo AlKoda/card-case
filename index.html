@@ -48,7 +48,7 @@
         <div id="peek"></div>
         <button id="peek-x" title="Close">×</button>
         <div id="windows"></div>
-        <div id="pause-banner">Paused <span>Space to resume</span></div>
+        <div id="pause-banner">Paused <span class="pb-key">Space to resume</span><span class="pb-tap">Tap to resume</span></div>
         <div id="zoom">
           <button data-zoom="out" title="Zoom out (-)">−</button>
           <button data-zoom="fit" title="Fit the table (0)">⤢</button>
@@ -76,6 +76,7 @@
     <div class="title-wrap">
       <div class="title-scene">
       <div class="title-logo" role="img" aria-label="Case File: The Free City"></div>
+      <div class="title-sub" aria-hidden="true">Case File: The Free City</div>
       <div class="title-buttons">
         <button class="plate-btn gold" id="t-new"><i class="mi" style="--i:var(--art-bround-24)"></i>New Game</button>
         <button class="plate-btn red" id="t-continue"><i class="mi" style="--i:var(--art-bround-05)"></i>Continue</button>
@@ -219,6 +220,7 @@
           <p>Work spends you: Health comes back <b>Winded</b>, Wit at <b>Wits' End</b>, Instinct <b>Restless</b>. Each recovers on its own in a little while, or at once in Rest. The city also teaches; see <b>Growing</b>. Some of the city's questions take a card to answer. A question that takes a card spends it, like a verb; one marked for good keeps it.</p>
           <h4>Growing</h4>
           <p>Health, Wit and Instinct grow by <b>Insights</b>, and the city hands you one when you have done a thing often or well. Walk the hard round (Health into Attend) three times and a fencing-master teaches Health; see off three needs before their clocks run out and hardship teaches Health. Convict someone on full proof, or let a case add up in Rest three times, and the method teaches Wit. Walk the ward (Instinct alone into Explore) three times and the street teaches Instinct; earn an informer's trust and the right ear teaches Instinct. An Insight into <b>Rest</b> on its own is a lesson: one more of that ability, for good. With the ability beside it, it is kept as a <b>trick</b> instead. Open Health, Wit or Instinct to see each way and how far along it is.</p>
+          <p id="help-office-growth" class="hidden">Each office opens new Insights, one for each ability, learned by that office's own work. Open Health, Wit or Instinct to see them.</p>
           <h4>Needs</h4>
           <p>Between cases the desk comes for you: <b>Hunger</b>, <b>Sickness</b>, <b>Stress</b>, each with a clock. Hunger with Coin in Rest is a dinner; Sickness wants Coin for a physician, or the Physician's Case; Stress wants an evening in Rest, quicker with Coin. Coin is never the only way: a watchman feeds you from the pot or takes the round, a Quarter feeds you on credit, an informer feeds you and remembers it, Health sweats a fever out, Instinct walks stress off. Let a clock run out and it takes what it came for: a Health, an Instinct, a Wit, for good if you had a spare, and if you did not it takes your strength and stays. The Bell's window lists what is on your back.</p>
           <h4>Choices</h4>

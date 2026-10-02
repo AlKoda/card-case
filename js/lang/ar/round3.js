@@ -1019,5 +1019,12 @@
     "Rest stood idle the whole time.": "وقفت الراحة خاملة طوال الوقت.",
     "An examiner sent home leaves a leaf from the Customs House. Two, laid in Rest, open the Harbourmaster's Books. Convict the Harbourmaster himself, and no examiner comes again.": "المحقق الذي يُعاد إلى داره يترك ورقة من دار الجمارك. ورقتان، توضعان في الراحة، تفتحان دفاتر رئيس الميناء. أدِن رئيس الميناء نفسه، فلا يأتي محقق بعده أبداً.",
     "The Bishop has kept the Dominicans off this one.": "أبعد الأسقفُ الدومينيكيّين عن هذه القضية.",
+    "Wits' End: your Wit is back in {t}, sooner in Rest. Meanwhile Attend with Health for a Coin.": "نفاد الفطنة: تعود فطنتك بعد {t}، وأسرع في الراحة. وفي الأثناء داوم مع الصحة لتكسب قطعة نقود.",
+    "Wits' End: your Wit is back in {t}, sooner in Rest.": "نفاد الفطنة: تعود فطنتك بعد {t}، وأسرع في الراحة.",
+    "Winded: your Health is back in {t}, sooner in Rest. Meanwhile Attend with Wit for a Coin.": "لاهث: تعود صحتك بعد {t}، وأسرع في الراحة. وفي الأثناء داوم مع الفطنة لتكسب قطعة نقود.",
+    "Winded: your Health is back in {t}, sooner in Rest.": "لاهث: تعود صحتك بعد {t}، وأسرع في الراحة.",
+    "Restless: your Instinct is back in {t}, sooner in Rest.": "قلِق: يعود حدسك بعد {t}، وأسرع في الراحة.",
+    "Tap to resume": "المس للاستئناف",
+    "Each office opens new Insights, one for each ability, learned by that office's own work. Open Health, Wit or Instinct to see them.": "كل منصب يفتح بصائر جديدة، واحدة لكل قدرة، تُكتسب بعمل ذلك المنصب نفسه. افتح الصحة أو الفطنة أو الحدس لتراها.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

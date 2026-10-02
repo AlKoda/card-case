@@ -2282,5 +2282,130 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the Dominican\'s threat, quiet slots, the Journal\'s X, the language plate, the title alive, the table still');
 })();
 
+// ---- Round 8, items 89-96: the pause banner under a finger, the slab pressed and risen, a refused drop, the Arabic
+// quotes and title, the offices' Insights, the advisor beside a running verb and for a spent ability.
+(function round8l() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var uiSrc = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+
+  // Item 90: no 'Space' under a finger; the banner says tap and resumes.
+  assert.ok(/<div id="pause-banner">Paused <span class="pb-key">Space to resume<\/span><span class="pb-tap">Tap to resume<\/span><\/div>/.test(html), 'the banner has a word for keys and one for fingers');
+  var coarse = /@media \(pointer: coarse\) \{([\s\S]*?)\n\}/.exec(css)[1];
+  assert.ok(/#pause-banner \.pb-key \{ display: none; \}\n  #pause-banner \.pb-tap \{ display: inline; \}\n  #table\.paused #pause-banner \{ pointer-events: auto;/.test(coarse) && /\n#pause-banner \.pb-tap \{ display: none; \}/.test(css), 'a coarse pointer reads the tap and can use it');
+  assert.ok(/pb\.addEventListener\('click', function \(ev\) \{ ev\.stopPropagation\(\); if \(UI\.paused\) \{ UI\.setPaused\(false\);/.test(uiSrc), 'a tap on the banner resumes');
+
+  var e = CF.Engine.newGame({ calling: 'master', seed: 61 });
+  UI.attach(e);
+  ['interrogate', 'arrest', 'investigate', 'duty', 'reflect', 'analyze'].forEach(function (v) { if (e.verb(v)) e.verb(v).unlocked = true; });
+  render(e);
+
+  // Item 91: a start presses the slab; a finish raises it once and its cue carries the verb; the pitch is the chord's.
+  var duty = $('#board').querySelectorAll('.verb').filter(function (x) { return x.dataset.verb === 'duty'; })[0];
+  timers = []; played.length = 0;
+  UI.verbStarted('duty');
+  assert.ok(duty.classList.contains('pressed') && played.indexOf('start') >= 0, 'the slab is pressed and the start sounds');
+  flushTimers();
+  assert.ok(!duty.classList.contains('pressed'), 'and comes back up');
+  settings.calm = true; UI.verbStarted('duty'); settings.calm = false;
+  assert.ok(!duty.classList.contains('pressed'), 'under less motion it keeps still');
+  var cues = [];
+  CF.Audio.play = function (k, o) { played.push(k); cues.push([k, o]); };
+  e.emit('complete', { verb: 'duty' });
+  var fin = cues.filter(function (c) { return c[0] === 'complete'; })[0];
+  assert.ok(fin && fin[1] && fin[1].verb === 'duty' && duty.classList.contains('risen'), 'a finish rises and its cue knows the verb');
+  cues.length = 0; e.emit('complete', { verb: 'time' });
+  assert.ok(!cues.some(function (c) { return c[0] === 'complete'; }), 'the Bell keeps its toll');
+  CF.Audio.play = function (k) { played.push(k); };
+  flushTimers();
+  assert.ok(/\.verb\.pressed \.v-token \{ animation: press 0\.22s ease-out; \}/.test(css) && /@keyframes press \{ 35% \{ transform: translateY\(8px\);/.test(css) && /@keyframes rise \{ 40% \{ transform: translateY\(-6px\);/.test(css), 'press and rise, translate only');
+  assert.ok(/html\[data-calm\] \.verb\.pressed \.v-token, html\[data-calm\] \.verb\.risen \.v-token/.test(css), 'still when calm');
+  var actx = { window: {}, document: { addEventListener: function () {}, hidden: false } };
+  actx.window.CF = { Settings: { onChange: function () {}, values: {} } };
+  actx.window.addEventListener = function () {};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8'), actx, { filename: 'js/audio.js' });
+  var A = actx.window.CF.Audio, note = A.completeNote();
+  assert.ok(note > 400 && note < 540 && [523.2, 440, 415.4].some(function (f) { return Math.abs(f - note) < 1; }), 'the finish is the pad\'s upper voice an octave up: ' + note);
+  assert.ok(A.allow('refuse', 1) && !A.allow('refuse', 1.1), 'the refusal cue exists and does not stutter');
+
+  // Item 92: a refused drop shakes its target, sounds, and says why for two seconds.
+  var slot = new El('div'); slot.className = 'slot';
+  timers = []; played.length = 0;
+  var lockOf = e.lockReason;
+  e.lockReason = function (v) { return v === 'duty' ? 'The fever has you.' : null; };
+  UI.refused({ verb: 'duty', slot: 'main', node: slot });
+  e.lockReason = lockOf;
+  assert.ok(slot.classList.contains('refuse') && played.indexOf('refuse') >= 0, 'the slot shakes and the knock sounds');
+  assert.ok(UI.hintFlash && UI.hintFlash.text === 'The fever has you.', 'the reason waits for the hint');
+  render(e);
+  assert.strictEqual($('#hint').textContent, 'The fever has you.', 'and the hint bar shows it');
+  UI.hintFlash.until = 0; render(e);
+  assert.ok(!UI.hintFlash, 'then lets go');
+  flushTimers();
+  assert.ok(!slot.classList.contains('refuse'), 'the shake ends');
+  assert.ok(/\} else \{\n        refused\(t\);/.test(uiSrc), 'every refused drop on a slot or tile is told');
+  assert.ok(/html\[data-calm\] \.slot\.refuse \{ outline: 2px solid transparent;[^}]*animation: refuseFlash/.test(css), 'a red edge instead of a shake when calm');
+
+  // Item 96: a running verb no longer silences the advisor; a line waits only for its own verb.
+  e.tableCards().forEach(function (c) { if (c.def === 'witness' || c.def === 'insight' || c.def === 'evidence' || c.def === 'dagger') e.remove(c); });
+  var rec = e.openCases()[0];
+  rec.searches = 1;
+  var wit = e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('focus', {});
+  var hp = e.cardsOf('health').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('health', {});
+  var wn = e.create('witness', { label: 'Witness: Grete Amsel', caseId: rec.id, data: {} });
+  var say = UI.advice();
+  assert.ok(/A witness: put .*Grete Amsel.* into Question with Wit\./.test(say), 'the witness line: ' + say);
+  e.verb('analyze').status = 'running';
+  say = UI.advice();
+  assert.ok(/Grete Amsel/.test(say || ''), 'another verb at work does not silence it: ' + say);
+  e.verb('analyze').status = 'idle';
+  e.verb('interrogate').status = 'running';
+  say = UI.advice() || '';
+  assert.ok(!/into Question/.test(say), 'Question at work is not sent more: ' + say);
+  e.verb('interrogate').status = 'idle';
+  // The Wit spent: when it comes back and what to do meanwhile.
+  e.remove(wit);
+  var spent = e.create('spent_focus', {});
+  spent.life = 25;
+  say = UI.advice() || '';
+  assert.ok(/^Wits' End: your Wit is back in 0:25, sooner in Rest\./.test(say), 'a spent Wit is told: ' + say);
+  assert.ok(e.lockReason('duty') || /Meanwhile Attend with Health for a Coin\./.test(say), 'with Attend for a Coin meanwhile: ' + say);
+  assert.strictEqual(UI.hintGo && UI.hintGo.uid, spent.uid, 'the hint goes to the spent card');
+  e.remove(spent); e.remove(wn);
+  if (!e.cardsOf('focus').some(function (c) { return c.loc.t === 'table'; })) e.create('focus', {});
+
+  // Item 95: an office's Insight not yet open is named dim with its office, and the advisor leaves it be.
+  var hpCard = e.cardsOf('health').filter(function (c) { return c.loc.t === 'table'; })[0];
+  CF.INSIGHTS.test_office = { label: 'The White Staff', trains: 'health', rank: 2, need: 2, how: 'Walk the night with a watchman twice.', text: '', perk: '', perkText: '', count: function () { return 1; }, when: function () { return false; } };
+  try {
+    e.s.rank = 0;
+    var notes = UI.dossierLines ? null : null;
+    UI.selected = hpCard.uid; render(e);
+    var peek = $('#peek').textContent;
+    assert.ok(peek.indexOf('At ' + CF.RANKS[2] + ': The White Staff') >= 0 && peek.indexOf('Walk the night with a watchman twice') < 0, 'below its office the Insight is named, not its way: ' + peek.slice(0, 400));
+    assert.strictEqual(UI.wayRank({ id: 'test_office' }), 2, 'its office read off the rules');
+    e.s.rank = 2; e.dirty = true; render(e);
+    peek = $('#peek').textContent;
+    assert.ok(peek.indexOf('The White Staff: Walk the night with a watchman twice. (1 of 2)') >= 0, 'at its office the way and the count show: ' + peek.slice(0, 400));
+  } finally {
+    delete CF.INSIGHTS.test_office; e.s.rank = 0;
+    UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  }
+  assert.ok(/<p id="help-office-growth" class="hidden">/.test(html), 'the Help\'s line on the offices waits for the rules');
+
+  // Item 93: a quoted saying reads in guillemets in Arabic. Item 94: the tab and the title read the game's Arabic name.
+  if (!CF.I18N.dicts.ar || !CF.I18N.dicts.ar['the Rolls']) fs.readdirSync(path.join(__dirname, '..', 'js/lang/ar')).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js/lang/ar', f), 'utf8'), { filename: f }); });
+  document.title = 'Case File: The Free City';
+  CF.setLang('ar');
+  var q = CF.T('"They were rolling a die over their knuckles." (Wants the reward.)');
+  var tab = document.title;
+  CF.setLang('en');
+  assert.ok(/^«[^"A-Za-z]+» \([^A-Za-z]+\)$/.test(q), 'the saying in guillemets, the stake after it: ' + q);
+  assert.strictEqual(tab, 'ملف القضية: المدينة الحرة', 'the tab in Arabic');
+  assert.strictEqual(document.title, 'Case File: The Free City', 'and back in English');
+  assert.ok(/<div class="title-sub" aria-hidden="true">Case File: The Free City<\/div>/.test(html) && /\.title-sub \{ display: none; \}\n\[dir=rtl\] \.title-scene \.title-sub \{ display: block;/.test(css), 'the Arabic name under the plate, only right-to-left');
+  console.log('ui: the banner under a finger, the slab pressed, a refused drop, the advisor beside a running verb and for a spent ability, the offices\' Insights, Arabic quotes and title');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

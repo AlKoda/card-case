@@ -125,12 +125,22 @@
     });
   }
 
+  var COMPLETE_VOICE = { arrest: { type: 'triangle', dur: 0.9 }, interrogate: { type: 'triangle', dur: 0.9 }, reflect: { type: 'sine', dur: 1.6 } };
   var SOUNDS = {
     pick: function () { noise(0.05, { freq: 3500, vol: 0.12 }); tone(900, 0.05, { type: 'triangle', vol: 0.05 }); },
     drop: function () { tone(170, 0.12, { to: 90, vol: 0.25 }); noise(0.08, { freq: 900, vol: 0.08 }); },
     click: function () { tone(1400, 0.04, { type: 'square', vol: 0.03, lp: 3000 }); },
     start: function () { tone(196, 0.25, { type: 'triangle', vol: 0.18 }); tone(294, 0.35, { type: 'triangle', vol: 0.14, delay: 0.09 }); },
-    complete: function () { tone(880, 0.9, { vol: 0.12 }); tone(1320, 1.1, { vol: 0.07, delay: 0.05 }); },
+    // A verb's work done: the upper voice of the chord the pad is sounding, an octave up, so the most frequent cue in
+    // the game always lands in the music; Court and Question in a reed's triangle, Rest a long sine, the rest a short
+    // one. The Bell has its toll instead.
+    complete: function (o) {
+      var verb = o && o.verb;
+      if (verb === 'time') return;
+      var f = A.completeNote(), v = COMPLETE_VOICE[verb] || { type: 'sine', dur: 0.9 };
+      tone(f, v.dur, { type: v.type, vol: 0.09, lp: v.type === 'triangle' ? 2400 : 0 });
+      tone(f * 2, v.dur * 0.8, { vol: 0.025, delay: 0.04 });
+    },
     case: function () { noise(0.03, { freq: 4000, vol: 0.2 }); noise(0.03, { freq: 4000, vol: 0.2, delay: 0.09 }); tone(1760, 0.7, { vol: 0.1, delay: 0.18 }); },
     danger: function () { tone(110, 0.8, { type: 'sawtooth', vol: 0.16, lp: 600 }); tone(116.5, 0.8, { type: 'sawtooth', vol: 0.14, lp: 600 }); },
     // The Bell tolls the week: short and quiet, since it comes every minute of play.
@@ -155,6 +165,8 @@
     discovery: function () { tone(110, 0.9, { vol: 0.07 }); tone(165, 0.9, { vol: 0.04, delay: 0.04 }); },
     // A verb asks for a card: two knocks at the door.
     knock: function () { [0, 0.16].forEach(function (d) { noise(0.04, { freq: 700, q: 3, vol: 0.22, delay: d }); tone(180, 0.05, { to: 120, vol: 0.12, delay: d }); }); },
+    // A drop the verb will not take: a dull falling knock, a muffled scuff.
+    refuse: function () { tone(140, 0.12, { type: 'triangle', to: 110, vol: 0.10, lp: 800 }); noise(0.05, { filter: 'lowpass', freq: 400, vol: 0.08 }); },
     // Wax pressed down: a choice answered, a rank sealed.
     seal: function () { noise(0.06, { filter: 'lowpass', freq: 600, vol: 0.2 }); tone(196, 0.18, { vol: 0.08 }); },
     // A new office: the tower bell, then two soft notes.
@@ -169,8 +181,8 @@
 
   // One cue at a time: the same cue does not repeat inside its gap, and a
   // lesser cue gives way to a greater one started a moment before.
-  var MIN_GAP = { week: 1.0, weekUnpaid: 1.0, meterWorse: 0.8, meterBetter: 0.8, gavel: 1.0, convict: 1.0, acquit: 1.0, complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 4.0, knock: 1.0, page: 0.4, flip: 0.05, discovery: 0.5, seal: 0.2, coin: 0.07, pick: 0.05 };
-  var PRIORITY = { gavel: 5, convict: 5, acquit: 5, victory: 5, defeat: 5, office: 5, week: 4, weekUnpaid: 4, meterWorse: 1, meterBetter: 1, coin: 0, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, seal: 2, discovery: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
+  var MIN_GAP = { week: 1.0, weekUnpaid: 1.0, meterWorse: 0.8, meterBetter: 0.8, gavel: 1.0, convict: 1.0, acquit: 1.0, complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 4.0, knock: 1.0, refuse: 0.15, page: 0.4, flip: 0.05, discovery: 0.5, seal: 0.2, coin: 0.07, pick: 0.05 };
+  var PRIORITY = { gavel: 5, convict: 5, acquit: 5, victory: 5, defeat: 5, office: 5, week: 4, weekUnpaid: 4, meterWorse: 1, meterBetter: 1, coin: 0, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, refuse: 1, seal: 2, discovery: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
   // A quiet cue is heard only alone.
   var QUIET = { page: 1 };
   var lastAt = {}, top = { p: -1, at: -1 };
@@ -189,13 +201,15 @@
     if (!A.ready || !SOUNDS[name]) return false;
     if (!A.allow(name, A.ctx.currentTime)) return false;
     volScale = opts && opts.vol > 0 ? opts.vol : 1;
-    try { SOUNDS[name](); } catch (err) { /* ignore audio errors */ }
+    try { SOUNDS[name](opts); } catch (err) { /* ignore audio errors */ }
     volScale = 1;
     return true;
   };
 
   // --- Music: a slow Am9 - Fmaj7 - Dm9 - E7 pad, with soft rain under it.
   var CHORDS = [[110, 164.8, 196, 261.6, 246.9], [87.3, 130.8, 164.8, 220, 261.6], [73.4, 146.8, 174.6, 220, 329.6], [82.4, 123.5, 146.8, 207.7, 293.7]];
+  // The chord now sounding is the one before chordIdx (padChord moves it on as it starts one): its upper voice, doubled.
+  A.completeNote = function () { return CHORDS[(chordIdx + CHORDS.length - 1) % CHORDS.length][3] * 2; };
   function padChord() {
     if (!A.ready || A.ctx.state !== 'running') return;
     var c = A.ctx, t = c.currentTime;
