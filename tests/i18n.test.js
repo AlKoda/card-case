@@ -134,6 +134,21 @@ assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
   console.log('i18n: long composed texts read to their end');
 })();
 
+// Round 8, lane 2, item 57: the house terms hold, and the words a player sees all the time read right.
+(function houseTerms() {
+  var drift = require('../tools/i18n_glossary.js').drift('ar');
+  assert.strictEqual(drift.length, 0, drift.length + ' Arabic entries drift from the glossary:\n  ' + drift.slice(0, 20).map(function (x) { return x.term + ' wants ' + x.want + ': ' + x.key; }).join('\n  '));
+  CF.setLang('ar');
+  assert.strictEqual(CF.T('Answer with Wit'), 'أجب بالفطنة', 'no stretch before the article: ' + CF.T('Answer with Wit'));
+  assert.ok(CF.T('Hold {clue} against {name}.', { clue: 'Wit', name: 'Hans Schmidt' }).indexOf('\u0640') < 0, 'a stretched preposition joins the Arabic name that fills it');
+  assert.strictEqual(CF.joinPrefix('بـ7'), 'بـ7', 'before a number the stretch stays');
+  assert.strictEqual(CF.T('Mark'), 'ضع علامة', 'Mark is not \'teach\'');
+  assert.ok(/^البواكير/.test(CF.T('Firsts: {n} of {total}', { n: 2, total: 9 })), 'the firsts are not the ancients');
+  assert.strictEqual(CF.T('Give her a Coin'), 'أعطها قطعة نقد', 'a coin, counted');
+  CF.setLang('en');
+  console.log('i18n: the house terms hold');
+})();
+
 // Played games, read in Arabic: nothing the player could see stays English, not even in part. Three plain
 // games and four with the opening and the life of the city (needs, choices, the Bell, the rival).
 CF.setLang('ar');

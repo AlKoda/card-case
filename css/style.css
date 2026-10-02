@@ -288,11 +288,16 @@ html[data-flat] #table { perspective: none; }
 .verb.drop-hover .v-token { transform: scale(1.14); filter: drop-shadow(0 0 14px rgba(140, 230, 130, 1)); }
 .verb.new .v-token::before { animation: glow 1.6s 3; }
 @keyframes pulse { 50% { opacity: 1; } }
-/* The verdict: a wax stamp slams onto the Court token and lifts; the case card keeps the seal. */
+/* The verdict: a wax stamp slams down and lifts (on the Court token only when the trial card is not on the table). */
 .verb .verdict { position: absolute; left: 50%; top: 120px; width: 120px; height: 120px; margin: -60px 0 0 -60px; z-index: 4; pointer-events: none; background: center / contain no-repeat; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); transform: rotate(-6deg); animation: stamp 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both, stampLift 0.4s ease-in 1.6s forwards; }
 @keyframes stamp { from { transform: scale(2.2) rotate(-12deg); opacity: 0; } 60% { transform: scale(0.95) rotate(-6deg); opacity: 1; } to { transform: scale(1) rotate(-6deg); } }
 @keyframes stampLift { to { opacity: 0; } }
-.card.sealed .c-face::after { content: ''; position: absolute; inset: 20%; background: var(--seal) center / contain no-repeat; opacity: 0.6; transform: rotate(-8deg); pointer-events: none; }
+/* On the card it was given on: the Blood Court card (a case card when it went cold), kept a moment as a ghost. */
+#board .card.judged { pointer-events: none; z-index: 6; }
+.card.judged .c-ringsvg, .card.judged .c-time { visibility: hidden; }
+.card .verdict { position: absolute; left: 10%; top: 50%; width: 80%; aspect-ratio: 1; margin-top: -40%; z-index: 4; border-radius: 12%; pointer-events: none; background: center / contain no-repeat; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); transform: rotate(-6deg); animation: stamp 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+/* What the verdict makes waits under the stamp, then comes out of it. */
+.card.awaiting { visibility: hidden; }
 @keyframes glow { 50% { opacity: 1; } }
 
 /* ---------- Cards ---------- */
@@ -915,6 +920,7 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
    no turn in depth. Flips and stamps fade, panels and notes come in by opacity alone, glows hold still. */
 html[data-calm] #app.shake { animation: none; }
 html[data-calm] .verb .verdict { animation: fadeIn 0.2s ease-out both, stampLift 0.4s ease-in 1.6s forwards; }
+html[data-calm] .card .verdict { animation: fadeIn 0.2s ease-out both; }
 html[data-calm] .mini-wrap.flip-out { animation: fadeOut 0.12s linear forwards; }
 html[data-calm] .mini-wrap.flip-in { animation: fadeIn 0.12s linear; }
 html[data-calm] .card.arrive .c-face, html[data-calm] .card.settle .c-face { animation-name: fadeIn; }

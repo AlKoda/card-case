@@ -87,7 +87,9 @@
     f.type = opts.filter || 'bandpass';
     f.frequency.value = opts.freq || 2000;
     f.Q.value = opts.q || 1;
-    g.gain.setValueAtTime((opts.vol || 0.2) * volScale, t);
+    // opts.attack swells the noise in (a crowd's murmur) instead of striking it.
+    if (opts.attack) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime((opts.vol || 0.2) * volScale, t + opts.attack); }
+    else g.gain.setValueAtTime((opts.vol || 0.2) * volScale, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(f); f.connect(g); g.connect(opts.bus || sfxBus);
     s.start(t);
@@ -100,6 +102,13 @@
     var vol = opts.vol || 0.1, delay = opts.delay || 0;
     [[1, 1, 1], [2, 0.45, 0.7], [2.76, 0.3, 0.5], [5.4, 0.12, 0.3]].forEach(function (p) {
       tone(freq * p[0], dur * p[2], { vol: vol * p[1], delay: delay, attack: 0.004, lp: opts.lp || 2400 });
+    });
+  }
+
+  function gavel() {
+    [0, 0.22].forEach(function (d) {
+      noise(0.05, { filter: 'lowpass', freq: 420, q: 0.7, vol: 0.35, delay: d });
+      tone(150, 0.09, { to: 70, vol: 0.3, delay: d });
     });
   }
 
@@ -129,13 +138,18 @@
     seal: function () { noise(0.06, { filter: 'lowpass', freq: 600, vol: 0.2 }); tone(196, 0.18, { vol: 0.08 }); },
     // A new office: the tower bell, then two soft notes.
     office: function () { bell(147, 3, { vol: 0.09 }); tone(220, 0.9, { type: 'triangle', vol: 0.06, delay: 0.4, lp: 1400 }); tone(294, 1.1, { type: 'triangle', vol: 0.06, delay: 0.7, lp: 1400 }); },
+    // The verdict: the gavel twice as the stamp comes down (its 60% point), then the bell for the condemned, the
+    // crowd's murmur for a man let go.
+    gavel: function () { gavel(); },
+    convict: function () { gavel(); bell(110, 2.8, { vol: 0.10, delay: 0.5 }); },
+    acquit: function () { gavel(); noise(1.4, { filter: 'bandpass', freq: 600, q: 0.5, vol: 0.06, attack: 0.4, delay: 0.5 }); },
     defeat: function () { [392, 330, 262, 196].forEach(function (f, i) { tone(f, 1.1, { type: 'triangle', vol: 0.12, delay: i * 0.18, lp: 1200 }); }); },
   };
 
   // One cue at a time: the same cue does not repeat inside its gap, and a
   // lesser cue gives way to a greater one started a moment before.
-  var MIN_GAP = { complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 4.0, knock: 1.0, page: 0.4, flip: 0.05, discovery: 0.5, seal: 0.2, coin: 0.07, pick: 0.05 };
-  var PRIORITY = { gavel: 5, victory: 5, defeat: 5, office: 5, week: 4, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, seal: 2, discovery: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
+  var MIN_GAP = { gavel: 1.0, convict: 1.0, acquit: 1.0, complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 4.0, knock: 1.0, page: 0.4, flip: 0.05, discovery: 0.5, seal: 0.2, coin: 0.07, pick: 0.05 };
+  var PRIORITY = { gavel: 5, convict: 5, acquit: 5, victory: 5, defeat: 5, office: 5, week: 4, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, seal: 2, discovery: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
   // A quiet cue is heard only alone.
   var QUIET = { page: 1 };
   var lastAt = {}, top = { p: -1, at: -1 };

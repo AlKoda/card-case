@@ -291,8 +291,13 @@
       for (var k in vars) tv[k] = typeof vars[k] === 'string' ? translate(vars[k], 1) : vars[k];
       out = CF.util.fill(out, tv);
     }
-    return CF.bidi(out);
+    return CF.bidi(joinPrefix(out));
   };
+  // An Arabic one-letter preposition stretched to meet a placeholder ('بـ{card}') joins the Arabic word that fills
+  // it: 'بالفطنة', not 'بـالفطنة'. Before a number or a Latin name the stretch stays.
+  var STRETCHED = /(^|[\s(«"“'])([بلك])\u0640(?=[\u0621-\u064A])/g;
+  function joinPrefix(s) { return typeof s === 'string' && s.indexOf('\u0640') >= 0 ? s.replace(STRETCHED, '$1$2') : s; }
+  CF.joinPrefix = joinPrefix;
 
   // ---- Static markup. A paragraph with only <b>/<i> inside is one unit, so
   // the translation can reorder it; anything else is walked text by text.

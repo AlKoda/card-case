@@ -2,7 +2,7 @@
 // unanswered ask precedence over the lesson, the advisor speaks to a waiting
 // choice, the opening prose is replayed on a new game, the dossier names the
 // accused's mark and what a charge still lacks, the ask box says what ignoring
-// costs, the verdict stamps the Court, and the Help lists where proof comes
+// costs, the verdict stamps the card it was given on, and the Help lists where proof comes
 // from. js/ui.js is run under Node on a small stand-in for the DOM.
 // Run: node tests/ui.test.js
 'use strict';
@@ -252,25 +252,75 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the ask box says what ignoring costs (' + (pen || 'none') + ')');
 })();
 
-// ---- The verdict stamps the Court token and the conviction is heard.
+// ---- The verdict is stamped on the Blood Court card where the player watched its clock, then the Condemned comes
+// out of it; no shake, the gavel instead of a finished verb's ding; a cold case stamps its own card, never the Court.
 (function verdict() {
   var e = CF.Engine.newGame({ calling: 'master', seed: 7 });
   UI.attach(e);
   e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  var trial = e.create('trial', { label: 'Blood Court: Jakob Hess', data: { caseId: rec.id, name: 'Jakob Hess', guilty: true, solid: true, real: 6, need: 6 } });
   render(e);
   var tok = $('#board').querySelectorAll('.verb').filter(function (el) { return el.dataset.verb === 'arrest'; })[0];
   assert.ok(tok, 'the Court token is on the table');
+  var ghost = $('#board').querySelector('.card[data-uid=' + trial.uid + ']');
+  assert.ok(ghost, 'the Blood Court card is on the table');
+  var shook = 0, app = $('#app'), add0 = app.classList.add;
+  app.classList.add = function (c) { if (c === 'shake') shook++; return add0.apply(app.classList, arguments); };
+  settings.shake = true;
+  played.length = 0; timers = []; delays = [];
+  // The engine takes the card, gives its verdict and makes the Condemned, all before the board is drawn again.
+  e.remove(trial);
+  e.emit('resolved', { id: rec.id + '-' + e.s.seed, title: rec.title, outcome: 'convicted' });
+  var made = e.create('condemned', { label: 'Condemned: Jakob Hess', data: { name: 'Jakob Hess' } });
+  var st = ghost.querySelector('.verdict');
+  assert.ok(st && st.classList.contains('stamp'), 'the stamp lands on the Blood Court card');
+  assert.ok(/cwax-01/.test(st.style.backgroundImage), 'in red wax, not the Court tile\'s own gold');
+  assert.ok(ghost.classList.contains('judged') && ghost.parentNode === $('#board'), 'the card stays a moment as a ghost');
+  assert.ok(!tok.querySelector('.verdict'), 'the Court tile is left alone');
+  assert.deepStrictEqual(played, ['convict'], 'the gavel and the bell, not the finished-verb ding: ' + played);
+  assert.strictEqual(shook, 0, 'a verdict does not shake the screen');
+  assert.ok(delays.indexOf(1400) >= 0, 'the ghost is held 1.4 seconds');
+  render(e);
+  assert.ok(ghost.parentNode === $('#board') && !ghost.classList.contains('leaving'), 'the board\'s sync leaves the ghost be');
+  var mel = $('#board').querySelector('.card[data-uid=' + made.uid + ']');
+  assert.ok(mel && mel.classList.contains('awaiting'), 'the Condemned waits under the stamp');
+  timers.shift()();
+  assert.ok(ghost.classList.contains('leaving') && !mel.classList.contains('awaiting'), 'then it comes out of the ghost, and the ghost goes');
+  assert.ok(/translate3d\(/.test(mel.style.transform), 'gliding to its place');
+  flushTimers();
+  // An acquittal: the ribbon, and the crowd.
+  var trial2 = e.create('trial', { label: 'Blood Court: Anna Weber', data: { caseId: rec.id, name: 'Anna Weber' } });
+  render(e);
+  var g2 = $('#board').querySelector('.card[data-uid=' + trial2.uid + ']');
+  played.length = 0;
+  e.remove(trial2);
+  e.emit('resolved', { id: rec.id + '-' + e.s.seed, title: rec.title, outcome: 'acquitted', uid: trial2.uid });
+  assert.ok(/cok-02/.test(g2.querySelector('.verdict').style.backgroundImage) && played.indexOf('acquit') >= 0, 'an acquittal: the ribbon and the murmur');
+  flushTimers(); flushTimers();
+  // A verdict made while the trial card is not on the board falls back to the Court tile.
   played.length = 0;
   e.emit('resolved', { title: 'Nothing', outcome: 'wrongful' });
-  var st = tok.querySelector('.verdict');
-  assert.ok(st && st.classList.contains('stamp'), 'the stamp lands on the token');
-  assert.ok(/cwax-03/.test(st.style.backgroundImage), 'a wrongful verdict wears the wax of a true one');
-  assert.ok(played.indexOf('complete') >= 0, 'and is heard');
+  assert.ok(/cwax-01/.test(tok.querySelector('.verdict').style.backgroundImage), 'with no card to stamp, the Court tile takes it');
   flushTimers();
   assert.ok(!tok.querySelector('.verdict'), 'the stamp lifts after its moment');
+  // A cold case: the eye on its own case card, silent, and never the Court.
+  var cc = e.caseCard(rec.id);
+  render(e);
+  var cel = $('#board').querySelector('.card[data-uid=' + cc.uid + ']');
+  played.length = 0;
+  e.remove(cc);
+  e.emit('resolved', { id: rec.id + '-' + e.s.seed, title: rec.title, outcome: 'cold' });
+  assert.ok(cel.querySelector('.verdict') && /ccirc-05/.test(cel.querySelector('.verdict').style.backgroundImage), 'a cold case takes the eye on its own card');
+  assert.ok(!tok.querySelector('.verdict') && played.length === 0, 'no court sat: the Court is not stamped and no gavel falls');
   e.emit('resolved', { title: 'Nothing', outcome: 'cold' });
-  assert.ok(/ccirc-05/.test(tok.querySelector('.verdict').style.backgroundImage), 'a cold case takes the eye');
-  console.log('ui: the verdict has its moment on the table');
+  assert.ok(!tok.querySelector('.verdict'), 'not even when the card is gone');
+  flushTimers(); flushTimers();
+  settings.shake = false;
+  app.classList.add = add0;
+  var asrc = fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8');
+  assert.ok(/\n    convict: function \(\) \{ gavel\(\); bell\(110/.test(asrc) && /\n    acquit: function \(\) \{ gavel\(\); noise\([^)]*attack: 0\.4/.test(asrc) && /if \(opts\.attack\)/.test(asrc), 'the gavel, then the bell or the crowd swelling in');
+  console.log('ui: the verdict has its moment on the card it was given on');
 })();
 
 // ---- The Standing meter honours the rank cap and says when the letter is held.
@@ -634,7 +684,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/#controls button\[data-speed="2"\], #controls button\[data-speed="3"\], #btn-journal, #btn-precinct, #btn-help \{ display: none/.test(css), 'a phone keeps the play button and the menu');
   assert.ok(/id="m-journal"/.test(html) && /id="m-help"/.test(html) && /click\('m-journal'/.test(main) && /click\('m-help'/.test(main), 'the journal and the Help live in the pause menu');
   assert.ok(/@keyframes stamp \{ from \{ transform: scale\(2\.2\) rotate\(-12deg\)/.test(css) && /\.verb \.verdict \{[^}]*width: 120px/.test(css), 'the verdict slams down as a stamp');
-  assert.ok(/\.card\.sealed \.c-face::after \{[^}]*var\(--seal\)[^}]*rotate\(-8deg\)/.test(css), 'a sealed case wears its wax');
+  assert.ok(/\.card \.verdict \{[^}]*width: 80%[^}]*animation: stamp 0\.35s/.test(css) && /\.card\.awaiting \{ visibility: hidden; \}/.test(css), 'the verdict is stamped on the card it was given on, at four fifths of it');
   assert.ok(/\.toast \{[^}]*aspect-ratio: auto/.test(css) && !/\.toast \{[^}]*overflow: hidden/.test(css), 'a toast is as tall as its words');
   assert.ok(/\.toast::after \{[^}]*border-image: var\(--bar\)/.test(css) && /\.toast::before \{[^}]*var\(--bar\)/.test(css) && /\.toast \.t-icon \{[^}]*var\(--icon\)/.test(css) && /<i class="t-icon"><\/i>/.test(ui), 'the bar is sliced, the icon sits in its circle (its own element, so Arabic mirrors the bar and not the icon)');
   assert.ok(/#toasts \{[^}]*right: calc\(12px \+ var\(--sa-r\)\)[^}]*top: calc\(var\(--sa-t\) \+ 260px\)/.test(css) && /body\.has-window #toasts \{ right: calc\(390px \* var\(--ui-scale, 1\)\)/.test(css), 'toasts sit top right under the verb row, clear of the hint, the window and the notch');
@@ -1679,6 +1729,143 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/font-style: normal !important/.test(rule('[dir=rtl] *')), 'Arabic is never slanted');
   assert.ok(/unicode-range: U\+0020-007E/.test(fontsAr) && (fontsAr.match(/font-family: 'Amiri'/g) || []).length === 4, 'Amiri carries its own spaces, digits and stops, in both weights');
   console.log('ui: less motion, the sealed answer, the flick of a find, the knock, the office bell, Arabic from the right, Arabic type');
+})();
+
+// ---- Round 8, lane 2, item 61: a card held at the felt's edge carries the camera that way, and stops with it.
+(function edgeScrollTest() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 21 });
+  UI.attach(e);
+  render(e);
+  var card = e.tableCards()[0];
+  var n = $('#board').querySelector('.card[data-uid=' + card.uid + ']');
+  assert.ok(n, 'a card on the table');
+  n.closest = function (sel) { return sel === '.card[data-uid]' ? n : null; };
+  var raf = [], realRaf = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = function (fn) { raf.push(fn); return raf.length; };
+  function frames(k) { for (var i = 0; i < k; i++) { var q = raf; raf = []; q.forEach(function (fn) { fn(); }); } }
+  UI.view = { x: 16, y: 16, z: 1 };
+  UI.pointer.down({ pointerId: 4, pointerType: 'touch', button: 0, clientX: 300, clientY: 300, target: n, preventDefault: function () {} });
+  UI.pointer.move({ pointerId: 4, clientX: 320, clientY: 320, target: n });
+  assert.ok(UI.drag && UI.drag.started, 'the card is lifted');
+  frames(1);
+  var x0 = UI.view.x;
+  assert.strictEqual(x0, 16, 'away from the edge the camera stays');
+  // To the right edge (the table is 1280 wide): the board slides left, frame after frame.
+  UI.pointer.move({ pointerId: 4, clientX: 1272, clientY: 320, target: n });
+  frames(4);
+  assert.ok(UI.view.x < x0 - 10, 'held at the right edge, the camera moves right (' + x0 + ' -> ' + UI.view.x + ')');
+  assert.strictEqual(UI.view.y, 16, 'and only that way');
+  // Back into the middle: it stops.
+  UI.pointer.move({ pointerId: 4, clientX: 640, clientY: 320, target: n });
+  frames(3);
+  var x1 = UI.view.x;
+  frames(3);
+  assert.strictEqual(UI.view.x, x1, 'out of the band, the camera rests');
+  // At the left edge it comes back; put down, it stops at once.
+  UI.pointer.move({ pointerId: 4, clientX: 4, clientY: 320, target: n });
+  frames(2);
+  assert.ok(UI.view.x > x1, 'the left edge carries it back');
+  UI.pointer.up({ pointerId: 4, clientX: 4, clientY: 320, target: n });
+  var x2 = UI.view.x;
+  frames(3);
+  assert.strictEqual(UI.view.x, x2, 'a card put down ends the glide');
+  assert.ok(!UI.drag, 'put down');
+  globalThis.requestAnimationFrame = realRaf;
+  render(e);
+  console.log('ui: a card held at the edge carries the camera');
+})();
+
+// ---- Round 8, lane 2, item 60: the Fever is heard, marked, pressed, and its locked verbs send you to Rest.
+(function fever() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 33 });
+  UI.attach(e);
+  e.verb('reflect').unlocked = true;
+  render(e);
+  timers = []; delays = [];
+  var marks0 = UI.notices.length;
+  var f = e.create('burnout');
+  var box = $('#toasts'), n0 = box.children.length;
+  e.story('Fever', 'Your hands will not stop shaking.', 'danger');
+  render(e);
+  assert.strictEqual(UI.strainSeen, f.uid, 'the Fever\'s arrival is caught from its story');
+  var t = box.children[box.children.length - 1];
+  assert.ok(t && /^Fever/.test(t.querySelector('b').textContent), 'its toast'); void n0;
+  flushTimers();
+  assert.ok(UI.notices.length > marks0 && UI.notices[UI.notices.length - 1].uid === f.uid, 'an edge mark points at it');
+  // Tapped, the toast goes to the card, not the Journal.
+  t.click();
+  assert.strictEqual(UI.selected, f.uid, 'the toast, tapped, goes to the Fever');
+  // Its clock running low: 'Pressing', and it says the file ends.
+  e.emit('expiring', { uid: f.uid, label: e.labelOf(f), verb: null });
+  var pt = box.children[box.children.length - 1];
+  assert.ok(/^Pressing: Fever/.test(pt.querySelector('b').textContent) && /the file ends/.test(pt.querySelector('span').textContent), 'pressing, and the file ends: ' + pt.textContent);
+  // Attend is shut by it: its plate goes to Rest with the Fever laid in.
+  assert.ok(e.lockReason('duty'), 'Attend is shut');
+  UI.openWindow('duty');
+  render(e);
+  var go = $('#windows').querySelector('.to-rest');
+  assert.ok(go && !go.disabled && /To Rest/.test(go.textContent), 'the shut plate is a way to Rest');
+  go.click();
+  assert.ok(UI.openVerbs.indexOf('reflect') >= 0, 'Rest is open');
+  var rs = e.verb('reflect').slots;
+  assert.ok(Object.keys(rs).some(function (k) { return rs[k] === f.uid; }), 'with the Fever in it');
+  while (UI.openVerbs.length) UI.back();
+  flushTimers();
+  console.log('ui: the Fever is marked, pressing, and its shut verbs point to Rest');
+})();
+
+// ---- Round 8, lane 2, item 64: 'Where it comes from' names only the ways open to this player now.
+(function aspectSources() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 41 });
+  UI.attach(e);
+  e.s.rank = 0; e.s.rooms = e.s.rooms || {}; e.s.rooms.archive = false;
+  e.tableCards().filter(function (c) { return c.def === 'witness' || c.def === 'district' || c.def === 'evidence'; }).forEach(function (c) { e.remove(c); });
+  var rec = e.openCases()[0];
+  var dig = UI.aspectFrom('digital', e, rec);
+  assert.ok(!/Writ|Rolls/.test(dig), 'a junior is not sent for a Writ or to the Rolls: ' + dig);
+  assert.ok(/nothing in your reach yet/.test(dig), 'and is told so, with what is left to do');
+  e.s.rank = 1; e.s.rooms.archive = true;
+  dig = UI.aspectFrom('digital', e, rec);
+  assert.ok(/Writ/.test(dig) && /the Rolls/.test(dig), 'a Sworn Examiner with the Rolls is: ' + dig);
+  var word = UI.aspectFrom('testimony', e, rec);
+  assert.ok(!/a witness in Question/.test(word) && !/door to door/.test(word) && /confronted/.test(word), 'no witness, no Quarter: the confrontation alone: ' + word);
+  var w = e.create('witness', { label: 'Witness: Ursel Bicker', data: { caseId: rec.id } });
+  w.caseId = rec.id;
+  e.create('district', { label: CF.DISTRICTS[rec.district].label, data: { district: rec.district } });
+  word = UI.aspectFrom('testimony', e, rec);
+  assert.ok(/a witness in Question/.test(word) && /door to door/.test(word), 'a witness and the Quarter on the table are named: ' + word);
+  var all = UI.aspectFrom('digital', null);
+  assert.ok(/Writ/.test(all) && /the Rolls/.test(all) && /Study/.test(all), 'the Help names every way');
+  if (!CF.I18N.dicts.ar || !CF.I18N.dicts.ar['the Rolls']) fs.readdirSync(path.join(__dirname, '..', 'js/lang/ar')).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js/lang/ar', f), 'utf8'), { filename: f }); });
+  CF.setLang('ar');
+  var ar = CF.T(UI.aspectFrom('testimony', e, rec)) + ' ' + CF.T(UI.aspectFrom('digital', e, rec)) + ' ' + CF.T(UI.aspectFrom('opportunity', null)) + ' ' + CF.T(UI.aspectFrom('financial', null));
+  CF.setLang('en');
+  assert.ok(!/[A-Za-z]{3}/.test(ar), 'and in Arabic: ' + ar);
+  console.log('ui: where proof comes from, as far as the player can reach');
+})();
+
+// ---- Round 8, lane 2, item 58: below Bailiff the Coquille's dossier points to the Watch on its stair, where the
+// rules let Post the Watch take it; otherwise it keeps the Disguise line.
+(function coquilleWatch() {
+  var e = CF.Engine.newGame({ calling: 'crusader', seed: 43 });
+  UI.attach(e);
+  var syn = e.create('syndicate', { label: 'The Coquille' });
+  e.s.rank = 0;
+  function peekFor() { UI.selected = null; render(e); UI.selected = syn.uid; $('#peek').dataset.uid = ''; render(e); return $('#peek').innerHTML; }
+  var r = CF.RECIPES_BY_ID.duty_post_watch, prim = r.requires.primary;
+  var takes = prim === 'syndicate' || (typeof prim !== 'string' && prim.indexOf('syndicate') >= 0);
+  var html = peekFor();
+  if (takes) assert.ok(/post the Watch/.test(html), 'a junior is sent to post the Watch');
+  else assert.ok(/Disguise/.test(html) && !/post the Watch/.test(html), 'without the rule, the Disguise line stands');
+  r.requires.primary = ['gang', 'syndicate'];
+  html = peekFor();
+  assert.ok(/Below Bailiff: post the Watch \(Attend \+ watchman\)/.test(html) && !/Disguise:/.test(html), 'with it, the Watch on the stair: ' + html.slice(0, 200));
+  e.s.rank = 2;
+  html = peekFor();
+  assert.ok(/Disguise/.test(html), 'a Bailiff goes in Disguise');
+  r.requires.primary = prim;
+  UI.selected = null;
+  console.log('ui: the Coquille below Bailiff points to the Watch');
 })();
 
 void realSetTimeout;
