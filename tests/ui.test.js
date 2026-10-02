@@ -1868,5 +1868,167 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the Coquille below Bailiff points to the Watch');
 })();
 
+// ---- Round 8, lane 2, items 65-72: the Rival caught at it, what the patron asked for, a meter that moves is seen,
+// what an answer gives as chips, the four seals of full proof, a staged mark's seal, one render's memo and stack tops.
+(function round8i() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+
+  // Item 72: one memo for the render, cleared after; only a stack's top is asked whether it can be used.
+  var e = CF.Engine.newGame({ calling: 'master', seed: 41 });
+  UI.attach(e);
+  render(e);
+  var stack = [0, 1, 2].map(function () { var c = e.create('clue', { label: 'A Loose Button', text: 'A button.', aspects: { opportunity: 1 }, data: {} }); c.loc = { t: 'table', x: 4000, y: 4000 }; return c; });
+  e.tableCards().forEach(function (c) { if (c.def === 'clue' && c.label === 'A Loose Button') { c.loc.x = stack[0].loc.x; c.loc.y = stack[0].loc.y; } });
+  var orig = e.unavailableReason, asked = {}, memoSeen = 0;
+  e.unavailableReason = function (c) { asked[c.uid] = (asked[c.uid] || 0) + 1; if (e._memo && typeof e._memo === 'object') memoSeen++; return orig.call(this, c); };
+  render(e);
+  e.unavailableReason = orig;
+  assert.ok(memoSeen > 0 && e._memo === null, 'the render keeps a memo, and lets it go');
+  assert.ok(!asked[stack[1].uid] && !asked[stack[2].uid] && asked[stack[0].uid] >= 1, 'only the top of a stack is asked: ' + JSON.stringify(asked));
+  // A stack whose lower card fits an open slot glows, read from the place map.
+  stack.forEach(function (c) { e.remove(c); });
+  render(e);
+
+  // Item 68: the meters are built once; a change of word bumps the icon, red up for the Crowd, gold for Standing.
+  var meters = $('#meters'), pEl = meters.querySelector('.meter[data-meter=pressure]');
+  assert.ok(!/bump/.test(meters.children.map(function (m) { return m.className; }).join(' ')), 'a game just opened does not bump');
+  var max = e.meterMax('pressure');
+  e.s.meters.pressure = max; // to the top word
+  timers = [];
+  render(e);
+  assert.strictEqual(meters.querySelector('.meter[data-meter=pressure]'), pEl, 'the meter is changed in place, not rebuilt');
+  assert.ok(pEl.classList.contains('bump') && pEl.classList.contains('bump-up') && pEl.classList.contains('bump-bad') && pEl.classList.contains('crit'), 'the Crowd going up bumps red: ' + pEl.className);
+  assert.strictEqual(pEl.querySelector('.m-word').textContent, CF.METER_WORDS.pressure[4], 'and its word changes');
+  render(e);
+  assert.ok(pEl.classList.contains('bump'), 'a render while it shows keeps the bump');
+  var rEl = meters.querySelector('.meter[data-meter=reputation]');
+  e.s.meters.reputation += 1;
+  render(e);
+  assert.ok(rEl.classList.contains('bump-up') && rEl.classList.contains('bump-good'), 'every step of Standing is seen, in gold');
+  flushTimers();
+  assert.ok(!pEl.classList.contains('bump') && !rEl.classList.contains('bump'), 'and it passes');
+  e.s.meters.pressure = 0;
+  render(e);
+  assert.ok(pEl.classList.contains('bump-down') && pEl.classList.contains('bump-good'), 'the Crowd easing is gold');
+  flushTimers();
+  assert.ok(/scale\(1\.35\)/.test(css.match(/@keyframes meterBump \{[^}]*\}/)[0]) && /opacity: 1/.test(css.match(/@keyframes meterGlow \{[^}]*\}/)[0]), 'the icon swells, the glow pulses by opacity');
+  assert.ok(/carrow2-02/.test(rule('.meter.bump .m-icon::before')) && /rotate\(-90deg\)/.test(css.match(/@keyframes meterArrowUp \{[^}]*\}[^}]*\}[^}]*\}/)[0]), 'a Candlemark arrow, turned to point the way');
+  assert.ok(/html\[data-calm\] \.meter\.bump \.m-icon, html\[data-calm\] \.meter\.bump::before, html\[data-calm\] \.meter\.bump \.m-icon::before \{ animation: none; \}/.test(css), 'still under less motion');
+
+  // Item 69: an answer's return as chips, from a trial on a copy that leaves the game as it was.
+  if (!e.cardsOf('funds', true).length) e.create('funds');
+  if (!e.cardsOf('health', true).filter(function (c) { return c.loc.t === 'table'; }).length) e.create('health');
+  e.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'lamplighter'; })[0], null);
+  var before = JSON.stringify(e.s.cards) + JSON.stringify(e.s.meters) + e.s.journal.length;
+  var d1 = UI.choiceDeltas(1);
+  assert.strictEqual(JSON.stringify(e.s.cards) + JSON.stringify(e.s.meters) + e.s.journal.length, before, 'the trial leaves the game as it was');
+  assert.ok(d1 && d1.some(function (x) { return x.kind === 'card' && x.key === 'witness' && x.d === 1; }) && d1.some(function (x) { return x.kind === 'meter' && x.key === 'dread' && x.d > 0 && !x.good; }), 'leaning on him: a witness, and Dread up: ' + JSON.stringify(d1));
+  assert.ok(!d1.some(function (x) { return x.key === 'health' || x.key === 'spent_health'; }), 'what it pays with is the cost, not a chip');
+  render(e);
+  var ch = $('#board').querySelector('.choice'), opt1 = ch.querySelectorAll('.ch-opt')[1];
+  var chips = opt1.querySelectorAll('.ch-chip');
+  assert.ok(chips.length === d1.length && opt1.querySelector('.ch-chip.moves.up.bad') && chips.some(function (c) { return !c.classList.contains('moves') && /\+1/.test(c.textContent); }), 'the chips: the witness +1 and Dread rising');
+  assert.ok(/Witness who saw it/.test(opt1.querySelector('.ch-gain-text').textContent) && /Witness who saw it/.test(opt1.querySelector('.ch-gain').title), 'the sentence stays, for what only shows later');
+  var dread0 = e.s.meters.dread, wit0 = e.cardsOf('witness', true).length;
+  UI.answerChoice(e, ch, opt1, 1, UI.choiceOptions(e, e.s.choice)[1]);
+  assert.ok(e.s.meters.dread > dread0 && e.cardsOf('witness', true).length === wit0 + 1, 'and the answer gives what its chips said');
+  flushTimers(); flushTimers(); render(e);
+  assert.ok(!/2937/.test(css) && !/var\(--mono\)/.test(rule('#board .choice .ch-opt .ch-gain')), 'no arrow glyph, no typewriter');
+
+  // Item 70: the four seals; the word note when only the word is wanting; each token's standing.
+  e = CF.Engine.newGame({ calling: 'master', seed: 29 });
+  UI.attach(e);
+  e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  var sus = e.suspectOf(sc), prof = CF.Charge.profileOf(rec), toks = [];
+  Object.keys(prof).forEach(function (k) { var a = {}; a[k] = prof[k]; toks.push(e.create('clue', e.clueSpec(rec, { label: 'Proof of ' + k, text: 'It shows.', aspects: a }))); });
+  assert.ok(e.autoSlot('arrest', sc.uid), 'the accused before the Court');
+  toks.slice(0, 3).forEach(function (t) { e.autoSlot('arrest', t.uid); });
+  UI.openWindow('arrest');
+  render(e);
+  var box = $('#windows').querySelector('.charge-box');
+  var gates = box.querySelectorAll('.ch-gate');
+  var a = e.assessCharge(sc, toks.slice(0, 3));
+  assert.strictEqual(gates.length, 4, 'four seals');
+  assert.ok(!box.querySelector('.ch-score') && !/\//.test(box.querySelector('.ch-head').textContent), 'no score against need in the head');
+  var on = gates.map(function (g) { return g.dataset.gate + ':' + (g.classList.contains('on') ? 1 : 0); }).join(' ');
+  assert.strictEqual(on, 'enough:' + (a.score >= a.need ? 1 : 0) + ' kinds:' + (a.covered >= 2 ? 1 : 0) + ' word:0 clean:1', 'the seals read the charge: ' + on);
+  if (a.score >= a.need && a.covered >= 2) assert.ok(box.querySelector('.ch-word') && !/To full proof/.test(box.textContent), 'only the word dark: the note says what word would do');
+  var labs = $('#windows').querySelectorAll('.slot .s-label').map(function (l) { return l.textContent; });
+  assert.ok(labs.indexOf('Proof') >= 0 && labs.indexOf('PROOF') < 0, 'a plain token is Proof: ' + labs);
+  // A token that names them, one that names somebody else.
+  var other = rec.suspects.filter(function (x) { return x.key !== sus.key; })[0];
+  var named = e.create('clue', e.clueSpec(rec, { label: 'A Name', text: 'A name.', aspects: { testimony: 1 } })); named.data.points = sus.key;
+  var wrong = e.create('clue', e.clueSpec(rec, { label: 'Another Name', text: 'A name.', aspects: { testimony: 1 } })); wrong.data.points = other.key;
+  var aN = e.assessCharge(sc, [named, wrong]);
+  assert.strictEqual(UI.tokenStanding(aN, sc, named), 'names', 'it names them');
+  assert.strictEqual(UI.tokenStanding(aN, sc, wrong), 'other', 'it names somebody else');
+  e.verb('arrest').slots.c4 = wrong.uid; e.detach(wrong); wrong.loc = { t: 'slot', verb: 'arrest', slot: 'c4' };
+  render(e);
+  var redLab = $('#windows').querySelectorAll('.slot .s-label.st-other')[0];
+  assert.ok(redLab && redLab.textContent === 'Someone else', 'under it, in red: Someone else');
+  assert.ok(/st-other/.test(css) && /Four seals say how it stands/.test(html), 'the colours and the Help');
+  while (UI.openVerbs.length) UI.back();
+
+  // Item 66: the rungs that please the Bishop wear his seal; the Condemned says what he asked for.
+  e = CF.Engine.newGame({ calling: 'master', seed: 23 });
+  UI.attach(e);
+  rec = e.openCases()[0];
+  rec.commission = { from: 'bishop', wants: 'mercy' };
+  var cul = rec.suspects.filter(function (x) { return x.key === rec.culprit; })[0];
+  var cond = e.condemn(rec, { name: cul.name, guilty: true }, 'strong');
+  render(e);
+  var rungs = e.cardsOf('rung', true).filter(function (r) { return r.data.condemned === cond.uid; });
+  var pardon = rungs.filter(function (r) { return r.data.rung === 'pardon' || r.data.rung === 'fine'; })[0], rope = rungs.filter(function (r) { return r.data.rung !== 'pardon' && r.data.rung !== 'fine'; })[0];
+  var rEl2 = $('#board').querySelector('.card[data-uid=' + pardon.uid + ']'), ropeEl = $('#board').querySelector('.card[data-uid=' + rope.uid + ']');
+  assert.ok(rEl2 && rEl2.querySelector('.c-patron') && /casp-04/.test(rEl2.querySelector('.c-patron').style.backgroundImage), 'the Bishop\'s seal on a merciful rung');
+  assert.ok(ropeEl && !ropeEl.querySelector('.c-patron'), 'and none on a hard one');
+  UI.selected = cond.uid;
+  render(e);
+  assert.ok(/The Bishop asks for: /.test($('#peek').textContent), 'the Condemned says what the Bishop asked: ' + $('#peek').textContent.slice(0, 300));
+  UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  // The rules' own mark wins: a rung marked for the Guilds wears theirs.
+  rope.data.patron = 'guild';
+  render(e);
+  ropeEl = $('#board').querySelector('.card[data-uid=' + rope.uid + ']');
+  assert.ok(ropeEl.querySelector('.c-patron') && /cres-01/.test(ropeEl.querySelector('.c-patron').style.backgroundImage), 'data.patron is read first');
+
+  // Item 65: when the rules want the Rival caught at it, the advisor and the dossier point to their own dirty work.
+  e.verb('interrogate').unlocked = true;
+  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week - 1, heatBy: 'interrogate', stalled: 0 } });
+  e.s.journal.unshift({ t: 1, week: 1, title: 'The Rival Takes a Case', text: '', kind: 'danger' }, { t: 2, week: 1, title: 'A Scene Spoiled', text: '', kind: 'danger' });
+  if (!e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; }).length) e.create('focus');
+  var slots0 = CF.VERBS.interrogate.slots;
+  CF.VERBS.interrogate.slots = slots0.concat([{ key: 'dirt', label: 'Their Work', accepts: ['clue', 'witness', 'case'], when: function (p) { return !!p && p.def === 'rival'; } }]);
+  var spoiled = e.create('clue', e.clueSpec(rec, { label: 'A Smudged Print', text: 'Spoiled.', aspects: { forensic: 1 } }));
+  spoiled.data.tampered = true;
+  var say = UI.advice() || '';
+  assert.ok(/catch them at it: Question Anselm Brecht with A Smudged Print/.test(say) && UI.hintGo && UI.hintGo.uid === spoiled.uid, 'the advisor points to the spoiled token: ' + say);
+  UI.selected = rv.uid;
+  render(e);
+  var pk = $('#peek').textContent;
+  assert.ok(/catch them at it/.test(pk) && /On your table: A Smudged Print/.test(pk) && new RegExp('goes cold after week ' + (e.s.week + 2)).test(pk), 'the dossier says how, with what, and until when: ' + pk.slice(0, 400));
+  CF.VERBS.interrogate.slots = slots0;
+  render(e);
+  assert.ok(!/catch them at it/.test($('#peek').textContent), 'without the slot, the old rule\'s words');
+  UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  e.remove(rv);
+  assert.ok(/Then catch them at it/.test(html) && /goes cold in three/.test(html), 'the Help has the race');
+
+  // Item 71: a staged token wears a seal, its face the token's own words; the Help names the second mark.
+  var st = e.create('clue', e.clueSpec(rec, { label: 'Staged: A Bloody Shoe', text: 'Put there.', aspects: { opportunity: 1 } }));
+  var face = CF.cardFace(st, 'Staged: A Bloody Shoe');
+  assert.ok(face.text === 'A Bloody Shoe' && face.status[0] === 'Staged', 'the face looks through the status');
+  render(e);
+  var stEl = $('#board').querySelector('.card[data-uid=' + st.uid + ']');
+  assert.ok(stEl && stEl.querySelector('.c-status') && /ccstamp-02/.test(stEl.querySelector('.c-status').style.backgroundImage), 'the masked stamp in the corner');
+  assert.ok(/a second mark, put there to be found/.test(html), 'the Help names it');
+  console.log('ui: the Rival caught at it, the patron\'s seal, meters that move, chips for an answer, four seals, a staged mark, one memo a render');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

@@ -18,7 +18,10 @@ bsq-10
 bsq-12
 bsq-13
 bsq-26
+carrow2-02
 casp-01
+casp-04
+casp-05
 cback-01
 cback-02
 cback-03
@@ -52,6 +55,7 @@ ccrime-05
 ccrime-06
 ccrime-07
 ccrime-08
+ccstamp-02
 cfolk-01
 cfolk-02
 cfolk-03
@@ -177,6 +181,7 @@ cplace3-15
 cprog-01
 cprog-02
 crel-02
+cres-01
 cres-02
 cres-03
 cres-04

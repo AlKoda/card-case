@@ -168,6 +168,26 @@
   function rivalCareful(card) { var d = card.data || {}; return d.heatWeek !== undefined && d.heatWeek !== null && UI.e.s.week <= d.heatWeek; }
   // The way the next thread must come: the other verb from the first one's, or either.
   function rivalNextWay(card) { var d = card.data || {}; return !d.heat ? null : d.heatBy === 'interrogate' ? 'investigate' : d.heatBy === 'investigate' ? 'interrogate' : null; }
+  // Whether the rules want the Rival caught at it for the second thread: Question then has a slot, beside the
+  // Rival, for their own dirty work (a token, a witness or a case). Read off the verb, so the interface follows
+  // the rules whether or not they carry it.
+  function rivalCatch(rival) {
+    var v = CF.VERBS.interrogate;
+    if (!v || !rival) return false;
+    return v.slots.some(function (sl) {
+      var open = false;
+      try { open = !sl.primary && !!sl.when && !!sl.when(rival); } catch (err) { open = false; }
+      return open && (sl.accepts || []).some(function (a) { return a === 'clue' || a === 'witness' || a === 'case'; });
+    });
+  }
+  // The Rival's dirty work on the table: a token they spoiled (data.tampered), a witness they paid (data.bribed),
+  // a case they took (the case's rec.rival).
+  function rivalDirt(e) {
+    return e.tableCards().filter(function (c) {
+      var d = c.data || {}, rec = CF.CARDS[c.def].kind === 'case' && c.caseId ? e.caseRec(c.caseId) : null;
+      return ((c.def === 'clue' && d.tampered) || (c.def === 'witness' && d.bribed) || (rec && rec.rival && rec.status === 'open')) && !e.unavailableReason(c);
+    });
+  }
   // The meters are the coloured counters: fire for the Crowd, the eye for Suspicion, the masked man for Vendetta, the moon for Dread, the crown for Standing.
   var METER_ICONS = { pressure: 'cres-04', scrutiny: 'cres-03', retaliation: 'casp-01', dread: 'cres-12', reputation: 'cres-09' };
   var TOAST_BARS = { case: 'clabel-01', danger: 'clabel-01', harm: 'clabel-01', need: 'clabel-01', defeat: 'clabel-01', major: 'clabel-02', victory: 'clabel-02', week: 'clabel-04', verb: 'clabel-03', minor: 'clabel-05' };
@@ -254,6 +274,7 @@
     UI.seenVerbs = {};
     UI.newVerbs = {};
     UI.lastRank = engine.s.rank;
+    UI.lastMeter = null; // a game just opened shows its meters as they are, without a bump
     UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
@@ -777,15 +798,21 @@
   function render() {
     UI.adviceAt = undefined; UI.urgentAt = undefined; // the table changed: the advisor reads it afresh
     boundsCache = null;
-    renderTop();
-    syncBoard();
-    syncLinks();
-    syncWindows();
-    markFits();
-    renderJournal();
-    renderInspector();
-    renderControls();
-    renderHint();
+    // One pass, one memo: the rules may keep what they work out for this render (which cards reach a slot, why
+    // a verb is locked) in e._memo, and forget it when the pass ends. Nothing in a render changes the state.
+    var e = UI.e;
+    e._memo = {};
+    try {
+      renderTop();
+      syncBoard();
+      syncLinks();
+      syncWindows();
+      markFits();
+      renderJournal();
+      renderInspector();
+      renderControls();
+      renderHint();
+    } finally { e._memo = null; }
   }
 
   // One render, now: for the tests, which have no frame loop.
@@ -931,8 +958,12 @@
     var rival = table.filter(function (c) { return c.def === 'rival'; })[0];
     if (rival && (rival.data.heat || 0) < 2 && !rivalCareful(rival) && s.journal.filter(function (j) { return RIVAL_TITLES.test(j.title); }).length >= 2) {
       var rname = rival.data.name || e.labelOf(rival), rnext = rivalNextWay(rival), inst = has('instinct')[0];
-      if (rnext !== 'investigate' && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
-      if (rnext !== 'interrogate' && inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
+      // Caught at it: the second thread is their own dirty work, put before them in Question.
+      if (rival.data.heat && rivalCatch(rival)) {
+        var dirt = rivalDirt(e)[0];
+        if (dirt && can('interrogate')) { UI.hintGo = { uid: dirt.uid }; return tr('One thread on the Rival. Now catch them at it: Question {name} with {label}.', { name: rname, label: e.labelOf(dirt) }); }
+      } else if (rnext !== 'investigate' && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
+      else if (rnext !== 'interrogate' && inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
     }
     var insight = table.filter(function (c) { return c.def === 'insight' && c.data && CF.INSIGHTS[c.data.insight] && !e.unavailableReason(c); })[0];
     if (insight && can('reflect')) return tr('An Insight waits: put {label} into Rest alone to learn it, or with your {ability} to keep it as a trick.', { label: e.labelOf(insight), ability: tr(CF.CARDS[CF.INSIGHTS[insight.data.insight].trains].label) });
@@ -1088,14 +1119,59 @@
     $('#table').classList.toggle('paused', !!UI.paused);
   }
 
-  function meter(key, label, val, max, shown) {
-    void shown;
+  var METER_FULL = { pressure: 'The Crowd: the city\'s patience with you', scrutiny: 'Suspicion: the Council\'s eye on your methods', retaliation: 'Vendetta: the underworld\'s grudge', dread: 'Dread: what the city fears you are', reputation: 'Standing: your name in the Council chamber' };
+  var METER_KEYS = ['pressure', 'scrutiny', 'retaliation', 'dread', 'reputation'];
+  var METER_LABELS = { pressure: 'Crowd', scrutiny: 'Suspicion', retaliation: 'Vendetta', dread: 'Dread', reputation: 'Standing' };
+  // A meter's level, its class and its word.
+  function meterState(key, val, max) {
     var level = Math.min(4, Math.floor((val / Math.max(1, max)) * 4.999));
     var state = key === 'reputation' ? ' rep' : level >= 4 ? ' crit' : level >= 3 ? ' warn' : '';
-    var full = { pressure: 'The Crowd: the city\'s patience with you', scrutiny: 'Suspicion: the Council\'s eye on your methods', retaliation: 'Vendetta: the underworld\'s grudge', dread: 'Dread: what the city fears you are', reputation: 'Standing: your name in the Council chamber' }[key];
-    var word = (CF.METER_WORDS && CF.METER_WORDS[key] || [])[level] || '';
-    return '<div class="meter lvl-' + level + state + '" data-meter="' + key + '" title="' + esc(full || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
-      '<div class="m-main"><div class="m-label"><span>' + esc(label) + '</span></div><div class="m-word">' + esc(word) + '</div></div></div>';
+    return { level: level, cls: 'meter lvl-' + level + state, word: (CF.METER_WORDS && CF.METER_WORDS[key] || [])[level] || '' };
+  }
+  function meter(key, label, val, max) {
+    var st = meterState(key, val, max);
+    return '<div class="' + st.cls + '" data-meter="' + key + '" title="' + esc(METER_FULL[key] || label) + '"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span>' +
+      '<div class="m-main"><div class="m-label"><span>' + esc(label) + '</span></div><div class="m-word">' + esc(st.word) + '</div></div></div>';
+  }
+  // A meter that moves is seen to move: its icon swells and glows (red where it hurts, gold where it helps) and a
+  // small arrow says which way. The Crowd, Suspicion, Vendetta and Dread on a change of word; Standing on every step.
+  var BUMP_CLASSES = ['bump', 'bump-up', 'bump-down', 'bump-good', 'bump-bad'];
+  function bumpMeter(el, key, up) {
+    var good = key === 'reputation' ? up : !up;
+    BUMP_CLASSES.forEach(function (c) { el.classList.remove(c); });
+    void el.offsetWidth; // a second move while the first still shows starts it again
+    el.classList.add('bump', up ? 'bump-up' : 'bump-down', good ? 'bump-good' : 'bump-bad');
+    var n = (el.cfBump = (el.cfBump || 0) + 1);
+    setTimeout(function () { if (el.cfBump === n) BUMP_CLASSES.forEach(function (c) { el.classList.remove(c); }); }, 1600);
+  }
+  // The five meters are built once and changed in place: a class and a word, never a rebuilt row (which would
+  // wipe a bump and restart the pulse of a meter at its worst on every render).
+  function syncMeters(vals) {
+    var box = $('#meters'), lang = CF.lang ? CF.lang() : 'en';
+    var built = box.children.length === METER_KEYS.length && UI.metersLang === lang && METER_KEYS.every(function (k, i) { return box.children[i].dataset && box.children[i].dataset.meter === k; });
+    if (!built) {
+      box.innerHTML = METER_KEYS.map(function (k) { return meter(k, METER_LABELS[k], vals[k].val, vals[k].max); }).join('');
+      UI.metersLang = lang;
+    }
+    var last = UI.lastMeter;
+    UI.lastMeter = {};
+    METER_KEYS.forEach(function (k, i) {
+      var el = box.children[i], st = meterState(k, vals[k].val, vals[k].max);
+      if (built) {
+        var keep = BUMP_CLASSES.filter(function (c) { return el.classList.contains(c); });
+        if (el.className.split(/\s+/).filter(function (c) { return BUMP_CLASSES.indexOf(c) < 0; }).join(' ') !== st.cls) {
+          el.className = st.cls;
+          keep.forEach(function (c) { el.classList.add(c); });
+        }
+        var w = el.querySelector('.m-word'), word = tr(st.word);
+        if (w && w.textContent !== word) w.textContent = word;
+      }
+      UI.lastMeter[k] = { level: st.level, val: vals[k].val };
+      var was = last && last[k];
+      if (!was) return;
+      var moved = k === 'reputation' ? vals[k].val !== was.val : st.level !== was.level;
+      if (moved) bumpMeter(el, k, k === 'reputation' ? vals[k].val > was.val : st.level > was.level);
+    });
   }
 
   var METER_INFO = {
@@ -1150,9 +1226,10 @@
     // The next office is the next threshold up to the rank cap (a hangman's ends at Bailiff); at the cap there is no next.
     var cap = rankCap(e), chair = s.calling === 'commissioner' && s.rank === CF.TOP_RANK;
     var nextRep = s.rank < cap ? CF.RANK_REP[s.rank + 1] : (chair ? CF.COMMISSIONER_REP : Math.max(m.reputation, 1));
-    var mm = function (k, label) { var max = e.meterMax(k); return meter(k, label, m[k], max, m[k] + '/' + max); };
-    $('#meters').innerHTML = mm('pressure', 'Crowd') + mm('scrutiny', 'Suspicion') + mm('retaliation', 'Vendetta') + mm('dread', 'Dread') +
-      meter('reputation', 'Standing', m.reputation, nextRep, m.reputation + (s.rank < cap || chair ? '/' + nextRep : ''));
+    var vals = {};
+    ['pressure', 'scrutiny', 'retaliation', 'dread'].forEach(function (k) { vals[k] = { val: m[k], max: e.meterMax(k) }; });
+    vals.reputation = { val: m.reputation, max: nextRep };
+    syncMeters(vals);
     $('#rank').textContent = tr(s.detective + (s.who && CF.ORIGINS[s.who] ? ', ' + CF.ORIGINS[s.who].label.toLowerCase() : '') + (s.flags.callingOpen ? '' : ' · ' + CF.CALLINGS[s.calling].label.replace('The ', '')));
     $('#rank-badge').style.backgroundImage = art(RANK_ART[((CF.RANK_DEFS[s.rank] || {}).badge || 1) - 1] || 'cwax-01');
     $('#rank-badge').title = tr(CF.RANKS[s.rank]);
@@ -1186,7 +1263,28 @@
     equipment: 'iinv-16', intel: 'cwit-01', criminal: 'csus-02', condemned: 'ilaw-06', calling: 'cwax-02', ability: 'cres-02', funds: 'itrade-20', health: 'imed-01', focus: 'cres-05', instinct: 'iinv-06',
     trial: 'cwax-03', atlarge: 'ilaw-18', rung: 'ilaw-01', sentence: 'ilaw-01', plea: 'ilaw-13', paper: 'ilaw-21', temptation: 'itrade-20', insight: 'imyst-05', fatigue: 'imed-13', burnout: 'imed-10', wound: 'imed-09' };
   // The seal of a token's later status: kept past its case (a key), matched to a hand (a tick), read only in part (a query).
-  var STATUS_ART = { Kept: 'cstamp-04', Matched: 'cok-01', Partial: 'cmark-05' };
+  var STATUS_ART = { Kept: 'cstamp-04', Matched: 'cok-01', Partial: 'cmark-05', Staged: 'ccstamp-02' };
+  // The patrons' seals: the Council's crown, the Bishop's church, the Guilds' coin.
+  var PATRON_ART = { council: 'casp-05', bishop: 'casp-04', guild: 'cres-01' };
+  // The rungs of a ladder that please the patron who commissioned the case: the rules mark them (data.patron),
+  // and on a game whose rules do not, they are read off the commission (the Bishop asks a Pardon or a Fine, the
+  // Guilds the Pillory or a Fine), while it is still to be answered.
+  var PATRON_RUNGS = { bishop: ['pardon', 'fine'], guild: ['pillory', 'fine'] };
+  function rungPatron(card) {
+    if (!card || card.def !== 'rung' || !card.data) return null;
+    if (card.data.patron) return PATRON_ART[card.data.patron] ? card.data.patron : null;
+    var rec = card.caseId && UI.e && UI.e.caseRec(card.caseId), com = rec && rec.commission;
+    if (!com || com.delivered || !PATRON_RUNGS[com.from]) return null;
+    return PATRON_RUNGS[com.from].indexOf(card.data.rung) >= 0 ? com.from : null;
+  }
+  function orList(xs) { return xs.length > 1 ? tr('{a} or {b}', { a: xs.slice(0, -1).join(', '), b: xs[xs.length - 1] }) : xs[0] || ''; }
+  // What the patron asked for, on the Condemned: the rungs of their ladder that would please them.
+  function patronAsks(cond) {
+    var e = UI.e, rungs = e.tableCards().concat(e.cardsOf('rung', true)).filter(function (c, i, all) { return c.def === 'rung' && c.data && c.data.condemned === cond.uid && all.indexOf(c) === i; });
+    var who = null, names = [];
+    rungs.forEach(function (r) { var p = rungPatron(r); if (!p) return; who = who || p; if (p === who) names.push(CF.Sentence && CF.Sentence.rungLabel ? CF.Sentence.rungLabel(cond.data.template, r.data.rung) : r.data.rung); });
+    return who ? { who: who, names: names } : null;
+  }
   // The face's words come from CF.cardFace (js/i18n.js); a case card is its crime.
   function cardTitle(card) {
     var e = UI.e, def = CF.CARDS[card.def];
@@ -1198,7 +1296,7 @@
   // What a card looks like; if this string changes the face is rebuilt.
   function cardSig(card, count) {
     return [card.def, UI.e.labelOf(card), JSON.stringify(card.aspects || ''), card.caseId || '', count, !!card.maxLife, !!card.hidden, card.data && card.data.trust, card.data && card.data.heat, card.data && card.data.mark ? 'm' : '',
-      card.def === 'coldcase' ? card.data.template : '', searchedOut(card) ? 'so' : '', card.data && card.data.about || ''].join('|');
+      card.def === 'coldcase' ? card.data.template : '', searchedOut(card) ? 'so' : '', card.data && card.data.about || '', rungPatron(card) || ''].join('|');
   }
   // The accused a token is about (data.about, a suspect's key: a Motive, a Confession, a Slip, a Deposition), with
   // the picture of their nameplate, so the face can wear a small portrait of whom it concerns. Display only:
@@ -1293,6 +1391,14 @@
       pip.style.backgroundImage = art(about.art);
       pip.title = tr('About {name}', { name: about.sus.name });
       face.appendChild(pip);
+    }
+    // A rung that would please the patron who commissioned the case wears the patron's seal.
+    var patron = rungPatron(card);
+    if (patron) {
+      var ps = h('div', 'c-patron');
+      ps.style.backgroundImage = art(PATRON_ART[patron]);
+      ps.title = tr('{patron} asks for this', { patron: tr(CF.PATRONS[patron].label) });
+      face.appendChild(ps);
     }
     if (def.kind === 'case' || def.kind === 'coldcase') {
       var crec2 = def.kind === 'case' ? e.caseRec(card.caseId) : { template: card.data.template };
@@ -1679,6 +1785,50 @@
     if (!differs && payable) return kept;
     return spec.options.map(function (o) { return { label: o.label, text: o.text, cost: o.cost || null, gain: o.gain || null, forGood: !!o.forGood }; });
   };
+  // What an answer gives and takes, seen before it is given: the answer is tried on a copy of the game (the
+  // same dice, so the copy is exact; no listeners, so nothing on the table hears it) and the meters, the
+  // patrons' favour and the cards are compared. What it pays is shown apart (the cost), so the card it pays
+  // with is left out. Something the answer only sets in motion shows no change: its sentence stays beside.
+  function choiceDeltas(e, i) {
+    var c = e.s.choice, spec = c && CF.CHOICES && CF.CHOICES.filter(function (x) { return x.id === c.id; })[0];
+    if (!spec || !spec.options[i] || !e.canChoose(i)) return null;
+    var t;
+    try {
+      t = CF.Engine.load(e.save());
+      t.listeners = [];
+      var pay = t.choicePayment(spec.options[i]), payUid = pay ? pay.uid : null;
+      if (!t.choose(i)) return null;
+    } catch (err) { return null; }
+    var out = [];
+    Object.keys(METER_ICONS).forEach(function (k) {
+      var d = (t.s.meters[k] || 0) - (e.s.meters[k] || 0);
+      if (d) out.push({ kind: 'meter', key: k, d: d, good: k === 'reputation' ? d > 0 : d < 0, art: METER_ICONS[k], title: tr(METER_INFO[k].title) });
+    });
+    var f0 = e.s.favour || {}, f1 = t.s.favour || {};
+    Object.keys(PATRON_ART).forEach(function (k) {
+      var d = (f1[k] || 0) - (f0[k] || 0);
+      if (d && CF.PATRONS && CF.PATRONS[k]) out.push({ kind: 'favour', key: k, d: d, good: d > 0, art: PATRON_ART[k], title: tr(CF.PATRONS[k].label) });
+    });
+    var count = function (s) { var n = {}; Object.keys(s.cards).forEach(function (u) { if (+u !== payUid) { var d = s.cards[u].def; n[d] = (n[d] || 0) + 1; } }); return n; };
+    var n0 = count(e.s), n1 = count(t.s);
+    Object.keys(n0).concat(Object.keys(n1)).forEach(function (d, j, all) {
+      if (all.indexOf(d) !== j || !CF.CARDS[d]) return;
+      var dd = (n1[d] || 0) - (n0[d] || 0), kind = CF.CARDS[d].kind;
+      if (!dd) return;
+      var need = !!(CF.NEEDS && CF.NEEDS[d]) || kind === 'threat';
+      out.push({ kind: 'card', key: d, d: dd, good: need ? dd < 0 : dd > 0, art: ICONS[d] || FULLS[d] || KIND_ART[d] || KIND_ART[kind] || 'iinv-02', title: tr(CF.CARDS[d].label) });
+    });
+    return out;
+  }
+  UI.choiceDeltas = function (i) { return UI.e ? choiceDeltas(UI.e, i) : null; };
+  // The chips: a meter's or a patron's seal with the way it moves, a card's icon with how many.
+  function deltaChips(list) {
+    return list.map(function (x) {
+      var mark = x.kind === 'card' ? (x.d > 0 ? '+' : '\u2212') + Math.abs(x.d) : '';
+      return '<span class="ch-chip ' + (x.d > 0 ? 'up' : 'down') + (x.good ? ' good' : ' bad') + (x.kind === 'card' ? '' : ' moves') + '" title="' + esc(x.title) + '">' +
+        '<i style="background-image:' + art(x.art) + '"></i>' + (mark ? '<b>' + mark + '</b>' : '') + '</span>';
+    }).join('');
+  }
   function syncChoice() {
     var e = UI.e, board = $('#board'), c = e.s.choice;
     if (!c) {
@@ -1706,7 +1856,11 @@
       // What the option takes: an ability comes back spent, unless it is taken for good.
       var took = o.cost ? tr(o.forGood ? 'Takes {card}, for good.' : 'Takes {card}.', { card: CF.CARDS[o.cost].label }) : '';
       var cost = o.cost ? '<i class="ch-cost' + (o.forGood ? ' ch-cost-forgood' : '') + '" style="background-image:' + art(ASK_ART[o.cost] || 'itrade-20') + '" title="' + esc(took) + '"></i>' : '';
-      b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em class="ch-cost-read' + (o.forGood ? ' ch-cost-forgood' : '') + '">' + esc(took) + '</em>' : '') + '</span>' + (o.gain ? '<span class="ch-gain">' + esc(tr(o.gain)) + '</span>' : '');
+      // What it gives: the chips first, the sentence after them (for what only shows later).
+      var deltas = choiceDeltas(e, i) || [];
+      var gain = deltas.length || o.gain ? '<span class="ch-gain"' + (o.gain ? ' title="' + esc(o.gain) + '"' : '') + '>' + (deltas.length ? '<span class="ch-chips">' + deltaChips(deltas) + '</span>' : '') +
+        (o.gain ? '<span class="ch-gain-text">' + esc(o.gain) + '</span>' : '') + '</span>' : '';
+      b.innerHTML = cost + '<b>' + esc(o.label) + '</b><span>' + esc(o.text) + (o.cost ? ' <em class="ch-cost-read' + (o.forGood ? ' ch-cost-forgood' : '') + '">' + esc(took) + '</em>' : '') + '</span>' + gain;
       b.addEventListener('click', function (ev) { ev.stopPropagation(); if (el.classList.contains('answered')) return; answerChoice(e, el, b, i, o); });
       opts.appendChild(b);
     });
@@ -1882,10 +2036,9 @@
     syncPile();
     syncChoice();
     var lifted = UI.lifted || {};
-    var groups = {}, usable = {};
+    var groups = {};
     e.tableCards().forEach(function (c) {
       if (lifted[c.uid]) return;
-      usable[c.uid] = !e.unavailableReason(c);
       var k = c.loc.x + ',' + c.loc.y;
       (groups[k] = groups[k] || []).push(c);
     });
@@ -1921,7 +2074,8 @@
       if (el.parentNode === board) place(el, top.loc.x, top.loc.y);
       el.cfAt = { x: top.loc.x, y: top.loc.y };
       el.classList.toggle('selected', UI.selected === top.uid);
-      el.classList.toggle('unavailable', usable[top.uid] === false);
+      // Only the top of a stack is asked whether it can be used: the cards under it are not seen.
+      el.classList.toggle('unavailable', !!e.unavailableReason(top));
       if (top.maxLife) liveCards.push([el, top.uid]);
       list.forEach(function (c) { c.fresh = false; });
     });
@@ -2149,9 +2303,12 @@
         slots.forEach(function (sl) { var f = slotFits(vid, sl.key); for (var k in f) soft[k] = true; });
       });
     }
+    // Each card element stands for every card at its place on the table: read once, not a stack per element.
+    var byPos = {};
+    e.tableCards().forEach(function (c) { var k = c.loc.x + ',' + c.loc.y; (byPos[k] = byPos[k] || []).push(c.uid); });
     Object.keys(cardEls).forEach(function (uid) {
       var el = cardEls[uid], c = e.card(+uid);
-      var stackUids = c ? e.stackOf(c).map(function (x) { return x.uid; }) : [+uid];
+      var stackUids = c && c.loc && c.loc.t === 'table' ? byPos[c.loc.x + ',' + c.loc.y] || [+uid] : [+uid];
       el.classList.toggle('fits', stackUids.some(function (u) { return soft[u]; }));
       el.classList.toggle('fits-strong', stackUids.some(function (u) { return strong[u]; }));
     });
@@ -2356,9 +2513,14 @@
     // The first case of the office (the opening's): a charge on Indicia is said, in red, to walk.
     var pcard = primaryCard ? e.card(primaryCard) : null, prec = pcard && pcard.caseId ? e.caseRec(pcard.caseId) : null;
     var firstCase = !!(prec && prec.opening);
+    // The charge as the Court reads it (for the seals and for each token's standing), where the accused is in.
+    var assess = null;
+    if (vid === 'arrest' && pcard && pcard.def === 'suspect' && e.assessCharge) {
+      try { assess = e.assessCharge(pcard, ['c1', 'c2', 'c3', 'c4'].map(function (k) { return v.slots[k] && e.card(v.slots[k]); }).filter(Boolean)); } catch (err) { assess = null; }
+    }
     if (charge) {
       var cbox = h('div', 'charge-box');
-      cbox.innerHTML = chargeHtml(charge, firstCase);
+      cbox.innerHTML = chargeHtml(charge, firstCase, assess);
       pane.insertBefore(cbox, pane.firstChild);
       (charge.bad || []).forEach(function (u) { bad[u] = true; });
     }
@@ -2387,7 +2549,9 @@
       s.appendChild(box);
       // The primary slot wears its first name; the whole list is in the title.
       var parts = sl.label.split(' / ');
-      var lab = h('div', 's-label', sl.primary ? parts[0] : sl.label);
+      // Under a token before the Court: its standing toward this accused, not the slot's name.
+      var stand = assess && !sl.primary && uid ? tokenStanding(assess, pcard, e.card(uid)) : null;
+      var lab = h('div', 's-label' + (stand ? ' st-' + stand : ''), stand ? STANDING[stand] : sl.primary ? parts[0] : sl.label);
       lab.title = sl.primary && parts.length > 1 ? tr(sl.label) : tr(sl.accepts.map(prettyAspect).join(' / '));
       var slotIcon = slotArt(sl);
       if (slotIcon) { var si = h('i', 's-icon'); si.style.backgroundImage = art(slotIcon); si.title = lab.title; s.appendChild(si); }
@@ -2411,7 +2575,7 @@
     var rbox = h('div', 'recipe');
     if (pv) {
       rbox.innerHTML = '<h5>' + esc(pv.label) + '</h5><p>' + esc(pv.text || '') + '</p>' +
-        (pv.detail && pv.detail.charge && !charge ? chargeHtml(pv.detail.charge, firstCase) : '') +
+        (pv.detail && pv.detail.charge && !charge ? chargeHtml(pv.detail.charge, firstCase, assess) : '') +
         (pv.strain ? '<div class="r-strain">' + esc(pv.strain) + '</div>' : '') +
         (pv.danger ? '<div class="r-danger">⚠ ' + esc(pv.danger) + '</div>' : '') +
         (pv.blocked ? '<div class="r-blocked">' + esc(pv.blocked) + '</div>' : '');
@@ -2666,8 +2830,28 @@
   // The charge breakdown in the Arrest window: what the case needs proven
   // against what the clues give, then the bonuses and penalties.
   var TIER_GLOSS = { weak: 'Suspicion, not proof: it will not convict', reasonable: 'Half the proof the Carolina asks: it may hold' };
-  function chargeHtml(d, firstCase) {
-    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span><span class="ch-score">' + d.score + ' / ' + d.need + '</span></div>';
+  // The four things full proof asks, as four wax seals lit or dark: enough proof, of two kinds the case turns
+  // on, with word behind it (a witness, a confession, a token that names or corroborates), and nothing that
+  // describes somebody else. The rules may give them (describe().gates); else they are read off the charge.
+  var GATES = { enough: { art: 'cwax-03', label: 'Enough' }, kinds: { art: 'cwax-01', label: 'Two kinds' }, word: { art: 'cwax-02', label: 'Word behind it' }, clean: { art: 'cwax-04', label: 'Nothing against them' } };
+  var GATE_ORDER = ['enough', 'kinds', 'word', 'clean'];
+  var WORD_NOTE = 'Word behind it: a witness\'s Deposition, two tokens bound in Rest, a hand matched to them, or a free confession.';
+  function chargeGates(d, a) {
+    if (d && d.gates && d.gates.length) return d.gates.filter(function (g) { return GATES[g.id]; });
+    if (!a) return null;
+    return [{ id: 'enough', ok: a.score >= a.need }, { id: 'kinds', ok: a.covered >= 2 },
+      { id: 'word', ok: a.witnesses >= 1 || !!a.confession || a.corroboration >= 1 }, { id: 'clean', ok: !a.contradictions }];
+  }
+  function chargeHtml(d, firstCase, a) {
+    var gates = chargeGates(d, a);
+    var html = '<div class="charge tier-' + d.tier + '"><div class="ch-head"><span>' + esc(tr('{tier} charge', { tier: d.tierLabel })) + '</span></div>';
+    if (gates) {
+      html += '<div class="ch-gates">' + GATE_ORDER.map(function (id) {
+        var g = gates.filter(function (x) { return x.id === id; })[0];
+        if (!g) return '';
+        return '<span class="ch-gate ' + (g.ok ? 'on' : 'off') + '" data-gate="' + id + '" title="' + esc(GATES[id].label) + '"><i style="background-image:' + art(GATES[id].art) + '"></i><em>' + esc(GATES[id].label) + '</em></span>';
+      }).join('') + '</div>';
+    }
     // The Court's words, glossed where they stand: what the tier means.
     if (TIER_GLOSS[d.tier]) html += '<div class="ch-gloss">' + esc(TIER_GLOSS[d.tier]) + '</div>';
     if (firstCase && d.tier === 'weak') html += '<div class="ch-note bad ch-first">' + esc('The first case of your office. On Indicia the Court will let them go.') + '</div>';
@@ -2676,9 +2860,26 @@
       html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'iinv-05') + '"></span>' +
         '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + r.have + ' / ' + r.need + '</span></div>';
     });
-    d.notes.forEach(function (n) { html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
+    // Every other seal lit and only the word dark: say what word would do it.
+    var onlyWord = gates && d.tier !== 'strong' && gates.every(function (g) { return g.ok === (g.id !== 'word'); });
+    d.notes.forEach(function (n) { if (!(onlyWord && /^To full proof/.test(n.text))) html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
+    if (onlyWord) html += '<div class="ch-note dim ch-word">' + esc(WORD_NOTE) + '</div>';
     return html + '</div>';
   }
+  // A token before the Court, read against this accused: it names them (their name, their mark, or about them),
+  // it describes somebody else, it is off what the case turns on, or it is plain proof.
+  function tokenStanding(a, accused, tok) {
+    if (!a || !accused || !tok || tok.def !== 'clue') return null;
+    if ((a.contradicting || []).some(function (c) { return c.uid === tok.uid; })) return 'other';
+    if (!a.rec || tok.caseId !== a.rec.id) return 'off';
+    var sus = UI.e.suspectOf(accused), d = tok.data || {};
+    if (sus && ((d.points && d.points === sus.key) || (d.about && d.about === sus.key) || (d.trait && d.trait === sus.trait))) return 'names';
+    var asp = CF.clueAspects(tok);
+    if (!Object.keys(asp).some(function (k) { return a.profile && a.profile[k]; })) return 'off';
+    return 'proof';
+  }
+  var STANDING = { names: 'Names them', other: 'Someone else', off: 'Off the case', proof: 'Proof' };
+  UI.tokenStanding = tokenStanding;
 
   // What an instrument's tags mean to a reader: the kinds of find it sharpens.
   var TAG_WORDS = { biology: 'Bodies and traces', physical: 'Bodies and traces', records: 'Papers', surfaces: 'Surfaces', watching: 'Watching' };
@@ -2739,6 +2940,8 @@
       if (sw) lines.push(tr('Still wanted: {list}', { list: wantedList(sw.rows) }));
       if (sus && sus.questioned && !sus.cleared && rec && rec.status === 'open') lines.push('Confront them in Question with a token of the case');
       else if (sus && sus.questioned) lines.push('Questioned already'); else lines.push('Question them with Wit');
+      // The Court shows seals; the numbers behind them are kept here.
+      if (sw && sw.a.n) lines.push(tr('Weight of proof: {score} of {need}', { score: Math.round(sw.a.score * 10) / 10, need: sw.a.need }));
     } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
       var aboutWho = aboutOf(card);
       if (aboutWho) lines.push(tr('About {name}', { name: aboutWho.sus.name }));
@@ -2800,9 +3003,14 @@
     } else if (card.def === 'condemned') {
       lines.push(card.data.role ? card.data.role.charAt(0).toUpperCase() + card.data.role.slice(1) : 'Convicted');
       lines.push('Custom: ' + CF.Sentence.rungLabel(card.data.template, card.data.custom));
-      lines.push((card.data.penitent ? 'Penitent · ' : '') + 'Council speaks in ' + U.fmtTime(card.life));
+      if (card.data.penitent) lines.push('Penitent');
+      // The commission, at the sentence: what the patron asked for, read off the rungs that wear their seal.
+      var asks = patronAsks(card);
+      if (asks) lines.push(tr('{patron} asks for: {list}', { patron: tr(CF.PATRONS[asks.who].label), list: orList(asks.names.map(function (x) { return tr(x); })) }));
     } else if (card.def === 'rung') {
       lines.push((CF.RUNGS[card.data.rung] || {}).cost || '');
+      var rp = rungPatron(card);
+      if (rp) lines.push(tr('{patron} asks for this', { patron: tr(CF.PATRONS[rp].label) }));
     } else if (card.def === 'plea') {
       lines.push({ church: 'From the Bishop', guild: 'From the Guild', family: 'From the family' }[card.data.from] || 'A plea');
       lines.push('A reason for mercy');
@@ -2828,7 +3036,15 @@
       if (rd.heat) lines.push(tr('Weakness found: {n} of 2', { n: rd.heat }));
       else if (rd.stalled && rd.stalled >= e.s.week) lines.push(tr('Lying low until week {n}', { n: rd.stalled + 1 }));
       if (rivalCareful(card)) lines.push('Careful this week: the next thread after the Bell');
-      if (rway === 'investigate') lines.push('The next thread: shadow them in Explore with Instinct');
+      if (rivalCatch(card)) {
+        // Caught at it: the second thread is what they did, put before them in Question; a thread goes cold.
+        if (rd.heat) {
+          lines.push('The next thread: catch them at it. Question them with a token they spoiled, a witness they paid, or the case they took');
+          var rdirt = rivalDirt(e)[0];
+          if (rdirt) lines.push(tr('On your table: {label}', { label: e.labelOf(rdirt) }));
+          if (typeof rd.heatWeek === 'number') lines.push(tr('The thread goes cold after week {n}', { n: rd.heatWeek + 3 }));
+        } else lines.push('Question with Wit, or shadow in Explore with Instinct, for a first thread');
+      } else if (rway === 'investigate') lines.push('The next thread: shadow them in Explore with Instinct');
       else if (rway === 'interrogate') lines.push('The next thread: Question them with Wit');
       else if (!rd.heat) lines.push('Question with Wit, or shadow in Explore with Instinct, to expose');
     } else if (card.def === 'atlarge') {
@@ -2894,7 +3110,8 @@
     box.dataset.uid = uid; box.dataset.sig = cardSig(card, 1);
     var def = CF.CARDS[card.def];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
-    var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' || card.def === 'wound' || card.def === 'dagger' ? 'paper' : null;
+    var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' || card.def === 'wound' || card.def === 'dagger' ||
+      card.def === 'condemned' || card.def === 'rung' || card.def === 'plea' ? 'paper' : null;
     var html = '<div class="i-card"></div>';
     var notes = dz ? dossierNotes(card) : def.kind === 'ability' ? abilityNotes(card) : [];
     var kindArt = KIND_ART[card.def] || KIND_ART[def.kind];

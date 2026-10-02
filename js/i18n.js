@@ -303,7 +303,7 @@
   // the translation can reorder it; anything else is walked text by text.
   // The few words on the face of a card, read off its label: a person's card
   // is their name, a token's card is what kind of token it is. A status a
-  // token gained later (kept past its case, matched, read only in part) is
+  // token gained later (kept past its case, matched, read only in part, found staged) is
   // looked through, so the face says what the token is and the status is a
   // seal beside it. DOM-free, so the tests can check every face a game makes
   // has its words in each language. The table's case cards are titled by the
@@ -313,7 +313,7 @@
     [/^Found at .*House$/, 'The House'], [/^Corroborated: /, 'Corroborated'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
     [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
   ];
-  var FACE_STATUS = /^(Kept|Matched|Partial): (?=\S)/;
+  var FACE_STATUS = /^(Kept|Matched|Partial|Staged): (?=\S)/;
   var FACE_PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
   CF.cardFace = function (card, label) {
     var def = (CF.CARDS && CF.CARDS[card.def]) || {}, status = [], m;

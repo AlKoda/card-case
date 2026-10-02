@@ -64,6 +64,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .meter.crit .m-icon::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; box-shadow: 0 0 6px 3px rgba(208, 86, 74, 1); opacity: 0; animation: urgentIcon 1s infinite; pointer-events: none; }
 @keyframes urgentIcon { 50% { opacity: 1; } }
 .meter.rep .m-fill { background: var(--good); }
+/* A meter that moves: the icon swells twice, a glow drawn once behind it pulses by opacity (red where it hurts,
+   gold where it helps), and a small arrow floats the way it went and fades. */
+.meter.bump { position: relative; overflow: visible; z-index: 1; }
+.meter.bump-bad { --glow: rgba(208, 52, 44, 0.95); }
+.meter.bump-good { --glow: rgba(240, 200, 110, 0.95); }
+.meter.bump .m-icon { animation: meterBump 0.8s ease-in-out 2; }
+.meter.bump::before { content: ''; position: absolute; inset-inline-start: 0; top: 50%; width: 28px; height: 28px; margin-top: -14px; border-radius: 50%; box-shadow: 0 0 10px 4px var(--glow); opacity: 0; animation: meterGlow 0.8s ease-in-out 2; pointer-events: none; }
+.meter.bump .m-icon::before { content: ''; position: absolute; inset-inline-end: -3px; width: 14px; height: 14px; background: var(--art-carrow2-02) center / contain no-repeat; opacity: 0; pointer-events: none; }
+.meter.bump-up .m-icon::before { top: 14px; animation: meterArrowUp 1.6s ease-out forwards; }
+.meter.bump-down .m-icon::before { top: 0; animation: meterArrowDown 1.6s ease-out forwards; }
+@keyframes meterBump { 50% { transform: scale(1.35); } }
+@keyframes meterGlow { 50% { opacity: 1; } }
+@keyframes meterArrowUp { 0% { opacity: 0; transform: translateY(0) rotate(-90deg); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px) rotate(-90deg); } }
+@keyframes meterArrowDown { 0% { opacity: 0; transform: translateY(0) rotate(90deg); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(10px) rotate(90deg); } }
 #controls { margin-inline-start: auto; flex: none; display: flex; gap: 6px; align-items: center; }
 #controls .speed { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #1a1c20; border: 1px solid var(--line); }
 #controls .speed .ctl { border: none; min-width: 40px; }
@@ -138,8 +152,19 @@ html[data-flat] #table { perspective: none; }
 #board .choice .ch-opt span em { font-style: italic; color: #7c1d15; }
 #board .choice .ch-opt b { display: block; font-family: var(--display); font-size: 13px; letter-spacing: 0.03em; color: #2a1a10; }
 #board .choice .ch-opt span { display: block; font-family: var(--serif); font-size: 12.5px; color: #5a4f3a; line-height: 1.35; margin-top: 2px; }
-#board .choice .ch-opt .ch-gain { display: block; margin-top: 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; color: #1d6a49; }
-#board .choice .ch-opt .ch-gain::before { content: '\2937  '; }
+/* What an answer gives: chips (a meter's or a patron's seal with the way it moves, a card's icon with how many),
+   then the sentence for what only shows later. No arrow glyph: it would point the wrong way in Arabic. */
+#board .choice .ch-opt .ch-gain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 5px; font-family: var(--serif); font-style: italic; font-size: 11.5px; color: #1d6a49; }
+#board .choice .ch-opt .ch-gain > span { display: inline; margin: 0; color: inherit; font-size: inherit; }
+#board .choice .ch-opt .ch-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+#board .choice .ch-opt .ch-chip { position: relative; display: inline-flex; margin: 0; line-height: 1; align-items: center; gap: 2px; height: 24px; padding: 0 4px 0 2px; border-radius: 12px; background: rgba(29, 106, 73, 0.12); border: 1px solid rgba(29, 106, 73, 0.45); font-style: normal; }
+#board .choice .ch-opt .ch-chip.bad { background: rgba(124, 29, 21, 0.1); border-color: rgba(124, 29, 21, 0.45); }
+#board .choice .ch-opt .ch-chip i { width: 20px; height: 20px; background: center / contain no-repeat; }
+#board .choice .ch-opt .ch-chip b { display: inline; margin: 0; direction: ltr; unicode-bidi: isolate; font-family: var(--display); font-size: 12px; letter-spacing: 0; color: #1d6a49; }
+#board .choice .ch-opt .ch-chip.bad b { color: #7c1d15; }
+#board .choice .ch-opt .ch-chip.moves::after { content: ''; width: 14px; height: 14px; background: var(--art-carrow2-02) center / contain no-repeat; }
+#board .choice .ch-opt .ch-chip.moves.up::after { transform: rotate(-90deg); }
+#board .choice .ch-opt .ch-chip.moves.down::after { transform: rotate(90deg); }
 #board .choice .ch-note { margin-top: 8px; text-align: center; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a7a5a; }
 /* The collection pile: a strip of six faint cell outlines (one per card, like the grid's) where new
    cards land; the player drags it. The strip has no z-index of its own, so it paints above the grid
@@ -344,6 +369,8 @@ html[data-flat] #table { perspective: none; }
 /* A case searched out: the glass stamp on the left corner, across from its crime. */
 .card .c-searched { right: auto; left: -6px; }
 /* A token about one accused: their portrait, whole and small, pinned on the top corner opposite the status seal. */
+.card .c-patron { position: absolute; left: -6px; top: -6px; width: 30px; height: 30px; background: center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.65)); pointer-events: none; }
+.card.mini .c-patron { width: 20px; height: 20px; left: -3px; top: -3px; }
 .card .c-about { position: absolute; left: 4px; top: 4px; width: 32px; height: 48px; background: #efe3c6 center / contain no-repeat; border: 1px solid #8f7440; border-radius: 3px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6); pointer-events: none; }
 .card.mini .c-about { width: 20px; height: 30px; left: 2px; top: 2px; }
 /* Case strings: a pinned rope from each case to what belongs to it. */
@@ -484,6 +511,10 @@ html[data-flat] #table { perspective: none; }
 @media (prefers-reduced-motion: reduce) {
   .verb.done .v-token::before, .verb.new .v-token::before, .verb.noticed .v-token::before, .card.urgent::after, .card.noticed::after, .card.merged::after, .meter.crit .m-icon::after, .edge-mark b::after, .verb .v-magnet.asks::after { animation: none; }
   .card.urgent::after, .meter.crit .m-icon::after { opacity: 0.8; }
+  .meter.bump .m-icon, .meter.bump::before, .meter.bump .m-icon::before { animation: none; }
+  .meter.bump::before, .meter.bump .m-icon::before { opacity: 0.9; }
+  .meter.bump-up .m-icon::before { transform: rotate(-90deg); }
+  .meter.bump-down .m-icon::before { transform: rotate(90deg); }
 }
 .vw-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; font-size: 15px; font-weight: 700; color: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
 .vw-close { position: absolute; top: 5px; right: -54px; width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%; color: transparent; font-size: 0; background: none; cursor: pointer; }
@@ -508,6 +539,10 @@ html[data-flat] #table { perspective: none; }
 .slot[data-slot="mind"] .s-box.empty, .slot[data-slot="grow"] .s-box.empty, .slot[data-slot="aid2"] .s-box.empty, .slot[data-slot="aid3"] .s-box.empty { --frame: var(--art-cframe-02); }
 .slot[data-verb="arrest"] .s-box.empty, .slot[data-slot="c1"] .s-box.empty, .slot[data-slot="c2"] .s-box.empty, .slot[data-slot="c3"] .s-box.empty, .slot[data-slot="c4"] .s-box.empty { --frame: var(--art-cframe-01); }
 .slot .s-box.empty ~ .s-icon { position: absolute; left: 50%; top: calc((var(--card-h) * 0.72 + 10px) * 0.44); width: 46%; height: auto; aspect-ratio: 1; margin: 0; transform: translate(-50%, -50%); clip-path: circle(41%); opacity: 1; pointer-events: none; }
+/* A token's standing toward the accused before the Court. */
+.slot .s-label.st-names { color: #1d6a49; font-weight: 700; }
+.slot .s-label.st-other { color: var(--danger); font-weight: 700; }
+.slot .s-label.st-off { color: #8a7a5a; }
 .slot .s-box.empty ~ .s-label { position: absolute; left: 10%; right: 10%; top: calc((var(--card-h) * 0.72 + 10px) * 0.805); max-width: none; display: block; line-height: calc((var(--card-h) * 0.72 + 10px) * 0.135); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--paper-ink); font-size: 9px; pointer-events: none; }
 /* A token that hurts the charge wears a red shadow. */
 .card.bad .c-face { filter: drop-shadow(0 0 3px rgba(208, 86, 74, 1)) drop-shadow(0 0 6px rgba(208, 86, 74, 0.7)); }
@@ -534,7 +569,13 @@ html[data-flat] #table { perspective: none; }
 .charge.tier-weak .ch-head { color: var(--danger); }
 .charge.tier-reasonable .ch-head { color: #a8711a; }
 .charge.tier-strong .ch-head { color: #2e7a3a; }
-.charge .ch-score { font-family: var(--mono); font-weight: 400; color: #6d5d40; }
+/* The four seals of full proof: lit in their wax, or dark and pale. The numbers are in the dossier. */
+.charge .ch-gates { display: flex; justify-content: space-between; gap: 4px; margin: 0 0 8px; }
+.charge .ch-gate { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.charge .ch-gate i { width: 34px; height: 34px; background: center / contain no-repeat; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45)); transition: opacity 0.3s; }
+.charge .ch-gate em { font-family: var(--serif); font-style: normal; font-size: 10.5px; line-height: 1.15; color: #2a1a10; }
+.charge .ch-gate.off i { opacity: 0.3; filter: grayscale(1); }
+.charge .ch-gate.off em { color: #8a7a5a; }
 .charge .ch-gloss { margin: -4px 0 6px; font-style: italic; font-size: 12px; line-height: 1.3; color: #6d5d40; }
 .charge .ch-row { display: grid; grid-template-columns: 16px 90px 1fr 44px; align-items: center; gap: 6px; margin: 3px 0; color: #6d5d40; }
 .charge .ch-row .chip-icon { width: 16px; height: 16px; }
@@ -929,6 +970,10 @@ html[data-calm] .dlg-levelup.cer .lu-badge, html[data-calm] .dlg-levelup.cer .lu
 html[data-calm] #rank-badge.rank-new { animation: none; filter: drop-shadow(0 0 6px rgba(240, 200, 110, 0.9)); }
 html[data-calm] .verb.done .v-token::before, html[data-calm] .verb.new .v-token::before, html[data-calm] .verb.noticed .v-token::before, html[data-calm] .card.urgent::after, html[data-calm] .card.noticed::after, html[data-calm] .card.merged::after, html[data-calm] .meter.crit .m-icon::after, html[data-calm] .edge-mark b::after, html[data-calm] .verb .v-magnet.asks::after, html[data-calm] #turn .turn-card { animation: none; }
 html[data-calm] .card.urgent::after, html[data-calm] .meter.crit .m-icon::after { opacity: 0.8; }
+html[data-calm] .meter.bump .m-icon, html[data-calm] .meter.bump::before, html[data-calm] .meter.bump .m-icon::before { animation: none; }
+html[data-calm] .meter.bump::before, html[data-calm] .meter.bump .m-icon::before { opacity: 0.9; }
+html[data-calm] .meter.bump-up .m-icon::before { transform: rotate(-90deg); }
+html[data-calm] .meter.bump-down .m-icon::before { transform: rotate(90deg); }
 html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none; }
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes fadeOut { to { opacity: 0; } }
