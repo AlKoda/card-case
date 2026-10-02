@@ -89,8 +89,22 @@
       var onTable = e.cardsOf('order', true).some(function (c) { return c.data.order === room.order; });
       var locked = e.s.rank < order.rank;
       return { key: key, label: room.label, desc: room.desc, cost: Math.max(1, order.cost - orderDiscount(e)), rank: order.rank,
-        state: owned ? 'owned' : locked ? 'locked' : onTable ? 'ordered' : 'open' };
+        state: owned ? 'owned' : locked ? 'locked' : onTable ? 'ordered' : 'open', use: owned ? roomUse(e, key) : 0 };
     });
+  };
+  // What a built room has done for you, where the rules count it (s.roomUse, { room: n }, kept by the engine at
+  // each point a room's effect lands): one short phrase on the tile's foot, so the Coin it cost shows its return.
+  var ROOM_USE = {
+    locker: 'Tokens kept past their fading: {n}', suite: 'Questionings with more Word: {n}', archive: 'Cases opened again: {n}',
+    intel: 'Fronts named, informers seated: {n}', training: 'Coin saved at the drill: {n}', thieftakers: 'Cases settled by the thief-takers: {n}',
+    lab: 'Readings at the bench: {n}', survroom: 'Fronts seen from the Belfry: {n}',
+  };
+  function roomUse(e, key) { var u = e.s.roomUse; return u && typeof u[key] === 'number' && u[key] > 0 ? u[key] : 0; }
+  Precinct.useLine = function (t) { return t.use && ROOM_USE[t.key] ? CF.T(ROOM_USE[t.key], { n: t.use }) : ''; };
+  // The foot of a tile: built (with its return), the office it needs, the petition on the table, or its price.
+  Precinct.foot = function (t) {
+    if (t.state === 'owned') { var used = Precinct.useLine(t); return used ? CF.T('Built · {use}', { use: used }) : CF.T('Built'); }
+    return t.state === 'locked' ? CF.T('Needs {rank}', { rank: CF.RANKS[t.rank] }) : t.state === 'ordered' ? CF.T('Petition on the table') : CF.T('{n} Coin', { n: t.cost });
   };
   // The Clerk's origin takes a Coin off every petition, the board's too.
   function orderDiscount(e) { return e.s.who === 'clerk' ? 1 : 0; }
@@ -129,7 +143,7 @@
       var d = document.createElement('div');
       d.className = 'room ' + t.state;
       d.innerHTML = '<div class="rm-icon" style="background-image:var(--art-' + (ROOM_ICONS[t.key] || 'iplace-10') + ')"></div><div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
-        '<div class="rm-foot">' + esc(t.state === 'owned' ? 'Built' : t.state === 'locked' ? tr('Needs {rank}', { rank: CF.RANKS[t.rank] }) : t.state === 'ordered' ? 'Petition on the table' : tr('{n} Coin', { n: t.cost })) + '</div>';
+        '<div class="rm-foot">' + esc(Precinct.foot(t)) + '</div>';
       if (t.state === 'open') {
         var b = document.createElement('button');
         b.className = 'plate-btn teal small';

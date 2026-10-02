@@ -208,7 +208,13 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   UI.selected = sc.uid;
   render(e);
   var peek = $('#peek').innerHTML;
-  assert.ok(/Mark: /.test(peek), 'the dossier opens with the mark');
+  // Each fact once (Lane 2, item 100): the mark and the role in the description, the case in the kind line.
+  var text = peek.replace(/<[^>]+>/g, ' '), susR = e.suspectOf(sc), mk = CF.TRAITS.filter(function (t) { return t.id === susR.trait; })[0];
+  function times(hay, needle) { return hay.split(needle).length - 1; }
+  assert.strictEqual(times(text, mk.desc.replace(/\.$/, '')), 1, 'the mark is read once: ' + text.slice(0, 400));
+  assert.strictEqual(times(text, susR.role), 1, 'the role once');
+  assert.strictEqual(times(text, rec.title), 1, 'the case once');
+  assert.ok(!/Mark: |Case: |To convict: /.test(text), 'no line repeats what the description, the kind line or the proof row says');
   assert.ok(/data-trait="/.test(peek), 'and carries the mark chip');
   assert.ok(/Still wanted: /.test(peek), 'and says what the charge still lacks: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 300));
   var card = $('#peek').querySelector('.card');
@@ -287,7 +293,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(mel && mel.classList.contains('awaiting'), 'the Condemned waits under the stamp');
   timers.shift()();
   assert.ok(ghost.classList.contains('leaving') && !mel.classList.contains('awaiting'), 'then it comes out of the ghost, and the ghost goes');
-  assert.ok(/translate3d\(/.test(mel.style.transform), 'gliding to its place');
+  assert.ok(/translate\(/.test(mel.style.transform), 'gliding to its place');
   flushTimers();
   // An acquittal: the ribbon, and the crowd.
   var trial2 = e.create('trial', { label: 'Blood Court: Anna Weber', data: { caseId: rec.id, name: 'Anna Weber' } });
@@ -557,7 +563,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.strictEqual(v.x, b0.x, 'the token is back where it was lifted');
   assert.strictEqual(v.y, b0.y);
   assert.ok(!el.classList.contains('dragging'), 'and no longer dragging');
-  assert.ok(el.style.transform.indexOf('translate3d(' + Math.round(b0.x) + 'px,' + Math.round(b0.y) + 'px') === 0, 'placed back: ' + el.style.transform);
+  assert.ok(el.style.transform.indexOf('translate(' + Math.round(b0.x) + 'px,' + Math.round(b0.y) + 'px') === 0, 'placed back: ' + el.style.transform);
   console.log('ui: a cancelled token drag puts the token back');
 })();
 
@@ -746,13 +752,21 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/\.vw-close, \.vw-info, #peek \.peek-close, #peek-x, \.picker \.pk-close, \.side-head button, \.archive-pager \.pg \{ min-width: 44px; min-height: 44px/.test(coarse[1]), 'every small control is 44px');
   assert.ok(/\.card \.c-count::after, \.chip\.big::after \{ content: ''; position: absolute; inset: -10px/.test(coarse[1]), 'the count and the chips get a hit-slop');
   // The Help.
-  var help = /<div class="help-grid">([\s\S]*?)<\/div>\s*<\/div>\s*<div class="row center"><button class="plate-btn redfill" id="help-close">/.exec(html)[1];
-  var heads = help.match(/<h4>[^<]+<\/h4>/g).map(function (x) { return x.slice(4, -5); });
-  assert.deepStrictEqual(heads.slice(0, 7), ['Your table', 'Your first case, in order', 'What a verb finds', 'Asks', 'Proof of six kinds', 'The Court', 'The ladder'], 'the left column is in the order a game is played');
-  assert.deepStrictEqual(heads.slice(-2), ['Keys', 'Time'], 'Keys and Time come last');
-  assert.ok(!/Cards and verbs/.test(help), 'the old heading is gone');
+  // Lane 2, item 97: chapters with a tab row, each in the order a game is played; the words of the city last.
+  var help = /<div class="paper help-paper" id="help-paper">([\s\S]*?)<\/div>\s*<div class="row center"><button class="plate-btn redfill" id="help-close">/.exec(html)[1];
+  var chs = (help.match(/<section class="help-ch" id="([a-z-]+)">/g) || []).map(function (x) { return /id="([a-z-]+)"/.exec(x)[1]; });
+  assert.deepStrictEqual(chs, ['help-goal', 'help-case', 'help-court', 'help-self', 'help-city', 'help-words'], 'five chapters and the words of the city');
+  var tabs = (html.match(/<button data-ch="([a-z-]+)"/g) || []).map(function (x) { return /"([a-z-]+)"/.exec(x)[1]; });
+  assert.deepStrictEqual(tabs, chs, 'a tab for each');
+  var heads = help.match(/<h4[^>]*>(?:<i[^>]*><\/i>)?[^<]+<\/h4>/g).map(function (x) { return x.replace(/<[^>]+>/g, ''); });
+  assert.deepStrictEqual(heads.slice(0, 12), ['Winning', 'Cases', 'Your first days, in order', 'Attend', 'Explore', 'Study', 'Question', 'Rest', 'What a verb finds', 'Asks', 'Proof of six kinds', 'Read everything'], 'the goal, then a case in the order it is played');
+  assert.deepStrictEqual(heads.slice(-3), ['Your table', 'Keys', 'Time'], 'the table, the keys and time close the city');
+  ['duty', 'investigate', 'analyze', 'interrogate', 'reflect', 'arrest', 'time'].forEach(function (v) { assert.ok(new RegExp('<h4 id="' + UI.HELP_AT[v] + '"><i class="hv" style="--i:var\\(--art-cvtok-' + v + '\\)"><\\/i>').test(help), v + ': its heading wears its tile, and a verb window\'s i finds it'); });
+  assert.ok(!/Cards and verbs|Six verbs|Provost|⌂/.test(help), 'the old heading, the five verbs called six, the Provost and the glyph are gone');
+  assert.ok(/<b>confront<\/b> the accused/.test(help) && /Put Health into <b>Attend<\/b> for a day's labour and a Coin/.test(help), 'the first days are the real opening, with the confrontation');
+  ['Carolina', 'Indicia', 'Blood Court', 'Sworn men', 'The Hole', 'Quarter', 'Writ', 'Abroad', 'Dues', 'Standing', 'Token', 'Aspect'].forEach(function (w) { assert.ok(help.indexOf('<p class="hw"><b>' + w + '</b>: ') >= 0, 'the words of the city: ' + w); });
   assert.ok(/<h4>Proof of six kinds<\/h4>\s*<p>[^<]*<\/p>\s*<div id="help-aspects"><\/div>/.test(help), 'the six kinds have their list');
-  assert.ok(/<h4>The Court<\/h4>\s*<p>The Blood Court sits under the Carolina, the Emperor's law of 1532:/.test(help), 'the Court is glossed');
+  assert.ok(/<h4 id="help-court-verb"><i[^>]*><\/i>The Court<\/h4>\s*<p>The Blood Court sits under the Carolina, the Emperor's law of 1532:/.test(help), 'the Court is glossed');
   var asks = /<h4>Asks<\/h4>\s*<p>([^]*?)<\/p>/.exec(help)[1];
   assert.ok(/the box says which\.$/.test(asks) && !/costs nothing/.test(asks) && !/finishes sooner/.test(asks), 'the Help tells the truth about asks');
   assert.ok(/<b>Clear<\/b> hands the cards back\./.test(help) && /The New cards tab marks the collection pile\./.test(help) && !/yellow rail/.test(help), 'the table paragraph names Clear and the tab');
@@ -776,7 +790,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/cbar-01/.test(rule('.banner.lose span')) && /cbar-03/.test(rule('.banner.win span')), 'red on a loss, gold on a win');
   assert.ok(/cwide-03/.test(rule('.end-win .end-card')) && /cwide-04/.test(rule('.end-lose .end-card')), 'the end card is a wide frame of the same tone');
   var statb = rule('.stats b');
-  assert.ok(/width: 72px; height: 72px/.test(statb) && /var\(--c, /.test(statb) && /font-family: var\(--display\)/.test(statb), 'the counters are 72px tiles with the number in the display font');
+  // Lane 2, item 101: the number stands beside its tile, never over it.
+  assert.ok(/width: 40px; height: 40px; font-size: 0/.test(statb) && /var\(--c, /.test(statb) && /font-family: var\(--display\)/.test(rule('.stats em')) && /font-size: 22px/.test(rule('.stats em')), 'the counters are 40px tiles with the number beside them in the display font');
   assert.ok(/'cres-09'\]/.test(main) && /'cres-03'\]/.test(main) && /'cres-12'\]/.test(main) && /'cres-04'\]/.test(main) && /--c:var\(--art-' \+ x\[2\]/.test(main), 'onGameOver sets a counter per tile');
   assert.ok(/'screen-box end-box ' \+ \(over\.win \? 'end-win' : 'end-lose'\)/.test(main) && /'banner ' \+ \(over\.win \? 'win' : 'lose'\)/.test(main) && !/end-card-top/.test(main) && !/modal-box/.test(main), 'and the classes');
   // The pile.
@@ -2405,6 +2420,118 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.strictEqual(document.title, 'Case File: The Free City', 'and back in English');
   assert.ok(/<div class="title-sub" aria-hidden="true">Case File: The Free City<\/div>/.test(html) && /\.title-sub \{ display: none; \}\n\[dir=rtl\] \.title-scene \.title-sub \{ display: block;/.test(css), 'the Arabic name under the plate, only right-to-left');
   console.log('ui: the banner under a finger, the slab pressed, a refused drop, the advisor beside a running verb and for a spent ability, the offices\' Insights, Arabic quotes and title');
+})();
+
+// ---- Round 8, lane 2, items 97-104: the Help by chapter with a verb's way in, the patrons' seals under Standing,
+// a room's return (tests/ranks.test.js), the dossier's band, each fact once and the proof in pips, an ending of its
+// own with its tally beside it, the first paint, the Arabic dossier (tests/i18n.test.js), and no layers at rest.
+(function round8l() {
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  var e = CF.Engine.newGame({ calling: 'master', seed: 3 });
+  UI.attach(e);
+  render(e);
+
+  // Item 104: a card that deals in or flies in is promoted only while it moves; at rest it carries a plain translate.
+  flushTimers();
+  var rec0 = e.openCases()[0];
+  var fresh = e.create('clue', e.clueSpec(rec0, { label: 'A Boot Print', text: 'Mud.', aspects: { forensic: 1 } }));
+  fresh.fresh = true;
+  var flown = e.create('clue', e.clueSpec(rec0, { label: 'A Torn Glove', text: 'Kid leather.', aspects: { opportunity: 1 } }));
+  UI.spawn[flown.uid] = { cx: 10, cy: 10, gx: 0, gy: 0 };
+  render(e);
+  var fel = $('#board').querySelector('.card[data-uid=' + fresh.uid + ']'), wel = $('#board').querySelector('.card[data-uid=' + flown.uid + ']');
+  assert.ok(fel && fel.classList.contains('arrive') && wel && wel.classList.contains('flying'), 'a new card deals in, a taken one flies');
+  flushTimers();
+  var still = $('#board').querySelectorAll('.card').filter(function (c) { return c.classList.contains('arrive') || c.classList.contains('flying'); });
+  assert.strictEqual(still.length, 0, 'no card at rest keeps .arrive or .flying (and so no will-change)');
+  assert.ok(/^translate\(-?\d+px,-?\d+px\)$/.test(fel.style.transform), 'a resting card has no 3D hint: ' + fel.style.transform);
+  // The ropes' and pins' layers are the ropes' size, not the table's.
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  e.dirty = true; render(e); UI.syncLinks();
+  var pins = $('#board').children.filter(function (c) { return /\bpins\b/.test(c.getAttribute('class') || ''); })[0];
+  var B = CF.TABLE.BOUNDS;
+  assert.ok(pins && parseFloat(pins.style.width) > 0 && parseFloat(pins.style.width) < B.w && parseFloat(pins.style.height) < B.h, 'the pins layer is fitted to its ropes: ' + (pins && pins.style.width + ' x ' + pins.style.height));
+  assert.strictEqual(pins.getAttribute('viewBox'), parseFloat(pins.style.left) + ' ' + parseFloat(pins.style.top) + ' ' + parseFloat(pins.style.width) + ' ' + parseFloat(pins.style.height), 'drawn one to one');
+  UI.fitLayers(null);
+  assert.strictEqual(pins.style.width, '0px', 'nothing tied, no size');
+  assert.ok(/visibility: hidden/.test(rule('#journal-drawer')) && /visibility 0s linear 0\.25s/.test(rule('#journal-drawer')) && /visibility: visible/.test(rule('#journal-drawer.open')), 'the closed journal is hidden once it has slid out');
+
+  // Item 98: the patrons' seals under Standing, a word for each and the next step.
+  e.s.favour = { council: 3, bishop: -2, guild: 1 };
+  UI.showMeterInfo('reputation');
+  var peek = $('#peek').innerHTML;
+  assert.ok(/class="i-favour"/.test(peek) && (peek.match(/class="fv-row /g) || []).length === 3, 'three seal rows: ' + peek.slice(0, 200));
+  assert.ok(/Your patron/.test(peek) && /Now: Suspicion falls a step each week/.test(peek), 'the Council at 3 is your patron, and its boon is now');
+  assert.ok(/Cold/.test(peek) && /Now: The Inquisitor comes/.test(peek) && /At 3: A bed in the Abbey hospital/.test(peek), 'the Bishop at -2: the Inquisitor now, the bed at 3');
+  assert.ok(/Warm/.test(peek) && /At 3: Now and then the guilds/.test(peek) && !/At -2: [^<]*guild/i.test(peek), 'the Guilds warm, with no threat to name');
+  assert.ok(peek.indexOf(PATRON_ART_OF('council')) >= 0, 'each row wears its patron\'s seal');
+  function PATRON_ART_OF(k) { return 'var(--art-' + { council: 'casp-05', bishop: 'casp-04', guild: 'cres-01' }[k] + ')'; }
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  var calling = e.tableCards().filter(function (c) { return CF.CARDS[c.def].kind === 'calling'; })[0];
+  if (calling) assert.ok(UI.dossierLines(calling).some(function (l) { return l === 'Favour: The Council: Your patron · The Bishop: Cold · The Guilds: Warm'; }), 'the Calling names each patron\'s favour in a word');
+  e.s.favour = { council: 0, bishop: 0, guild: 0 };
+
+  // Item 100: the band carries the seal and the name; each fact once; the proof in pips with its sentences as title.
+  var head = new El('div'); head.id = 'peek-head'; body.appendChild(head);
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  UI.selected = sc.uid; render(e);
+  assert.ok(head.classList.contains('on') && head.innerHTML.indexOf(e.labelOf(sc)) >= 0 && /k-icon/.test(head.innerHTML), 'the band: the kind\'s seal and the name');
+  peek = $('#peek').innerHTML;
+  assert.ok(!/<h4>/.test(peek), 'no second name under the card');
+  var proof = $('#peek').querySelector('.i-proof');
+  var prof = CF.Charge.profileOf(rec);
+  assert.ok(proof && proof.querySelectorAll('.pf-chip').filter(function (c) { return !c.classList.contains('pf-word'); }).length === Object.keys(prof).length, 'a chip for each kind the case turns on');
+  assert.ok(/^To convict: /.test(proof.title) && / · Still wanted: /.test(proof.title), 'the sentences are its title: ' + proof.title);
+  var pr = UI.proofRow(sc);
+  pr.rows.forEach(function (r) { assert.ok(r.have <= r.need, 'pips never overflow'); });
+  var chip = proof.querySelector('.pf-chip b');
+  assert.ok(/^[●○]+$/.test(chip.textContent), 'filled and empty pips: ' + chip.textContent);
+  UI.selected = null; render(e);
+  body.removeChild(head);
+
+  // Item 101: every ending its own picture; the tally's number beside its tile; a phone on its side keeps two columns.
+  var ea = /var ENDING_ART = (\{[\s\S]*?\});/.exec(main);
+  var EA = (0, eval)('(' + ea[1] + ')');
+  Object.keys(CF.ENDINGS).forEach(function (id) { assert.ok(EA[id], id + ' has its picture'); });
+  var losing = ['dismissed', 'burnout', 'collapse', 'consumed', 'corruption', 'death', 'riot', 'hangmans', 'dagger', 'stake', 'oldbailey'];
+  var seen = {};
+  losing.forEach(function (id) { assert.ok(!seen[EA[id]], id + ' does not share ' + EA[id] + ' with ' + seen[EA[id]]); seen[EA[id]] = id; });
+  assert.strictEqual(EA.death, 'cback-04', 'the skull is death\'s alone');
+  assert.ok(/<b><\/b><em>0<\/em><span>/.test(main) && /countUp\(/.test(main) && /classList\.add\('dealt'\)/.test(main), 'the tally counts up beside its tiles, the card is dealt');
+  assert.ok(/@media \(max-height: 520px\) \{\n  \.end-box \.end-paper \{ grid-template-columns: 150px 1fr; \}/.test(css), 'a phone on its side keeps the card beside the words');
+  assert.ok(/animation: flipIn 0\.5s/.test(rule('.end-box.dealt .end-card')) && /animation: stamp 0\.45s ease-out 0\.4s/.test(rule('.end-box.dealt .end-card .ec-seal')), 'the card deals in and the wax lands after');
+
+  // Item 103: the first paint waits for nothing heavy.
+  var headHtml = /<head>([\s\S]*?)<\/head>/.exec(html)[1];
+  assert.ok(headHtml.indexOf('<style>html,body{background:#0b1516}</style>') >= 0 && headHtml.indexOf('<style>') < headHtml.indexOf('rel="stylesheet"'), 'the page is dark before any sheet');
+  ['css/art/noir-tables.css', 'css/art/cm-cards.css', 'css/art/cm-icons.css'].forEach(function (f) {
+    assert.ok(new RegExp('<link rel="stylesheet" href="' + f.replace(/\./g, '\\.') + '" media="print" onload="this\\.media=\'all\';window\\.CF&amp;&amp;CF\\.artLoaded&amp;&amp;CF\\.artLoaded\\(\\)" onerror="this\\.media=\'all\'').test(headHtml), f + ' loads beside the page');
+    assert.ok(/<noscript>[^\n]*/.exec(headHtml)[0].indexOf(f) >= 0, f + ' without scripts too');
+  });
+  ['css/fonts.css', 'css/art/menu.css', 'css/art/deck-menu.css', 'css/art/cm-ui.css', 'css/style.css'].forEach(function (f) { assert.ok(headHtml.indexOf('<link rel="stylesheet" href="' + f + '">') >= 0, f + ' holds the first paint'); });
+  assert.ok(/CF\.artLoaded = function/.test(main) && /'art-wait'/.test(main) && /link\[media="print"\]/.test(main) && /whenArt\(function \(\) \{ if \(continueGame\(\)\)/.test(main), 'New Game and Continue wait for the art, and so does a resume');
+  assert.ok(/#title\.art-wait #t-new \.mi, #title\.art-wait #t-continue \.mi \{ background-image: var\(--art-ctimer-01\)/.test(css), 'an hourglass turns in their place');
+
+  // Item 97: a verb window's i opens the Help at its verb.
+  var asked = null;
+  CF.openHelp = function (at) { asked = at; };
+  UI.openVerbs = [];
+  UI.about = 'interrogate';
+  UI.openWindow('interrogate');
+  render(e);
+  var hb = $('#windows').querySelector('.vw-help');
+  assert.ok(hb && /bround-22/.test(hb.style.backgroundImage) && hb.title === 'How to Play', 'the book, no words');
+  hb.click();
+  assert.strictEqual(asked, 'help-question', 'it opens the Help at Question');
+  Object.keys(UI.HELP_AT).forEach(function (v) { assert.ok(html.indexOf('id="' + UI.HELP_AT[v] + '"') >= 0, v + ': its heading is in the Help'); });
+  delete CF.openHelp; UI.about = null;
+  while (UI.openVerbs.length) UI.back();
+  assert.ok(/openHelp\('title'\)/.test(main) && /CF\.openHelp = function \(at\)/.test(main) && /target\.scrollIntoView\(\{ block: 'start' \}\)/.test(main), 'the Help opens at a heading when asked');
+  console.log('ui: the Help by chapter and a verb\'s way in, the patrons\' seals, the dossier\'s band and pips, an ending of its own, the first paint, no layers at rest');
 })();
 
 void realSetTimeout;

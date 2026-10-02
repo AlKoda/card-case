@@ -110,8 +110,13 @@
   var returnTo = 'title'; // where Back goes from Settings / Archive
 
   var CALLING_ART = { commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
-  var ENDING_ART = { dismissed: 'cback-04', burnout: 'cback-04', collapse: 'cback-04', consumed: 'cback-02', corruption: 'cback-06',
-    death: 'cback-04', riot: 'cback-01', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cback-06', treatycity: 'cback-05', merciful: 'cback-03', hangmans: 'cback-04', stake: 'cback-01', dagger: 'cback-04', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
+  // Every ending its own whole tile, so losing the office never reads as dying: the tower for the letter taken back,
+  // the moon for the Fever, the hourglass for the fall on the stair, the eye for the case that swallows you, the
+  // snake for the Council's sergeants, the burning street for the Crowd, the skull for death alone, the dagger, the rope; the sun
+  // for mercy, the key for the Treaty, the lion for the King of Thunes.
+  var ENDING_ART = { dismissed: 'cherald2-06', burnout: 'cmyst-01', collapse: 'cmyst-03', consumed: 'cmyst-04', corruption: 'cmyst-06',
+    death: 'cback-04', riot: 'ccrime-03', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cherald2-01', treatycity: 'cherald2-05', merciful: 'cmyst-02', hangmans: 'citem-07', stake: 'cback-01', dagger: 'citem2-07', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
+  UI.ENDING_ART = ENDING_ART;
 
   // What would have saved you, under a losing ending: one line with the threat's seal. The rules' own lesson
   // (CF.ENDINGS[id].lesson) where they give one; the cause the engine keeps (s.over.cause) makes it particular.
@@ -173,19 +178,52 @@
     $('end-lesson').classList.toggle('hidden', !lesson);
     $('end-lesson-icon').style.backgroundImage = lesson ? 'var(--art-' + lesson.art + ')' : '';
     $('end-lesson-text').textContent = lesson ? lesson.text : '';
-    // The tally as painted counters: the crown, the eye, the moon, the fire.
-    $('end-stats').innerHTML = [
+    // The tally as painted counters: the crown, the eye, the moon, the fire, each with its number beside it.
+    var tally = [
       ['Convictions', st.convictions, 'cres-09'], ['Acquittals', st.acquittals, 'cres-03'], ['Unanswered', st.cold, 'cres-12'], ['Wrongful', st.wrongful, 'cres-04'],
-    ].map(function (x) { return '<div style="--c:var(--art-' + x[2] + ')"><b>' + (x[1] || 0) + '</b><span>' + tr(x[0]) + '</span></div>'; }).join('');
+    ];
+    $('end-stats').innerHTML = tally.map(function (x) { return '<div style="--c:var(--art-' + x[2] + ')"><b></b><em>0</em><span>' + tr(x[0]) + '</span></div>'; }).join('');
+    // The card is dealt in, the wax comes down on it, and the counters count up from nothing.
+    var box = $('end').querySelector('.screen-box');
+    box.classList.remove('dealt'); void box.offsetWidth; box.classList.add('dealt');
+    countUp($('end-stats').querySelectorAll('em'), tally.map(function (x) { return x[1] || 0; }));
     CF.Audio.play(over.win ? 'victory' : 'defeat');
     only('end');
   };
+  // The tally counts up over 0.8 s (at once where the player asked for less motion).
+  var countTimer = null;
+  function countUp(els, to) {
+    clearInterval(countTimer);
+    var calm = document.documentElement.hasAttribute('data-calm') || (CF.Settings.reducedMotion && CF.Settings.reducedMotion());
+    var steps = calm ? 1 : 16, n = 0;
+    function draw() { n++; for (var i = 0; i < els.length; i++) els[i].textContent = String(Math.round(to[i] * Math.min(1, n / steps))); if (n >= steps) clearInterval(countTimer); }
+    if (calm) { draw(); return; }
+    countTimer = setInterval(draw, 50);
+  }
 
   // ---------------------------------------------------------------- Title
   function openTitle() {
     $('t-continue').classList.toggle('hidden', !saveParses());
+    artGate();
     only('title');
   }
+
+  // The heavy art sheets load beside the page (index.html, media="print" until they arrive). Until all three
+  // are in, New Game and Continue wait, an hourglass turning in place of their icons: no table is dealt bare.
+  function artReady() { return !document.querySelector('link[media="print"]'); }
+  var artWaiters = [];
+  function artGate() {
+    var wait = !artReady();
+    $('title').classList.toggle('art-wait', wait);
+    ['t-new', 't-continue'].forEach(function (id) { $(id).disabled = wait; });
+  }
+  CF.artLoaded = function () {
+    if (!artReady()) return;
+    artGate();
+    var fns = artWaiters; artWaiters = [];
+    fns.forEach(function (fn) { fn(); });
+  };
+  function whenArt(fn) { if (artReady()) fn(); else artWaiters.push(fn); }
 
   // A new game starts at once: a name and a past drawn for you, the calling
   // chosen in play. A predecessor's desk is taken up when the ending offers it.
@@ -243,6 +281,38 @@
     }
   }
 
+  // The Help: from the top (or at one heading, where a verb window's i sends the reader), its tab lit.
+  function openHelp(from, at) {
+    returnTo = from;
+    only('help');
+    var paper = $('help-paper'), target = at && $(at);
+    if (!paper) return;
+    if (target && target.scrollIntoView) {
+      target.scrollIntoView({ block: 'start' });
+      target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
+    } else paper.scrollTop = 0;
+    helpTab();
+  }
+  CF.openHelp = function (at) { openHelp(inGame ? 'game' : 'title', at); };
+  // The tab of the chapter in view is lit; a tab scrolls its chapter into view.
+  function helpTab() {
+    var paper = $('help-paper');
+    if (!paper) return;
+    var top = paper.getBoundingClientRect().top, cur = null;
+    document.querySelectorAll('#help-paper .help-ch').forEach(function (c) { if (c.getBoundingClientRect().top - top <= 40 || !cur) cur = c.id; });
+    // At the foot of the paper the last chapter is the one being read.
+    if (paper.scrollTop + paper.clientHeight >= paper.scrollHeight - 4) { var all = document.querySelectorAll('#help-paper .help-ch'); if (all.length) cur = all[all.length - 1].id; }
+    document.querySelectorAll('#help-tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.ch === cur); });
+  }
+  if ($('help-paper')) $('help-paper').addEventListener('scroll', helpTab, { passive: true });
+  document.querySelectorAll('#help-tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      CF.Audio.play('click');
+      var c = $(b.dataset.ch);
+      if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('#help-tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+  });
   function openSettings(from) { returnTo = from; CF.SettingsUI.open(); only('settings'); }
   function openArchive(from) { returnTo = from; CF.Archive.open(); only('archive'); }
   function goBack() { if (returnTo === 'menu') only('menu'); else if (returnTo === 'end') only('end'); else openTitle(); }
@@ -254,7 +324,7 @@
   click('t-continue', continueGame);
   click('t-archive', function () { openArchive('title'); });
   click('t-settings', function () { openSettings('title'); });
-  click('t-help', function () { returnTo = 'title'; only('help'); });
+  click('t-help', function () { openHelp('title'); });
   // The language button on the title screen cycles through the languages.
   function langButton() { var b = $('t-lang'), w = b && (b.querySelector('span') || b); if (w) w.textContent = CF.LANGS[CF.lang()].name; }
   click('t-lang', function () {
@@ -279,12 +349,12 @@
     if (inGame) { only('menu'); return true; }
     return false;
   };
-  click('btn-help', function () { returnTo = 'game'; only('help'); });
+  click('btn-help', function () { openHelp('game'); });
   click('btn-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   click('m-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   // On a phone the top bar keeps only the clock and the menu: the journal and the Help live here.
   click('m-journal', function () { only(null); UI.toggleJournal(true); });
-  click('m-help', function () { returnTo = 'game'; only('help'); });
+  click('m-help', function () { openHelp('game'); });
   click('precinct-close', function () { only(null); });
   click('help-close', function () { if (returnTo === 'title') openTitle(); else only(null); });
   click('btn-menu', function () { only('menu'); });
@@ -372,7 +442,7 @@
       else history.back();
     });
   }
-  if (resume && saveParses() && continueGame()) UI.setPaused(true);
+  if (resume && saveParses()) whenArt(function () { if (continueGame()) UI.setPaused(true); });
   else {
     // A table is always showing behind the title screen (and behind the word
     // about a save that could not be read, which continueGame has put up).

@@ -243,8 +243,9 @@ html[data-flat] #table { perspective: none; }
 #hint.advice { filter: drop-shadow(0 0 6px rgba(212, 162, 76, 0.55)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55)); }
 #hint.advice::before { filter: drop-shadow(0 0 4px rgba(212, 162, 76, 0.9)); }
 /* The journal: a drawer over the right of the table, shown on request. */
-#journal-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 90%); transform: translateX(105%); transition: transform 0.25s ease; z-index: 30; border-left: 1px solid var(--line); background: rgba(22, 24, 28, 0.97); display: flex; flex-direction: column; min-height: 0; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5); }
-#journal-drawer.open { transform: translateX(0); }
+/* Closed, the drawer is hidden as well as slid out, so it is not kept as a painted layer off the edge; it hides once the slide is over. */
+#journal-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 90%); transform: translateX(105%); visibility: hidden; transition: transform 0.25s ease, visibility 0s linear 0.25s; z-index: 30; border-left: 1px solid var(--line); background: rgba(22, 24, 28, 0.97); display: flex; flex-direction: column; min-height: 0; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5); }
+#journal-drawer.open { transform: translateX(0); visibility: visible; transition: transform 0.25s ease, visibility 0s; }
 /* The drawer's head is the small blue banner (cbar-02); the journal below it is paper. */
 .side-head { display: flex; justify-content: space-between; align-items: center; margin: 6px 10px 0; padding: 2px 6px 2px 14px; border: solid transparent; border-width: 20px 36px; border-image: var(--art-cbar-02) 46 60 fill / 20px 26px stretch; background: none; color: #1c1914; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; }
 .side-head button { background: none; border: none; color: #1c1914; font-size: 20px; cursor: pointer; padding: 0 4px; margin: -10px 0; }
@@ -275,6 +276,20 @@ html[data-flat] #table { perspective: none; }
 #peek-x { display: none; position: absolute; z-index: 27; width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%; background: none; color: transparent; font-size: 0; cursor: pointer; }
 #peek.open + #peek-x { display: block; left: calc(318.4px * var(--ui-scale, 1) - 22px); top: calc(36.5px * var(--ui-scale, 1) - 22px); }
 #peek-x:hover { box-shadow: 0 0 12px rgba(255, 120, 100, 0.7); }
+/* The panel's painted band carries the kind's seal and the name (the panel's own content starts under it), clear
+   of the X; it is drawn beside the panel like the X, and shows while the dossier is open. */
+#peek-head { display: none; position: absolute; z-index: 27; left: 32px; top: 15px; width: 262px; height: 38px; align-items: center; gap: 8px; color: var(--paper); pointer-events: none; overflow: hidden; zoom: var(--ui-scale, 1); }
+#peek.open ~ #peek-head.on { display: flex; }
+#peek-head .k-icon { flex: none; width: 26px; height: 26px; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
+#peek-head h4 { margin: 0; min-width: 0; font-family: var(--display); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
+/* What a charge needs and has, in icons: each kind of proof with its pips (filled, had; empty, wanted). */
+#peek .i-proof { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 6px 0; }
+#peek .pf-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px 2px 3px; border-radius: 12px; background: rgba(120, 90, 50, 0.12); box-shadow: inset 0 0 0 1px rgba(120, 90, 50, 0.35); }
+#peek .pf-chip .chip-icon { width: 22px; height: 22px; }
+#peek .pf-chip b { font-size: 14px; line-height: 1; letter-spacing: 1px; color: #7c1d15; }
+#peek .pf-chip.met { box-shadow: inset 0 0 0 1px rgba(80, 110, 60, 0.6); }
+#peek .pf-chip.met b { color: #4c6a33; }
+#peek .pf-chip.pf-word b { color: #5a4f3a; }
 
 /* ---------- Verbs ---------- */
 /* Tokens sit on the board and can be dragged anywhere; clicking opens a window. */
@@ -532,6 +547,17 @@ html[data-flat] #table { perspective: none; }
 #peek .i-meter { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; }
 #peek .i-meter .m-icon { width: 34px; height: 34px; background: center / contain no-repeat; }
 #peek .i-meter h4 { margin: 0; }
+/* Under Standing: a row for each patron, their seal, a word for their favour and the next step. */
+#peek .i-favour { margin: 8px 0 2px; display: grid; gap: 6px; }
+#peek .fv-row { display: grid; grid-template-columns: 26px auto 1fr; align-items: center; column-gap: 6px; row-gap: 1px; padding: 4px 6px; border-inline-start: 3px solid #b8a27a; background: rgba(120, 90, 50, 0.08); }
+#peek .fv-row i { grid-row: span 3; width: 26px; height: 26px; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+#peek .fv-row b { font-family: var(--display); font-size: 12.5px; }
+#peek .fv-row em { justify-self: end; font-style: normal; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #5a4f3a; }
+#peek .fv-row span { grid-column: 2 / -1; font-size: 12px; line-height: 1.3; color: #3a3127; }
+#peek .fv-row.fv-patron { border-inline-start-color: #b8913f; } #peek .fv-row.fv-patron em { color: #8a6a1f; }
+#peek .fv-row.fv-warm em { color: #6d6a2a; }
+#peek .fv-row.fv-cold { border-inline-start-color: #a0463a; } #peek .fv-row.fv-cold em { color: #a0463a; }
+#peek .fv-seal { font-size: 12px; color: #5a4f3a; }
 .meter { cursor: pointer; }
 /* A notice at the table's edge, pointing at something worth a look. */
 .edge-mark { position: absolute; z-index: 28; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding-block: 4px; padding-inline: 6px 10px; border-radius: 16px; background: rgba(14, 12, 10, 0.9); border: 1px solid var(--accent); color: var(--paper); font-family: var(--display); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; animation: markIn 0.25s ease-out; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6); }
@@ -739,19 +765,41 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .field label { font-size: 13px; color: var(--ink-dim); }
 .modal .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .help-paper { padding: 14px 26px 18px; font-family: var(--serif); }
-.help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 32px; font-size: 14.5px; line-height: 1.5; }
-.help-grid h4 { display: flex; align-items: center; gap: 8px; margin: 14px 0 3px; font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; font-size: 14px; color: #1f1b15; }
-.help-grid h4::before { content: '◈'; font-size: 11px; color: #8f7440; }
-.help-grid h4::after { content: ''; flex: 1; border-bottom: 1px solid #c9b78f; }
-.help-grid p { margin: 0; color: #2a2317; }
-.help-grid p + p { margin-top: 6px; }
-.help-grid b { color: #7c1d15; }
+/* The Help: a row of chapter tabs over one scrolling paper; each chapter flows in two columns on a wide screen. */
+/* In a verb window's about: the book that opens the Help at this verb. */
+.vwin .vw-help { display: block; width: 34px; height: 34px; margin: 4px 0 2px; padding: 0; border: none; border-radius: 50%; background: center / contain no-repeat; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.vwin .vw-help:hover { filter: drop-shadow(0 0 6px rgba(212, 162, 76, 0.9)); }
+.help-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 8px; }
+.help-tabs button { display: flex; align-items: center; gap: 8px; padding: 5px 12px; background: linear-gradient(#171b1d, #0e1112); color: var(--paper); border: 1px solid #6b5634; font-family: var(--serif); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12.5px; cursor: pointer; box-shadow: inset 0 0 0 2px #0a0c0d, inset 0 0 0 3px #3a3122; }
+.help-tabs button.on { background: linear-gradient(#8e1f1c, #5d1210); border-color: #d05a4a; }
+.help-tabs .ico { flex: none; width: 20px; height: 20px; background: center / contain no-repeat; }
+.help-ch { scroll-margin-top: 6px; }
+.help-ch + .help-ch { margin-top: 18px; padding-top: 4px; border-top: 2px solid #c9b78f; }
+.help-ch h3 { margin: 6px 0 2px; font-family: var(--display); font-size: 19px; letter-spacing: 0.06em; text-transform: uppercase; color: #7c1d15; }
+.help-cols { columns: 2; column-gap: 32px; font-size: 14.5px; line-height: 1.5; }
+.help-cols h4 { display: flex; align-items: center; gap: 8px; margin: 14px 0 3px; font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; font-size: 14px; color: #1f1b15; break-after: avoid; scroll-margin-top: 6px; }
+.help-cols h4::before { content: '◈'; font-size: 11px; color: #8f7440; }
+.help-cols h4:has(.hv)::before { content: none; }
+.help-cols h4::after { content: ''; flex: 1; border-bottom: 1px solid #c9b78f; }
+.help-cols h4 .hv { flex: none; width: 30px; height: 30px; border-radius: 5px; background: var(--i) center / 100% 100% no-repeat; box-shadow: 0 2px 0 #1a1410, 0 3px 4px rgba(0, 0, 0, 0.4); }
+.help-cols h4:first-child { margin-top: 4px; }
+.help-cols p { margin: 0; color: #2a2317; break-inside: avoid; }
+.help-cols p + p { margin-top: 6px; }
+.help-cols b { color: #7c1d15; }
+.help-cols p.hw { margin: 0 0 6px; }
+/* Where a verb window's i sent the reader: the heading glows for a moment. */
+.help-cols h4.flash { animation: helpFlash 1.6s ease-out; }
+@keyframes helpFlash { 0%, 40% { background: rgba(212, 162, 76, 0.45); } 100% { background: transparent; } }
 /* The ending's tally: painted counters (--c is the tile: the crown, the eye, the moon, the fire) with
-   the number in the middle. */
-.stats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 14px 0 4px; }
-.stats div { width: 84px; text-align: center; }
-.stats b { display: flex; align-items: center; justify-content: center; width: 72px; height: 72px; margin: 0 auto 2px; background: var(--c, var(--art-cres-09)) center / contain no-repeat; clip-path: ellipse(50% 44% at 50% 49.5%); font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; color: var(--paper); text-shadow: 0 0 3px #000, 0 0 6px #000, 0 2px 3px #000; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5)); }
-.stats span { display: block; font-family: var(--mono); font-size: 10.5px; color: #5a4f3a; text-transform: uppercase; letter-spacing: 0.08em; line-height: 1.2; }
+   the number beside the icon, never over it, and the word under both. */
+.stats { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 4px; }
+.stats div { display: grid; grid-template-columns: 40px auto; align-items: center; column-gap: 6px; }
+.stats b { width: 40px; height: 40px; font-size: 0; background: var(--c, var(--art-cres-09)) center / contain no-repeat; clip-path: ellipse(50% 44% at 50% 49.5%); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+.stats em { font-style: normal; font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1; color: #1f1b15; min-width: 1.4em; }
+.stats span { grid-column: 1 / -1; display: block; margin-top: 2px; font-family: var(--mono); font-size: 10.5px; color: #5a4f3a; text-transform: uppercase; letter-spacing: 0.08em; line-height: 1.2; }
+/* The end card is dealt in, and the rank's wax lands on it after; the counters count up (js/main.js). */
+.end-box.dealt .end-card { animation: flipIn 0.5s ease-out backwards; }
+.end-box.dealt .end-card .ec-seal { animation: stamp 0.45s ease-out 0.4s both; }
 .banner.lose span { border-image-source: var(--art-cbar-01); }
 .banner.win span { border-image-source: var(--art-cbar-03); }
 .end-paper { flex: 1 1 auto; min-height: 150px; overflow: auto; display: grid; grid-template-columns: 240px 1fr; gap: 20px; align-items: start; padding: 18px 22px; font-family: var(--serif); }
@@ -775,7 +823,9 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
   #toasts { width: 300px; }
   .vwin { width: min(370px, calc(100% - 8px)); }
   .callings { grid-template-columns: 1fr; }
-  .help-grid { grid-template-columns: 1fr; }
+  .help-cols { columns: 1; }
+  .help-tabs button { font-size: 10.5px; padding: 4px 8px; gap: 5px; letter-spacing: 0.04em; }
+  .help-tabs .ico { width: 16px; height: 16px; }
   /* The bar in one 44px row: icon-only meters, a short week, the play button alone (it cycles the speed);
      the journal, the Watch-house and the Help are in the pause menu. */
   #topbar { gap: 6px; padding: 4px 8px; min-height: 44px; }
@@ -844,6 +894,10 @@ html[data-calm] .title-scene::before, html[data-calm] .title-scene::after { anim
 .title-buttons .plate-btn, #menu .plate-btn { display: flex; align-items: center; justify-content: center; gap: 10px; text-align: start; line-height: 1.3; }
 .plate-btn .mi { display: block; flex: none; width: 28px; height: 28px; margin: -6px 0; background: var(--i) center / 100% 100% no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
 .title-scene .title-buttons .plate-btn.hidden { display: none !important; }
+/* Until the art has loaded, New Game and Continue wait: an hourglass turns where their icons were (js/main.js). */
+#title.art-wait #t-new, #title.art-wait #t-continue { cursor: progress; filter: saturate(0.6) brightness(0.92); }
+#title.art-wait #t-new .mi, #title.art-wait #t-continue .mi { background-image: var(--art-ctimer-01); animation: glassTurn 1.6s ease-in-out infinite; }
+@keyframes glassTurn { 0%, 35% { transform: rotate(0); } 65%, 100% { transform: rotate(180deg); } }
 .title-logo { width: min(620px, 92vw); aspect-ratio: 736 / 214; background: var(--art-logo) center / contain no-repeat; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.7)); }
 .title-buttons { display: flex; flex-direction: column; gap: 12px; width: min(340px, 86vw); }
 
@@ -965,11 +1019,18 @@ html[data-calm] .title-scene::before, html[data-calm] .title-scene::after { anim
   .archive-grid { grid-template-columns: repeat(2, 1fr); }
   .end-paper { grid-template-columns: 1fr; gap: 10px; padding: 12px 14px; }
   .end-card { width: 200px; margin: 0 auto; }
-  .stats { justify-content: center; gap: 4px 4px; }
-  .stats div { width: 72px; }
-  .stats b { width: 56px; height: 56px; font-size: 20px; }
-  .stats span { font-size: 9px; letter-spacing: 0.02em; }
+  .stats { display: grid; grid-template-columns: repeat(4, max-content); justify-content: center; gap: 6px 10px; }
+  .stats b { width: 34px; height: 34px; }
+  .stats div { grid-template-columns: 34px auto; }
+  .stats em { font-size: 19px; }
+  .stats span { font-size: 9px; letter-spacing: 0; }
   .banner span { padding: 10px 34px; }
+}
+/* A phone on its side: the card stays beside the words, so the tally is not pushed under the fold. */
+@media (max-height: 520px) {
+  .end-box .end-paper { grid-template-columns: 150px 1fr; }
+  .end-box .end-paper .end-card { width: 150px; margin: 0; }
+  .end-box .stats { justify-content: flex-start; }
 }
 
 /* Top bar: rank badge and the sun-to-moon week bar. */
@@ -1223,7 +1284,7 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
 /* Arabic has no italic: emphasis is carried by colour, as the help already does. */
 [dir=rtl] * { font-style: normal !important; }
 [dir=rtl] #topbar .brand { font-size: 19px; }
-[dir=rtl] .story p, [dir=rtl] .vw-desc, [dir=rtl] .journal-entry p, [dir=rtl] .modal p, [dir=rtl] #peek p, [dir=rtl] .help-grid p, [dir=rtl] .lead { line-height: 1.75; }
+[dir=rtl] .story p, [dir=rtl] .vw-desc, [dir=rtl] .journal-entry p, [dir=rtl] .modal p, [dir=rtl] #peek p, [dir=rtl] .help-cols p, [dir=rtl] .lead { line-height: 1.75; }
 [dir=rtl] .toast.leaving { transform: translateX(20px); }
 /* The bars read from the right: the bar and its socket are mirrored, the medallion's icon is not (the hint's eye is the same either way). */
 [dir=rtl] .toast::after, [dir=rtl] .toast::before, [dir=rtl] #hint::after, [dir=rtl] #hint::before { transform: scaleX(-1); }

@@ -171,16 +171,45 @@ function readGame(e) {
   if (e.s.choice) { read(e.s.choice.title); read(e.s.choice.text); (e.s.choice.options || []).forEach(function (o) { read(o.label); read(o.text); read(o.gain); }); }
   if (e.s.over) { read(e.s.over.title); read(e.s.over.text); }
 }
+var games = [];
 [0, 1, 2].forEach(function (g) {
   var e = CF.Engine.newGame({ seed: 900 + g, calling: ['master', 'commissioner', 'crusader'][g], who: CF.ORIGIN_ORDER[g] });
   bot.play(e, 60 * 22, ['custom', 'merciful', 'brutal'][g]);
   readGame(e);
+  games.push(e);
 });
 [0, 1, 2, 3].forEach(function (g) {
   var e = CF.Engine.newGame({ seed: 930 + g, calling: ['master', 'commissioner', 'crusader', 'master'][g], who: CF.ORIGIN_ORDER[g % CF.ORIGIN_ORDER.length], life: true, opening: true, guided: true, name: 'Vogel' });
   bot.play(e, 60 * 25, ['custom', 'merciful', 'brutal', 'corrupt'][g]);
   readGame(e);
+  games.push(e);
 });
+// The dossier of every card on those tables, as js/ui.js composes it (UI.dossierLines, no page needed): the
+// conviction profile, an instrument's boosts, the Calling's notes, a witness's word all read whole.
+(function dossiers() {
+  var stub = { addEventListener: function () {}, querySelector: function () { return null; }, querySelectorAll: function () { return []; }, documentElement: {} };
+  var saved = { document: globalThis.document, window: globalThis.window, matchMedia: globalThis.matchMedia, addEventListener: globalThis.addEventListener };
+  globalThis.window = globalThis; globalThis.document = stub; globalThis.matchMedia = function () { return { matches: false, addEventListener: function () {} }; }; globalThis.addEventListener = function () {};
+  CF.Settings = CF.Settings || { get: function () {}, onChange: function () {} };
+  CF.Audio = CF.Audio || { play: function () {} };
+  require('vm').runInThisContext(fs.readFileSync(path.join(root, 'js/ui.js'), 'utf8'), { filename: 'js/ui.js' });
+  var n = 0;
+  games.forEach(function (e) {
+    CF.UI.e = e;
+    // The lines are composed with tracking off (a template asked with its values is not a line anyone reads), and
+    // then read as the player reads them.
+    e.tableCards().forEach(function (c) {
+      if (c.hidden) return;
+      CF.I18N.track = false;
+      var lines = CF.UI.dossierLines(c);
+      CF.I18N.track = true;
+      lines.forEach(function (l) { read(l); n++; });
+    });
+  });
+  CF.UI.e = null;
+  Object.keys(saved).forEach(function (k) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; });
+  assert.ok(n > 200, 'the dossiers of the played tables were read: ' + n);
+})();
 // What the interface itself says of the city's life: the asks, the choices, the needs.
 (CF.ASKS || []).forEach(function (a) { read(a.label); read(a.text); read(a.thanks); read(a.miss); });
 (CF.CHOICES || []).forEach(function (c) { read(c.title); read(c.text); (c.options || []).forEach(function (o) { read(o.label); read(o.text); read(o.gain); }); });

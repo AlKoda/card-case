@@ -1320,8 +1320,8 @@
     var box = $('#peek');
     UI.selected = null; UI.hover = null;
     box.dataset.uid = 'meter:' + key; box.dataset.sig = '';
+    peekHead(METER_ICONS[key], info.title);
     box.innerHTML = '<button class="peek-close" title="' + esc('Close') + '">×</button>' +
-      '<div class="i-meter"><span class="m-icon" style="background-image:' + art(METER_ICONS[key]) + '"></span><h4>' + esc(info.title) + '</h4></div>' +
       '<div class="i-kind">' + esc(tr('Now: {word}', { word: (CF.METER_WORDS[key] || [])[meterLevel(key)] || '' })) + '</div>' +
       '<p>' + esc(info.what) + '</p><p>' + esc(info.ends) + '</p>';
     if (key === 'pressure' && UI.e) {
@@ -1344,10 +1344,39 @@
       // Blocked only while it is: the Standing is there, the office is open, and the Council will not write.
       var held = e.promotionHeld && e.promotionHeld() && s.rank < rankCap(e) && s.meters.reputation >= CF.RANK_REP[s.rank + 1];
       if (held) box.insertAdjacentHTML('beforeend', '<p class="i-blocked">' + esc('Blocked: the Council\'s displeasure. Answer a commission, or let the Bishop speak for you.') + '</p>');
+      box.insertAdjacentHTML('beforeend', favourRows(e));
     }
     box.classList.add('open', 'pinned');
     box.querySelector('.peek-close').addEventListener('click', function () { box.classList.remove('open', 'pinned'); box.dataset.uid = ''; });
   };
+  // The patrons' seals under Standing: how warm each patron is, in a word, and what the next step brings
+  // (patrons.js, patronsWeek: a boon each week at 3; the Inquisitor, or the next office held, at -2).
+  var FAVOUR_STEPS = {
+    council: { boon: 'Suspicion falls a step each week', threat: 'The next office is held back' },
+    bishop: { boon: 'A bed in the Abbey hospital each week, a Weariness slept off', threat: 'The Inquisitor comes' },
+    guild: { boon: 'Now and then the guilds\' fee for a quiet Market', threat: null },
+  };
+  function favourWord(f) { return f >= 3 ? 'Your patron' : f >= 1 ? 'Warm' : f <= -1 ? 'Cold' : 'Neutral'; }
+  function favourRows(e) {
+    if (!CF.PATRONS || !e.favour) return '';
+    var fv = e.favour(), html = '<div class="i-favour">';
+    ['council', 'bishop', 'guild'].forEach(function (k) {
+      var f = fv[k] || 0, st = FAVOUR_STEPS[k], lines = [];
+      lines.push(f >= 3 ? tr('Now: {what}', { what: st.boon }) : tr('At 3: {what}', { what: st.boon }));
+      if (st.threat && f <= -2) lines.push(tr('Now: {what}', { what: st.threat }));
+      else if (st.threat && f <= 0) lines.push(tr('At -2: {what}', { what: st.threat }));
+      html += '<div class="fv-row fv-' + (f >= 3 ? 'patron' : f >= 1 ? 'warm' : f <= -1 ? 'cold' : 'even') + '"><i style="background-image:' + art(PATRON_ART[k]) + '"></i>' +
+        '<b>' + esc(CF.PATRONS[k].label) + '</b><em title="' + esc(tr('Favour {n}', { n: f })) + '">' + esc(favourWord(f)) + '</em>' +
+        lines.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('') + '</div>';
+    });
+    // A patron at 3 sends a seal to call in, where the rules have one (the engine's 'seal' card).
+    if (CF.CARDS && CF.CARDS.seal) html += '<p class="fv-seal">' + esc('At 3 the patron sends a Seal. Put it in Attend to call in a favour.') + '</p>';
+    return html + '</div>';
+  }
+  UI.favourRows = favourRows;
+  // Where each verb is told of in the Help (index.html): its heading.
+  var HELP_AT = { duty: 'help-attend', investigate: 'help-explore', analyze: 'help-study', interrogate: 'help-question', reflect: 'help-rest', arrest: 'help-court-verb', time: 'help-time' };
+  UI.HELP_AT = HELP_AT;
   // The highest office open to you: the origins system caps a hangman at Bailiff.
   function rankCap(e) { return e.rankCap ? e.rankCap() : CF.TOP_RANK; }
   function meterLevel(key) {
@@ -1395,7 +1424,7 @@
   var KIND_ART = { case: 'cwax-01', coldcase: 'imark-06', witness: 'cwit-01', suspect: 'csus-01', informant: 'csus-02', clue: 'iinv-02', evidence: 'iinv-16',
     threat: 'imed-10', court: 'cwax-03', order: 'ilaw-05', career: 'ilaw-17', district: 'iinv-17', place: 'iplace-16', room: 'iplace-10', teammate: 'rrole-03', personnel: 'ilaw-11', hospital: 'imed-02',
     equipment: 'iinv-16', intel: 'cwit-01', criminal: 'csus-02', condemned: 'ilaw-06', calling: 'cwax-02', ability: 'cres-02', funds: 'itrade-20', health: 'imed-01', focus: 'cres-05', instinct: 'iinv-06',
-    trial: 'cwax-03', atlarge: 'ilaw-18', rung: 'ilaw-01', sentence: 'ilaw-01', plea: 'ilaw-13', paper: 'ilaw-21', temptation: 'itrade-20', insight: 'imyst-05', fatigue: 'imed-13', burnout: 'imed-10', wound: 'imed-09' };
+    trial: 'cwax-03', seal: 'cwax-04', atlarge: 'ilaw-18', rung: 'ilaw-01', sentence: 'ilaw-01', plea: 'ilaw-13', paper: 'ilaw-21', temptation: 'itrade-20', insight: 'imyst-05', fatigue: 'imed-13', burnout: 'imed-10', wound: 'imed-09' };
   // The seal of a token's later status: kept past its case (a key), matched to a hand (a tick), read only in part (a query).
   var STATUS_ART = { Kept: 'cstamp-04', Matched: 'cok-01', Partial: 'cmark-05', Staged: 'ccstamp-02' };
   // The patrons' seals: the Council's crown, the Bishop's church, the Guilds' coin.
@@ -1790,7 +1819,11 @@
     return { x: (p.x - UI.view.x) / UI.view.z, y: (p.y - UI.view.y) / UI.view.z };
   }
 
-  function place(el, x, y) { el.style.transform = 'translate3d(' + Math.round(x) + 'px,' + Math.round(y) + 'px,0)'; }
+  // A plain 2D translate: a card at rest carries no 3D hint, so the browser does not give it a layer of its own.
+  function place(el, x, y) { el.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)'; }
+  // A card that flies or deals in is promoted only while it moves (.flying, .arrive carry will-change): the class
+  // comes off once the move is over, as .settle's does, so nothing on the table stays a layer at rest.
+  function settleAfter(el, cls, ms) { setTimeout(function () { el.classList.remove(cls); }, ms); }
 
   // Keep one element per stack on the board, moving (not rebuilding) them.
   function syncPile() {
@@ -2071,9 +2104,13 @@
     }
     if (!pinEl || pinEl.parentNode !== board) pinEl = svgLayer('links pins', null);
     board.appendChild(pinEl); // the pins stay above the cards
-    if (CF.Settings.get('strings') === false) { linkEl.innerHTML = ''; pinEl.innerHTML = ''; return; }
+    if (CF.Settings.get('strings') === false) { linkEl.innerHTML = ''; pinEl.innerHTML = ''; fitLayers(null); return; }
     var drag = UI.drag && UI.drag.kind === 'card' && UI.drag.started ? UI.drag : null;
-    var cases = {}, order = [];
+    var cases = {}, order = [], box = null;
+    function reach(x, y) {
+      if (!box) box = { x0: x, y0: y, x1: x, y1: y };
+      else { box.x0 = Math.min(box.x0, x); box.y0 = Math.min(box.y0, y); box.x1 = Math.max(box.x1, x); box.y1 = Math.max(box.y1, y); }
+    }
     Object.keys(e.s.cards).forEach(function (uid) {
       var c = e.s.cards[uid], k = CF.CARDS[c.def].kind;
       if (!c.caseId || c.hidden) return;
@@ -2108,6 +2145,7 @@
         ropes.push({ a: g.card, b: c });
         keysOf(g.card).concat(keysOf(c)).forEach(function (k) { (linkKeys[k] = linkKeys[k] || []).push(ri); });
         var d = ropePath(a, b);
+        reach(a.x, a.y); reach(b.x, b.y); reach((a.x + b.x) / 2, ropeSag(a, b));
         shade += '<path class="shade" d="' + d + '"/>';
         html += '<path d="' + d + '" stroke="' + col + '"/>';
         pins += pin(c, b, col, 6);
@@ -2118,10 +2156,26 @@
     html = shade + html;
     if (linkEl.__html !== html) { linkEl.innerHTML = html; linkEl.__html = html; }
     if (pinEl.__html !== pins) { pinEl.innerHTML = pins; pinEl.__html = pins; }
+    fitLayers(box);
   }
+  // The ropes' and pins' layers are only as big as the ropes (with a pin's width and the shadow about them), not the
+  // whole table, so the pins above the cards are not one table-sized layer over every glow. Nothing tied: no size.
+  // Held, a rope may stray outside: the layers overflow visibly, and fit again when it is put down.
+  function fitLayers(box) {
+    var pad = 12, r = box ? { x: Math.floor(box.x0 - pad), y: Math.floor(box.y0 - pad), w: Math.ceil(box.x1 - box.x0 + 2 * pad), h: Math.ceil(box.y1 - box.y0 + 2 * pad) } : { x: 0, y: 0, w: 0, h: 0 };
+    var key = r.x + ' ' + r.y + ' ' + r.w + ' ' + r.h;
+    [linkEl, pinEl].forEach(function (el) {
+      if (!el || el.__box === key) return;
+      el.__box = key;
+      el.setAttribute('viewBox', key);
+      el.style.left = r.x + 'px'; el.style.top = r.y + 'px'; el.style.width = r.w + 'px'; el.style.height = r.h + 'px';
+    });
+  }
+  UI.fitLayers = fitLayers;
   // A rope sags between its pins.
+  function ropeSag(a, b) { return Math.max(a.y, b.y) + Math.min(40, Math.abs(b.x - a.x) * 0.1 + 14); }
   function ropePath(a, b) {
-    var mx = (a.x + b.x) / 2, my = Math.max(a.y, b.y) + Math.min(40, Math.abs(b.x - a.x) * 0.1 + 14);
+    var mx = (a.x + b.x) / 2, my = ropeSag(a, b);
     return 'M' + a.x.toFixed(0) + ' ' + a.y.toFixed(0) + ' Q' + mx.toFixed(0) + ' ' + my.toFixed(0) + ' ' + b.x.toFixed(0) + ' ' + b.y.toFixed(0);
   }
   function movePin(c, pt) {
@@ -2196,10 +2250,11 @@
           var p0 = toBoard(sp.cx, sp.cy);
           place(el, p0.x - sp.gx, p0.y - sp.gy);
           el.classList.add('flying');
+          settleAfter(el, 'flying', 360);
           delete UI.spawn[top.uid];
         } else {
           place(el, top.loc.x, top.loc.y);
-          if (top.fresh) el.classList.add('arrive');
+          if (top.fresh) { el.classList.add('arrive'); settleAfter(el, 'arrive', 500); }
         }
         board.appendChild(el);
         if (sp) { void el.offsetWidth; }
@@ -2649,7 +2704,15 @@
       var sr = e.s.stats.recipes || {};
       var ways = e.s.stats.ways || {};
       var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && (ways[r.id] || typeof r.label === 'string'); }).map(function (r) { return tr(ways[r.id] || r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
-      pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: known.join(', ') }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
+      pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: joinList(known) }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
+      // The verb's own part of the Help, one tap away: the book, no words.
+      if (HELP_AT[vid] && CF.openHelp) {
+        var hb = h('button', 'vw-help');
+        hb.title = tr('How to Play');
+        hb.style.backgroundImage = art('bround-22');
+        hb.addEventListener('click', function (ev) { ev.stopPropagation(); CF.Audio.play('click'); CF.openHelp(HELP_AT[vid]); });
+        pane.appendChild(hb);
+      }
     }
     var lock = e.lockReason(vid);
     var pv = e.preview(vid);
@@ -3086,18 +3149,18 @@
     if (k === 'case' && rec) {
       var met = rec.suspects.filter(function (x) { return x.revealed; });
       lines.push(rec.scene + ', ' + CF.DISTRICTS[rec.district].label);
-      lines.push('Accused met: ' + (met.length ? met.map(function (x) { return x.name.split(' ')[1] + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); }).join(', ') : 'none'));
-      lines.push('Scene: ' + (rec.found >= rec.items.length ? 'searched out' : rec.searches ? 'partly searched' : 'not searched') + (rec.delegate ? ' · ' + rec.delegate.card.label + ' on it' : '') + (rec.major ? ' · cried' : ''));
-      lines.push(CF.daysLeft(card.life) + ' days left (' + U.fmtTime(card.life) + ')' + (rec.highProfile ? ' · the city watches' : ''));
-      var cprof = CF.Charge.profileOf(rec); lines.push('To convict: ' + Object.keys(cprof).map(function (k) { return CF.ASPECTS[k].label + ' ' + cprof[k]; }).join(', '));
+      lines.push(met.length ? tr('Accused met: {list}', { list: joinList(met.map(function (x) { return tr(x.name.split(' ')[1] || x.name) + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); })) }) : tr('Accused met: none'));
+      lines.push([tr(rec.found >= rec.items.length ? 'Scene: searched out' : rec.searches ? 'Scene: partly searched' : 'Scene: not searched')]
+        .concat(rec.delegate ? [tr('{name} on it', { name: rec.delegate.card.label })] : []).concat(rec.major ? [tr('cried')] : []).join(' · '));
+      // The clock itself is the live line under the notes (Time left).
+      lines.push(tr('{n} days left', { n: CF.daysLeft(card.life) }) + (rec.highProfile ? ' · ' + tr('the city watches') : ''));
+      // What it takes to convict, and what is still wanted, are the proof row's (proofRow), in icons.
       if (rec.commission) {
         var com = rec.commission, council = com.from === 'council' && com.deadline;
-        lines.push('Commission: ' + CF.PATRONS[com.from].label + ' wants ' + { quiet: 'it quiet', mercy: 'mercy', square: 'the square' }[com.wants] +
+        lines.push(tr('Commission: {patron} wants {what}', { patron: CF.PATRONS[com.from].label, what: { quiet: 'it quiet', mercy: 'mercy', square: 'the square' }[com.wants] }) +
           (council && e.s.t <= com.deadline ? ' · ' + tr('{n} days for the Council', { n: CF.daysLeft(com.deadline - e.s.t) }) : ''));
         if (council && e.s.t > com.deadline) lines.push('The Council wanted it quicker');
       }
-      var wanted = caseWanted(rec);
-      if (wanted) lines.push(tr('Still wanted: {list}', { list: wanted }));
       if (rec.rival) lines.push('The Rival works this too: the clock is half');
       if (harbourTemplate(rec.template)) lines.push('Convict the Harbourmaster himself, and no examiner comes again');
       var ctpl = CF.CASE_TEMPLATES && CF.CASE_TEMPLATES[rec.template];
@@ -3108,14 +3171,11 @@
       }
       if (e.s.flags.inquisitor) lines.push('The Inquisitor is in the city');
     } else if (card.def === 'suspect') {
+      // Each fact once: the description owns their role and their mark (and the mark chip opens it), the kind line
+      // above names the case, and the proof row says what it takes and what is still wanted.
       var sus = e.suspectOf(card);
-      var mark = traitOf(traitOfCard(card));
-      if (mark) lines.push(tr('Mark: {desc}', { desc: tr(mark.desc).replace(/\.$/, '') }));
-      if (sus) lines.push(sus.role.charAt(0).toUpperCase() + sus.role.slice(1) + (rec && rec.identified === card.data.key ? ' · the one it points to' : ''));
-      if (rec) lines.push('Case: ' + rec.title);
-      if (rec) { var prof = CF.Charge.profileOf(rec); lines.push('To convict: ' + Object.keys(prof).map(function (k) { return CF.ASPECTS[k].label + ' ' + prof[k]; }).join(', ')); }
+      if (rec && rec.identified === card.data.key) lines.push('The one it points to');
       var sw = rec && rec.status === 'open' ? stillWanted(e, card) : null;
-      if (sw) lines.push(tr('Still wanted: {list}', { list: wantedList(sw.rows) }));
       if (sus && sus.questioned && !sus.cleared && rec && rec.status === 'open') lines.push('Confront them in Question with a token of the case');
       else if (sus && sus.questioned) lines.push('Questioned already'); else lines.push('Question them with Wit');
       // The Court shows seals; the numbers behind them are kept here.
@@ -3123,7 +3183,6 @@
     } else if (k === 'clue' || k === 'evidence' || card.def === 'witness') {
       var aboutWho = aboutOf(card);
       if (aboutWho) lines.push(tr('About {name}', { name: aboutWho.sus.name }));
-      if (rec) lines.push('Case: ' + rec.title);
       if (k === 'evidence') lines.push(card.data.item && card.data.item.needs ? 'Raw proof: read it in Study with the right instrument' : 'Raw proof: read it in Study before it counts');
       else if (k === 'clue') lines.push(asp ? tr('Proves {asp}: into the Court with the Accused', { asp: asp }) : 'Into the Court with the Accused');
       else if (card.def === 'witness') lines.push(card.data.asked ? 'Questioned already' : 'Question them with Wit for their word');
@@ -3135,24 +3194,24 @@
       if (card.data.tampered) lines.push('Spoiled by the Rival');
       if (card.data.bribed) lines.push('Paid to forget');
       if (card.data.frame) lines.push('The thief-takers\' men');
-      if (card.maxLife) lines.push('Keeps for ' + U.fmtTime(card.life));
+      if (card.maxLife) lines.push(tr('Keeps for {t}', { t: U.fmtTime(card.life) }));
       if (k === 'evidence' && card.data.item && card.data.item.needs) lines.push('Needs an instrument');
     } else if (k === 'teammate' || k === 'personnel') {
       if (card.data.name) lines.push(card.data.name);
       if (asp) lines.push(asp);
-      if (card.data.traits && card.data.traits.length) lines.push(card.data.traits.map(function (t) { return CF.OFFICER_TRAITS[t].label; }).join(', '));
-      if (card.data.level) lines.push('Level ' + card.data.level);
+      if (card.data.traits && card.data.traits.length) lines.push(joinList(card.data.traits.map(function (t) { return tr(CF.OFFICER_TRAITS[t].label); })));
+      if (card.data.level) lines.push(tr('Level {n}', { n: card.data.level }));
     } else if (k === 'equipment') {
       var m = def.mods || {};
-      if (m.boost) lines.push(tr('{boosts} on {tags}', { boosts: Object.keys(m.boost.aspects).map(function (x) { return tr(CF.ASPECTS[x].label) + ' +' + m.boost.aspects[x]; }).join(', '), tags: tagWords(m.boost.tags) }));
+      if (m.boost) lines.push(tr('{boosts} on {tags}', { boosts: joinList(Object.keys(m.boost.aspects).map(function (x) { return tr(CF.ASPECTS[x].label) + ' +' + m.boost.aspects[x]; })), tags: tagWords(m.boost.tags) }));
       if (m.gate) lines.push('Reads raw proof that needs it');
       if (m.extraEvidence) lines.push('Finds more at a scene');
-      if (m.unlocks) lines.push('Opens: ' + ((CF.RECIPES_BY_ID[m.unlocks] || {}).label || m.unlocks));
-      if (m.unlocksVerb) lines.push('Opens ' + ((CF.POWERS && CF.POWERS[m.unlocksVerb]) || CF.VERBS[m.unlocksVerb] || { label: m.unlocksVerb }).label + ' at any office');
+      if (m.unlocks) lines.push(tr('Opens: {what}', { what: (CF.RECIPES_BY_ID[m.unlocks] || {}).label || m.unlocks }));
+      if (m.unlocksVerb) lines.push(tr('Opens {what} at any office', { what: ((CF.POWERS && CF.POWERS[m.unlocksVerb]) || CF.VERBS[m.unlocksVerb] || { label: m.unlocksVerb }).label }));
     } else if (k === 'informant') {
-      lines.push('Works ' + CF.DISTRICTS[card.data.district].label);
-      lines.push('Trust ' + (card.data.trust || 0) + '/3 · heat ' + (card.data.heat || 0) + '/' + CF.INFORMANT.compromisedAt);
-      lines.push(e.informantStatus(card) === 'compromised' ? 'Marked: gone quiet' : 'Next word in ' + U.fmtTime(Math.max(0, card.data.tipT || 0)));
+      lines.push(tr('Works {district}', { district: CF.DISTRICTS[card.data.district].label }));
+      lines.push(tr('Trust {t}/3 · heat {h}/{max}', { t: card.data.trust || 0, h: card.data.heat || 0, max: CF.INFORMANT.compromisedAt }));
+      lines.push(e.informantStatus(card) === 'compromised' ? 'Marked: gone quiet' : tr('Next word in {t}', { t: U.fmtTime(Math.max(0, card.data.tipT || 0)) }));
     } else if (k === 'calling') {
       e.initPaths();
       lines.push(CF.Callings.summary(e));
@@ -3163,15 +3222,16 @@
       lines.push([nearEnd ? tr('Cruelty {c} (Hangman at {at})', { c: cnt.cruelty || 0, at: cruelAt }) : tr('Cruelty {n}', { n: cnt.cruelty || 0 }),
         nearEnd ? tr('Mercy {m} of {at}', { m: cnt.mercy || 0, at: mercyAt }) : tr('Mercy {n}', { n: cnt.mercy || 0 }),
         tr('Purse {n}', { n: cnt.purse || 0 })].concat(cnt.debt ? [tr('Debt {n}', { n: cnt.debt })] : []).join(' · '));
-      if (e.s.court && e.s.court.stance) lines.push(e.s.court.stance === 'treaty' ? 'A Treaty with the Court' : 'Inside the Court, week ' + e.s.court.insideWeeks);
+      if (e.s.court && e.s.court.stance) lines.push(e.s.court.stance === 'treaty' ? 'A Treaty with the Court' : tr('Inside the Court, week {n}', { n: e.s.court.insideWeeks }));
+      // Favour as each patron's word; the Standing meter's popover says what the steps bring.
       var fv = e.favour();
-      lines.push('Favour: Council ' + fv.council + ' · Bishop ' + fv.bishop + ' · Guilds ' + fv.guild);
-      lines.push('Leaning: ' + CF.CALLINGS[e.dominantPath()].label + (e.dominantPath() !== e.s.calling ? ' (drifting)' : ''));
+      lines.push(tr('Favour: {list}', { list: ['council', 'bishop', 'guild'].map(function (p) { return glue('{patron}: {word}', { patron: CF.PATRONS[p].label, word: favourWord(fv[p] || 0) }); }).join(' · ') }));
+      lines.push(tr(e.dominantPath() !== e.s.calling ? 'Leaning: {path} (drifting)' : 'Leaning: {path}', { path: CF.CALLINGS[e.dominantPath()].label }));
       var notes = (e.s.pathNotes || []).slice(-1);
-      if (notes.length) lines.push(tr('Lately: {list}', { list: notes.map(function (n) { return tr('{path} +{n} ({why})', { path: tr((CF.PATHS[n.path] || {}).label || n.path), n: n.n || 1, why: tr(n.why) }); }).join(', ') }));
+      if (notes.length) lines.push(tr('Lately: {list}', { list: joinList(notes.map(function (n) { return glue('{path} +{n} ({why})', { path: (CF.PATHS[n.path] || {}).label || n.path, n: n.n || 1, why: n.why }); })) }));
       var paths = e.s.paths || {}, lead = null;
       Object.keys(paths).forEach(function (k) { if (k !== e.s.calling && PATH_HINTS[k] && (!lead || paths[k] > paths[lead])) lead = k; });
-      if (lead && paths[lead] > 0) lines.push(tr('{path}: {how}', { path: tr((CF.PATHS[lead] || {}).label || lead), how: tr(PATH_HINTS[lead]) }));
+      if (lead && paths[lead] > 0) lines.push(glue('{path}: {how}', { path: (CF.PATHS[lead] || {}).label || lead, how: PATH_HINTS[lead] }));
       // Where you came from, in one line: the life before, and the calling you set out in.
       var once = e.s.who && CF.ORIGINS[e.s.who] ? CF.ORIGINS[e.s.who].label.toLowerCase() : null;
       var setOut = e.s.origin !== e.s.calling && CF.CALLINGS[e.s.origin] ? CF.CALLINGS[e.s.origin].label : null;
@@ -3180,7 +3240,7 @@
       else if (setOut) lines.push(tr('Set out as {calling}', { calling: setOut }));
     } else if (card.def === 'condemned') {
       lines.push(card.data.role ? card.data.role.charAt(0).toUpperCase() + card.data.role.slice(1) : 'Convicted');
-      lines.push('Custom: ' + CF.Sentence.rungLabel(card.data.template, card.data.custom));
+      lines.push(tr('Custom: {rung}', { rung: CF.Sentence.rungLabel(card.data.template, card.data.custom) }));
       if (card.data.penitent) lines.push('Penitent');
       // The commission, at the sentence: what the patron asked for, read off the rungs that wear their seal.
       var asks = patronAsks(card);
@@ -3194,19 +3254,19 @@
       lines.push('A reason for mercy');
     } else if (card.def === 'syndicate') {
       var court = e.s.court || {};
-      if (court.king) lines.push('King of Thunes: ' + court.king.name);
-      lines.push(court.stance === 'treaty' ? 'A Treaty stands' : court.stance === 'rule' ? 'You are inside, week ' + court.insideWeeks : 'No stance yet');
+      if (court.king) lines.push(tr('King of Thunes: {name}', { name: court.king.name }));
+      lines.push(court.stance === 'treaty' ? 'A Treaty stands' : court.stance === 'rule' ? tr('You are inside, week {n}', { n: court.insideWeeks }) : 'No stance yet');
       // Disguise is a Bailiff's: below the staff, the Watch on the stair is the answer, where the rules let it take the Coquille.
       if (e.s.rank < 2 && postWatchTakes('syndicate')) lines.push('Below Bailiff: post the Watch (Attend + watchman)');
       else lines.push('Disguise: ledger, Wit, or Instinct and Coin');
     } else if (card.def === 'gang') {
-      lines.push((card.data.members || []).length + ' sworn');
+      lines.push(tr('{n} sworn', { n: (card.data.members || []).length }));
       lines.push('Disguise to go among them');
     } else if (card.def === 'front') {
       var fr = e.fronts()[card.data.front];
       if (fr) {
-        lines.push(CF.DISTRICTS[fr.district].label + ' · ' + fr.gang.replace(/^the /, 'The '));
-        lines.push('Open cases through here: ' + e.casesAtFront(fr.id).length);
+        lines.push(tr(CF.DISTRICTS[fr.district].label) + ' · ' + tr(fr.gang.replace(/^the /, 'The ')));
+        lines.push(tr('Open cases through here: {n}', { n: e.casesAtFront(fr.id).length }));
         lines.push(fr.watched ? 'Watched: a safer way in' : 'Not yet watched');
       }
     } else if (card.def === 'rival') {
@@ -3229,8 +3289,8 @@
     } else if (card.def === 'atlarge') {
       var crim = card.data.criminalId && e.criminal(card.data.criminalId);
       if (crim) {
-        lines.push(CF.Criminals.rankOf(crim).label + ' · ' + crim.crimes + ' crime' + (crim.crimes === 1 ? '' : 's'));
-        if (crim.traits.length) lines.push(crim.traits.map(function (t) { return CF.CRIMINAL_TRAITS[t].label; }).join(', '));
+        lines.push(tr(CF.Criminals.rankOf(crim).label) + ' · ' + tr(crim.crimes === 1 ? '1 crime' : '{n} crimes', { n: crim.crimes }));
+        if (crim.traits.length) lines.push(joinList(crim.traits.map(function (t) { return tr(CF.CRIMINAL_TRAITS[t].label); })));
         if (crim.king) lines.push('The King of Thunes');
         else if (crim.organization !== 'none') {
           var band = e.cardsOf('gang', true).filter(function (g) { return (g.data.members || []).indexOf(crim.name) >= 0; })[0];
@@ -3265,12 +3325,55 @@
       lines.push('Another blow before this knits will kill you.');
       lines.push(tr('Knits in {t}', { t: U.fmtTime(card.life) }));
     } else if (card.maxLife) {
-      lines.push('Time left: ' + U.fmtTime(card.life));
+      lines.push(tr('Time left: {t}', { t: U.fmtTime(card.life) }));
     }
     return lines.slice(0, k === 'case' ? 8 : k === 'calling' ? 9 : 6);
   }
+  // A list in the reader's own commas (Arabic joins with its own).
+  function joinList(xs) { return xs.join(tr(', ')); }
+  // Pieces put together with nothing but punctuation between them: each piece is read in the reader's language
+  // and the pattern itself, which has no words of its own, is filled as it stands.
+  function glue(pattern, vars) {
+    var out = {};
+    for (var k in vars) out[k] = typeof vars[k] === 'string' ? tr(vars[k]) : vars[k];
+    return CF.bidi(U.fill(pattern, out));
+  }
   // The rows a charge still lacks: each kind of proof with how much is wanting.
-  function wantedList(rows) { return rows.length ? rows.map(function (r) { return tr(CF.ASPECTS[r.aspect].label) + ' ' + (r.need - r.have); }).join(', ') : tr(WORD_WANTED); }
+  function wantedList(rows) { return rows.length ? joinList(rows.map(function (r) { return tr(CF.ASPECTS[r.aspect].label) + ' ' + (r.need - r.have); })) : tr(WORD_WANTED); }
+  // The proof a case turns on, as the charge panel shows it: each kind with filled and empty pips (what the best
+  // charge on the table has of what it needs), a dark seal while full proof still wants word behind it. The
+  // sentences of old (to convict, still wanted) are its title. Null for a card with no case to prove.
+  function proofRow(card) {
+    var e = UI.e, rec = card.caseId ? e.caseRec(card.caseId) : null;
+    if (!rec || !CF.Charge || !CF.Charge.profileOf || (card.def !== 'suspect' && CF.CARDS[card.def].kind !== 'case')) return null;
+    var prof = CF.Charge.profileOf(rec), keys = Object.keys(prof);
+    if (!keys.length) return null;
+    var have = {}, wanted = null, word = false;
+    if (rec.status === 'open' && e.assessCharge) {
+      var tokens = e.tableCards().filter(function (t) { return t.def === 'clue' && t.caseId === rec.id; });
+      var accused = card.def === 'suspect' ? [card] : e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; });
+      var best = null;
+      accused.forEach(function (c) { var a = e.assessCharge(c, tokens); if (a && (!best || a.score > best.score)) best = a; });
+      if (best) CF.Charge.describe(best).rows.forEach(function (r) { have[r.aspect] = r.have; });
+      if (card.def === 'suspect') { var sw = stillWanted(e, card); if (sw) { wanted = wantedList(sw.rows); word = !!sw.word; } }
+      else { wanted = caseWanted(rec); word = !!best && best.tier !== 'strong' && wanted === tr(WORD_WANTED); }
+    }
+    var convict = tr('To convict: {list}', { list: joinList(keys.map(function (k) { return tr(CF.ASPECTS[k].label) + ' ' + prof[k]; })) });
+    return { rows: keys.map(function (k) { return { aspect: k, need: prof[k], have: Math.min(prof[k], have[k] || 0) }; }), word: word,
+      title: convict + (wanted ? ' · ' + tr('Still wanted: {list}', { list: wanted }) : '') };
+  }
+  UI.proofRow = proofRow;
+  function proofHtml(p) {
+    if (!p) return '';
+    var html = '<div class="i-proof" title="' + esc(p.title) + '">' + p.rows.map(function (r) {
+      var pips = '';
+      for (var i = 0; i < r.need; i++) pips += i < r.have ? '●' : '○';
+      return '<span class="pf-chip' + (r.have >= r.need ? ' met' : '') + '" title="' + esc(CF.ASPECTS[r.aspect].label) + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'iinv-05') + '"></span><b>' + pips + '</b></span>';
+    }).join('');
+    if (p.word) html += '<span class="pf-chip pf-word" title="' + esc(WORD_WANTED) + '"><span class="chip-icon" style="background-image:' + art(GATES.word.art) + '"></span><b>○</b></span>';
+    return html + '</div>';
+  }
+  UI.proofHtml = proofHtml;
   // What the best charge on the table against a case's accused still lacks; nothing when there is no accused, or a charge is strong.
   function caseWanted(rec) {
     var e = UI.e, best = null, strong = false;
@@ -3287,6 +3390,38 @@
     return best && !strong ? wantedList(best.rows) : null;
   }
 
+  // The dossier's painted band: the kind's seal and the name (index.html #peek-head, beside the panel, since the
+  // panel scrolls and clips at its paper). Nothing passed: the band is bare.
+  function peekHead(icon, name) {
+    var hd = $('#peek-head');
+    if (!hd) return;
+    hd.innerHTML = name ? (icon ? '<span class="k-icon" style="background-image:' + art(icon) + '"></span>' : '') + '<h4>' + esc(name) + '</h4>' : '';
+    hd.classList.toggle('on', !!name);
+  }
+  UI.peekHead = peekHead;
+  // An accused's description, without the case it ends on: the kind line above names the case.
+  function dossierDesc(card, rec) {
+    var desc = UI.e.descOf(card);
+    if (card.def !== 'suspect' || !rec) return desc;
+    var sus = UI.e.suspectOf(card), t = sus && traitOf(sus.trait);
+    if (sus && t && desc === CF.util.fill('{name}, {role}. {trait}', { name: sus.name, role: sus.role, trait: t.desc }) + ' (Accused in: ' + rec.title + ')') {
+      return tr('{name}, {role}. {trait}', { name: sus.name, role: sus.role, trait: t.desc });
+    }
+    return desc;
+  }
+  // Which cards get the paper dossier's notes.
+  function dossierKind(card, def) {
+    return ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' || card.def === 'wound' || card.def === 'dagger' ||
+      card.def === 'condemned' || card.def === 'rung' || card.def === 'plea' || card.def === 'looseend' || (!!customsLeafDef() && card.def === customsLeafDef()) ? 'paper' : null;
+  }
+  // Every line of words the dossier shows for a card, as the player reads them, without a page: the description,
+  // the notes and the proof row's title. The tests read it in each language over played games.
+  UI.dossierLines = function (card) {
+    var def = CF.CARDS[card.def], rec = card.caseId ? UI.e.caseRec(card.caseId) : null;
+    var notes = dossierKind(card, def) ? dossierNotes(card) : def.kind === 'ability' ? abilityNotes(card) : [];
+    var p = proofRow(card);
+    return [UI.e.labelOf(card), dossierDesc(card, rec)].concat(notes).concat(p ? [p.title] : []);
+  };
   // The dossier: a card floating at the top right of the table while a card
   // is hovered, pinned while one is selected.
   function renderInspector() {
@@ -3302,12 +3437,14 @@
     box.dataset.uid = uid; box.dataset.sig = cardSig(card, 1);
     var def = CF.CARDS[card.def];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
-    var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' || card.def === 'wound' || card.def === 'dagger' ||
-      card.def === 'condemned' || card.def === 'rung' || card.def === 'plea' || card.def === 'looseend' || (!!customsLeafDef() && card.def === customsLeafDef()) ? 'paper' : null;
+    var dz = dossierKind(card, def);
     var html = '<div class="i-card"></div>';
     var notes = dz ? dossierNotes(card) : def.kind === 'ability' ? abilityNotes(card) : [];
     var kindArt = KIND_ART[card.def] || KIND_ART[def.kind];
-    html += '<div class="i-kind">' + (kindArt ? '<span class="k-icon" style="background-image:' + art(kindArt) + '"></span>' : '') + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div><h4>' + esc(e.labelOf(card)) + '</h4>';
+    // The painted band at the top carries the kind's seal and the name, as a verb window's does; under the card,
+    // the kind and (for anything but the case itself) the case it belongs to.
+    peekHead(kindArt, e.labelOf(card));
+    html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
       return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'iinv-05') + '"></span>' + esc(CF.ASPECTS[k].label) + ' ' + a[k] + '</span>';
@@ -3315,7 +3452,8 @@
     var tid = traitOfCard(card);
     if (tid) badges += '<span class="chip big trait" data-trait="' + esc(tid) + '" title="' + esc('Tap for the mark') + '"><span class="chip-icon" style="background-image:' + art(traitArt(traitOf(tid))) + '"></span>' + esc('The mark') + '</span>';
     if (badges) html += '<div class="i-aspects">' + badges + '</div>';
-    html += '<p>' + esc(e.descOf(card)) + '</p>';
+    html += '<p>' + esc(dossierDesc(card, rec)) + '</p>';
+    html += proofHtml(proofRow(card));
     if (notes.length) html += '<div class="i-lines">' + notes.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
     if (card.maxLife) html += '<div class="i-note i-time">' + esc(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);

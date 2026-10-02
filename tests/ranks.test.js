@@ -184,6 +184,19 @@ function run(e, verb, cards) {
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'ordered');
   e.s.rooms.intel = true;
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'owned');
+  // Lane 2, item 99: a built room's foot says what it has done, where the rules count it (s.roomUse); a game whose
+  // rules do not, or a room not yet at work, reads plain Built; a room not built shows no count.
+  function tile(k) { return CF.Precinct.tiles(e).filter(function (t) { return t.key === k; })[0]; }
+  delete e.s.roomUse;
+  assert.strictEqual(tile('intel').use, 0, 'no count without the rules\' tally');
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built');
+  e.s.roomUse = { intel: 3, suite: 6 };
+  assert.strictEqual(tile('intel').use, 3);
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built · Fronts named, informers seated: 3', 'the return, in one phrase');
+  assert.strictEqual(tile('suite').use, 0, 'an unbuilt room has nothing to show');
+  e.s.roomUse = { intel: 'x' };
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built', 'a bad count is no count');
+  delete e.s.roomUse;
 
   // A Clerk's petition from the board costs a Coin less, as the Council's forms do.
   var ck = game(77);
