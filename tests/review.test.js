@@ -131,3 +131,47 @@ function run(e, verb, cards) {
   }
   console.log('dead ends: ok');
 })();
+
+// What Became of Them: the ending's epilogue is read from state alone, so one seed played one
+// way tells one epilogue, at most four lines, each with an icon and a filled template.
+(function epilogue() {
+  var bot = require('./bot.test.js');
+  function played(seed) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'crusader' });
+    bot.play(e, 60 * 26, 'brutal');
+    if (!e.s.over) e.gameOver('burnout');
+    return e;
+  }
+  [311, 312].forEach(function (seed) {
+    var a = CF.Story.epilogue(played(seed)), b = CF.Story.epilogue(played(seed));
+    assert.deepStrictEqual(a, b, 'the same seed, the same epilogue');
+    assert.ok(a.length <= 4);
+    a.forEach(function (l) { assert.ok(CF.CARDS[l.icon] && l.text && !/\{\w+\}/.test(l.text), 'a line: ' + JSON.stringify(l)); });
+  });
+  // Each line from the state that tells it.
+  var e = game(313), s = e.s;
+  assert.deepStrictEqual(CF.Story.epilogue(e), [], 'a fresh desk has nothing to tell');
+  var rec = e.caseRec(byDef(e, 'case')[0].caseId);
+  rec.template = 'pattern'; rec.victims = 3; rec.status = 'closed'; rec.scene = 'the Tanners\' Lane';
+  e.court().king = { name: 'Klaus Rott', criminalId: null };
+  s.journal.unshift({ title: 'The Rival Exposed', text: '' }, { title: 'The Rival Exposed', text: '' });
+  s.criminals.k1 = { id: 'k1', name: 'Jan Pauw', crimes: 3, status: 'at_large', traits: [], district: 'warrens',
+    history: [{ week: 2, title: 'Burglary at the Red Ox', how: 'cold' }, { week: 4, title: rec.title, how: 'acquitted' }, { week: 6, how: 'jailed' }, { week: 7, title: rec.title, how: 'acquitted' }] };
+  var t = e.create('teammate', e.teammateSpec('rookie'));
+  var lines = CF.Story.epilogue(e).map(function (l) { return l.text; });
+  assert.deepStrictEqual(lines, [
+    'The girls of the Tanners\' Lane: answered at the third door.',
+    'Klaus Rott still sits on the barrel.',
+    'Two examiners sent home to the Customs House.',
+    'Jan Pauw, who walked from you three times, was last seen near the Tanners\' Lane.',
+  ], 'four lines, in order: ' + lines.join(' | '));
+  // The fifth waits for room; the Pattern's man Abroad was never answered; the King fallen.
+  rec.suspects.filter(function (x) { return x.guilty; })[0].name = 'Jan Pauw';
+  s.flags.syndicateFallen = true;
+  s.journal = [];
+  lines = CF.Story.epilogue(e).map(function (l) { return l.text; });
+  assert.ok(/never answered/.test(lines[0]), lines[0]);
+  assert.strictEqual(lines[1], 'The Court of Miracles is scattered, and Klaus Rott is nobody\'s King.');
+  assert.strictEqual(lines[3], t.data.name + ' is sergeant of the Watch now.', 'the watchman, once there is room');
+  console.log('epilogue: ok');
+})();

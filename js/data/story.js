@@ -221,4 +221,111 @@
     if (victim && CF.ENDINGS[id] && CF.ENDINGS[id].win) text += ' ' + U.fill(CF.ENDING_FIRST_CASE, { victim: victim });
     return text;
   };
+
+  // ---- Words for the dossier --------------------------------------------------------
+  // What an instrument's boost reads on: its tags in words, never their ids ('biology'), joined
+  // as a list each part of which is a key, so the line reads whole in every language.
+  CF.TAG_WORDS = { watching: 'watching and waiting', surfaces: 'marks on doors and sills', biology: 'blood and hair', physical: 'things handled', records: 'papers and the Rolls' };
+  CF.BOOST_LINE = '{list}, on finds from {tags}';
+  // The line in English, for an instrument's boost; the dossier translates it whole.
+  Story.boostLine = function (boost) {
+    if (!boost || !boost.aspects) return null;
+    var list = Object.keys(boost.aspects).map(function (x) { return (CF.ASPECTS[x] ? CF.ASPECTS[x].label : x) + ' +' + boost.aspects[x]; }).join(', ');
+    var tags = (boost.tags || []).map(function (t) { return CF.TAG_WORDS[t] || t; }).join(', ');
+    return U.fill(CF.BOOST_LINE, { list: list, tags: tags });
+  };
+
+  // ---- What Became of Them -----------------------------------------------------------
+  // Under the ending, up to four short lines told back from the run's own state: the Pattern,
+  // the King of Thunes, the Rival's examiners, the worst of those Abroad, the watchman who stays.
+  // Read from state alone (no dice), so one seed played one way tells one epilogue.
+  CF.EPILOGUE = {
+    title: 'What Became of Them',
+    pattern: { icon: 'case', never: 'The girls of {scene}: never answered. The lanes still wait for the next door.',
+      doors: ['The girls of {scene}: answered at the first door.', 'The girls of {scene}: answered at the second door.',
+        'The girls of {scene}: answered at the third door.', 'The girls of {scene}: answered at the fourth door.',
+        'The girls of {scene}: answered at the fifth door.'] },
+    king: { icon: 'syndicate', sits: '{king} still sits on the barrel.', treaty: '{king} keeps the treaty from the barrel.',
+      hangs: '{king} died on the Ravenstone.', fallen: 'The Court of Miracles is scattered, and {king} is nobody\'s King.',
+      kneels: '{king} went into the river, and the Court kneels to you.' },
+    rival: { icon: 'rival', one: 'One examiner sent home to the Customs House.', two: 'Two examiners sent home to the Customs House.',
+      many: '{n} examiners sent home to the Customs House.', sealed: 'The Harbourmaster fell. Nobody sends examiners now.' },
+    abroad: { icon: 'atlarge', once: '{name}, who walked from you once, was last seen near {where}.',
+      twice: '{name}, who walked from you twice, was last seen near {where}.',
+      many: '{name}, who walked from you {k} times, was last seen near {where}.' },
+    watch: { icon: 'teammate', text: '{name} is sergeant of the Watch now.' },
+  };
+  function epiLine(icon, key, vars) { return { icon: icon, key: key, vars: vars, text: U.fill(key, vars) }; }
+  function abroadNamed(s, name) {
+    for (var id in s.criminals || {}) {
+      var c = s.criminals[id];
+      if (c && c.name === name) return c.status === 'at_large' || c.status === 'hunted';
+    }
+    return false;
+  }
+  // The Pattern, if it came: answered only by a conviction that did not leave him Abroad.
+  function epiPattern(s) {
+    var E = CF.EPILOGUE.pattern, rec = null;
+    for (var id in s.cases || {}) if (s.cases[id] && s.cases[id].template === 'pattern') rec = s.cases[id];
+    if (!rec || !rec.scene) return null;
+    var g = (rec.suspects || []).filter(function (x) { return x.guilty; })[0];
+    if (rec.status !== 'closed' || (g && abroadNamed(s, g.name))) return epiLine(E.icon, E.never, { scene: rec.scene });
+    var n = Math.max(1, Math.min(E.doors.length, rec.victims || 1));
+    return epiLine(E.icon, E.doors[n - 1], { scene: rec.scene });
+  }
+  // The King of Thunes, once the bands swore to him.
+  function epiKing(s) {
+    var E = CF.EPILOGUE.king, court = s.court, king = court && court.king;
+    if (!king || !king.name) return null;
+    var crim = king.criminalId && s.criminals ? s.criminals[king.criminalId] : null;
+    var over = s.over && s.over.id, key = E.sits;
+    if (over === 'kingofthunes') key = E.kneels;
+    else if ((crim && crim.status === 'dead') || over === 'crusader') key = E.hangs;
+    else if (s.flags && s.flags.syndicateFallen) key = E.fallen;
+    else if (court.stance === 'treaty') key = E.treaty;
+    return epiLine(E.icon, key, { king: king.name });
+  }
+  // The Harbourmaster's examiners sent home (each one 'The Rival Exposed'), or the man himself fallen.
+  function epiRival(s) {
+    var E = CF.EPILOGUE.rival;
+    if (s.flags && s.flags.harbourmasterFallen) return epiLine(E.icon, E.sealed, {});
+    var n = (s.journal || []).filter(function (j) { return j.title === 'The Rival Exposed'; }).length;
+    n = Math.max(n, (s.stats && s.stats.rivalsExposed) || 0);
+    if (!n) return null;
+    return epiLine(E.icon, n === 1 ? E.one : n === 2 ? E.two : E.many, n > 2 ? { n: Story.words(n, true) } : {});
+  }
+  // Of those Abroad, the one who walked from you most often (never the King: he has his line).
+  function walked(c) { return (c.history || []).filter(function (h) { return !!h.title; }); }
+  function epiAbroad(s) {
+    var E = CF.EPILOGUE.abroad, best = null, bestK = 0;
+    for (var id in s.criminals || {}) {
+      var c = s.criminals[id];
+      if (!c || c.king || (c.status !== 'at_large' && c.status !== 'hunted')) continue;
+      var k = walked(c).length;
+      if (k > bestK || (k && k === bestK && (c.crimes || 0) > (best.crimes || 0))) { best = c; bestK = k; }
+    }
+    if (!best) return null;
+    var last = walked(best).pop(), where = null;
+    for (var cid in s.cases || {}) if (s.cases[cid] && s.cases[cid].title === last.title && s.cases[cid].scene) where = s.cases[cid].scene;
+    if (!where) where = CF.DISTRICTS && CF.DISTRICTS[best.district] ? CF.DISTRICTS[best.district].label : 'the Warrens';
+    var key = bestK === 1 ? E.once : bestK === 2 ? E.twice : E.many;
+    return epiLine(E.icon, key, bestK > 2 ? { name: best.name, k: Story.words(bestK), where: where } : { name: best.name, where: where });
+  }
+  // The watchman drilled the most (the first sworn, on a tie) keeps the Watch after you.
+  function epiWatch(s) {
+    var best = null;
+    for (var uid in s.cards || {}) {
+      var c = s.cards[uid];
+      if (!c || c.def !== 'teammate' || !c.loc || !c.data || !c.data.name) continue;
+      var lv = c.data.level || 1, bl = best ? best.data.level || 1 : 0;
+      if (!best || lv > bl || (lv === bl && Number(c.uid) < Number(best.uid))) best = c;
+    }
+    return best ? epiLine(CF.EPILOGUE.watch.icon, CF.EPILOGUE.watch.text, { name: best.data.name }) : null;
+  }
+  // Up to four lines, each { icon (a card def), key (its template), vars, text (filled, English) }.
+  // The ending page shows them under CF.EPILOGUE.title, translated with CF.T(line.key, line.vars).
+  Story.epilogue = function (e) {
+    var s = e.s;
+    return [epiPattern(s), epiKing(s), epiRival(s), epiAbroad(s), epiWatch(s)].filter(function (l) { return !!l; }).slice(0, 4);
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

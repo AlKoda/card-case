@@ -96,6 +96,15 @@ the Hole (the prison) beneath it. Its rooms:
 | Crime Lab | **The Apothecary** | Study is faster; no evidence needs special tools [Cadfael, Song Ci]. |
 | Surveillance Room | **The Belfry** | Watching takes half the night and never tires you. |
 
+A built room keeps count of what it did for you, one short phrase on its
+tile and nothing more: *Built · 6 questionings with more Word*, tokens
+kept from fading, cases reopened, fronts named, Coin saved, cases
+settled, bench reads, Belfry tokens. A room costs real Coin, and the
+tile says whether it paid.
+
+An instrument's boost reads in words, never its tags: the Apothecary's
+Kit gives Body +1 on finds from blood and hair, things handled.
+
 ## 4. The law of proof
 
 The six clue aspects stay six, renamed so that a period clue can carry them:
@@ -384,6 +393,15 @@ the patron carries the Suspicion, until the patron falls. Patrons can fall
 [Shardlake]: a Council election (every twelve weeks) can replace your
 patron, and all Favour with the fallen one becomes Suspicion.
 
+The week before, with a patron on the Council, the seat is a question,
+*The Council Elects*: stand with him openly (a Coin: if he holds, Favour
++2; if he loses, his Favour as Suspicion, as before), keep your distance
+(Favour halves, no Suspicion either way), or dine with the other side
+(Wit: Favour 1 whoever wins, no Suspicion, the Bishop cools). The count
+comes at the next Bell and is told: *The Count in the Chamber: your
+patron holds*, or loses. Unanswered, because another question was open,
+the election goes as it always did.
+
 Every commission speaks at its end. The Condemned card says what the
 patron asked for, and the rungs that would please them carry the patron's
 seal. Whatever the sentence, the notes say how it landed: pleased,
@@ -497,6 +515,16 @@ prose with the threat's icon: Fever alone in Rest cures it; a third
 Weariness on a Fever is the end; the Crowd is fed by cases gone cold and
 quieted by convictions. If Rest stood empty while the clock ran, it says
 that first.
+
+Under the ending, *What Became of Them*: at most four short lines with
+an icon each, told from the run itself. The girls of the Pattern's
+lane, answered at the third door, or never. The King of Thunes still on
+his barrel, keeping the treaty, scattered, dead on the Ravenstone, or in
+the river with the Court kneeling to you. How many examiners went back to
+the Customs House, or that the Harbourmaster fell. The one Abroad who
+walked from you most often, and where they were last seen. The watchman
+you drilled most, sergeant of the Watch now. A line comes only when the
+run has it.
 
 Once in a file, while you are new to the desk (no office yet, the first
 four weeks), the Fever, Collapse or Lost in the Case is not the end: the

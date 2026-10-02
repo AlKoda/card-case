@@ -391,6 +391,37 @@ or hurt, a wound, a beating, the Fever, an ability lost for good) shakes the
 table; the rest of the bad news (`danger`: a need arriving, the Rival, a
 verdict gone wrong) only sounds.
 
+A card leaving the table says how before it goes: `emit('gone', {uid,
+why})`, with `why` `lost` (an ability taken for good: a need run out, an
+answer that takes it `forGood`) or `spent` (Coin paid by `spend`, a
+choice, the Abbey's bed). The engine only names the exit; the board picks
+the animation (a burn for `lost`, a flight to where it went for `spent`)
+and falls back to the plain fade for an exit it does not know.
+
+`Story.epilogue(e)` (story.js, `CF.EPILOGUE`) gives the end paper up to
+four lines, each `{icon, key, vars, text}`: the Pattern (`template
+'pattern'`, `victims`, answered only when closed and its man not
+Abroad), the King (`s.court.king`, his criminal's `dead`, the ending,
+`syndicateFallen`, the treaty), the examiners sent home (journal entries
+*The Rival Exposed*, or `stats.rivalsExposed` if kept; `harbourmasterFallen`),
+the criminal at large with the most escapes (history entries with a
+case title; last seen at that case's scene), and the most drilled
+watchman. It reads state only, no dice; the page shows
+`CF.T(line.key, line.vars)` under `CF.EPILOGUE.title`.
+
+The election is a question with its own id (`election`, never on the
+clock). `P.offerElection()` puts it the week before (false while another
+question is open, or with no patron); its answers set
+`s.flags.election` (`stand`, `distance`, `dine`). `P.councilCount()`
+replaces the twelve-weekly roll in `patronsWeek` and returns the Bell's
+lines: with no answer it is the old roll exactly, line and dice. The
+engine lane wires both into patrons.js.
+
+`Story.boostLine(boost)` writes an instrument's boost in words
+(`CF.TAG_WORDS`, `CF.BOOST_LINE`), each part a key, so the dossier line
+reads whole in Arabic; `tr(', ')` gives the Arabic comma for lists the
+dossier joins itself.
+
 ## 10. Money
 
 Sources: the weekly salary (1 to 4 Funds by rank, §17), Duty shifts,

@@ -584,3 +584,75 @@ console.log('choices: all OK');
   assert.strictEqual(CF.Story.lesson(ld, 'burnout').text.indexOf(CF.ENDING_REST_IDLE), 0, 'Rest stood empty: said first');
   console.log('the abbey and the lessons: ok');
 })();
+
+// ---- The Council Elects -------------------------------------------------------------
+// The week before, the seat is a question; the week of it, the count is told, and each answer
+// gives what it said. Unanswered, the count goes as it always did.
+(function election() {
+  function voter(seed, council, answer, lose) {
+    var e = game(seed);
+    e.favour().council = council;
+    e.create('funds');
+    assert.ok(e.offerElection(), 'the question is put');
+    assert.strictEqual(e.s.choice.id, 'election');
+    if (answer !== null) assert.ok(e.choose(answer), 'answered ' + answer);
+    else e.s.choice = null;
+    var rng = e.rng; e.rng = function () { return lose ? 0.01 : 0.99; };
+    var lines = e.councilCount(); e.rng = rng;
+    return { e: e, lines: lines };
+  }
+  var el = spec('election');
+  assert.ok(!el.when(game(1)), 'never put by the clock');
+  var r = voter(120, 3, 0, false);
+  assert.strictEqual(r.e.favour().council, 5, 'stood with him, and he holds: +2');
+  assert.deepStrictEqual(r.lines, [CF.ELECTION.holds]);
+  r = voter(121, 3, 0, true);
+  assert.strictEqual(r.e.favour().council, 0); assert.strictEqual(r.e.s.meters.scrutiny, 3, 'stood with him, and he loses: his favour as Suspicion');
+  assert.deepStrictEqual(r.lines, [CF.ELECTION.loses]);
+  r = voter(122, 3, 1, true);
+  assert.strictEqual(r.e.favour().council, 1); assert.strictEqual(r.e.s.meters.scrutiny, 0, 'kept your distance: favour halved, no Suspicion');
+  r = voter(123, 3, 2, false);
+  assert.strictEqual(r.e.favour().council, 1); assert.strictEqual(r.e.favour().bishop, -1, 'dined with the other side: favour 1, the Bishop cools');
+  assert.strictEqual(r.e.s.meters.scrutiny, 0);
+  assert.ok(r.e.s.journal.some(function (j) { return j.title === CF.ELECTION.title; }), 'the count is told');
+  // Unanswered: as before, lost and read aloud; held, and nothing said.
+  r = voter(124, 2, null, true);
+  assert.strictEqual(r.e.s.meters.scrutiny, 2); assert.strictEqual(r.e.favour().council, 0);
+  assert.ok(/goes against your patron/.test(r.lines[0]));
+  r = voter(125, 2, null, false);
+  assert.deepStrictEqual(r.lines, []); assert.strictEqual(r.e.favour().council, 2);
+  // Not put with no patron, or over another question.
+  var e = game(126); e.favour().council = 0;
+  assert.ok(!e.offerElection());
+  e.favour().council = 2; e.offerChoice(spec('beggar'));
+  assert.ok(!e.offerElection() && e.s.choice.id === 'beggar', 'another question is open');
+  // A save with the question open loads and is answered; an old save without the flag counts as before.
+  var sv = game(127); sv.favour().council = 2; sv.offerElection();
+  var ld = CF.Engine.load(sv.save());
+  assert.ok(ld.s.choice && ld.s.choice.id === 'election' && ld.choose(1) && ld.s.flags.election === 'distance', 'answered after a load');
+  var old = JSON.parse(game(128).save()); delete old.flags.election; old.favour = { council: 1, bishop: 0, guild: 0 };
+  var ol = CF.Engine.load(JSON.stringify(old)), orng = ol.rng; ol.rng = function () { return 0.01; };
+  assert.ok(/goes against your patron/.test(ol.councilCount()[0]), 'an old save counts as it always did'); ol.rng = orng;
+  console.log('the council elects: ok');
+})();
+
+// ---- Gone: how a card leaves -------------------------------------------------------------
+// An ability taken for good and a Coin paid say so before they go, for the table to show.
+(function gone() {
+  var e = game(130), seen = [];
+  e.on(function (type, p) { if (type === 'gone') seen.push(p.why + ':' + p.uid); });
+  e.create('funds');
+  e.spend(1);
+  assert.ok(seen.some(function (x) { return /^spent:/.test(x); }), 'a Coin paid is spent');
+  e.create('health'); e.create('health');
+  var hunger = e.create('hunger', { lifetime: 1 });
+  seen.length = 0;
+  e.needExpired(hunger);
+  assert.ok(seen.length === 1 && /^lost:/.test(seen[0]), 'a Health taken for good is lost: ' + seen.join(','));
+  e.create('funds');
+  e.offerChoice(spec('beggar'));
+  seen.length = 0;
+  assert.ok(e.choose(0));
+  assert.ok(seen.length === 1 && /^spent:/.test(seen[0]), 'the beggar\'s Coin is spent');
+  console.log('gone: ok');
+})();

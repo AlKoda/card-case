@@ -153,3 +153,26 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   CF.setLang('en');
   console.log('i18n: depositions, partial verdicts and new names read whole');
 })();
+
+// The ending's epilogue, the Council's count and an instrument's boost read whole in Arabic,
+// both as their own key filled and as the English line the engine wrote.
+(function epilogueAndCount() {
+  CF.setLang('ar');
+  var E = CF.EPILOGUE, vars = { scene: 'the Stews', king: 'Hans Schmidt', n: 'Three', name: 'Hans Schmidt', where: 'the Warrens', k: 'three' };
+  var keys = [E.title, E.pattern.never, E.king.sits, E.king.treaty, E.king.hangs, E.king.fallen, E.king.kneels, E.rival.one, E.rival.two, E.rival.many, E.rival.sealed,
+    E.abroad.once, E.abroad.twice, E.abroad.many, E.watch.text].concat(E.pattern.doors);
+  var El = CF.ELECTION;
+  keys = keys.concat([El.title, El.holds, El.loses]);
+  Object.keys(El.told).forEach(function (h) { keys.push(El.told[h].holds, El.told[h].loses); });
+  keys.forEach(function (k) {
+    var a = CF.T(k, vars), b = CF.T(CF.util.fill(k, vars));
+    assert.ok(!/[A-Za-z]{3}/.test(a) && !/[A-Za-z]{3}/.test(b), k + ' => ' + a + ' / ' + b);
+  });
+  [{ tags: ['biology', 'physical'], aspects: { forensic: 1 } }, { tags: ['watching'], aspects: { opportunity: 1, digital: 1 } }, { tags: ['records'], aspects: { digital: 1 } }, { tags: ['surfaces'], aspects: { forensic: 1 } }].forEach(function (b) {
+    var line = CF.T(CF.Story.boostLine(b));
+    assert.ok(!/[A-Za-z]/.test(line), 'a boost reads whole: ' + line);
+  });
+  assert.strictEqual(CF.T(', '), '، ', 'the list comma');
+  CF.setLang('en');
+  console.log('i18n: the epilogue, the count and the boosts read whole');
+})();

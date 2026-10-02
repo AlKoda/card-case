@@ -342,6 +342,9 @@
   // permanently, if you had it to spare.
   // deepen: what the first run-out costs when there is nothing to spare (said before the rule);
   // debt: who stops asking the second time. Stress owes nobody: it costs the Crowd, not a debt.
+  // A card about to leave the table says how, so the table can show it ('gone' {uid, why}):
+  // 'lost' (an ability taken for good), 'spent' (Coin paid). The engine stays DOM-free.
+  function gone(e, card, why) { if (card) e.emit('gone', { uid: card.uid, why: why }); }
   CF.NEEDS = {
     hunger: { takes: 'health', weight: 3, life: 110,
       arrive: 'You cannot remember your last hot meal. Your hands have started to shake on the stairs.',
@@ -391,6 +394,7 @@
     var label = CF.CARDS[spec.takes].label;
     if (have.length >= 2) {
       var victim = have.filter(function (c) { return c.loc && c.loc.t === 'table'; })[0] || have[0];
+      gone(this, victim, 'lost');
       this.remove(victim);
       this.story('Lost: ' + label, spec.loss + ' One ' + label + ' is gone, and it will not come back.', 'harm');
     } else if (repeat >= 1) {
@@ -426,7 +430,7 @@
     });
     this.meter('reputation', -1);
     var coin = this.cardsOf('funds')[0];
-    if (coin) this.remove(coin); else this.count('debt');
+    if (coin) { gone(this, coin, 'spent'); this.remove(coin); } else this.count('debt');
     // A week passes: the Bell rings at the next tick, if it rings yet.
     if (!s.flags.bellSilent) s.weekT = Math.max(s.weekT || 0, CF.WEEK);
     this.story(CF.ABBEY.title, coin ? CF.ABBEY.paid : CF.ABBEY.owed, 'danger');
@@ -913,7 +917,64 @@
         { label: 'Turn them away', gain: 'Your informer\'s trust falls', text: 'You do not open the door. The bag goes down the stair slowly.',
           effect: function (e) { var c = compromisedInformer(e); if (c && e.trustInformant) e.trustInformant(c, -1); } },
       ] },
+    // Put to you the week before an election (offerElection), never by the clock; counted the week after (councilCount).
+    { id: 'election', when: function () { return false; },
+      title: 'The Council Elects', text: 'Your patron\'s seat is contested. The other side has been counting the favours he did you.',
+      options: [
+        { label: 'Stand with him openly', cost: 'funds', gain: 'If he holds the seat, Council favour +2; if not, Suspicion + his favour', text: 'You walk beside him into the chamber, where everyone can count you.',
+          effect: function (e) { e.s.flags.election = 'stand'; } },
+        { label: 'Keep your distance', gain: 'Council favour halves; no Suspicion either way', text: 'You have a case. You are seen at it, all week, far from the chamber.',
+          effect: function (e) { var f = e.favour(); f.council = Math.floor(f.council / 2); e.s.flags.election = 'distance'; } },
+        { label: 'Dine with the other side', cost: 'focus', gain: 'Council favour 1, whoever wins; no Suspicion; Bishop -1', text: 'A long dinner on the Hill with the men who want his seat. The Bishop dines elsewhere and hears of it.',
+          effect: function (e) { e.favour().bishop -= 1; e.s.flags.election = 'dine'; } },
+      ] },
   ];
+  // ---- The Council Elects ------------------------------------------------------------
+  // Every twelve weeks (CF.Patrons.ELECTION_EVERY) the Council may turn. The week before, with a
+  // patron on it, the seat is a question (offerElection: false when another question is open, and
+  // the Bell keeps its old line). The week of it, councilCount takes the place of the old roll and
+  // tells the count. Unanswered (an old save, a question already open) it goes as it always did:
+  // lost, and every favour read aloud as Suspicion; held, and nothing said.
+  CF.ELECTION = {
+    lose: 0.4,
+    title: 'The Count in the Chamber',
+    holds: 'The Count in the Chamber: your patron holds.',
+    loses: 'The Count in the Chamber: your patron loses.',
+    told: {
+      stand: { holds: 'He holds the seat, and remembers who stood with him. Council favour +2.', loses: 'He loses the seat. Every favour he did you is read aloud by the men who beat him. Suspicion +{n}.' },
+      distance: { holds: 'He holds the seat, and noticed how far away you stood.', loses: 'He loses the seat. You stood far enough away that nobody reads your name.' },
+      dine: { holds: 'He holds the seat, and has heard where you dined. Council favour is 1.', loses: 'He loses the seat. The new man remembers your dinner. Council favour is 1.' },
+    },
+    old: 'The Council election goes against your patron. Every favour he did you is read aloud by the men who beat him. Suspicion +{n}.',
+  };
+  P.offerElection = function () {
+    var s = this.s;
+    if (s.choice || s.over || this.favour().council <= 0) return false;
+    delete s.flags.election;
+    this.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'election'; })[0]);
+    return true;
+  };
+  // The count, at the Bell: returns the Bell's lines.
+  P.councilCount = function () {
+    var s = this.s, f = this.favour(), E = CF.ELECTION, how = s.flags.election || null, lines = [];
+    delete s.flags.election;
+    if (!how) {
+      if (f.council > 0 && this.rng() < E.lose) {
+        var was = f.council;
+        this.meter('scrutiny', was);
+        f.council = 0;
+        lines.push(U.fill(E.old, { n: was }));
+      }
+      return lines;
+    }
+    var loses = this.rng() < E.lose, n = f.council;
+    if (how === 'stand' && loses) { this.meter('scrutiny', n); f.council = 0; }
+    else if (how === 'stand') f.council += 2;
+    else if (how === 'dine') f.council = 1;
+    this.story(E.title, U.fill(E.told[how][loses ? 'loses' : 'holds'], { n: n }), how === 'stand' && loses ? 'danger' : 'event');
+    lines.push(loses ? E.loses : E.holds);
+    return lines;
+  };
   // The informer somebody has been asking after: the first one Compromised.
   function compromisedInformer(e) {
     return e.cardsOf('informant', true).filter(function (c) { return e.informantStatus && e.informantStatus(c) === 'compromised'; })[0] || null;
@@ -925,7 +986,7 @@
   };
   P.spend = function (n) {
     var funds = this.cardsOf('funds').filter(function (c) { return c.loc && c.loc.t === 'table'; });
-    for (var i = 0; i < n && funds[i]; i++) this.remove(funds[i]);
+    for (var i = 0; i < n && funds[i]; i++) { gone(this, funds[i], 'spent'); this.remove(funds[i]); }
   };
   function nextChoiceIn(e) { return U.randInt(e.rng, 130, 220); }
   // Ten weeks on, a question with a second wording (`again`) is put once more.
@@ -1033,7 +1094,7 @@
       // An ability is spent, not lost (it comes back as it does after work), unless the option takes it for good. Coin is gone.
       var spends = CF.CARDS[pay.def].spends;
       if (spends && !opt.forGood) this.transform(pay, spends, { decay: CF.CARDS[spends].decay / (this.perkHas('secondwind') ? 2 : 1) });
-      else this.remove(pay);
+      else { gone(this, pay, spends ? 'lost' : 'spent'); this.remove(pay); }
     }
     s.choice = null;
     // An answer that turns out one of two ways says which (the effect returns its own words).
