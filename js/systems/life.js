@@ -26,6 +26,7 @@
       notice: 'Endres has not come to the bench in four days. The master scrivener says nothing, which is how he says things. Endres lodged in the Warrens; you know the door.',
       found: 'The Watch pulled Endres out of the mill-race this morning. A sergeant is at the shop before noon, and he wants to know why you were asking at that door before anyone knew there was a body.',
       hired: 'The sergeant listens longer than sergeants do. When you are finished he says the Watch-house on the Market has a desk under the stair and nobody at it, and that a man who reads a room like a deed is wasted on deeds. Junior examiner. No stipend until you have earned it.',
+      kept: 'Endres is buried at the Council\'s charge, the first thing the Council has ever paid for on your account. The master scrivener sends his bench to the Watch-house without a word.',
       roles: [
         { role: 'the master scrivener', motive: 'Endres copied a bond he was told not to read, and read it.' },
         { role: 'the man whose bond it was', motive: 'A deed in the Warrens, and a name on it that should not be there.' },
@@ -36,6 +37,7 @@
       notice: 'Old Bartel has missed three rounds. His halberd is still on its hook. His landlady says he went out on Thursday to meet somebody about money.',
       found: 'They find Bartel in a lock-up at the Harbour with his skull broken. The sergeant, who was Bartel\'s friend before he was yours, wants to know what you know.',
       hired: 'The sergeant has heard you read a scene before, on the round, in the dark. He says the Examiner\'s desk under the stair is empty and the Council has stopped asking why. Junior examiner. No stipend until you have earned it.',
+      kept: 'They bury Bartel with his halberd. The sergeant stands beside you at the grave and says, to nobody, that the round is short a man. It is.',
       roles: [
         { role: 'the man Bartel went to meet about money', motive: 'Bartel lent, and Bartel asked for it back, on Thursday.' },
         { role: 'the warehouse-keeper who hired him', motive: 'Bartel saw what came in by night and was paid to forget, until he stopped forgetting.' },
@@ -46,6 +48,7 @@
       notice: 'Brother Sebald did not come to matins, or to prime. His bed is made. His herbal is gone from the shelf, and so is a jar that should not leave the dispensary.',
       found: 'The Watch finds Sebald under the sluice with the jar in his cloak, and a sergeant who does not like monks wants to know why a physician was asking the porter about him.',
       hired: 'You tell the sergeant what the body says, and the sergeant, who has heard a hundred physicians, hears something new. The Watch-house has a desk with nobody at it. Junior examiner. No stipend until you have earned it.',
+      kept: 'Sebald goes into the Abbey\'s ground with his herbal on his chest. The Abbot reads the office himself and does not look at you once, which from him is thanks.',
       roles: [
         { role: 'the cellarer', motive: 'The jar was in his keeping, and so was the key.' },
         { role: 'the man who bought the jar', motive: 'Somebody outside the walls wanted what the dispensary keeps locked.' },
@@ -56,6 +59,7 @@
       notice: 'Nan has not been at the Ravenstone in four days, and there was a hanging on Tuesday. Her ballads are still in the basket by the gate. Somebody took the basket in.',
       found: 'The Watch finds Nan in the reeds below the Water-gate. The sergeant comes to the house outside the wall, which no sergeant does, and wants to know what a hangman was doing asking after her.',
       hired: 'You tell him what the marks on her say, and he goes quiet. The Council will not like it, he says, but the desk under the stair is empty and you read a body better than the barber-surgeon. Junior examiner. No stipend until you have earned it.',
+      kept: 'Nan is buried outside the wall, where the city buries what it does not want. On Tuesday the ballad-sellers sing her at the Ravenstone, with a verse that has your name in it.',
       roles: [
         { role: 'the printer of her ballads', motive: 'Nan sang a verse he had not been paid for.' },
         { role: 'the man she sang about', motive: 'A ballad names names. His was in Tuesday\'s.' },
@@ -66,6 +70,7 @@
       notice: 'Pieter did not come in on Monday. His pen is on the desk, uncleaned, which he never leaves. The last thing he copied was a bond you did not draw.',
       found: 'The Watch finds Pieter in the Stews, in a room he could not have paid for. A sergeant comes up the Hill to ask why you were at that door before they were.',
       hired: 'You argue your own case to the sergeant as you argued a hundred before the Blood Court, and he is not a judge, so it works. The desk under the stair is empty. Junior examiner. No stipend until you have earned it.',
+      kept: 'Pieter is buried from the chambers on the Hill. You draw his will yourself; it is a page long and leaves you his pen.',
       roles: [
         { role: 'the man whose bond Pieter copied', motive: 'A bond you did not draw, in your chambers, in your clerk\'s hand.' },
         { role: 'a client who stopped paying', motive: 'Owed the chambers a year, and Pieter kept the book.' },
@@ -76,6 +81,7 @@
     notice: 'Grete from the floor below has not been seen in four days. Her door is locked and her cat is on your sill. Nobody has asked the Watch, because nobody asks the Watch.',
     found: 'The Watch pulls Grete out of the river. A sergeant is on your stair by noon, wanting to know why you were asking at her door.',
     hired: 'The sergeant listens, and at the end says the Watch-house has a desk under the stair and nobody at it. Junior examiner. No stipend until you have earned it.',
+    kept: 'Grete\'s cat moves in with you. The Watch-house cat does not approve.',
     roles: [
       { role: 'the man on the floor below', motive: 'Knocked on her door every night, and she stopped answering.' },
       { role: 'her brother from the Warrens', motive: 'Owed money in the Warrens, and she had some.' },
@@ -89,9 +95,18 @@
     body: 'The Watch Has a Body',
     hired: 'Junior Examiner',
     keep: 'Your First Keep',
+    hiredWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. Or question {name} with Wit.',
+    hiredNoWit: 'Two tokens and a name already. Lay the case and its tokens together in Rest: they may tell you who it was. When your Wit comes back from the sergeant, question {name} with it.',
     keepText: 'The Council pays a stipend to the examiner who answered a case, and the landlord, who has heard, sends up the bill. The Bell rings from today: lodging and dues at every turn of the week. You are an examiner now, and the cases will come on the city\'s clock.',
   };
   P.openingScene = function () { return CF.OPENING_SCENES[this.s.who] || CF.OPENING_SCENES.none; };
+  // Whose death began the casebook: kept at the first keep. A save from before
+  // the flag that went through the opening still knows it from its origin.
+  P.firstVictim = function () {
+    var f = this.s.flags;
+    if (f.firstVictim) return f.firstVictim;
+    return f.stage === 'keep' ? this.openingScene().missing : null;
+  };
   P.setupOpening = function () {
     var s = this.s, sc = this.openingScene();
     s.flags.opening = true;
@@ -205,8 +220,11 @@
     this.story(CF.OPENING_TEXT.hired, sc.hired + ' The case is yours now: find who did it. Raw proof speaks in Study; the Court opens when you have someone to charge.', 'major');
     var rec = this.openCases().filter(function (r) { return r.opening; })[0];
     var named = rec && rec.suspects.filter(function (x) { return x.revealed; })[0];
-    var proof = this.tableCards().some(function (c) { return c.def === 'evidence'; });
-    if (named && !proof) hint(this, U.fill('Two tokens and a name already. Question {name} with Wit, or lay the tokens side by side in Rest.', { name: named.name }));
+    var tb = this.tableCards();
+    var proof = tb.some(function (c) { return c.def === 'evidence'; });
+    // The case with its tokens in Rest is what names someone; the sergeant has just had the Wit.
+    var wit = tb.some(function (c) { return c.def === 'focus'; });
+    if (named && !proof) hint(this, U.fill(wit ? CF.OPENING_TEXT.hiredWit : CF.OPENING_TEXT.hiredNoWit, { name: named.name }));
     else hint(this, 'You have the desk. Study what you found, question who you meet, and build a charge. The Court opens when you have an accused and a token.');
     if (s.flags.callingOpen) s.flags.callingDue = true; // put to you from openingTick, once Explore is idle or ten seconds on
   };
@@ -224,7 +242,10 @@
     if (this.introReveal) this.introReveal(['funds', 'order', 'district', 'camera', 'teammate', 'informant', 'notes', 'coldcase', 'atlarge', 'gang', 'syndicate']);
     for (var i = 0; i < 2; i++) this.create('funds');
     this.layoutVerbs();
-    this.story(CF.OPENING_TEXT.keep, CF.OPENING_TEXT.keepText, 'major');
+    // The one you knew is buried, and the casebook remembers whose death began it.
+    var sc = this.openingScene();
+    s.flags.firstVictim = sc.missing;
+    this.story(CF.OPENING_TEXT.keep, (sc.kept ? sc.kept + ' ' : '') + CF.OPENING_TEXT.keepText, 'major');
     hint(this, 'The Bell rings from now on: lodging and dues come out of your Coin at every turn of the week. Attend earns it.');
   };
 
@@ -293,9 +314,22 @@
   // boast of a name, a week after that they close it), spoil a scene, pay a
   // witness to forget. A spoiled token and a bought witness carry the mark
   // (data.tampered, data.bribed) for the dossier.
+  // The Reformer below the white staff hears of the Coquille before it can be touched: a story
+  // in the week the bands begin to gather, and nothing on the meters. Once, and only while the
+  // Coquille has not yet formed (it forms for a Bailiff; see organise in engine.js).
+  CF.COQUILLE_FORETOLD = { title: 'The Word Nobody Says', text: 'Every fence you question looks at the same door before he lies. Somebody under the Warrens is gathering the bands into one shell. When the Council gives you the white staff, you can go among them.' };
+  function foretellCoquille(e) {
+    var s = e.s, f = s.flags;
+    if (s.calling !== 'crusader' || s.week < 6 || (s.rank || 0) >= 2 || f.coquilleForetold || f.syndicateFallen) return;
+    if ((s.intro && !s.intro.finished) || e.countOf('syndicate')) return;
+    f.coquilleForetold = true;
+    e.story(CF.COQUILLE_FORETOLD.title, CF.COQUILLE_FORETOLD.text);
+  }
+
   CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
   P.rivalWeek = function () {
     var s = this.s, lines = [];
+    foretellCoquille(this); // the week's other word from the street, before the Rival's
     if (s.week < 5 || (s.intro && !s.intro.finished)) return lines;
     var r = this.cardsOf('rival', true)[0];
     if (!r) {

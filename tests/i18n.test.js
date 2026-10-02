@@ -46,9 +46,24 @@ CF.setLang('ar');
 CF.I18N.track = true;
 CF.I18N.missing = {};
 function read(s) { if (s) CF.T(s); }
+// The face of a token shows the head of its label, the part before ': ', and looks through a
+// status (Kept, Matched, Partial, Corroborated) to the token under it: every head is collected.
+var heads = {};
+function headsOf(e, c) {
+  var kind = CF.CARDS[c.def] && CF.CARDS[c.def].kind;
+  if (kind !== 'clue' && kind !== 'evidence' && kind !== 'paper') return;
+  var parts = e.labelOf(c).split(': ');
+  if (parts.length < 2) return;
+  heads[parts[0]] = 1;
+  if (/^(Kept|Matched|Partial|Corroborated)$/.test(parts[0]) && parts.length > 2) heads[parts[1]] = 1;
+}
 [0, 1, 2].forEach(function (g) {
   var e = CF.Engine.newGame({ seed: 900 + g, calling: ['master', 'commissioner', 'crusader'][g], who: CF.ORIGIN_ORDER[g] });
-  bot.play(e, 60 * 22, ['custom', 'merciful', 'brutal'][g]);
+  var temper = ['custom', 'merciful', 'brutal'][g];
+  for (var t = 0; t < 60 * 22 && !e.s.over; t++) {
+    bot.step(e, temper); e.tick(1);
+    if (t % 5 === 0) Object.keys(e.s.cards).forEach(function (uid) { headsOf(e, e.s.cards[uid]); });
+  }
   Object.keys(e.s.cards).forEach(function (uid) {
     var c = e.s.cards[uid];
     read(e.labelOf(c)); read(e.descOf(c));
@@ -64,3 +79,9 @@ CF.I18N.track = false;
 CF.setLang('en');
 assert.strictEqual(miss.length, 0, miss.length + ' strings from a played game stay English:\n  ' + miss.slice(0, 80).join('\n  '));
 console.log('i18n: a bot-played game reads fully in Arabic');
+CF.setLang('ar');
+var bare = Object.keys(heads).filter(function (h) { return /[A-Za-z]{3}/.test(CF.T(h)); });
+CF.setLang('en');
+assert.ok(Object.keys(heads).length >= 4, 'token heads were seen: ' + Object.keys(heads).join(', '));
+assert.strictEqual(bare.length, 0, 'token faces stay English in Arabic: ' + bare.join(', '));
+console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) reads in Arabic');

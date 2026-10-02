@@ -130,15 +130,21 @@
     var extra = (CALLING_BEATS[e.s.calling] || {})[key] || '';
     return { title: b.title, text: b.text + extra };
   };
+  // A won run looks back, at the end, to the death it began with (the opening's victim).
+  CF.ENDING_FIRST_CASE = 'The first case in your casebook is still the death of {victim}. You never needed to read it again.';
   // The ending's text, with the run's own numbers where it counts them ({sentHome}, {reformed}).
   Story.ending = function (e, id) {
-    var list = CF.ENDING_VARIANTS[id];
-    if (!list || !list.length) return CF.ENDINGS[id].text;
-    // The first variant whose condition fits; otherwise one of the plain ones.
-    var fit = list.filter(function (v) { return v.when && v.when(e.s.stats, e.s); });
-    if (fit.length) return U.fill(fit[0].text, e.s.stats || {});
-    var plain = list.filter(function (v) { return !v.when; });
-    var pool = plain.length ? plain : [list[list.length - 1]];
-    return U.fill(pool[e.s.seed % pool.length].text, e.s.stats || {});
+    var list = CF.ENDING_VARIANTS[id], text;
+    if (!list || !list.length) text = CF.ENDINGS[id].text;
+    else {
+      // The first variant whose condition fits; otherwise one of the plain ones.
+      var fit = list.filter(function (v) { return v.when && v.when(e.s.stats, e.s); });
+      var plain = list.filter(function (v) { return !v.when; });
+      var pool = plain.length ? plain : [list[list.length - 1]];
+      text = U.fill(fit.length ? fit[0].text : pool[e.s.seed % pool.length].text, e.s.stats || {});
+    }
+    var victim = e.firstVictim ? e.firstVictim() : null;
+    if (victim && CF.ENDINGS[id] && CF.ENDINGS[id].win) text += ' ' + U.fill(CF.ENDING_FIRST_CASE, { victim: victim });
+    return text;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -96,7 +96,7 @@
     "Raw proof goes into Study. Put Wit or Instinct in with the case to search differently.": "الدليل الخام يذهب إلى الدراسة. ضع الفطنة أو الحدس مع القضية لتبحث على نحو مختلف.",
     "People go into Question: Wit to listen, Instinct to bluff, Health to lean on them.": "الناس يذهبون إلى الاستجواب: الفطنة للإصغاء، والحدس للخداع، والصحة للضغط عليهم.",
     "Two tokens side by side in Rest: see whether they tell one story.": "أمارتان جنبًا إلى جنب في الراحة: انظر هل ترويان حكاية واحدة.",
-    "An accused and their tokens in The Court make a charge. The window says how it will stand.": "المتهم وأماراته في المحكمة يصنعان تهمة. والنافذة تخبرك كيف ستصمد.",
+    "An accused and the tokens of their case in The Court make a charge. Read the window before you press: on Indicia they walk free and remember you; Full Proof holds.": "المتهم وأمارات قضيته في المحكمة يصنعان تهمة. اقرأ النافذة قبل أن تضغط: على القرائن يخرج حرًّا ويذكرك؛ والبيّنة الكاملة تصمد.",
     "The sworn men are out. Meanwhile, Attend: Health walks a hard round for Coin, Wit keeps the day-book.": "المحلَّفون في مداولتهم. وفي الأثناء، الدوام: الصحة تمشي جولةً شاقة لقاء النقود، والفطنة تمسك دفتر اليومية.",
     "A conviction. The Condemned and a rung of the ladder go in The Court; say nothing and the Council sentences by custom.": "إدانة. المحكوم ودرجة من السلّم يذهبان إلى المحكمة؛ وإن لم تقل شيئًا حكم المجلس بحسب العرف.",
     "New Case: {title}": "قضية جديدة: {title}",

@@ -100,7 +100,7 @@
     { beat: 3, cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
       run: function (e) {
         e.introUnlock(['arrest']);
-        return { hint: 'An accused and their tokens in The Court make a charge. The window says how it will stand.' };
+        return { hint: 'An accused and the tokens of their case in The Court make a charge. Read the window before you press: on Indicia they walk free and remember you; Full Proof holds.' };
       } },
     { beat: 4, cue: function (e) { return e.countOf('trial') > 0 || (Object.keys(e.s.cases).length > 0 && e.s.cases[Object.keys(e.s.cases)[0]].status !== 'open'); },
       run: function (e) {

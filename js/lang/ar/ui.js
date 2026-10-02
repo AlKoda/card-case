@@ -334,6 +334,29 @@
     "Your <b>Calling</b> decides how you win. Its card on the table tells you what it needs. Lodging and dues come out at every bell. Do not run dry.": "<b>غايتك</b> تقرّر كيف تفوز. وبطاقتها على الطاولة تخبرك بما تحتاجه. السكن والرسوم يُسحبان عند كل جرس. لا تدع كيسك ينضب.",
     "Take Up Their Desk": "تسلّم مكتبهم",
     "A New Letter": "كتاب جديد",
-    "Look at the Table": "انظر إلى الطاولة"
+    "Look at the Table": "انظر إلى الطاولة",
+    // The face of a token shows only the head of its label (before ': '): each head on its own.
+    "Partial": "جزئي",
+    "Deposition": "إفادة",
+    "Statement": "أقوال",
+    "Kept": "محفوظ",
+    "Matched": "مطابَق",
+    "Alibi": "حجّة غياب",
+    "Confession": "اعتراف",
+    "Confession Under the Question": "اعتراف تحت التعذيب",
+    "False Confession": "اعتراف كاذب",
+    "Warning": "إنذار",
+    "Theory": "نظرية",
+    "Traced": "تعقّب",
+    "Confirmed Identification": "تعرّف مؤكَّد",
+    "Letter": "كتاب",
+    "Left Behind": "ما تُرك",
+    "A Tavern Token": "رمز حانة",
+    "The Name on the Leaf": "الاسم على الورقة",
+    "Take On": "تعيين",
+    "Petition For": "عريضة",
+    "Sighting": "مشاهدة",
+    "Hurt": "مصاب",
+    "Blood Court": "محكمة الدم"
   });
 })(typeof window !== 'undefined' ? window : globalThis);

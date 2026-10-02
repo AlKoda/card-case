@@ -136,6 +136,12 @@ no Body or Writ clue that agrees with it, the conviction is *wrongful* and
 the truth surfaces later (a Loose End with the real culprit's name, and the
 Crowd remembers).
 
+A confession belongs to the one who made it. Laid against anyone else in
+The Court it counts for nothing, and the defence counts it for the accused:
+another man's confession is the best friend a prisoner has. The same holds
+for a Motive or a slip of the tongue taken from one person and laid
+against another.
+
 ## 5. The question, and other ways to be brutal
 
 The city offers force at every step. None of it is forbidden. All of it is
@@ -216,6 +222,10 @@ being real:
   survivable with Standing (reputation) and a patron. The ending is the
   **Thief-taker General** (§10): the city's most effective officer, and its
   richest, and its worst secret. Jonathan Wild's first fourteen years.
+  It is a road, not a windfall: a high Purse alone does not make it, the
+  Thief-takers' Office has to have settled cases for you, and it asks a
+  Magistrate's rank and Standing. The fences call you General a week before
+  the Council does, and if the counts still hold at the next Bell, it lands.
 - **Lost to greed.** Purse high *and* the truth stops mattering: three
   wrongful convictions, or two frames, or tribute taken while the network
   grows. The Consumed ending fires early and differently: not a
@@ -253,8 +263,12 @@ crimes when the Coquille forms.
 Three stances, and the game does not ask you to pick one; it watches:
 
 **Eradicate.** Break every gang, hang the lieutenants, find the Court and
-raid it with a Muster. This is the Crusader's road as now. The Court of
-Miracles, raided, scatters into the countryside and comes back as
+raid it with a Muster. This is the Crusader's road as now. For the
+Reformer the Coquille gathers only when there is something to be done
+about it: once the Council has given you the white staff (Bailiff, from
+week ten), or sooner if three ledgers point at it. Before that the street
+only says its name, once, in the sixth week: a story, and nothing on the
+meters. The Court of Miracles, raided, scatters into the countryside and comes back as
 **highwaymen** (a new case type on the roads outside the walls) unless the
 King is taken [Newgate: Turpin, Maclaine]. Breaking the Coquille ends the
 game as it does now, and Dread is what it costs, because you cannot raid
@@ -329,7 +343,7 @@ Mercy, Cruelty, Purse, Underworld Debt, Dread, and the stance.
 | **The Burgomaster's Seat** | Power path, Chief rank, the Chair card | The Commissioner's Chair |
 | **The Scholar of Wrongs** | Knowledge path; your casebook becomes the city's *Song Ci* | The Master Detective / Architect |
 | **The Breaking of the Coquille** | Justice path, the King taken | The Crusader |
-| **The Thief-taker General** | Purse ≥ 6, wrongful convictions ≤ 1, Standing high, Council patron alive | new |
+| **The Thief-taker General** | Purse ≥ 9, wrongful convictions ≤ 1, Standing 12 and Magistrate, two settlements by the Thief-takers; the fences call you General a week before it lands | new |
 | **The Old Bailey** | Purse ≥ 6 and three wrongful convictions, or the 1718 Act after a Treaty | Consumed |
 | **The King of Thunes** | Rule stance completed | new |
 | **The Treaty City** | Treaty held for twelve weeks with Pressure ≤ 3; you retire rich and the city calls it peace | new |

@@ -184,7 +184,20 @@ console.log('intro: ok');
   var named = hr.suspects.filter(function (x) { return x.revealed; })[0];
   h.openingHired();
   assert.strictEqual(h.s.flags.stage, 'hired');
-  assert.ok(h.introHint().indexOf('Question ' + named.name + ' with Wit') >= 0, 'the hint names the suspect: ' + h.introHint());
+  // It points at the move that names someone (the case with its tokens in Rest), and a Wit on the table means questioning now.
+  assert.ok(/the case and its tokens together in Rest/.test(h.introHint()), 'the hint points at the case in Rest: ' + h.introHint());
+  assert.ok(h.introHint().indexOf('question ' + named.name + ' with Wit') >= 0, 'the hint names the suspect: ' + h.introHint());
+  // The sergeant has had the only Wit: the hint says it comes back, instead of asking for it.
+  var h2 = CF.Engine.newGame({ seed: 23, who: 'monk', name: 'Named', opening: true, guided: true });
+  h2.s.flags.stage = 'questioned';
+  var hc2 = h2.spawnCase('missing', { quiet: true, roles: h2.openingScene().roles }), hr2 = h2.caseRec(hc2.caseId);
+  hr2.opening = true;
+  h2.revealSuspect(hr2, null);
+  h2.cardsOf('focus', true).forEach(function (c) { h2.remove(c); });
+  h2.s.intro.stash = h2.s.intro.stash.filter(function (it) { return it.def !== 'focus'; });
+  h2.openingHired();
+  assert.ok(/When your Wit comes back from the sergeant, question /.test(h2.introHint()), 'no Wit to hand: ' + h2.introHint());
+  assert.ok(!/with Wit\./.test(h2.introHint()), 'and it does not ask for one now');
   assert.ok(h.s.flags.callingDue && !h.s.choice, 'the calling waits for openingTick');
   h.tick(0.1);
   assert.ok(h.s.choice && h.s.choice.id === 'calling', 'Explore idle: asked at once');
@@ -251,4 +264,75 @@ console.log('intro: ok');
   for (var w = 0; w < 60 && g2.verb('interrogate').status === 'idle'; w++) g2.tick(1);
   assert.strictEqual(g2.verb('interrogate').status, 'running', 'loaded: the questioning starts when the Wit is back');
   console.log('sergeant waits: ok');
+})();
+
+// ---- The first keep remembers whose death began it; a won ending looks back -----------------
+(function firstVictim() {
+  CF.ORIGIN_ORDER.concat(['none']).forEach(function (who, i) {
+    var e = CF.Engine.newGame({ seed: 40 + i, who: who, name: 'Kept', opening: true, guided: true });
+    var sc = e.openingScene();
+    assert.ok(sc.kept && sc.kept.length > 20, who + ' has a line for the burial');
+    e.s.flags.stage = 'hired';
+    e.openingKeep();
+    assert.strictEqual(e.s.flags.firstVictim, sc.missing, who + ': the first victim is kept');
+    var keep = e.s.journal.filter(function (j) { return j.title === CF.OPENING_TEXT.keep; })[0];
+    assert.ok(keep && keep.text.indexOf(sc.kept) === 0 && keep.text.indexOf(CF.OPENING_TEXT.keepText) > 0, who + ': the keep tells of the burial first: ' + (keep && keep.text));
+  });
+  // A won run ends with the death it began with; a lost one does not.
+  var w = CF.Engine.newGame({ seed: 50, who: 'clerk', name: 'Won', opening: true, guided: true });
+  w.s.flags.stage = 'hired'; w.openingKeep();
+  var won = CF.Engine.load(w.save()); won.gameOver('commissioner');
+  assert.ok(/The first case in your casebook is still the death of Endres\./.test(won.s.over.text), 'the Seat looks back: ' + won.s.over.text);
+  var lost = CF.Engine.load(w.save()); lost.gameOver('dismissed');
+  assert.ok(!/first case in your casebook/.test(lost.s.over.text), 'a dismissal does not');
+  // A save from before the flag, past the first keep, still knows the name from its origin.
+  var old = JSON.parse(w.save()); delete old.flags.firstVictim;
+  var o = CF.Engine.load(old);
+  assert.strictEqual(o.firstVictim(), 'Endres', 'an older save derives the first victim');
+  o.gameOver('master');
+  assert.ok(/still the death of Endres/.test(o.s.over.text), 'and its ending looks back too');
+  // A run with no opening (the guided desk) has nobody to look back to.
+  var p = CF.Engine.newGame({ seed: 51, calling: 'master' }); p.gameOver('master');
+  assert.strictEqual(p.firstVictim(), null);
+  assert.ok(!/first case in your casebook/.test(p.s.over.text), 'no opening, no look back');
+  console.log('first victim: ok');
+})();
+
+// ---- The Reformer hears of the Coquille before he can touch it -------------------------------
+(function coquilleForetold() {
+  function at(rank, week, synd) {
+    var e = CF.Engine.newGame({ seed: 60, calling: 'crusader' });
+    e.introFinish && e.introFinish();
+    e.s.rank = rank; e.s.week = week;
+    e.cardsOf('syndicate', true).forEach(function (c) { e.remove(c); });
+    if (synd) e.create('syndicate');
+    e.rivalWeek();
+    return e.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length;
+  }
+  assert.strictEqual(at(0, 6), 1, 'week six, below the white staff: the word is said');
+  assert.strictEqual(at(1, 9), 1, 'a Sworn Examiner hears it too');
+  assert.strictEqual(at(0, 5), 0, 'not before week six');
+  assert.strictEqual(at(2, 6), 0, 'a Bailiff can go among them: no foretelling');
+  assert.strictEqual(at(0, 6, true), 0, 'the Coquille already formed: no foretelling');
+  var e = CF.Engine.newGame({ seed: 61, calling: 'crusader' });
+  e.s.week = 6; e.cardsOf('syndicate', true).forEach(function (c) { e.remove(c); });
+  var meters = JSON.stringify(e.s.meters);
+  e.rivalWeek(); e.rivalWeek();
+  assert.strictEqual(e.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length, 1, 'once');
+  assert.strictEqual(JSON.stringify(e.s.meters), meters, 'a story only: no meter moves');
+  var m = CF.Engine.newGame({ seed: 62, calling: 'master' }); m.s.week = 6; m.rivalWeek();
+  assert.ok(!m.s.flags.coquilleForetold, 'only the Reformer');
+  var l = CF.Engine.load(JSON.parse(e.save()));
+  l.rivalWeek();
+  assert.strictEqual(l.s.journal.filter(function (j) { return j.title === CF.COQUILLE_FORETOLD.title && j.text === CF.COQUILLE_FORETOLD.text; }).length, 1, 'a loaded save does not say it twice');
+  console.log('coquille foretold: ok');
+})();
+
+// ---- The Court's first lesson says what Indicia does ------------------------------------------
+(function courtLesson() {
+  var step = CF.Engine.prototype.introSteps().filter(function (st) { return st.beat === 3; })[0];
+  var e = CF.Engine.newGame({ seed: 70, calling: 'master', guided: true });
+  var res = step.run(e);
+  assert.ok(/Indicia/.test(res.hint) && /walk free/.test(res.hint), 'the Charge hint warns of Indicia: ' + res.hint);
+  console.log('court lesson: ok');
 })();
