@@ -98,7 +98,8 @@ function missing(lang) {
   if (fs.existsSync(dir)) fs.readdirSync(dir).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(dir, f), 'utf8'), { filename: f }); });
   var d = globalThis.CF.I18N.dicts[lang] || {}, miss = {}, n = 0, total = 0;
   Object.keys(byFile).forEach(function (f) {
-    var m2 = byFile[f].filter(function (k) { total++; return d[k] === undefined; });
+    // An entry is a string, or plural forms ({ one, two, few, many, other }): without 'other' it is not one.
+    var m2 = byFile[f].filter(function (k) { total++; return d[k] === undefined || (typeof d[k] === 'object' && typeof d[k].other !== 'string'); });
     if (m2.length) { miss[f] = m2; n += m2.length; }
   });
   return { missing: miss, count: n, total: total };

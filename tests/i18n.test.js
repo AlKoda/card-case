@@ -126,7 +126,11 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   var d = CF.I18N.dicts.ar, bad = [];
   terms.forEach(function (m) {
     var re = new RegExp('\\b' + m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
-    Object.keys(d).forEach(function (k) { if (re.test(k) && d[k].indexOf(m[2]) < 0) bad.push(m[1] + ' (' + m[2] + '): ' + k.slice(0, 80) + ' => ' + d[k].slice(0, 80)); });
+    // A plural entry carries the term in every form.
+    Object.keys(d).forEach(function (k) {
+      var forms = typeof d[k] === 'string' ? [d[k]] : Object.keys(d[k]).filter(function (f) { return f !== 'by'; }).map(function (f) { return d[k][f]; });
+      forms.forEach(function (v) { if (re.test(k) && v.indexOf(m[2]) < 0) bad.push(m[1] + ' (' + m[2] + '): ' + k.slice(0, 80) + ' => ' + v.slice(0, 80)); });
+    });
   });
   assert.strictEqual(bad.length, 0, 'entries that drift from the glossary:\n  ' + bad.join('\n  '));
   console.log('i18n: ' + terms.length + ' house terms hold in every entry');
@@ -175,4 +179,69 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   assert.strictEqual(CF.T(', '), '، ', 'the list comma');
   CF.setLang('en');
   console.log('i18n: the epilogue, the count and the boosts read whole');
+})();
+
+// Counts in Arabic agree with their number: a plural entry is an object of forms, picked by the
+// count the string carries (1 and 2 their own words, 3-10 the plural, 11-99 the singular in the
+// accusative, 100 and 0 the singular), both from a filled English string and from a key and vars.
+(function plurals() {
+  CF.setLang('ar');
+  assert.strictEqual(CF.pluralForm(0), 'zero');
+  assert.strictEqual(CF.pluralForm(1), 'one');
+  assert.strictEqual(CF.pluralForm(2), 'two');
+  assert.strictEqual(CF.pluralForm(7), 'few');
+  assert.strictEqual(CF.pluralForm(103), 'few');
+  assert.strictEqual(CF.pluralForm(12), 'many');
+  assert.strictEqual(CF.pluralForm(100), 'other');
+  assert.strictEqual(CF.T('12 days for the Council'), '12 يومًا للمجلس');
+  assert.strictEqual(CF.T('3 days for the Council'), '3 أيام للمجلس');
+  assert.strictEqual(CF.T('2 days for the Council'), 'يومان للمجلس');
+  assert.strictEqual(CF.T('11 cards'), '11 بطاقةً');
+  assert.strictEqual(CF.T('{n} days', { n: 63 }), '63 يومًا');
+  assert.strictEqual(CF.T('{n} days', { n: 4 }), '4 أيام');
+  assert.strictEqual(CF.T('{n} Coin', { n: 1 }), 'قطعة نقد واحدة');
+  // The count may sit in a placeholder other than {n} ('by'), and the entry still reads whole.
+  var eel = CF.T('The Eel has 14 days left. Charge Hans Schmidt with what you have, or let it go.');
+  assert.ok(eel.indexOf('14 يومًا') >= 0 && !/ أيام|undefined|object/.test(eel), eel);
+  // A stop-less twin keeps its forms.
+  assert.strictEqual(CF.T('Costs 2 Coin'), 'تكلّف قطعتي نقد');
+  // Every plural entry has the forms it needs, and fills the same placeholders in each.
+  var d = CF.I18N.dicts.ar, bad = [];
+  Object.keys(d).forEach(function (k) {
+    var v = d[k];
+    if (typeof v === 'string') return;
+    var ph = (k.match(/\{\w+\}/g) || []).sort().join();
+    ['one', 'two', 'few', 'many', 'other'].forEach(function (f) { if (typeof v[f] !== 'string') bad.push(k + ': no ' + f); });
+    Object.keys(v).forEach(function (f) {
+      if (f === 'by') { if (k.indexOf('{' + v.by + '}') < 0) bad.push(k + ': counts by a missing {' + v.by + '}'); return; }
+      if (!/^(zero|one|two|few|many|other)$/.test(f)) bad.push(k + ': unknown form ' + f);
+      var got = (v[f].match(/\{\w+\}/g) || []).filter(function (p, i, a) { return a.indexOf(p) === i; });
+      got.forEach(function (p) { if (k.indexOf(p) < 0) bad.push(k + ' (' + f + '): ' + p + ' is not in the key'); });
+    });
+    if (!ph) bad.push(k + ': a plural entry with no count');
+  });
+  assert.strictEqual(bad.length, 0, 'plural entries:\n  ' + bad.join('\n  '));
+  assert.ok(Object.keys(d).filter(function (k) { return typeof d[k] !== 'string'; }).length >= 40, 'the count keys are plural entries');
+  CF.setLang('en');
+  console.log('i18n: counts agree with their number in Arabic');
+})();
+
+// A woman reads as a woman: a person template whose first person is a woman ('Margery Tanner',
+// a name from CF.NAMES.f) reads its 'key#f' wording, a man the base; every '#f' has its base.
+(function women() {
+  CF.setLang('ar');
+  var d = CF.I18N.dicts.ar;
+  var fs2 = Object.keys(d).filter(function (k) { return /#f$/.test(k); });
+  assert.ok(fs2.length >= 30, 'women\'s wordings: ' + fs2.length);
+  fs2.forEach(function (k) { assert.ok(d[k.slice(0, -2)] !== undefined, 'a woman\'s wording without its key: ' + k); });
+  assert.ok(CF.I18N.woman('Margery Tanner') && CF.I18N.woman('the laundress') && !CF.I18N.woman('Hans Tanner') && !CF.I18N.woman('the Tiler'), 'who is a woman');
+  assert.strictEqual(CF.T('Margery Tanner has done it again: The Brass Hands.').indexOf('فعلتها'), CF.T('Margery Tanner').length + 1);
+  assert.ok(CF.T('Hans Tanner has done it again: The Brass Hands.').indexOf('فعلها') > 0, 'a man keeps the base');
+  var w = CF.T('Margery Bicker talks for an hour. Most of it is about their late husband. Then, almost as an afterthought: "Ask the Watch."');
+  assert.ok(w.indexOf('تتحدث') === 0 && w.indexOf('زوجها') > 0, 'the widow talks of her husband: ' + w);
+  var m = CF.T('Gregory Bicker talks for an hour. Most of it is about their late husband. Then, almost as an afterthought: "Ask the Watch."');
+  assert.ok(m.indexOf('يتحدث') === 0 && m.indexOf('زوجته') > 0, 'the widower of his wife: ' + m);
+  assert.strictEqual(CF.T('Guilty: {name}', { name: 'Margery Tanner' }), CF.T('Guilty: Margery Tanner'), 'a key with vars reads the woman\'s wording too');
+  CF.setLang('en');
+  console.log('i18n: ' + fs2.length + ' person templates read as a woman for a woman');
 })();

@@ -402,6 +402,18 @@ comes at the next Bell and is told: *The Count in the Chamber: your
 patron holds*, or loses. Unanswered, because another question was open,
 the election goes as it always did.
 
+The city's other questions follow what lies on the table, so the late
+game asks as much as the early one. The Rival brings the Harbourmaster's
+supper (a thread on them, a lost week, or Standing); a wrong name's
+ballad brings its mother to the door; the Treaty brings the King's wine
+with a name under the bung; the Inquisitor asks for a list; the Coquille
+writes to a Bailiff; the Pattern's third door, the crowd at the
+Ravenstone, the executioner's table and daughter, a deputy for the
+Watch-house, a portrait in the Rathaus. While the Seat is empty, the
+guilds, the pulpit and the Hill each canvass once, and every answer moves
+a patron's favour, the Crowd or Suspicion. Each is asked once; the four
+questions that follow a verb come back ten weeks on in other words.
+
 Every commission speaks at its end. The Condemned card says what the
 patron asked for, and the rungs that would please them carry the patron's
 seal. Whatever the sentence, the notes say how it landed: pleased,

@@ -656,3 +656,126 @@ console.log('choices: all OK');
   assert.ok(seen.length === 1 && /^spent:/.test(seen[0]), 'the beggar\'s Coin is spent');
   console.log('gone: ok');
 })();
+
+// ---- The late questions --------------------------------------------------------------------
+// Each is put only when its system is on the table, and every answer gives what its gain says.
+(function late() {
+  function ready(seed) {
+    var e = game(seed);
+    e.s.flags.firstCase = true; if (e.s.intro) e.s.intro.finished = true;
+    for (var i = 0; i < 3; i++) { e.create('funds'); e.create('focus'); e.create('health'); }
+    return e;
+  }
+  // Answer option i on a copy of e, and return the copy.
+  function answer(e, id, i) {
+    var t = CF.Engine.load(e.save());
+    t.offerChoice(spec(id));
+    assert.ok(t.canChoose(i), id + ': answer ' + i + ' can be paid');
+    assert.ok(t.choose(i), id + ': answer ' + i);
+    return t;
+  }
+  var late = ['harbourtable', 'wrongmother', 'kingswine', 'inquisitorlist', 'hangmansdaughter', 'executioner', 'heir', 'kingletter', 'portrait', 'thirdmother', 'ravenstone', 'guildhall', 'pulpit', 'hilldinner'];
+  late.forEach(function (id) {
+    var c = spec(id);
+    assert.ok(c && !c.after, id + ' is on the clock');
+    assert.ok(!c.when(ready(140)), id + ' is not put at the start');
+    c.options.forEach(function (o) { assert.ok(o.gain, id + ': ' + o.label + ' says what it gives'); });
+  });
+
+  // The Rival at the Harbourmaster's table: a thread, a lost week, or Standing.
+  var e = ready(141);
+  e.create('rival', { label: 'The Rival: Lucia Brenner', data: { name: 'Lucia Brenner', heat: 0, stalled: 0 } });
+  assert.ok(e.choiceOpenFor(spec('harbourtable')));
+  var t = answer(e, 'harbourtable', 0);
+  assert.strictEqual(t.cardsOf('rival', true)[0].data.heat, 1, 'a thread on the Rival');
+  e.cardsOf('rival', true)[0].data.heat = 1;
+  t = answer(e, 'harbourtable', 0);
+  assert.strictEqual(t.cardsOf('rival', true).length, 0, 'the second thread exposes them');
+  assert.ok(t.s.flags.rivalGone > t.s.week);
+  t = answer(e, 'harbourtable', 1);
+  assert.ok(t.cardsOf('rival', true)[0].data.stalled > t.s.week - 1 && !t.choiceOpenFor(spec('harbourtable')), 'the Rival loses a week');
+
+  // A wrong name surfaced: its mother at the door, the case named.
+  e = ready(142);
+  e.s.criminals.x1 = { id: 'x1', name: 'Hans Vos', wrongfulTitle: 'The Eel at the Crane', traits: [], history: [] };
+  assert.ok(e.choiceOpenFor(spec('wrongmother')));
+  e.offerChoice(spec('wrongmother'));
+  assert.ok(e.s.choice.text.indexOf('The Eel at the Crane') >= 0, 'the case is named');
+  e.s.choice = null;
+  var m0 = (e.s.counts || {}).mercy || 0;
+  t = answer(e, 'wrongmother', 0);
+  assert.strictEqual(t.s.counts.mercy, m0 + 1);
+  e.s.criminals.x1.hidden = true;
+  assert.ok(!e.choiceOpenFor(spec('wrongmother')), 'not while the ballad has not been sung');
+
+  // The Treaty's wine: a token that names a name in an open case.
+  e = ready(143);
+  var card = e.spawnCase('burglary', {});
+  e.s.court = { stance: 'treaty', king: null, inside: false };
+  assert.ok(e.choiceOpenFor(spec('kingswine')));
+  var clues = e.cardsOf('clue', true).length;
+  t = answer(e, 'kingswine', 0);
+  assert.strictEqual(t.cardsOf('clue', true).length, clues + 1, 'the King\'s name');
+  assert.ok(t.cardsOf('clue', true).some(function (c) { return c.data && c.data.points; }), 'it names a name');
+
+  // The Inquisitor's list: an Unanswered case goes into the Fire.
+  e = ready(144);
+  e.s.flags.inquisitor = true;
+  assert.ok(!e.choiceOpenFor(spec('inquisitorlist')), 'nothing unanswered, nothing asked');
+  e.create('coldcase');
+  assert.ok(e.choiceOpenFor(spec('inquisitorlist')));
+  t = answer(e, 'inquisitorlist', 0);
+  assert.strictEqual(t.countOf('coldcase'), 0); assert.strictEqual(t.favour().bishop, 2);
+
+  // The Seat is empty: the canvass, and the Crowd and Suspicion the vote reads.
+  e = ready(145);
+  e.create('chair');
+  ['guildhall', 'pulpit', 'hilldinner'].forEach(function (id) { assert.ok(e.choiceOpenFor(spec(id)), id + ' while the Seat is empty'); });
+  t = answer(e, 'guildhall', 0);
+  assert.strictEqual(t.favour().guild, 2); assert.strictEqual(t.s.meters.pressure, e.s.meters.pressure + 1, 'the Market promised, the Crowd stirs');
+  t = answer(e, 'hilldinner', 0);
+  assert.strictEqual(t.favour().council, e.favour().council + 2); assert.strictEqual(t.s.meters.scrutiny, e.s.meters.scrutiny + 1);
+
+  // The King's letter: a front named, or the Treaty without a Disguise.
+  e = ready(146);
+  e.s.rank = 2;
+  e.spawnSyndicate('The Coquille.');
+  assert.ok(e.choiceOpenFor(spec('kingletter')));
+  t = answer(e, 'kingletter', 1);
+  assert.strictEqual(t.cardsOf('front', true).length, 1, 'a front of the Coquille named');
+  t = answer(e, 'kingletter', 2);
+  assert.strictEqual(t.court().stance, 'treaty', 'the Treaty');
+
+  // The Ravenstone: a pardon from the stone sends the condemned home.
+  e = ready(147);
+  e.s.meters.dread = 5;
+  var rec = e.caseRec(e.spawnCase('burglary', {}).caseId);
+  var g = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  e.condemn(rec, { name: g.name, trait: g.trait, guilty: true, role: g.role }, null);
+  assert.ok(e.cardsOf('condemned').length === 1 && e.choiceOpenFor(spec('ravenstone')));
+  t = answer(e, 'ravenstone', 2);
+  assert.strictEqual(t.cardsOf('condemned').length, 0, 'pardoned before the crowd');
+  assert.ok(t.s.counts.mercy >= 2);
+
+  // The Pattern's third door: a witness on that case.
+  e = ready(148);
+  var pc = e.caseRec(e.spawnCase('pattern', {}).caseId);
+  pc.victims = 3;
+  assert.ok(e.choiceOpenFor(spec('thirdmother')));
+  t = answer(e, 'thirdmother', 0);
+  assert.ok(t.cardsOf('witness', true).some(function (w) { return w.caseId === pc.id; }), 'a witness on the Pattern');
+
+  // Late in rank and Standing: the heir, the portrait, the executioner.
+  e = ready(149);
+  e.s.rank = 3; e.s.week = 16; e.s.meters.reputation = 12; e.s.counts = { cruelty: 4, mercy: 0, purse: 0, debt: 0 };
+  e.spawnCase('burglary', {});
+  ['heir', 'portrait', 'executioner', 'hangmansdaughter'].forEach(function (id) { assert.ok(e.choiceOpenFor(spec(id)), id); });
+  t = answer(e, 'executioner', 0);
+  assert.ok(t.cardsOf('clue', true).some(function (c) { return CF.aspectsOf(c).forensic >= 2; }), 'a Body token');
+  // Asked once: these have no second wording.
+  e.offerChoice(spec('heir')); e.choose(2);
+  assert.ok(!e.choiceOpenFor(spec('heir')), 'asked once');
+  // The after-verb questions come back, ten weeks on, in other words.
+  ['lamplighter', 'pawnbroker', 'confessor', 'tapster'].forEach(function (id) { assert.ok(spec(id).again, id + ' has a second wording'); });
+  console.log('the late questions: ok');
+})();

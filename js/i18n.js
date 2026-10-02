@@ -5,6 +5,8 @@
 // template, and the captured part is translated on its own. A string that
 // no key matches is tried sentence by sentence, then as a list, then as a
 // run of translated words (a name), and stays English if nothing fits.
+// A value may be an object of plural forms, { one, two, few, many, other }
+// (and zero), picked by the count the string carries (see CF.pluralForm).
 (function (G) {
   var CF = G.CF;
 
@@ -47,6 +49,69 @@
   CF.lang = function () { return I.lang; };
   CF.isRTL = function () { return CF.LANGS[I.lang].dir === 'rtl'; };
 
+  // Arabic counts: after 2 the noun changes with the number. 1 and 2 have forms of their own,
+  // 3 to 10 take the plural (few), 11 to 99 the singular in the accusative (many), 100 and up,
+  // and 0, the singular (other). Another language would add its rule here, by code.
+  var PLURAL_RULES = {
+    ar: function (n) {
+      var h = n % 100;
+      if (n === 0) return 'zero';
+      if (n === 1) return 'one';
+      if (n === 2) return 'two';
+      if (h >= 3 && h <= 10) return 'few';
+      if (h >= 11 && h <= 99) return 'many';
+      return 'other';
+    },
+  };
+  CF.pluralForm = function (n, lang) {
+    var rule = PLURAL_RULES[lang || I.lang];
+    return rule ? rule(n) : (n === 1 ? 'one' : 'other');
+  };
+  // A dictionary value as a string: a plural entry gives the form for n (no count: 'other').
+  // An entry may name the placeholder that counts ({ by: 'cases', ... }); else {n}, else the
+  // first that holds a whole number.
+  function form(v, n) {
+    if (typeof v === 'string' || v === undefined || v === null) return v;
+    var f = typeof n === 'number' && isFinite(n) ? CF.pluralForm(n) : 'other';
+    return v[f] !== undefined ? v[f] : v.other;
+  }
+  function countOf(v, names, vals) {
+    var by = v && typeof v === 'object' && v.by, i;
+    for (i = 0; i < names.length; i++) if (by ? names[i] === by : names[i] === 'n') return num(vals[i]);
+    if (by) return null;
+    for (i = 0; i < vals.length; i++) if (num(vals[i]) !== null) return num(vals[i]);
+    return null;
+  }
+  function num(x) {
+    if (typeof x === 'number') return isFinite(x) && x >= 0 && Math.floor(x) === x ? x : null;
+    return typeof x === 'string' && /^\d+$/.test(x) ? parseInt(x, 10) : null;
+  }
+  I.form = form;
+
+  // Arabic speaks of a man and a woman differently ('يتحدث' and 'تتحدث'), where English has 'they'.
+  // A template whose first person placeholder holds a woman ('Margery Tanner', 'the laundress')
+  // reads its woman's wording, the key with '#f' after it, when the dictionary has one.
+  var PERSON = { name: 1, witness: 1, who: 1, culprit: 1, suspect: 1, nick: 1, victim: 1, label: 1 };
+  // Women's names the city uses beyond CF.NAMES.f (the Rivals), and the titles that say it.
+  var WOMEN = ['Lucia', 'Margarethe'];
+  function woman(v) {
+    if (typeof v !== 'string' || !v) return false;
+    var first = v.replace(/^(the|The|a|A|an|An) /, '').split(' ')[0];
+    var names = CF.NAMES && CF.NAMES.f || [];
+    if (names.indexOf(first) >= 0 || WOMEN.indexOf(first) >= 0 || /^(Widow|Mother|Goodwife|Goody|Dame|Mistress|Sister)$/.test(first)) return true;
+    // A description: 'the laundress', 'a market-woman' (the engine's own reading of a role).
+    var sexOf = CF.Engine && CF.Engine.prototype && CF.Engine.prototype.sexOf;
+    return !!sexOf && /^(the|a|an) /i.test(v) && sexOf.call(null, v) === 'f';
+  }
+  // The woman's wording of key k, given the placeholder names and their values, or null.
+  function womanForm(k, names, vals) {
+    var d = I.dicts[I.lang], f = d[k + '#f'];
+    if (f === undefined) return null;
+    for (var i = 0; i < names.length; i++) if (PERSON[names[i]]) return woman(vals[i]) ? f : null;
+    return null;
+  }
+  I.woman = woman;
+
   function lowerIndex(lang) {
     var d = I.dicts[lang], out = {};
     for (var k in d) out[k.toLowerCase()] = d[k];
@@ -59,7 +124,8 @@
   function compile(lang) {
     var d = I.dicts[lang], list = [];
     for (var k in d) {
-      if (k.indexOf('{') < 0) continue;
+      // A woman's wording ('key#f') is read through its key, never matched on its own.
+      if (k.indexOf('{') < 0 || k.slice(-2) === '#f') continue;
       var keys = [], lit = 0;
       var parts = k.split(/(\{\w+\})/), tail = [], adj = [];
       var src = parts.map(function (part, idx) {
@@ -76,7 +142,7 @@
         return escapeRe(part);
       }).join('');
       if (!keys.length || !/[A-Za-z]{3}/.test(k.replace(/\{\w+\}/g, ''))) continue;
-      list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, out: d[k], lit: lit });
+      list.push({ re: new RegExp('^' + src + '$'), keys: keys, tail: tail, adj: adj, out: d[k], lit: lit, key: k });
     }
     list.sort(function (a, b) { return b.lit - a.lit; });
     return (I.compiled[lang] = list);
@@ -87,13 +153,13 @@
 
   function lookup(s, depth) {
     var d = I.dicts[I.lang];
-    if (d[s] !== undefined) return d[s];
+    if (d[s] !== undefined) return form(d[s]);
     var t = s.trim();
     if (!t || !LETTERS.test(t)) return s;
-    if (t !== s && d[t] !== undefined) return s.replace(t, d[t]);
+    if (t !== s && d[t] !== undefined) return s.replace(t, form(d[t]));
     // 'the clerk of the court' for a label the code lower-cased.
     var lower = I.lower[I.lang] || lowerIndex(I.lang), lk = lower[t.toLowerCase()];
-    if (lk !== undefined) return s.replace(t, lk);
+    if (lk !== undefined) return s.replace(t, form(lk));
     if (depth > 5) return miss(s);
     var viaTpl = matchTemplate(t, depth);
     if (viaTpl !== null) return t === s ? viaTpl : s.replace(t, viaTpl);
@@ -164,13 +230,13 @@
     if (words.length > 1 && words.length <= 6) {
       var all = true;
       // A number, or a count, stands as it is: 'Body 1', 'Word 2'.
-      var out3 = words.map(function (w) { if (!LETTERS.test(w)) return w; if (d[w] === undefined) all = false; return d[w]; });
+      var out3 = words.map(function (w) { if (!LETTERS.test(w)) return w; if (d[w] === undefined) all = false; return form(d[w]); });
       if (all) return s.replace(t, out3.join(' '));
       for (var w = 1; w < words.length; w++) {
         var left = words.slice(0, w).join(' '), right = words.slice(w).join(' ');
         if (d[left] !== undefined) {
           var r2 = translate(right, depth + 1);
-          if (r2 !== right) return s.replace(t, d[left] + ' ' + r2);
+          if (r2 !== right) return s.replace(t, form(d[left]) + ' ' + r2);
         }
       }
     }
@@ -181,9 +247,9 @@
   // sentences that follow a composed string.
   function whole(t) {
     var d = I.dicts[I.lang];
-    if (d[t] !== undefined) return d[t];
+    if (d[t] !== undefined) return form(d[t]);
     var lower = I.lower[I.lang] || lowerIndex(I.lang);
-    return lower[t.toLowerCase()] !== undefined ? lower[t.toLowerCase()] : null;
+    return lower[t.toLowerCase()] !== undefined ? form(lower[t.toLowerCase()]) : null;
   }
   function matchTemplate(t, depth) {
     var tpls = I.compiled[I.lang] || compile(I.lang);
@@ -206,7 +272,11 @@
           if (translate(l, depth + 1) !== l && translate(r, depth + 1) !== r) { caps[a] = l; caps[a + 1] = r; break; }
         }
       }
-      var out = tpls[i].out;
+      // A plural entry: the form for the count the string carries ('12 days' and '3 days' differ).
+      var tpl = womanForm(tpls[i].key, tpls[i].keys, caps);
+      if (tpl === null) tpl = tpls[i].out;
+      var out = form(tpl, countOf(tpl, tpls[i].keys, caps));
+      if (I.onMatch) I.onMatch(tpls[i].key, caps, tpls[i].keys);
       for (var j = 0; j < tpls[i].keys.length; j++) out = out.split('{' + tpls[i].keys[j] + '}').join(translate(caps[j], depth + 1));
       return out;
     }
@@ -226,7 +296,18 @@
   // Translate a string (and fill {vars}, translating each value too).
   CF.T = function (s, vars) {
     if (s === undefined || s === null) return s;
-    var out = translate(String(s), 0);
+    var d = I.lang !== 'en' && I.dicts[I.lang], entry = vars && d && d[String(s)], out;
+    if (entry !== undefined && entry !== false && vars) {
+      // A key filled here: a woman's wording if a person in vars is a woman, and the form
+      // that follows the count in vars.
+      var names = Object.keys(vars), vals = names.map(function (k) { return vars[k]; });
+      // The placeholders in the order the key has them, so the first person is the key's first.
+      names.sort(function (a, b) { return String(s).indexOf('{' + a + '}') - String(s).indexOf('{' + b + '}'); });
+      vals = names.map(function (k) { return vars[k]; });
+      var wf = womanForm(String(s), names.filter(function (k) { return String(s).indexOf('{' + k + '}') >= 0; }), vals.filter(function (v, i) { return String(s).indexOf('{' + names[i] + '}') >= 0; }));
+      if (wf !== null) entry = wf;
+      out = typeof entry === 'object' ? form(entry, countOf(entry, names, vals)) : entry;
+    } else out = translate(String(s), 0);
     if (vars) {
       var tv = {};
       for (var k in vars) tv[k] = typeof vars[k] === 'string' ? translate(vars[k], 1) : vars[k];

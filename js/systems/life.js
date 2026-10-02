@@ -740,6 +740,38 @@
     e.create('witness', { label: 'Witness: ' + who, desc: text + ' (Witness in: ' + rec.title + ')', caseId: rec.id, data: { knows: true, stake: 'reward' } });
   }
   function lift(e, def) { var c = e.cardsOf(def, true)[0]; if (c) e.remove(c); return !!c; }
+  // The late game's hooks: the Rival at the table, a wrong name surfaced, the Pattern's case,
+  // an unknown front of the Coquille, a card of a kind lying on the table.
+  function rivalCard(e) { return e.cardsOf('rival', true)[0] || null; }
+  function wrongName(e) {
+    var cs = e.s.criminals || {};
+    for (var k in cs) if (cs[k].wrongfulTitle && !cs[k].hidden) return cs[k];
+    return null;
+  }
+  function patternCase(e) { return e.openCases().filter(function (r) { return r.template === 'pattern' && !r.patternRead && (r.victims || 1) >= 3; })[0] || null; }
+  function coquilleFront(e) { return e.frontsFor ? e.frontsFor('the Coquille').filter(function (f) { return !f.known; })[0] || null : null; }
+  function onTable(e, def) { return e.cardsOf(def).filter(function (c) { return c.loc.t === 'table'; })[0] || null; }
+  function court(e) { return e.s.court || {}; }
+  // A thread on the Rival from an answer, as Find Their Weakness finds one: the second exposes them.
+  CF.RIVAL_SUPPER = {
+    found: 'After the third glass {name} names a moneylender they should not know. One thread; one more and you have them.',
+    exposed: 'After the third glass {name} names a moneylender they should not know, and you had the other thread already. The Council sends the Harbourmaster\'s Examiner back to the Customs House.',
+  };
+  function rivalThread(e) {
+    var r = rivalCard(e);
+    if (!r) return null;
+    var name = r.data.name;
+    r.data.heat = (r.data.heat || 0) + 1;
+    if (r.data.heat >= 2) {
+      e.remove(r);
+      e.s.flags.rivalGone = e.s.week + 8;
+      e.meter('reputation', 2);
+      e.favour().council += 1;
+      return U.fill(CF.RIVAL_SUPPER.exposed, { name: name });
+    }
+    r.data.stalled = Math.max(r.data.stalled || 0, e.s.week + 1);
+    return U.fill(CF.RIVAL_SUPPER.found, { name: name });
+  }
   function coins(e, n) { for (var i = 0; i < n; i++) e.create('funds'); }
 
   // Every answer gives something you can point to (gain), and most cost a
@@ -827,6 +859,7 @@
     // --- Because of something you just did ------------------------------------
     { id: 'lamplighter', after: 'investigate', when: function (e, ctx) { return !!unsolvedCase(e, ctx); },
       title: 'The Tiler\'s Word', text: 'A tiler was on his ladder across the lane when it happened, mending a roof that did not need mending. He says so to anyone with a coin, and now he is saying it to you.',
+      again: 'The tiler is up a different ladder on a different lane, and has seen a different face. He remembers your coin.',
       options: [
         { label: 'A Coin for his trouble', cost: 'funds', gain: 'A Witness who saw it', text: 'He saw a face, and he will say so again where it counts.',
           effect: function (e, ctx) { giveWitness(e, unsolvedCase(e, ctx), 'the Tiler', 'On his ladder across the lane when it happened, and not too proud to say what he saw.'); } },
@@ -836,6 +869,7 @@
       ] },
     { id: 'pawnbroker', after: 'analyze', when: function (e, ctx) { return !!unsolvedCase(e, ctx); },
       title: 'The Pawnbroker\'s Book', text: 'A pawnbroker keeps a book of everything that came through his door this week, and who brought it. Something from your case is in it. He would part with the page.',
+      again: 'The pawnbroker\'s book again, and a fatter week in it. Something from your case is on this page too.',
       options: [
         { label: 'Buy the page', cost: 'funds', gain: 'A token that names a name', text: 'A page in a bad hand, with a name on it that you were going to have to find the hard way.',
           effect: function (e, ctx) { giveClue(e, unsolvedCase(e, ctx), { label: 'The Pawnbroker\'s Page', text: 'What came through the pawnbroker\'s door this week, and who brought it.', aspects: { financial: 2 } }, true); } },
@@ -845,6 +879,7 @@
       ] },
     { id: 'confessor', after: 'interrogate', when: function (e, ctx) { var rec = unsolvedCase(e, ctx); return !!rec && rec.suspects.some(function (x) { return x.revealed; }); },
       title: 'The Confessor', text: 'A priest of the parish asks for a word. Someone told him something under the seal, and it is eating him. He will not break the seal. He might point.',
+      again: 'The same priest, a different penitent, and the same look at a door.',
       options: [
         { label: 'Ask him to point', cost: 'instinct', gain: 'A token that names a name; the Bishop frowns', text: 'He does not say a word. He looks, once, at a door, and goes back inside to pray for both of you.',
           effect: function (e, ctx) { giveClue(e, unsolvedCase(e, ctx), { label: 'The Confessor\'s Glance', text: 'A priest looked at a door and would not say why. You know why.', aspects: { testimony: 1 } }, true); e.favour().bishop -= 1; } },
@@ -859,6 +894,7 @@
       ] },
     { id: 'tapster', after: 'duty',
       title: 'Trouble at the Swan', text: 'The round passes the Swan as two carters go through its window. The tapster is shouting your name.',
+      again: 'The Swan\'s window was mended once this year already. Tonight it goes again, and the tapster is shouting your name.',
       options: [
         { label: 'Break it up', cost: 'health', gain: '+2 Coin from a grateful tapster', text: 'Two carters in the cells and a tapster who remembers who kept his window. He pays in silver.', effect: function (e) { coins(e, 2); } },
         { label: 'Watch who leaves', cost: 'instinct', gain: 'An Informer at the Swan', text: 'You let it burn out and watch the door. The potboy sees you watching, and sees a living in it.', effect: function (e) { e.create('informant', e.informantSpec('market')); } },
@@ -916,6 +952,122 @@
           effect: function (e) { var c = compromisedInformer(e); if (c) e.remove(c); e.meter('dread', -1); } },
         { label: 'Turn them away', gain: 'Your informer\'s trust falls', text: 'You do not open the door. The bag goes down the stair slowly.',
           effect: function (e) { var c = compromisedInformer(e); if (c && e.trustInformant) e.trustInformant(c, -1); } },
+      ] },
+    // --- Late: the systems the city lives with by now put their own questions -----------
+    { id: 'harbourtable', when: function (e) { var r = rivalCard(e); return !!r && !(r.data.stalled >= e.s.week); },
+      title: 'The Harbourmaster\'s Table', text: 'The Harbourmaster asks his examiner and you to supper, to see which of you eats with the better manners.',
+      options: [
+        { label: 'Go, and listen', cost: 'focus', gain: 'A thread on the Rival', text: 'You eat little and hear a great deal.', effect: function (e) { return rivalThread(e); } },
+        { label: 'Go, and pour', cost: 'funds', gain: 'The Rival loses a week', text: 'You keep the Rival\'s glass full until the candles gutter. They are no use to the Harbourmaster for a week.',
+          effect: function (e) { var r = rivalCard(e); if (r) r.data.stalled = Math.max(r.data.stalled || 0, e.s.week + 1); } },
+        { label: 'Send regrets', gain: 'Standing rises', text: 'The Examiner has cases. The Hill hears it, and approves.', effect: function (e) { e.meter('reputation', 1); } },
+      ] },
+    // The wrong name's ballad has reached the Market (surfaceCriminal): the one who paid for it had a mother.
+    { id: 'wrongmother', when: function (e) { return !!wrongName(e); },
+      context: function (e) { var c = wrongName(e); return c ? { crim: c.id } : null; },
+      fill: function (e, ctx) { var c = ctx && e.s.criminals[ctx.crim] || wrongName(e); return { 'case': c && c.wrongfulTitle || 'an old case' }; },
+      title: 'The Mother of the Wrong Name', text: 'A woman in black waits at the Watch-house door. She is the mother of the one who answered for {case}. The ballad says the wrong neck paid. She wants to hear you say so.',
+      options: [
+        { label: 'Say it, on the steps', gain: 'Mercy; the Crowd eases; Standing falls', text: 'You say it where the Market can hear. She thanks you. The Council reads it in the evening.',
+          effect: function (e) { e.count('mercy'); e.meter('pressure', -1); e.meter('reputation', -1); } },
+        { label: 'Give her what Coin you have', cost: 'funds', gain: 'Mercy; Dread eases', text: 'She takes the Coin and does not thank you, which is fair.', effect: function (e) { e.count('mercy'); e.meter('dread', -1); } },
+        { label: 'Shut the door', gain: 'The Council\'s favour; Dread rises', text: 'The Council likes an examiner who does not apologise. The Warrens learn the door.', effect: function (e) { e.favour().council += 1; e.meter('dread', 1); } },
+      ] },
+    // The Treaty stands: the King sends a name with his wine.
+    { id: 'kingswine', when: function (e) { return court(e).stance === 'treaty' && !!unsolvedCase(e, null); },
+      title: 'The King\'s Wine', text: 'A cask with the King\'s compliments, and folded under the bung, a name: somebody the Court is tired of.',
+      options: [
+        { label: 'Take the name', gain: 'A token that names a name; Purse', text: 'The name is good. So, for that matter, is the wine.',
+          effect: function (e) { giveClue(e, unsolvedCase(e, null), { label: 'The King\'s Name', text: 'Folded under the bung of a cask of Rhenish. The Court of Thunes is tired of somebody.', aspects: { testimony: 1 } }, true); e.count('purse'); } },
+        { label: 'Send the cask back', gain: 'Suspicion eases; Vendetta', text: 'The cask goes back down to the Warrens unopened. The King is not used to it.', effect: function (e) { e.meter('scrutiny', -1); e.meter('retaliation', 1); } },
+      ] },
+    { id: 'inquisitorlist', when: function (e) { return !!e.s.flags.inquisitor && !!onTable(e, 'coldcase'); },
+      title: 'The Inquisitor\'s Question', text: 'The Inquisitor asks, very courteously, for the Examiner\'s list of the city\'s heretics. He is sure you keep one.',
+      options: [
+        { label: 'Give him a name from the Rolls', gain: 'The Bishop\'s favour +2; Cruelty; an Unanswered case goes', text: 'You give him a name from an unanswered case, a name nobody will miss but the one who wears it. The Fire is lit on Saturday.',
+          effect: function (e) { var c = onTable(e, 'coldcase'); if (c) { gone(e, c, 'spent'); e.remove(c); } e.favour().bishop += 2; e.count('cruelty'); e.s.stats.wrongful = (e.s.stats.wrongful || 0) + 1; } },
+        { label: 'Give him nothing', cost: 'health', gain: 'Mercy; the Bishop frowns', text: 'You tell him the Examiner keeps no such list. He asks again, more courteously, for an hour.', effect: function (e) { e.count('mercy'); e.favour().bishop -= 1; } },
+      ] },
+    { id: 'hangmansdaughter', when: function (e) { return e.s.week >= 8 && (((e.s.counts || {}).cruelty || 0) >= 3 || e.s.who === 'hangman'); },
+      title: 'The Executioner\'s Daughter', text: 'The executioner\'s daughter is to marry a glover\'s son, and the glovers will not have hangman\'s blood in the guild. Her father asks you to stand witness at the church door.',
+      options: [
+        { label: 'Stand witness', cost: 'health', gain: 'Mercy; Dread eases; the Guilds frown', text: 'You stand at the church door in your good coat. The glovers count you among the guests, and do not forgive it.',
+          effect: function (e) { e.count('mercy'); e.meter('dread', -1); e.favour().guild -= 1; } },
+        { label: 'Decline', gain: 'The Council\'s favour; Dread rises', text: 'The Council likes its Examiner at a distance from the Ravenstone. The executioner understands. He always does.', effect: function (e) { e.favour().council += 1; e.meter('dread', 1); } },
+      ] },
+    { id: 'executioner', when: function (e) { return (e.s.rank || 0) >= 2 && ((e.s.counts || {}).cruelty || 0) >= 4 && !!e.openCases()[0]; },
+      title: 'The Executioner\'s Table', text: 'The city\'s executioner asks you to dine. He reads the dead better than any physician, and nobody else will eat with him.',
+      options: [
+        { label: 'Go', gain: 'Dread rises; a Body token on your oldest case', text: 'Over the cheese he reads your case\'s wounds from your notes, and is right about all of them.',
+          effect: function (e) { var rec = e.openCases().slice().sort(function (a, b) { return (a.week || 0) - (b.week || 0); })[0]; e.meter('dread', 1); giveClue(e, rec, { label: 'The Executioner\'s Reading', text: 'What the wounds say, read by a man who makes them.', aspects: { forensic: 2 } }); } },
+        { label: 'Send regrets', gain: 'The Bishop\'s favour', text: 'The Bishop hears that you would not dine with the executioner, and is pleased.', effect: function (e) { e.favour().bishop += 1; } },
+      ] },
+    { id: 'heir', when: function (e) { return (e.s.rank || 0) >= 3 && e.s.week >= 16; },
+      title: 'Who Comes After', text: 'The Council asks you to name a deputy for the Watch-house, in case.',
+      options: [
+        { label: 'Name your sergeant', gain: 'Standing rises; Council favour -1', text: 'The sergeant takes his hat off and does not know where to put it. The Hill had hoped for one of its own.',
+          effect: function (e) { e.meter('reputation', 1); e.favour().council -= 1; } },
+        { label: 'Name the councillor\'s nephew', gain: 'Council favour +2; Standing falls', text: 'The nephew is delighted. The Watch has met him.', effect: function (e) { e.favour().council += 2; e.meter('reputation', -1); } },
+        { label: 'Name nobody', gain: 'Nothing changes', text: 'You tell the Council you mean to live. The clerk writes that down.', effect: function () {} },
+      ] },
+    // The King of Thunes writes to a Bailiff (the rank Parley needs) while the Coquille stands and a front of it is unknown.
+    { id: 'kingletter', when: function (e) { var c = court(e); return (e.s.rank || 0) >= 2 && e.cardsOf('syndicate', true).length >= 1 && !e.s.flags.syndicateFallen && c.stance !== 'treaty' && !c.inside && !!coquilleFront(e); },
+      title: 'A Letter from Under the Warrens', text: 'No seal, good paper, and a hand that learned its letters late. The King of Thunes would like a word.',
+      options: [
+        { label: 'Burn it', gain: 'Vendetta; Justice +1', text: 'You burn it in the Watch-house grate and say so in the Red Ox. The King hears both.',
+          effect: function (e) { e.meter('retaliation', 1); if (e.pathGain) e.pathGain('crusader', 1, 'burned the King\'s letter'); } },
+        { label: 'Read it in Rest', cost: 'focus', gain: 'A Front of the Coquille named', text: 'The paper came from a chandler\'s in the Warrens. The Court buys its paper where it does its business.',
+          effect: function (e) { var f = coquilleFront(e); if (f && e.revealFront) e.revealFront(f); } },
+        { label: 'Answer it', gain: 'The Treaty, without a Disguise', text: 'You answer in your own hand. A week later you sit across a barrel from the King of Thunes, and the Stews go quiet.',
+          effect: function (e) { if (e.makeTreaty) e.makeTreaty(); if (e.pathGain) e.pathGain('commissioner', 1, 'made a treaty with the Coquille'); } },
+      ] },
+    { id: 'portrait', when: function (e) { return e.s.meters.reputation >= 12; },
+      title: 'The Painter on the Hill', text: 'The Council will hang your likeness in the Rathaus, beside the Burgomasters.',
+      options: [
+        { label: 'Sit for it', cost: 'funds', gain: 'Standing +2; Suspicion rises', text: 'Three sittings in a good collar. The likeness is better than you, and the Hill notices whose wall it hangs on.',
+          effect: function (e) { e.meter('reputation', 2); e.meter('scrutiny', 1); } },
+        { label: 'Have the Watch painted with you', cost: 'funds', gain: 'Standing rises; Dread eases', text: 'Six watchmen in their best, and you at the end of the row. The lanes come to look at it.',
+          effect: function (e) { e.meter('reputation', 1); e.meter('dread', -1); } },
+        { label: 'Refuse', gain: 'The Crowd eases', text: 'The Examiner has no time to sit still. The Market likes that.', effect: function (e) { e.meter('pressure', -1); } },
+      ] },
+    // The Pattern's third door: the case is the one on the step.
+    { id: 'thirdmother', when: function (e) { return !!patternCase(e); },
+      context: function (e) { var rec = patternCase(e); return rec ? { caseId: rec.id } : null; },
+      title: 'The Mother of the Third Girl', text: 'She will not leave the Watch-house step until you tell her which door is next.',
+      options: [
+        { label: 'Walk the lane with her', cost: 'health', gain: 'A Witness on the Pattern', text: 'She knows every door in the quarter, and who stands in them after dark.',
+          effect: function (e, ctx) { var rec = ctx && e.caseRec(ctx.caseId); giveWitness(e, rec && rec.status === 'open' ? rec : patternCase(e), 'the Mother of the Third Girl', 'She walks the lane every night now, and knows who stands in the doorways after dark.'); } },
+        { label: 'Give her the Watch\'s word', cost: 'funds', gain: 'The Crowd eases', text: 'A watchman on her door every night, at the Watch\'s cost. The quarter sees it.', effect: function (e) { e.meter('pressure', -1); } },
+        { label: 'Send her home', gain: 'Dread rises', text: 'She goes. The quarter hears how.', effect: function (e) { e.meter('dread', 1); } },
+      ] },
+    { id: 'ravenstone', when: function (e) { return e.cardsOf('condemned').length >= 1 && e.s.meters.dread >= 4; },
+      title: 'The Crowd at the Ravenstone', text: 'The crowd has been gathering at the Ravenstone since Tuesday for the one in the Hole. The ballad-sellers have their verses ready. The Watch asks how you want the square kept.',
+      options: [
+        { label: 'Hold the square with the Watch', gain: 'Dread rises; the Crowd eases', text: 'Halberds round the stone from first light. The crowd behaves, and remembers.', effect: function (e) { e.meter('dread', 1); e.meter('pressure', -1); } },
+        { label: 'Clear the square', gain: 'Dread eases; the Crowd rises', text: 'The Watch sends the crowd home. Whatever happens will happen behind the Hole\'s wall, and the Market feels cheated.', effect: function (e) { e.meter('dread', -1); e.meter('pressure', 1); } },
+        { label: 'Pardon them before the crowd', gain: 'They walk free; Mercy; Council favour -1', text: 'You read the pardon from the stone itself.',
+          effect: function (e) { var cond = e.cardsOf('condemned')[0]; e.favour().council -= 1; if (!cond || !e.passSentence) return null; var told = e.passSentence(cond, 'pardon', null, { quiet: true }); return told ? 'You read the pardon from the stone itself. ' + told.text : null; } },
+      ] },
+    // --- The Seat is empty: the Hill, the pulpit and the guilds canvass while the chair is on the table ---
+    { id: 'guildhall', when: function (e) { return e.cardsOf('chair').length >= 1; },
+      title: 'The Guilds\' Hall', text: 'The wardens of the guilds want to know what the Market can expect of a Burgomaster who was once its Examiner.',
+      options: [
+        { label: 'Promise them the Market', gain: 'Guild favour +2; the Crowd rises', text: 'You promise them the Market, and the Market hears about it.', effect: function (e) { e.favour().guild += 2; e.meter('pressure', 1); } },
+        { label: 'Pay for the wardens\' feast', cost: 'funds', gain: 'Guild favour +1', text: 'The wardens drink to the Seat, and to you.', effect: function (e) { e.favour().guild += 1; } },
+        { label: 'Promise nothing', gain: 'Nothing changes', text: 'The wardens write down that you promised nothing. Some of them like it.', effect: function () {} },
+      ] },
+    { id: 'pulpit', when: function (e) { return e.cardsOf('chair').length >= 1; },
+      title: 'The Bishop\'s Pulpit', text: 'The Bishop will preach on the empty Seat on Sunday. He would like to know what the Examiner thinks of mercy.',
+      options: [
+        { label: 'Promise mercy to the penitent', gain: 'The Bishop\'s favour +2; Council favour -1', text: 'The Bishop preaches it with your name in it. The Hill hears a soft judge.', effect: function (e) { e.favour().bishop += 2; e.favour().council -= 1; } },
+        { label: 'Endow the Abbey hospital', cost: 'funds', gain: 'The Bishop\'s favour +1', text: 'A Coin for the hospital, given where the Bishop can see it.', effect: function (e) { e.favour().bishop += 1; } },
+        { label: 'Say nothing', gain: 'Nothing changes', text: 'The sermon is about the Seat, and not about you.', effect: function () {} },
+      ] },
+    { id: 'hilldinner', when: function (e) { return e.cardsOf('chair').length >= 1; },
+      title: 'The Hill\'s Dinner', text: 'A Council family gives a dinner for the empty Seat. Over the pudding its head mentions a cousin, and a case of yours with the cousin\'s name in it.',
+      options: [
+        { label: 'Promise to look elsewhere', gain: 'Council favour +2; Suspicion rises', text: 'The cousin is not mentioned again, and neither is the price.', effect: function (e) { e.favour().council += 2; e.meter('scrutiny', 1); } },
+        { label: 'Decline', gain: 'Standing rises', text: 'You thank him for the pudding. The family will vote as it votes, and the lanes hear what you said.', effect: function (e) { e.meter('reputation', 1); } },
       ] },
     // Put to you the week before an election (offerElection), never by the clock; counted the week after (councilCount).
     { id: 'election', when: function () { return false; },

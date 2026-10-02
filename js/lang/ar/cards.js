@@ -168,10 +168,10 @@
     "A cell under the Watch-house with a table and one candle. Questioning is faster and draws out more Word.": "زنزانةٌ تحت دار الحرس فيها طاولة وشمعة واحدة. الاستجواب أسرع ويستخرج مزيدًا من القول.",
     "The court's old books, shelved and indexed. Unanswered cases can be opened again in Study.": "كتب المحكمة القديمة، مرفوفةً ومفهرسة. القضايا التي بلا جواب يمكن فتحها من جديد في الدراسة.",
     "A bench by the back door where the city's whisperers wait. A token that points at a front names it at once; the Coquille shows itself.": "مقعدٌ عند الباب الخلفي ينتظر عنده هامسو المدينة. الأمارة التي تشير إلى واجهة تسمّيها في الحال؛ والكوكيّة تكشف عن نفسها.",
-    "Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.": "تدريب الحارس يكلّف 1 من النقود بدلًا من 2، وعند التدريب الثالث يتعلم سمةً جديدة.",
+    "Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.": "تدريب الحارس يكلّف قطعة نقد واحدة بدلًا من قطعتين، وعند التدريب الثالث يتعلم سمةً جديدة.",
     "The apothecary keeps a bench for you. Study is faster, and no raw proof needs a special instrument.": "يحتفظ العطّار بمنضدة لك. الدراسة أسرع، ولا يحتاج دليلٌ خام إلى أداة خاصة.",
     "The sexton lets you up. A Watch takes half the night and never tires you.": "يسمح لك قيّم الكنيسة بالصعود. مراقبة الباب تستغرق نصف الليل ولا تُتعبك أبدًا.",
-    "A room let to men who know every fence in the city. Put a Case in Attend with 2 Coin and they get the goods back for a cut, without a trial. Some of what they bring back is a frame.": "غرفةٌ مؤجَّرة لرجالٍ يعرفون كل تاجر مسروقات في المدينة. ضع قضية في الدوام مع 2 من النقود فيستردّون البضاعة لقاء حصة، من غير محاكمة. وبعض ما يعيدونه تلفيق.",
+    "A room let to men who know every fence in the city. Put a Case in Attend with 2 Coin and they get the goods back for a cut, without a trial. Some of what they bring back is a frame.": "غرفةٌ مؤجَّرة لرجالٍ يعرفون كل تاجر مسروقات في المدينة. ضع قضية في الدوام مع قطعتي نقد فيستردّون البضاعة لقاء حصة، من غير محاكمة. وبعض ما يعيدونه تلفيق.",
 
     "Thorough": "دقيق",
     "Finds one more thing at every scene.": "يجد شيئًا إضافيًا في كل مسرح جريمة.",
