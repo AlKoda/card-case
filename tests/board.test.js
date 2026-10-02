@@ -1197,3 +1197,52 @@ console.error = function (err) { throw err; };
   assert.ok(g.save().indexOf('_memo') < 0, 'never saved');
   console.log('render memo: ok (' + cards.length + ' cards)');
 })();
+
+// ---- One Petition per room, at the Clerk's price --------------------------------
+// The Watch-house board and the Petitions the second conviction opens share
+// one spec and one rule: never two Petitions for the same thing.
+(function onePetition() {
+  var e = CF.Engine.newGame({ seed: 812, calling: 'master', who: 'clerk' });
+  var spec = e.orderSpec('locker');
+  assert.strictEqual(spec.data.discount, 1, 'the Clerk\'s discount is on the spec');
+  assert.strictEqual(CF.costOf(spec), CF.ORDERS.locker.cost - 1, 'and on its price');
+  var first = e.petition('locker');
+  assert.ok(first && first.data.discount === 1, 'a Petition from the board keeps the discount');
+  assert.strictEqual(e.petition('locker'), null, 'a second one is refused');
+  e.s.stats.convictions = 2;
+  e.openTheCity();
+  var lockers = e.cardsOf('order', true).filter(function (c) { return c.data.order === 'locker'; });
+  assert.strictEqual(lockers.length, 1, 'the Petitions opened later do not repeat it');
+  assert.ok(e.cardsOf('order', true).some(function (c) { return c.data.order === 'prints'; }), 'the others arrive');
+  e.removeOrder('kit');
+  assert.strictEqual(e.petition('kit'), null, 'nothing already granted');
+  var plain = CF.Engine.newGame({ seed: 813, calling: 'master' });
+  assert.strictEqual(plain.orderSpec('locker').data.discount, 0, 'no discount for other origins');
+  console.log('one petition per room: ok');
+})();
+
+// ---- The Bell's week tells whether it was paid, and which Coin is the stipend ----------
+(function bellWeek() {
+  var e = CF.Engine.newGame({ seed: 814, calling: 'master' });
+  e.s.flags.bellSilent = false;
+  e.cardsOf('funds', true).forEach(function (c) { e.remove(c); });
+  var heard = [];
+  e.on(function (type, p) { if (type === 'salary') heard.push(p); });
+  e.weekTick();
+  var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk && wk.paid === false, 'an unpaid week says so');
+  assert.ok(wk.uids.length >= 1 && wk.uids.every(function (u) { return e.card(u) && e.card(u).def === 'funds'; }), 'and names the stipend Coin');
+  assert.ok(heard.length === 1 && heard[0].paid === false && heard[0].uids.join() === wk.uids.join(), 'the salary event carries them');
+  for (var i = 0; i < e.dues(); i++) e.create('funds');
+  e.weekTick();
+  wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.strictEqual(wk.paid, true, 'a paid week says so');
+  // The verb window's first look: the basics, and the powers by office.
+  var info = e.verbInfo('investigate');
+  assert.ok(info.basics && info.basics.indexOf('Disguise') < 0, 'a junior reads only what a junior can do');
+  assert.ok(info.powers.length >= 3 && info.powers.every(function (p) { return p.open === false && p.rankLabel; }), 'the office powers are listed, shut, with their office');
+  e.s.rank = 2;
+  assert.ok(e.verbInfo('investigate').powers.every(function (p) { return p.open; }), 'and open at their rank');
+  assert.strictEqual(e.verbInfo('reflect').basics, CF.VERBS.reflect.desc, 'a verb with no basics shows its description');
+  console.log('the Bell\'s week, the verb\'s first look: ok');
+})();

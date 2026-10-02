@@ -30,6 +30,7 @@
     spared: { label: 'Spared', desc: 'Pardoned once. Owes the Examiner, and the underworld knows it.' },
     pilloried: { label: 'Pilloried', desc: 'Stood in the collar. Every quarter knows the face: named at once at any new scene.' },
     branded: { label: 'Branded', desc: 'The iron on the cheek. Cannot swear before a court, cannot be pardoned again.' },
+    slipped: { label: 'Slipped', desc: 'Slipped the hue and cry once.' },
   };
   Crim.WEEKLY_CRIME = 0.2;
 
@@ -80,6 +81,55 @@
   P.criminalJoins = function (name, organization) {
     var c = this.criminalByName(name);
     if (c) c.organization = organization;
+  };
+
+  // The hue and cry, begun and ended in one place. A hunt raised for an
+  // Abroad card ties the card to its case and keeps the record from working
+  // while the Watch is on its heels; a hunt that ends without a conviction
+  // (cold, acquitted, the wrong name hanged) sets them loose again, hotter,
+  // and sightable again.
+  P.criminalOfCard = function (al) {
+    if (!al || !al.data) return null;
+    return (al.data.criminalId && this.criminal(al.data.criminalId)) || (al.data.name ? this.criminalByName(al.data.name) : null);
+  };
+  P.huntBegins = function (al, caseId) {
+    if (!al || !al.data) return null;
+    al.data.hunted = caseId;
+    var crim = this.criminalOfCard(al);
+    if (crim && crim.status === 'at_large') crim.status = 'hunted';
+    return crim;
+  };
+  P.huntEnds = function (rec, how) {
+    var al = rec && rec.atLargeUid ? this.card(rec.atLargeUid) : null;
+    var cul = rec && (rec.suspects || []).filter(function (x) { return x.guilty; })[0];
+    var crim = (rec && rec.criminalId && this.criminal(rec.criminalId)) || this.criminalOfCard(al) || (cul ? this.criminalByName(cul.name) : null);
+    if (al && al.data) delete al.data.sighted;
+    if (!crim || crim.status !== 'hunted') return crim;
+    crim.status = 'at_large';
+    crim.heat = (crim.heat || 0) + 1;
+    crim.history.push({ week: this.s.week, title: rec.title, how: how || 'slipped' });
+    if (crim.traits.indexOf('slipped') < 0) crim.traits.push('slipped');
+    this.refreshAtLarge(crim);
+    return crim;
+  };
+  // A record left 'hunted' with no hue and cry still running (an older save,
+  // or a hunt that ended before huntEnds existed) is at large again.
+  P.huntStale = function (c) {
+    if (!c || c.status !== 'hunted') return false;
+    var cases = this.s.cases || {};
+    var running = Object.keys(cases).some(function (k) {
+      var r = cases[k];
+      if (r.template !== 'manhunt' || (r.status !== 'open' && r.status !== 'trial')) return false;
+      if (r.criminalId) return r.criminalId === c.id;
+      var cul = (r.suspects || []).filter(function (x) { return x.guilty; })[0];
+      return !!cul && cul.name === c.name;
+    });
+    return !running;
+  };
+  // An informer's sighting still in hand: one at a time for a name.
+  P.sightingOut = function (al) {
+    var name = al && al.data && al.data.name;
+    return !!name && this.cardsOf('intel', true).some(function (c) { return c.data && c.data.kind === 'sighting' && c.data.criminal === name; });
   };
 
   // What the At Large card says about them.
@@ -195,6 +245,7 @@
     var self = this, lines = [];
     this.criminalsAtLarge().forEach(function (c) {
       if (c.traits.indexOf('violent') >= 0) self.meter('retaliation', 1);
+      if (c.status === 'hunted' && self.huntStale(c)) c.status = 'at_large';
       if (c.status === 'hunted') return;
       var p = Crim.WEEKLY_CRIME + (c.crimes >= 2 ? 0.1 : 0);
       var fires = self.rng() < p;

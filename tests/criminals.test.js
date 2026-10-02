@@ -590,3 +590,36 @@ function run(e, verb, cards) {
   assert.ok(olc.data.innocent === true && olc.life > 0, 'an older save: the innocent is marked, with weeks to leave');
   console.log('innocent abroad, one hunt per name: ok');
 })();
+
+// A hue and cry that goes cold sets the name loose again: at large, hotter,
+// working again, and sightable by an informer again. An older save's stale
+// 'hunted' record heals itself at the Bell.
+(function huntEnds() {
+  var g = game(311), cr = g.openCases()[0], cul = cr.suspects.filter(function (x) { return x.guilty; })[0];
+  var crim = g.criminalEscapes(cr, cul, 'cold');
+  var al = g.create('atlarge', { label: 'Abroad: ' + cul.name, data: { name: cul.name, trait: cul.trait, criminalId: crim.id, sighted: true } });
+  var sight = g.create('intel', { label: 'Sighting: ' + cul.name, data: { kind: 'sighting', criminal: cul.name } });
+  assert.ok(g.sightingOut(al), 'a sighting in hand: no second one for that name');
+  var res = run(g, 'reflect', [sight, al]);
+  assert.strictEqual(res.id, 'ref_sighting');
+  var hunt = res.out.filter(function (c) { return c && c.def === 'case'; })[0];
+  assert.ok(hunt, 'the hue and cry is raised');
+  assert.strictEqual(crim.status, 'hunted', 'the record is hunted while it runs');
+  var heat = crim.heat || 0;
+  g.goCold(hunt.caseId);
+  assert.strictEqual(crim.status, 'at_large', 'a cold hunt leaves them at large, not hunted for good');
+  assert.strictEqual(crim.heat, heat + 1, 'and hotter');
+  assert.ok(crim.traits.indexOf('slipped') >= 0 && /Slipped the hue and cry once\./.test(al.desc), 'the Abroad card says they slipped it');
+  assert.ok(!al.data.sighted && !g.sightingOut(al) && g.huntable(al), 'and an informer can sight them again');
+  assert.ok(crim.history.some(function (h) { return h.how === 'slipped'; }), 'on the record');
+  // Every road that raises the hue and cry marks the record the same way.
+  var h2 = game(312), cr2 = h2.openCases()[0], cul2 = cr2.suspects.filter(function (x) { return x.guilty; })[0];
+  var crim2 = h2.criminalEscapes(cr2, cul2, 'cold');
+  var al2 = h2.create('atlarge', { label: 'Abroad: ' + cul2.name, data: { name: cul2.name, trait: cul2.trait } });
+  h2.huntBegins(al2, 'c999');
+  assert.strictEqual(crim2.status, 'hunted', 'found by name when the card has no record id');
+  assert.ok(h2.huntStale(crim2), 'no such hunt running: stale');
+  h2.criminalsAct();
+  assert.strictEqual(crim2.status, 'at_large', 'a stale hunted record is at large again at the Bell');
+  console.log('a cold hue and cry sets them loose: ok');
+})();

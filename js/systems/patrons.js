@@ -190,7 +190,7 @@
     // Told whichever way it goes, once the city knows you.
     if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0 && this.rng() < 0.4) {
       this.meter('scrutiny', f.council);
-      lines.push('The Council election goes against your patron. Every favour he did you is read aloud by the men who beat him. Suspicion +' + f.council + '.');
+      lines.push('The Council election goes against your patron. Every favour he did you is read aloud by the men who beat him, and the clerks write each one down.');
       f.council = 0;
     } else if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0) {
       lines.push('The Council elects. Your patron keeps his seat by four votes, and sends round a haunch of venison to say he noticed who was at his door.');

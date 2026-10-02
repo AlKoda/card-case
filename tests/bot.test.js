@@ -56,16 +56,36 @@ function step(e, temper) {
   var fatigue = of(e, 'fatigue').length;
   var funds = of(e, 'funds');
   var team = of(e, 'teammate');
-  // A need goes into Rest with whatever the table has for it: Coin, a watchman, a Quarter or Health.
+  // Rest first for what ends the file: a Fever, a Fixation, Weariness or Obsession piling up.
+  // A Coin buys the quick night when there is silver to spare, as a player would pay.
+  var urgentRest = of(e, 'burnout')[0] || of(e, 'tunnel')[0] || (fatigue >= 2 ? of(e, 'fatigue')[0] : null) || (of(e, 'obsession').length >= 2 ? of(e, 'obsession')[0] : null);
+  if (urgentRest) tryRun(e, 'reflect', funds.length >= 3 ? [urgentRest, funds[0]] : [urgentRest]);
+  // A need goes into Rest as a player would pay for it: the quick free aid first (Instinct walks
+  // off Stress); then Coin while there is silver to spare, since Rest is wanted for the cases;
+  // short of silver, the slow free aid (the watchman's pot or remedy or a drink with the Watch, a
+  // Quarter's credit for Hunger), then Health (the Abbey dole, or sweating it out), an informer's
+  // table, or alone (an evening off). Weary already, or a Fever on the table: Coin first.
+  var strained = fatigue > 0 || of(e, 'burnout').length || of(e, 'tunnel').length;
+  var quick = { hunger: [], sickness: [], stress: [of(e, 'instinct')[0]] };
+  var slow = { hunger: [team[0], of(e, 'district')[0]], sickness: [team[0]], stress: [team[0]] };
   ['hunger', 'sickness', 'stress'].forEach(function (need) {
     var card = of(e, need)[0];
-    if (card) tryRun(e, 'reflect', [card, funds[0] || team[0] || of(e, 'district')[0] || of(e, 'health')[0]]);
+    if (!card) return;
+    var coin = funds.length >= 3 || strained ? [funds[0]] : [];
+    var tries = (strained ? coin.concat(quick[need]) : quick[need].concat(coin)).concat(slow[need], [funds[0], of(e, 'health')[0], need === 'hunger' ? of(e, 'informant')[0] : null]);
+    for (var ai = 0; ai < tries.length; ai++) if (tries[ai] && tryRun(e, 'reflect', [card, tries[ai]])) return;
+    tryRun(e, 'reflect', [card]);
   });
+  // One Weariness: a night's sleep (the watchman's round, when one is free).
+  if (fatigue === 1 && !(team[0] && tryRun(e, 'reflect', [of(e, 'fatigue')[0], team[0]]))) tryRun(e, 'reflect', funds.length >= 3 ? [of(e, 'fatigue')[0], funds[0]] : [of(e, 'fatigue')[0]]);
+  // An Insight waiting: into Rest alone to learn it, or (every other game) with its ability to keep the trick.
+  var insight = of(e, 'insight')[0];
+  if (insight && !strained) {
+    var sp = CF.INSIGHTS[insight.data.insight];
+    var ability = sp && (s.seed || 0) % 2 ? of(e, sp.trains)[0] : null;
+    if (!(ability && tryRun(e, 'reflect', [insight, ability]))) tryRun(e, 'reflect', [insight]);
+  }
 
-  // Rest first.
-  var restCard = of(e, 'burnout')[0] || of(e, 'tunnel')[0] || (fatigue >= 1 ? of(e, 'fatigue')[0] : null) || (of(e, 'obsession').length >= 2 ? of(e, 'obsession')[0] : null);
-  // A Coin buys the quick night when there is silver to spare, as a player would pay.
-  if (restCard) tryRun(e, 'reflect', funds.length >= 3 ? [restCard, funds[0]] : [restCard]);
   // Spent Health, Wit or Instinct: a moment in Rest brings it back.
   var spent = of(e, 'spent_focus')[0] || of(e, 'spent_health')[0] || of(e, 'spent_instinct')[0];
   if (spent && !of(e, spent.def === 'spent_focus' ? 'focus' : spent.def === 'spent_health' ? 'health' : 'instinct').length) tryRun(e, 'reflect', [spent]);
@@ -189,6 +209,7 @@ function step(e, temper) {
   // Streets.
   var inf = of(e, 'informant')[0];
   if (inf && funds.length > 4) tryRun(e, 'investigate', [inf, funds[0]]);
+  else if (of(e, 'atlarge').length && of(e, 'instinct')[0] && of(e, 'district')[0]) tryRun(e, 'investigate', [of(e, 'instinct')[0], of(e, 'district')[0]]); // Work the Quarter for a face you know
   else if (of(e, 'instinct')[0]) tryRun(e, 'investigate', [of(e, 'instinct')[0]]);
   var ucTarget = of(e, 'syndicate')[0] || of(e, 'gang')[0] || al;
   if (ucTarget && s.rank >= 2 && of(e, 'health').length) tryRun(e, 'investigate', [ucTarget, of(e, 'instinct')[0], team[1] || team[0]]);
@@ -216,6 +237,7 @@ var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
 var earlyCoquille = 0, drifts = {}, attacks = {}, seatWins = [];
+var restTicks = 0, allTicks = 0, tallyGames = 0, trained = 0, perks = 0;
 var rivalCame = 0, rivalExposed = 0, rivalClosed = 0, rivalCaught = 0, stagedRead = 0, harbour = { opened: 0, fell: 0, friends: 0 };
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
@@ -226,7 +248,9 @@ for (var g = 0; g < GAMES; g++) {
   e.on(function (type, p) {
     if (type === 'story' && /^Lost: /.test(p.title)) lost++;
     if (type === 'chosen') choices++;
-    if (type === 'story' && (p.title === 'The Harbourmaster\'s Examiner' || p.title === 'Another Examiner')) rivalCame++;
+    if (type === 'story' && /^Your .* is more than it was\.$/.test(p.title)) trained++;
+    // Sent: the first, another, or the one his friends send when his books are shut again.
+    if (type === 'story' && (p.title === 'The Harbourmaster\'s Examiner' || p.title === 'Another Examiner' || p.title === 'He Has Friends')) rivalCame++;
     if (type === 'story' && p.title === 'Answered by the Rival') rivalClosed++;
     if (type === 'story' && p.title === 'Quicker than the Customs House') rivalCaught++;
     if (type === 'story' && p.title === 'A Mark Left to Be Found') stagedRead++;
@@ -234,10 +258,13 @@ for (var g = 0; g < GAMES; g++) {
     if (type === 'story' && p.title === 'The Harbourmaster Falls') harbour.fell++;
     if (type === 'story' && p.title === 'He Has Friends') harbour.friends++;
   });
-  var band = null, reached2 = false, below = 0, early = false;
+  var band = null, reached2 = false, below = 0, early = false, tallied = false;
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
     step(e, temper);
     CF.VERB_ORDER.forEach(function (vid) { var v = e.s.verbs[vid]; if (v.status === 'running') seen[v.recipe] = true; });
+    allTicks++;
+    if (e.s.verbs.reflect && e.s.verbs.reflect.status === 'running') restTicks++;
+    if (!tallied && e.abroadTally().n >= 4) tallied = true;
     e.tick(1);
     if (!band && e.countOf('gang')) band = { week: e.s.week, rank: e.s.rank };
     if (band && e.s.rank < 2 && e.countOf('gang')) below++; // ticks the band sat on the table below Bailiff
@@ -246,6 +273,8 @@ for (var g = 0; g < GAMES; g++) {
       !e.s.journal.some(function (j) { return j.title === 'The Coquille' && /^The bands have stopped/.test(j.text); })) early = true;
   }
   if (early) earlyCoquille++;
+  if (tallied) tallyGames++;
+  perks += Object.keys(e.s.perks || {}).length;
   rivalExposed += e.s.stats.rivalExposed || 0;
   attacks[calling] = attacks[calling] || { runs: 0, n: 0 };
   attacks[calling].runs++; attacks[calling].n += e.s.stats.attacks || 0;
@@ -321,6 +350,7 @@ console.log('callings drifted', JSON.stringify(drifts));
 console.log('attacks per game by calling', JSON.stringify(Object.keys(attacks).reduce(function (o, k) { o[k] = +(attacks[k].n / attacks[k].runs).toFixed(2); return o; }, {})), '| the Seat won at weeks', JSON.stringify(seatWins.sort(function (a, b) { return a - b; })));
 console.log('per game: needs met', (needsMet / GAMES).toFixed(2), '| abilities lost', (lost / GAMES).toFixed(2), '| choices answered', (choices / GAMES).toFixed(2));
 console.log('a mark left to be found, read in Rest:', stagedRead, '| the Harbourmaster\'s books', JSON.stringify(harbour));
+console.log('Rest busy', (100 * restTicks / Math.max(1, allTicks)).toFixed(1) + '% of ticks | the Crowd\'s tally reached 4 in', tallyGames, 'of', GAMES, 'games | Insights learned', trained, '| tricks kept', perks);
 console.log('the Rival: came', rivalCame, '| exposed', rivalExposed, '| closed a case', rivalClosed, '| beaten on their case', rivalCaught);
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
 // The Rival is a race, not a Standing faucet: caught only at their own work, so in a run of games they win one.

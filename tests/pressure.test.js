@@ -304,3 +304,69 @@ function run(e, verb, cards) {
   assert.ok(l.card(w3.uid) && w3.life <= life0 - 60, 'the Wound has less to run: ' + w3.life + ' vs ' + life0);
   console.log('nursing: ok');
 })();
+
+// ---- The end paper's lesson, and the Abbey once -------------------------------------
+// A junior's first strain ending in the first weeks is a week in the Abbey
+// hospital instead; the second is the end, and the end says what would have saved you.
+(function abbey() {
+  var e = game(41);
+  e.s.flags.bellSilent = false;
+  e.s.meters.reputation = 3;
+  var week = e.s.week, coins = e.countOf('funds');
+  e.create('funds');
+  coins++;
+  var f1 = e.create('burnout');
+  e.expire(f1);
+  assert.ok(!e.s.over, 'the first Fever of a junior is not the end');
+  assert.ok(e.s.flags.abbey && e.s.flags.abbey.ending === 'burnout', 'the Abbey is spent');
+  assert.ok(e.s.journal.some(function (j) { return j.title === 'The Abbey Takes You In' && /They will not take you in twice\./.test(j.text); }), 'and it says it is once');
+  assert.strictEqual(e.countOf('burnout'), 0, 'the Fever is gone');
+  assert.strictEqual(e.s.week, week + 1, 'a week passes: the Bell rings');
+  assert.strictEqual(e.s.meters.reputation, 2, 'a point of Standing');
+  // The second time it is the end, and the end paper says why.
+  var f2 = e.create('burnout');
+  e.expire(f2);
+  assert.ok(e.s.over && e.s.over.id === 'burnout', 'the second Fever ends the file');
+  assert.ok(e.s.over.cause && e.s.over.cause.threat === 'burnout' && e.s.over.cause.restIdle === true, 'the cause is kept: ' + JSON.stringify(e.s.over.cause));
+  assert.ok(/^Rest stood idle/.test(e.s.over.lesson) && e.s.over.lesson.indexOf(CF.ENDINGS.burnout.lesson) > 0, 'the lesson names it: ' + e.s.over.lesson);
+  assert.strictEqual(e.s.over.threat, 'burnout');
+  // Rest put to work while the Fever ran: the lesson alone.
+  var r = game(42);
+  r.s.flags.abbey = { week: 1, ending: 'burnout' };
+  var f3 = r.create('burnout');
+  r.cardsOf('burnout', true).forEach(function (c) { c.data.rested = true; });
+  r.expire(f3);
+  assert.strictEqual(r.s.over.lesson, CF.ENDINGS.burnout.lesson, 'no blame where Rest was used');
+  // Past the first weeks, or above the first office, there is no Abbey.
+  var late = game(43);
+  late.s.week = CF.ABBEY.weeks + 1;
+  late.expire(late.create('burnout'));
+  assert.ok(late.s.over && late.s.over.id === 'burnout', 'after the first weeks the Fever ends it');
+  var high = game(44);
+  high.s.rank = 1;
+  high.expire(high.create('burnout'));
+  assert.ok(high.s.over && high.s.over.id === 'burnout', 'and above the first office');
+  // Collapse takes the same road, once.
+  var c = game(45);
+  c.create('burnout');
+  for (var i = 0; i < 3; i++) c.create('fatigue');
+  c.checkThresholds();
+  assert.ok(!c.s.over && c.s.flags.abbey && c.s.flags.abbey.ending === 'collapse', 'Collapse is taken in by the Abbey');
+  assert.strictEqual(c.countOf('fatigue') + c.countOf('burnout'), 0, 'its Weariness and Fever gone');
+  // Every losing strain or meter ending has a lesson.
+  ['dismissed', 'burnout', 'collapse', 'consumed', 'corruption', 'riot', 'death'].forEach(function (id) {
+    assert.ok(CF.ENDINGS[id].lesson && CF.ENDINGS[id].threat, id + ' has a lesson and a threat');
+  });
+  // An older finished save gets its lesson on load.
+  var o = game(46);
+  o.s.flags.abbey = true;
+  o.s.meters.pressure = o.meterMax('pressure');
+  o.checkThresholds();
+  assert.strictEqual(o.s.over.id, 'dismissed');
+  var raw = JSON.parse(o.save());
+  delete raw.over.lesson; delete raw.over.cause; delete raw.over.threat;
+  var ol = CF.Engine.load(raw);
+  assert.strictEqual(ol.s.over.lesson, CF.ENDINGS.dismissed.lesson, 'an older save: the lesson from the ending');
+  assert.strictEqual(ol.s.over.cause, null);
+  console.log('the Abbey once, and the lesson: ok');
+})();

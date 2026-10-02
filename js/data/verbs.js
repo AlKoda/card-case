@@ -20,6 +20,8 @@
     duty: {
       label: 'Attend', rank: 0, lockedBy: 'burnout',
       desc: 'The Watch-house. Work for Coin (Health walks a hard round, Wit keeps the day-book), spend it (a Petition or a Letter of Service with Coin), and attend to what lands on the desk: the Council\'s letters, purses, your watchmen. A Case here with watchmen musters them; with Wit and Coin it is cried through the city.',
+      // What a junior can do here; the office powers follow from CF.POWERS (Engine.verbInfo).
+      basics: 'The Watch-house. Health walks a round for Coin; Wit keeps the day-book. A Petition or a Letter of Service with Coin is paid here, and the Council\'s letters, purses and your watchmen are seen to.',
       slots: [
         { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'chair', 'informant', 'case', 'order', 'personnel', 'district', 'gang', 'syndicate', 'dagger'], primary: true },
         { key: 'extra', label: 'Rolls / Coin', accepts: ['paperwork', 'funds'], when: function (p) { return any(p, ['focus', 'teammate', 'case', 'district']); } },
@@ -43,6 +45,7 @@
     investigate: {
       label: 'Explore', rank: 0, lockedBy: 'burnout',
       desc: 'Go out. A Case: search its scene, or with its Quarter go door to door. Instinct alone: walk the ward and see what the city offers; an Informer with Coin talks. An Accused: search their lodging without a Writ, or with a token as cause serve one (Sworn Examiner), or with Instinct or a watchman watch their door (Bailiff). Someone Abroad, a Band or the Coquille with Instinct: go in Disguise (Bailiff).',
+      basics: 'Go out. A Case: search its scene; with its Quarter, go door to door. Instinct alone: walk the ward. An Informer with Coin talks. An Accused: search their lodging.',
       slots: [
         { key: 'main', label: 'Case / Mark', accepts: ['case', 'suspect', 'instinct', 'health', 'informant', 'front', 'atlarge', 'gang', 'syndicate', 'rival', 'nextdoor'], primary: true },
         { key: 'where', label: 'Quarter', accepts: ['district'], when: function (p) { return any(p, ['case', 'instinct', 'health']); } },

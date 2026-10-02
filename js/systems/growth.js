@@ -32,7 +32,7 @@
       perkText: 'Spent Health, Wit and Instinct come back in half the time.' },
     iron: { label: 'An Iron Constitution', trains: 'health', perk: 'Iron',
       how: 'See off three needs (Hunger, Sickness, Stress) in Rest before their clocks run out.', need: 3, count: function (e) { return e.s.stats.needsMet || 0; },
-      text: 'Hunger, fever and the black nights, and you are still at the desk. The Warrens give everything to everyone in the end, and you have found out what they cannot take.',
+      text: 'Hunger, the river cough and the black nights, and you are still at the desk. The Warrens give everything to everyone in the end, and you have found out what they cannot take.',
       lesson: 'Your Health is more than it was.',
       perkText: 'The needs come for you less often.' },
     ear: { label: 'A Word in the Right Ear', trains: 'instinct', perk: 'The Whisperer',

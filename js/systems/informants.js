@@ -59,7 +59,7 @@
   P.informantTip = function (inf) {
     var nick = inf.data.name;
     var open = this.openCases().filter(function (r) { return !r.identified && !r.special; });
-    var self0 = this, al = this.cardsOf('atlarge').filter(function (c) { return c.loc.t === 'table' && !c.data.sighted && self0.huntable(c); });
+    var self0 = this, al = this.cardsOf('atlarge').filter(function (c) { return c.loc.t === 'table' && !self0.sightingOut(c) && self0.huntable(c); });
     var roll = this.rng();
     if (open.length && roll < 0.45) {
       var rec = U.pick(this.rng, open);

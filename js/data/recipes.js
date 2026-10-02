@@ -218,9 +218,7 @@
         var al = U.pick(ctx.rng, sworn);
         var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid, criminalId: al.data.criminalId,
           headline: 'Sighting: ' + al.data.name, lead: 'Your watchman followed one of them home.' });
-        al.data.hunted = card.caseId;
-        var crim = al.data.criminalId && e.criminal(al.data.criminalId);
-        if (crim) crim.status = 'hunted';
+        e.huntBegins(al, card.caseId);
         return { title: 'Followed Home', text: (guard.data.name || e.labelOf(guard)) + ' stands on the stair until the band stops coming, and follows ' + al.data.name + ' home. The Hue and Cry can be raised.' };
       }
       return { title: 'Watched', text: 'The band drinks somewhere else this week. The Vendetta cools a little, and nobody is caught.' };
@@ -333,7 +331,7 @@
         var target = U.pick(ctx.rng, al);
         var hunt = e.spawnCase('manhunt', { ctx: ctx, culpritName: target.data.name, culpritTrait: target.data.trait, atLargeUid: target.uid, criminalId: target.data.criminalId,
           headline: 'Sighting: ' + target.data.name, lead: nick + ' has seen ' + target.data.name + '.' });
-        target.data.hunted = hunt.caseId;
+        e.huntBegins(target, hunt.caseId);
         return { title: 'A Sighting', text: nick + ' leans in. "' + target.data.name + '. I know where they sleep."' };
       }
       // A word ahead: the next case is queued, and comes even to a full desk. One at a time.
@@ -379,7 +377,7 @@
         var t = U.pick(ctx.rng, al);
         var card = e.spawnCase('manhunt', { ctx: ctx, district: d, culpritName: t.data.name, culpritTrait: t.data.trait, atLargeUid: t.uid,
           headline: 'Sighting: ' + t.data.name, lead: 'You catch a glimpse of a face you know in ' + dl + '.' });
-        t.data.hunted = card.caseId;
+        e.huntBegins(t, card.caseId);
         return { title: 'A Face in the Crowd', text: 'Across the street, under a guttering cresset: ' + t.data.name + '. Then a cart passes, and they are gone. But they are here.' };
       }
       var infs = e.cardsOf('informant', true);
@@ -553,7 +551,7 @@
       var photos = e.clueSpec(rec, { label: 'The Scene Drawn', text: 'Forty leaves of ' + rec.scene + ' in charcoal, numbered and dated. The room as it was.', aspects: { forensic: 1, opportunity: 1 }, tags: ['physical'] }, [], { noMisread: true });
       photos.lifetime = 0; // drawings do not fade
       ctx.give('clue', photos);
-      return { title: 'Drawn', text: 'You fill a sketch-book with ' + rec.scene + ' before anyone can tidy it. ' + (kept ? kept + ' thing' + (kept > 1 ? 's' : '') + ' you found there will keep now.' : 'Whatever you find there next will be on record.') };
+      return { title: 'Drawn', text: 'You fill a sketch-book with ' + rec.scene + ' before anyone can tidy it. ' + (kept === 1 ? 'One thing you found there will keep now.' : kept ? U.fill('{N} things you found there will keep now.', { N: CF.numberWord(kept, true) }) : 'Whatever you find there next will be on record.') };
     },
   });
   R.push({
@@ -755,7 +753,7 @@
       var name = w.label.replace('Witness: ', '');
       var helpers = ctx.with('teammate');
       var vars = { witness: name, hint: hint };
-      var P = CF.PROSE;
+      var P = CF.PROSE, fillCap = CF.fillCap;
       var aspects = { testimony: 2 };
       if (w.data.knows) aspects.opportunity = 1;
       var spec = { label: 'Deposition: ' + name, text: '"' + hint + '"' + (w.data.stake ? ' (' + CF.STAKES[w.data.stake].label + '.)' : ''), aspects: aspects, trait: w.data.knows ? cul.trait : null };
@@ -764,12 +762,12 @@
       if (ctx.has('instinct')) {
         if (!e.teamHas(ctx, 'empathetic') && ctx.rng() < 0.4) {
           w.life = Math.max(20, (w.life || 60) - 60);
-          return { title: 'The Bluff Fails', text: U.fill(U.pick(ctx.rng, P.witnessBluffFail), vars) };
+          return { title: 'The Bluff Fails', text: fillCap(U.pick(ctx.rng, P.witnessBluffFail), vars) };
         }
         ctx.consume(w);
         ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, stakeFlags)));
         var s1 = e.revealSuspect(rec, ctx);
-        return { title: 'The Bluff Works', text: U.fill(U.pick(ctx.rng, P.witnessBluff), vars) + (s1 ? ' And a name: ' + s1.label + '.' : '') };
+        return { title: 'The Bluff Works', text: fillCap(U.pick(ctx.rng, P.witnessBluff), vars) + (s1 ? ' And a name: ' + s1.label + '.' : '') };
       }
       if (ctx.has('health')) {
         ctx.consume(w);
@@ -779,12 +777,12 @@
         e.meter('dread', 1);
         e.revealSuspect(rec, ctx);
         maybe(ctx, 0.4, 'fatigue');
-        return { title: 'Under Pressure', text: U.fill(U.pick(ctx.rng, P.witnessPressure), vars) };
+        return { title: 'Under Pressure', text: fillCap(U.pick(ctx.rng, P.witnessPressure), vars) };
       }
       ctx.consume(w);
       ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, stakeFlags)));
       var s2 = ctx.rng() < 0.5 ? e.revealSuspect(rec, ctx) : null;
-      return { title: 'A Deposition', text: U.fill(U.pick(ctx.rng, P.witnessEmpathy), vars) + (s2 ? ' They also mention ' + s2.label + '.' : '') };
+      return { title: 'A Deposition', text: fillCap(U.pick(ctx.rng, P.witnessEmpathy), vars) + (s2 ? ' They also mention ' + s2.label + '.' : '') };
     },
   });
   R.push({
@@ -1214,7 +1212,7 @@
       ctx.consume(ctx.first('coldcase'));
       var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid,
         headline: 'Hue and Cry: ' + al.data.name, lead: 'You think you know where ' + al.data.name + ' went.' });
-      al.data.hunted = card.caseId;
+      e.huntBegins(al, card.caseId);
       e.pathGain('master', 1, 'reopened a cold trail');
       if (e.s.calling === 'master') ctx.give('looseend', e.looseEndSpec(ctx.first('coldcase').data.title || null, (CF.CASE_TEMPLATES[ctx.first('coldcase').data.template] || { keyAspects: ['opportunity'] }).keyAspects[0]));
       return { title: 'Old Ghosts', text: 'You read the old book again, and think like ' + al.data.name + '. Where would you go? Who would you trust? By first light, you have a guess.' +
@@ -1329,9 +1327,7 @@
       ctx.consume(ctx.primary);
       var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid, criminalId: al.data.criminalId,
         headline: 'Hue and Cry: ' + al.data.name, lead: 'An informer\'s word and a map.' });
-      al.data.hunted = card.caseId;
-      var crim = al.data.criminalId && e.criminal(al.data.criminalId);
-      if (crim) crim.status = 'hunted';
+      e.huntBegins(al, card.caseId);
       return { title: 'The Same Tavern Every Night', text: 'You stand across the lane from it for two nights. On the second, ' + al.data.name + ' walks in.' };
     },
   });
@@ -1848,7 +1844,7 @@
       if (t.def === 'atlarge') {
         var c = e.spawnCase('manhunt', { ctx: ctx, culpritName: t.data.name, culpritTrait: t.data.trait, atLargeUid: t.uid, lifetime: 260,
           headline: 'Hue and Cry: ' + t.data.name, lead: 'Your time in disguise has found ' + t.data.name + '.' });
-        t.data.hunted = c.caseId;
+        e.huntBegins(t, c.caseId);
         out = { title: 'Found Them', text: 'Three weeks in a lodging-house, drinking with the wrong people. Then someone mentions where ' + t.data.name + ' sleeps now.' };
       } else if (t.def === 'gang') {
         e.meter('retaliation', 1);
@@ -1899,7 +1895,7 @@
         else if (rec.witnesses.length) got.push(ctx.give('witness', e.witnessSpec(rec)).label);
       });
       if (team.length >= 2) { var s = e.revealSuspect(rec, ctx); if (s) got.push(s.label); }
-      return { title: 'The Muster Reports', text: team.length + ' watch' + (team.length > 1 ? 'men' : 'man') + ' worked ' + rec.title + '. ' + (got.length ? 'They bring back: ' + got.join(', ') + '.' : 'They found nothing new.') };
+      return { title: 'The Muster Reports', text: (team.length === 1 ? U.fill('One watchman worked {title}.', { title: rec.title }) : U.fill('{N} watchmen worked {title}.', { N: CF.numberWord(team.length, true), title: rec.title })) + ' ' + (got.length ? 'They bring back: ' + got.join(', ') + '.' : 'They found nothing new.') };
     },
   });
 
