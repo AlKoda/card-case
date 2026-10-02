@@ -273,9 +273,15 @@ A charge (`js/systems/charge.js`) is scored as
 - **Illegal evidence.** Coerced statements and planted evidence: −1 each,
   and the defence may get them thrown out at trial.
 
-Three strengths, judged against the profile's total: **weak** (below 60%),
-**reasonable** (60% and up), **strong** (the total, at least two profile
-aspects touched, no contradictions). Misread clues (Tunnel Vision) count in
+Three tiers, the Carolina's own: **Indicia** (below 60% of the profile's
+total), **Half Proof** (60% and up), **Full Proof**. Full Proof by weight
+asks four things, and the Court window shows them as four seals:
+*Enough* (the profile's total), *Two kinds* (at least two profile aspects
+touched), *Word behind it* (a witness's Deposition, a confession, or a
+token bound in Rest or matched to the accused) and *Nothing against them*
+(no contradictions). A free confession, or two witnesses who agree for
+different reasons, is Full Proof on its own with nothing against it.
+Misread clues (Tunnel Vision) count in
 the apparent strength but not the real one; the court judges the real one.
 In court a strong charge on the culprit convicts 92% of the time; a
 reasonable one 35–80%; a weak one 15–55%. Each contradiction gives the
@@ -347,7 +353,80 @@ The detective wears out on the same clock as the cases.
   it finds is good evidence that the defence may get excluded. Ten and
   Internal Affairs comes for you.
 
-`CF.STRAIN` holds the thresholds and slowdowns.
+`CF.STRAIN` holds the thresholds and slowdowns. A strain card never lies
+on the table without its cure: if Rest is still closed when the first
+Weariness, Obsession, Fever or Fixation arrives, Rest opens with it.
+
+A need (Hunger, Sickness, Stress; `CF.NEEDS` in life.js) left to run out
+takes its ability for good if you have one to spare. With only one, it
+says its own `deepen` line, leaves a Weariness and comes once more; the
+second time it stops asking and says its `debt`: the cookshop and the
+barber-surgeon keep a debt and the Market knows (Crowd +1). Stress owes
+nobody (`owes: false`): the Watch-house talks, and only the Crowd rises.
+Sickness is the river cough; the word Fever belongs to the strain card.
+
+`P.strainEnds(id, cause)` (engine.js) asks `abbeyOpen` first: once a
+file, at rank 0 in the first four weeks, a Fever, Collapse or Lost in the
+Case becomes *The Abbey Takes You In* instead (`abbeyTakesYou`,
+`s.flags.abbey`, the words in `CF.ABBEY`). `Story.lesson(e, id)` (story.js)
+gives a losing ending its line and icon for the end paper, read from the
+engine's own `endingLesson` (`CF.ENDINGS[id].lesson` and `threat`);
+`s.over.cause.restIdle` puts `CF.ENDING_REST_IDLE` first.
+
+The opening path skips the guided start's beats 0-2 (`skipIf`), so
+intro.js keeps them as `ASIDES` (`P.introAsides()`), checked before the
+steps on every intro tick after the hire, each once (`s.intro.asides`,
+defaulted when missing, so an old save mid-opening hears them too). Each
+posts its beat's prose as a `minor` story (journal only) and leaves the
+pace alone. The `question` aside alone sets the hint
+(`CF.INTRO_ASIDE_QUESTION`), paced like a beat (eight seconds after the
+last, and a verb run since or half a minute), and only with an accused
+and Health available on the table and no Wit. `P.introTaughtControls()` is
+true on the opening path: the hint bar's plain how-to line (ui.js
+`PLAIN_HINT`) is for a plain start, and after the Bell's tail the advisor
+takes the bar. The opening's labour hint (`workHint`, life.js) reads Health
+on the table or in an idle verb's slot as to hand, and Attend idle with a
+recipe ready as *Now press {recipe}.*
+
+Harm is told apart from bad news. A story of kind `harm` (a watchman dead
+or hurt, a wound, a beating, the Fever, an ability lost for good) shakes the
+table; the rest of the bad news (`danger`: a need arriving, the Rival, a
+verdict gone wrong) only sounds.
+
+A card leaving the table says how before it goes: `remove(card, why)`
+emits `gone` `{uid, def, why}` once, with `why` `lost` (an ability taken
+for good: a need run out, an answer that takes it `forGood`) or `spent`
+(Coin paid by `spend`, a choice, the Abbey's bed), and the engine's own
+defaults for the rest (`CF.GONE_DEFAULT`, `CF.EXPIRE_GONE`). The engine only names the exit; the board picks
+the animation (a burn for `lost`, a flight to where it went for `spent`)
+and falls back to the plain fade for an exit it does not know.
+
+`Story.epilogue(e)` (story.js, `CF.EPILOGUE`) gives the end paper up to
+four lines, each `{id, kind, icon, key, vars, text}`: the Pattern
+(`template 'pattern'`, `victims`, answered only when closed and its man
+not Abroad), the King (`s.court.king`, his criminal's `dead`, the ending,
+`syndicateFallen` or his case closed, the treaty), the examiners sent home
+(journal entries *The Rival Exposed*, or `stats.rivalExposed`;
+`harbourFallen`), the criminal at large who walked from you most (history
+entries gone cold, acquitted, wrongful, the Rival's, slipped, burned; last
+seen near that case's scene), and the most drilled watchman. It reads
+state only, no dice. It is the one telling: `e.epilogue()` returns it and
+`gameOver` keeps it in `s.over.epilogue`; the page shows
+`CF.T(line.key, line.vars)` under `CF.EPILOGUE.title`.
+
+The election is a question with its own id (`election`, never on the
+clock; patrons.js). `P.offerElection()` puts it the week before (false
+while another question is open, or with no patron); its answers set
+`s.flags.election` (`{stance: stand|distance|dine, week}`).
+`P.councilCount()` is the twelve-weekly count in `patronsWeek` and returns
+the Bell's lines: answered, the count line and a story in `CF.ELECTION`'s
+words; with no answer it is the old roll, told only when it goes against
+your patron.
+
+`Story.boostLine(boost)` writes an instrument's boost in words
+(`CF.TAG_WORDS`, `CF.BOOST_LINE`), each part a key, so the dossier line
+reads whole in Arabic; `tr(', ')` gives the Arabic comma for lists the
+dossier joins itself.
 
 ## 10. Money
 
@@ -530,7 +609,10 @@ builds it.
 
 ## 19. Callings as drift
 
-The Calling chosen at the start is a leaning, not a campaign. It keeps its
+The Calling is put to you once you have the desk ('What You Want'), and
+each answer names the end it works toward: the Council's Seat, the
+Architect sentenced, or the Coquille broken and its King hanged. Other
+ends stay open. The Calling is a leaning, not a campaign. It keeps its
 starting bonus (`s.origin`), seeds its path with a head start, and then
 the run drifts toward whichever path the detective actually walks
 (`js/systems/callings.js`, `s.paths`):

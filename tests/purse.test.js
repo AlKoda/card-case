@@ -108,18 +108,58 @@ function run(e, verb, cards) {
 
 // ---- The two ends of the road ---------------------------------------------------
 (function endings() {
+  // The Thief-taker General is a road: a Magistrate, a name in the chamber, the thief-takers'
+  // settlements walked twice. The old counts (Purse 6 and a Bailiff) no longer make one.
+  var old = game(8);
+  old.s.counts.purse = 6; old.s.stats.wrongful = 1; old.s.meters.reputation = 7; old.s.rank = 2;
+  old.checkPurseEndings(); old.checkPurseEndings();
+  assert.ok(!old.s.over && !old.s.flags.thieftakerWarned, 'six purses and a Bailiff are not the General');
   var e = game(9);
-  e.s.counts.purse = 6; e.s.stats.wrongful = 1; e.s.meters.reputation = 7; e.s.rank = 2;
+  e.s.counts.purse = 9; e.s.stats.wrongful = 1; e.s.meters.reputation = 12; e.s.rank = 3; e.s.stats.settled = 1;
+  e.checkPurseEndings();
+  assert.ok(!e.s.over && !e.s.flags.thieftakerWarned, 'the road has to be walked: two settlements');
+  e.s.stats.settled = 2;
+  e.checkPurseEndings();
+  assert.ok(!e.s.over && e.s.flags.thieftakerWarned, 'told a week before it lands');
+  assert.ok(e.s.journal.some(function (j) { return /call you General/.test(j.text); }), 'the fences call you General');
   e.checkPurseEndings();
   assert.ok(e.s.over && e.s.over.id === 'thieftaker' && e.s.over.win, 'corrupt and working: the Thief-taker General');
+  // Warned, and the counts no longer hold: no ending.
+  var e2 = game(14);
+  e2.s.counts.purse = 9; e2.s.stats.wrongful = 1; e2.s.meters.reputation = 12; e2.s.rank = 3; e2.s.stats.settled = 2;
+  e2.checkPurseEndings();
+  e2.s.stats.wrongful = 2;
+  e2.checkPurseEndings();
+  assert.ok(!e2.s.over, 'the ending waits on the counts still holding');
+  // The Old Bailey is told first too (the Brother's Ledger), and lands on a later Bell.
   var f = game(10);
   f.s.counts.purse = 6; f.s.stats.wrongful = 3;
+  f.checkPurseEndings();
+  assert.ok(!f.s.over && f.s.flags.oldbaileyWarned && f.s.journal[0].title === 'The Brother\'s Ledger', 'the Old Bailey is told before it lands');
   f.checkPurseEndings();
   assert.ok(f.s.over && f.s.over.id === 'oldbailey' && !f.s.over.win, 'lost to greed: the Old Bailey');
   var g = game(11);
   g.s.counts.purse = 6; g.s.counts.debt = 4;
-  g.checkPurseEndings();
+  g.checkPurseEndings(); g.checkPurseEndings();
   assert.strictEqual(g.s.over.id, 'oldbailey', 'or the debt does it');
+  // A step short (a debt away): told while it can still be refused, and the refusal holds.
+  var near = game(15);
+  near.s.counts.purse = 6; near.s.counts.debt = 3;
+  near.checkPurseEndings();
+  assert.ok(!near.s.over && near.s.flags.oldbaileyWarned, 'one step short: the warning');
+  assert.ok(/Another purse, another wrong name or another debt to the thief-takers/.test(near.s.journal[0].text), 'it says what to refuse: ' + near.s.journal[0].text);
+  near.checkPurseEndings(); near.checkPurseEndings();
+  assert.ok(!near.s.over, 'refused, the Old Bailey does not come');
+  near.s.counts.debt = 4;
+  near.checkPurseEndings();
+  assert.strictEqual(near.s.over && near.s.over.id, 'oldbailey', 'one more debt after the warning, and it lands');
+  var far = game(17);
+  far.s.counts.purse = 4; far.s.counts.debt = 3;
+  far.checkPurseEndings();
+  assert.ok(!far.s.flags.oldbaileyWarned, 'two purses short: no warning yet');
+  // An older save starts with no warning given.
+  var ob = JSON.parse(game(16).save()); delete ob.flags.oldbaileyWarned;
+  assert.strictEqual(CF.Engine.load(ob).s.flags.oldbaileyWarned, false, 'an older save: no warning yet');
   var h = game(12);
   h.s.counts.purse = 3; h.s.stats.wrongful = 3;
   h.checkPurseEndings();
@@ -131,6 +171,63 @@ function run(e, verb, cards) {
   for (var i = 0; i < 30; i++) { var lines = w.purseWeek(); if (w.countOf('writsale')) { letters++; w.remove(byDef(w, 'writsale')[0]); } if (lines.some(function (l) { return /owes them/.test(l); })) talk++; }
   assert.ok(letters >= 1 && talk >= 5, 'letters ' + letters + ', talk ' + talk);
   console.log('endings: ok');
+})();
+
+// ---- The upright man's Coin comes every week, while his band stands -------------------
+(function upright() {
+  var e = game(71);
+  var band = e.create('gang', { label: 'Band: The Lamplighters', data: { name: 'the Lamplighters', members: [] } });
+  e.s.meters.retaliation = 5;
+  var coin0 = e.countOf('funds'), purse0 = e.s.counts.purse || 0;
+  assert.strictEqual(e.takeUpright(), 'the Lamplighters');
+  assert.strictEqual(e.countOf('funds'), coin0 + 1, 'a Coin now');
+  assert.strictEqual(e.s.counts.purse, purse0 + 1, 'Purse +1');
+  assert.strictEqual(e.s.meters.retaliation, 2, 'Vendetta eases');
+  assert.strictEqual(e.s.flags.uprightPaid, 'the Lamplighters');
+  var c1 = e.countOf('funds'), p1 = e.s.counts.purse;
+  var weeks = 4, lines = [];
+  for (var w = 0; w < weeks; w++) { e.s.week++; lines = lines.concat(e.uprightWeek()); }
+  assert.strictEqual(e.countOf('funds'), c1 + weeks, 'a Coin every week');
+  assert.strictEqual(e.s.counts.purse, p1 + weeks / 2, 'Purse every other week');
+  assert.strictEqual(lines.filter(function (l) { return /brings the week's Coin/.test(l); }).length, weeks);
+  // Broken by your Court: the boy does not come, and says why.
+  var saved = e.save();
+  e.s.flags.uprightBroken = true; e.remove(band);
+  var l2 = e.uprightWeek();
+  assert.ok(/His upright man is in the Hole/.test(l2[0]) && e.s.flags.uprightPaid === null, 'the Hole: ' + l2);
+  assert.deepStrictEqual(e.uprightWeek(), [], 'and says so once');
+  // Sworn to the Coquille: the boy does not come either.
+  var f = CF.Engine.load(saved);
+  f.remove(f.cardsOf('gang', true)[0]);
+  assert.ok(/answers to the Coquille/.test(f.uprightWeek()[0]));
+  // The Bell pays it.
+  var g = CF.Engine.load(saved);
+  g.weekTick();
+  assert.ok(g.s.journal.some(function (j) { return /brings the week's Coin/.test(j.text); }), 'the Bell brings the boy');
+  // A save from before: no Coin owed.
+  var old = JSON.parse(saved); delete old.flags.uprightPaid; delete old.flags.uprightBroken;
+  var o = CF.Engine.load(old);
+  assert.strictEqual(o.s.flags.uprightPaid, null);
+  assert.strictEqual(o.s.flags.uprightBroken, false);
+  assert.deepStrictEqual(o.uprightWeek(), []);
+  console.log('upright: ok');
+})();
+
+// ---- The purse's note names one of your cases; who left it may be of the Hill ---------
+(function purseNote() {
+  var e = game(72);
+  var rec = e.openCases()[0];
+  var n = e.purseNote();
+  assert.ok(n && n.caseId === rec.id && n.title === rec.title, 'the note names an open case');
+  rec.suspects[0].role = 'a gentleman of the Hill in debt';
+  var card = e.purseSender(rec.id);
+  assert.ok(card && card.def === 'suspect' && card.data.key === rec.suspects[0].key, 'a suspect of the Hill, revealed');
+  assert.strictEqual(e.purseSender(rec.id).uid, card.uid, 'the same card, not a second');
+  rec.suspects.forEach(function (x) { x.role = 'a porter of the Market'; });
+  assert.strictEqual(e.purseSender(rec.id), null, 'nobody of the Hill: the informer instead');
+  e.openCases().forEach(function (r) { r.status = 'closed'; });
+  assert.strictEqual(e.purseNote(), null, 'no case open, no name on the note');
+  console.log('purse note: ok');
 })();
 
 console.log('purse: writ, thief-takers, blood money, endings all OK');

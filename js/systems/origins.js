@@ -23,15 +23,15 @@
     monk: { label: 'The Physician-Monk', icon: 'irole-05', art: 'ctrade-05',
       blurb: 'The Abbey lent you to the Council because you know herbs, wounds and the human heart, and because the Abbot wanted you out of the garden.',
       bends: 'Poisons and plants read at a glance: Study takes half the time. Begins with a Physician\'s Case and the Apothecary\'s Key.',
-      shut: 'May not carry the sword: the Watch must make every arrest, and the Watch is slow. Indict takes half again as long.' },
+      shut: 'May not carry the sword: the Watch must make every arrest, and the Watch is slow. The Court takes half again as long.' },
     watchman: { label: 'The Watchman', icon: 'irole-03', art: 'ctrade-01',
       blurb: 'Twenty years on the night round with a cudgel and a lantern. Every tapster knows you. Every thief knows to run.',
-      bends: 'Beats, chases and doors: Walk the Ward and the Watch take a quarter less time. Begins with Health ×3 and a Beadle already in service.',
+      bends: 'Beats, chases and doors: walking the ward and watching a door (Explore) take a quarter less time. Begins with Health ×3 and a Beadle already in service.',
       shut: 'Unlettered: Study takes twice as long until a Clerk is in your service, and the Council doubts you.' },
     clerk: { label: 'The Clerk of the Court', icon: 'irole-10', art: 'ctrade-06',
       blurb: 'You copied the Rolls for the last Examiner and know every form, fee and seal in the city. You have never once been in a fight.',
       bends: 'Procedure: every petition costs one Coin less and a Writ takes half the time. Begins with Wit ×2 and Coin ×2 more.',
-      shut: 'No street: Walk the Ward is closed until a watchman is in your service, and the underworld does not know your face.' },
+      shut: 'No street: Explore will not walk the ward for you until a watchman is in your service, and the underworld does not know your face.' },
   };
   CF.ORIGIN_ORDER = ['advocate', 'hangman', 'monk', 'watchman', 'clerk'];
 

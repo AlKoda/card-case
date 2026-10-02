@@ -139,7 +139,46 @@ function rung(e, id) { return byDef(e, 'rung').filter(function (c) { return c.da
   var r = run(h.e, 'sentence', [h.cond, rung(h.e, 'sword')]);
   assert.strictEqual(h.e.s.counts.mercy - mm, 1, 'the Sword instead of the Fire is a commutation: Mercy +1');
   assert.ok(/Commuted/.test(r.story.text));
+  // The Fire and the Water are told as themselves, on the rung and on the morning.
+  var wheelStory = g.e.s.journal.filter(function (jj) { return /wheel is brought out on the Ravenstone/.test(jj.text); })[0];
+  assert.ok(wheelStory && /most of the morning/.test(wheelStory.text), 'the Wheel takes the morning');
+  var fireRung = byDef(h.e, 'rung').filter(function (c) { return c.data.rung === 'wheel'; })[0];
+  assert.ok(!fireRung, 'the ladder left with the sentence');
+  var f = null;
+  for (var fi = 0; fi < 30 && !(f && f.cond); fi++) f = convict(400 + fi, 'strong', 'arson');
+  var fr = rung(f.e, 'wheel');
+  assert.ok(fr.desc.indexOf('The Fire. The stake in the ring below the Ravenstone') === 0 && !/murder with cruelty/.test(fr.desc), 'the Fire\'s own rung: ' + fr.desc);
+  var fs2 = run(f.e, 'arrest', [f.cond, fr]);
+  assert.ok(/faggots are stacked/.test(fs2.story.text) && !/most of the morning/.test(fs2.story.text), 'the Fire\'s morning: ' + fs2.story.text);
+  var w = null;
+  for (var wi = 0; wi < 30 && !(w && w.cond); wi++) w = convict(500 + wi, 'strong', 'poison');
+  var wr = rung(w.e, 'wheel');
+  assert.ok(w.e.labelOf(wr) === 'The Water' && /Sewn into a sack/.test(wr.desc), 'the Water\'s own rung: ' + wr.desc);
+  var pv = (function () { w.e.autoSlot('arrest', w.cond.uid); w.e.autoSlot('arrest', wr.uid); var p = w.e.preview('arrest'); return p && p.text; })();
+  assert.ok(pv && /Sewn into a sack/.test(pv) && !/murder with cruelty/.test(pv), 'the Sentence preview tells the Water too: ' + pv);
+  w.e.start('arrest'); w.e.tick(w.e.verb('arrest').duration + 0.01);
+  var ws = w.e.verb('arrest').story;
+  assert.ok(ws.text.indexOf('They carry ' + w.culprit.name + ' to the Harbour bridge in a sack') >= 0 && !/most of the morning/.test(ws.text), 'the Water\'s morning: ' + ws.text);
+  // The rung texts say a thing once.
+  assert.ok(!/at once\..*at once/.test(CF.RUNGS.pillory.desc) && !/goes home.*go home/.test(CF.RUNGS.fine.desc), 'no rung says it twice');
   console.log('capital: ok');
+})();
+
+// ---- A mended life is found somewhere in the city, not always the same stall ----------
+(function reformed() {
+  var places = {};
+  for (var i = 0; i < 40; i++) {
+    var g = convict(600 + i, 'strong');
+    if (!g.cond) continue;
+    g.e.rng.setState(i * 31 + 5);
+    var st = g.e.passSentence(g.cond, 'pardon', null, { quiet: true });
+    var m = /A year from now they keep (.*?), and a family/.exec(st.text);
+    if (m) places[m[1]] = 1;
+  }
+  Object.keys(places).forEach(function (p) { assert.ok(CF.Sentence.REFORMED_PLACES.indexOf(p) >= 0, 'a place from the pool: ' + p); });
+  assert.ok(Object.keys(places).length >= 2, 'more than one place: ' + Object.keys(places));
+  assert.ok(!places['a stall in the Abbey Close'], 'the Market, not the Abbey Close');
+  console.log('reformed: ok');
 })();
 
 // ---- Say nothing and the Council speaks; banished men come back ---------------
@@ -169,3 +208,57 @@ function rung(e, id) { return byDef(e, 'rung').filter(function (c) { return c.da
 })();
 
 console.log('sentence: ladder, prices, capital, council all OK');
+
+// ---- An old debt: one you sent home comes back as a witness ---------------------------------
+(function oldDebt() {
+  assert.ok(/The city remembers who sent them home\.$/.test(CF.RUNGS.pardon.desc) && /The city remembers who sent them home\.$/.test(CF.RUNGS.fine.desc), 'the merciful rungs say mercy is remembered');
+  var e = game(77);
+  assert.deepStrictEqual(e.s.flags.oldDebt, {}, 'a new game has had no old debt');
+  // Nobody reformed: nobody comes.
+  for (var i = 0; i < 20; i++) e.spawnCase('burglary', {});
+  assert.ok(!byDef(e, 'witness').some(function (w) { return w.data.reformed; }), 'no citizen, no old debt');
+  e.s.criminals.k1 = { id: 'k1', name: 'Hanne Vogt', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [] };
+  var told = 0;
+  e.on(function (type, p) { if (type === 'story' && p.title === 'An Old Debt') told++; });
+  var w = null, tries = 0;
+  for (; tries < 60 && !w; tries++) {
+    e.spawnCase('burglary', {});
+    w = byDef(e, 'witness').filter(function (x) { return x.data.reformed === 'k1'; })[0] || null;
+  }
+  assert.ok(w, 'the citizen comes back as a witness');
+  assert.strictEqual(e.labelOf(w), 'Witness: Hanne Vogt');
+  var rec = e.caseRec(w.caseId);
+  assert.strictEqual(e.descOf(w), 'Hanne Vogt, who keeps a stall in the Abbey Close now. You sent them home once instead of to the Ravenstone. They have not forgotten, and they were at their casement the night of ' + rec.title + '.');
+  assert.ok(w.data.knows && w.data.stake === 'none' && w.data.who === 'a citizen you once sent home');
+  assert.strictEqual(told, 1, 'the city says so: An Old Debt');
+  assert.ok(/^Hanne Vogt is waiting on the Watch-house step with their cap in their hands\. "You sent me home once," they say\. "I saw something\."$/.test(e.s.journal.filter(function (j) { return j.title === 'An Old Debt'; })[0].text));
+  assert.strictEqual(e.s.flags.oldDebt.k1, e.s.week, 'the week is remembered');
+  // Six weeks pass before anyone comes that way again.
+  for (var j = 0; j < 30; j++) e.spawnCase('burglary', {});
+  assert.strictEqual(byDef(e, 'witness').filter(function (x) { return x.data.reformed; }).length, 1, 'once in six weeks');
+  // Heard: a word against their own interest, which the Fingerpost rule weighs.
+  var heard = run(e, 'interrogate', [w, byDef(e, 'focus')[0] || e.create('focus')]);
+  var dep = heard.out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.ok(dep && dep.data.againstInterest, 'a pardoned thief at the Watch-house door speaks against their interest');
+  // An older save, from before: no old-debt book, and it loads with one.
+  var old = JSON.parse(e.save());
+  delete old.flags.oldDebt;
+  var back = CF.Engine.load(JSON.stringify(old));
+  assert.deepStrictEqual(back.s.flags.oldDebt, {}, 'an older save loads with no old debt');
+  console.log('an old debt: ok (' + tries + ' cases)');
+})();
+
+// ---- A branded hand on half proof of a poisoning: the ladder is never empty (round 8) ----
+(function brandedLesser() {
+  var e = game(77);
+  var rec = e.caseRec(e.spawnCase('poison', { quiet: true }).caseId);
+  var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  e.s.criminals.branded1 = { id: 'branded1', name: cul.name, traits: ['branded'], crimes: 1, history: [], organization: null, status: 'free' };
+  e.remove(e.caseCard(rec.id));
+  var cond = e.condemn(rec, { name: cul.name, guilty: true, solid: false }, 'half');
+  assert.ok(cond, 'condemned');
+  var rungs = byDef(e, 'rung').filter(function (r) { return r.data.condemned === cond.uid; }).map(function (r) { return r.data.rung; });
+  assert.deepStrictEqual(rungs, ['banish'], 'no mercy for a branded hand, nothing past banishment for the lesser crime');
+  assert.strictEqual(cond.data.custom, 'banish');
+  console.log('a branded hand, the lesser crime: ok');
+})();

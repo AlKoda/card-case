@@ -46,6 +46,13 @@
       needs: { min: 2, distinctTraits: 2 },
       story: { title: 'Two Different People', text: 'Lay them side by side and they describe two different people. At least one of these tokens is about somebody who was not there, or who was there for another reason.', kind: 'minor' } },
 
+    // Not matched by itself: what Two Accounts makes when one of the marks
+    // was put there to be found (see CF.Deduce.staged).
+    { id: 'staged', label: 'A Mark Left to Be Found', duration: 15,
+      needs: { never: true },
+      gives: { label: 'A Mark Left to Be Found', text: 'Two marks, two people, one room. One of them was put there to be found, by somebody who knew whose mark it was, and wanted you to know it too.', aspects: { motive: 1, opportunity: 1 } },
+      story: { title: 'A Mark Left to Be Found', text: 'Two marks, two people, one room. One of them was put there to be found, by somebody who knew whose mark it was, and wanted you to know it too.', kind: 'major' } },
+
     // Two pieces of the pattern: where he goes next.
     { id: 'pattern', label: 'Read the Pattern', duration: 60,
       needs: { min: 2, pattern: 2 },

@@ -67,8 +67,8 @@ function run(e, verb, cards) {
   var e = game(71);
   assert.strictEqual(e.maxOpenCases(), 2, 'an Examiner gets two cases at once');
   assert.ok(!e.powerOpen('warrant'), 'no Writ for an Examiner');
-  // Reputation convenes a board; attending it promotes.
-  e.s.meters.reputation = CF.RANK_REP[1];
+  // Reputation and a record convene a board; attending it promotes.
+  e.s.meters.reputation = CF.RANK_REP[1]; e.s.stats.convictions = CF.RANK_RECORD[1];
   e.checkThresholds();
   var board = byDef(e, 'promotion')[0];
   assert.ok(board && board.data.rank === 1 && /Sworn Examiner/.test(e.labelOf(board)));
@@ -87,13 +87,13 @@ function run(e, verb, cards) {
   assert.strictEqual(byDef(e, 'funds').length, funds + CF.RANK_DEFS[1].salary - CF.ECONOMY.rent);
   // All the way up.
   while (e.s.rank < CF.TOP_RANK) {
-    e.s.meters.reputation = CF.RANK_REP[e.s.rank + 1];
+    e.s.meters.reputation = CF.RANK_REP[e.s.rank + 1]; e.s.stats.convictions = CF.RANK_RECORD[e.s.rank + 1];
     e.checkThresholds();
     run(e, 'duty', [byDef(e, 'promotion')[0]]);
   }
   assert.strictEqual(e.s.rank, 3);
   Object.keys(CF.POWERS).forEach(function (v) { assert.ok(e.powerOpen(v), v); });
-  assert.strictEqual(e.maxOpenCases(), 4);
+  assert.strictEqual(e.maxOpenCases(), 5, 'a Magistrate is sent five cases at once');
   e.s.meters.reputation = 30;
   e.checkThresholds();
   assert.strictEqual(byDef(e, 'promotion').length, 0, 'no board past the top rank');
@@ -104,6 +104,46 @@ function run(e, verb, cards) {
   assert.strictEqual(c.countOf('chair'), 0);
   c.s.rank = 3; c.checkThresholds();
   assert.strictEqual(c.countOf('chair'), 1);
+  // A Seat held by the vote is still the one Seat; a failed vote waits six weeks.
+  c.s.meters.reputation = 30; c.s.meters.pressure = 6;
+  // No vote without the three seals: the Council, the Bishop and the Guilds.
+  c.autoSlot('duty', byDef(c, 'chair')[0].uid);
+  assert.ok(/No vote without three seals/.test(c.preview('duty').blocked || ''), 'the seals first: ' + c.preview('duty').blocked);
+  c.clearSlots('duty');
+  c.favour().council = c.favour().bishop = c.favour().guild = CF.SEAT_PLEDGE;
+  var told = function () { return c.s.journal.filter(function (l) { return l.title === 'The Seat Is Empty'; }).length; };
+  var empties = told();
+  var vote = run(c, 'duty', [byDef(c, 'chair')[0]]);
+  assert.strictEqual(vote.id, 'duty_chair');
+  assert.strictEqual(told(), empties, 'no second Seat while the first is held');
+  assert.ok(/another vote in six weeks/.test(vote.story.text), vote.story.text);
+  assert.strictEqual(c.cardsOf('chair', true).length, 0, 'passed over: no Seat waiting');
+  var cd = c.s.flags.chairCooldown;
+  assert.ok(cd >= c.s.week + 5 && cd <= c.s.week + 6, 'six weeks from the vote: ' + cd + ' at week ' + c.s.week);
+  c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 0);
+  c.s.week = cd - 1; c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 0, 'not before six weeks');
+  c.s.week = cd; c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 1, 'six weeks on, another vote');
+  assert.strictEqual(c.s.flags.chairCooldown, 0, 'the wait is over');
+  // A Seat waiting in Attend's slot is still the one Seat.
+  var seat = byDef(c, 'chair')[0];
+  assert.ok(c.autoSlot('duty', seat.uid) && seat.loc.t === 'slot');
+  c.checkThresholds();
+  assert.strictEqual(c.cardsOf('chair', true).length, 1, 'one Seat, slotted or not');
+  // The Council hears only an officer with the Standing for the Seat: Passed Over must earn it back first.
+  c.s.meters.reputation = CF.COMMISSIONER_REP - 4;
+  var pb = c.preview('duty');
+  assert.ok(pb && pb.blocked === 'The Council hears only an officer of Standing ' + CF.COMMISSIONER_REP + '. You have ' + (CF.COMMISSIONER_REP - 4) + '.', 'the gap is named: ' + (pb && pb.blocked));
+  assert.ok(!c.start('duty'), 'no vote without the Standing');
+  c.s.meters.reputation = CF.COMMISSIONER_REP;
+  assert.ok(!c.preview('duty').blocked, 'with it, the vote can be called');
+  c.clearSlots('duty');
+  // An older save never wrote the wait.
+  var old = JSON.parse(c.save()); delete old.flags.chairCooldown;
+  var lo = CF.Engine.load(old);
+  assert.strictEqual(lo.s.flags.chairCooldown, 0);
   console.log('ranks: ok');
 })();
 
@@ -184,6 +224,55 @@ function run(e, verb, cards) {
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'ordered');
   e.s.rooms.intel = true;
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'owned');
+  // Lane 2, item 99: a built room's foot says what it has done, where the rules count it (s.roomUse); a game whose
+  // rules do not, or a room not yet at work, reads plain Built; a room not built shows no count.
+  function tile(k) { return CF.Precinct.tiles(e).filter(function (t) { return t.key === k; })[0]; }
+  delete e.s.roomUse;
+  assert.strictEqual(tile('intel').use, 0, 'no count without the rules\' tally');
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built');
+  e.s.roomUse = { intel: 3, suite: 6 };
+  assert.strictEqual(tile('intel').use, 3);
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built · 3 fronts named or informers seated', 'the return, in one phrase');
+  assert.strictEqual(tile('suite').use, 0, 'an unbuilt room has nothing to show');
+  e.s.roomUse = { intel: 'x' };
+  assert.strictEqual(CF.Precinct.foot(tile('intel')), 'Built', 'a bad count is no count');
+  delete e.s.roomUse;
+  // Lane 2, item 106: the Petitions that are not rooms stand on the same board, bought, locked, on the table or
+  // open; the cheapest the office allows and not yet bought is the next.
+  var goods = CF.Precinct.goods(e), gk = {};
+  goods.forEach(function (t) { gk[t.key] = t; });
+  assert.strictEqual(goods.length, Object.keys(CF.ORDERS).filter(function (k) { return !CF.ORDERS[k].room; }).length, 'every instrument Petition');
+  assert.ok(gk.prints && gk.prints.good && gk.prints.icon && gk.prints.desc === CF.CARDS.prints.desc, 'a good with its picture and the instrument\'s words');
+  e.s.rank = 0;
+  assert.strictEqual(CF.Precinct.goods(e).filter(function (t) { return t.key === 'surveillance'; })[0].state, 'locked', 'Lantern and Cloak needs Bailiff');
+  e.s.flags.bought = e.s.flags.bought || {};
+  e.s.flags.bought.prints = true;
+  assert.strictEqual(CF.Precinct.goods(e).filter(function (t) { return t.key === 'prints'; })[0].state, 'owned', 'bought');
+  var all = CF.Precinct.tiles(e).concat(CF.Precinct.goods(e)), nk = CF.Precinct.next(all);
+  var cheapest = all.filter(function (t) { return t.state === 'open' || t.state === 'ordered'; }).sort(function (a, b) { return a.cost - b.cost; })[0];
+  assert.ok(nk && cheapest && all.filter(function (t) { return t.key === nk; })[0].cost === cheapest.cost, 'the next is the cheapest within reach: ' + nk);
+  assert.strictEqual(CF.Precinct.next([{ key: 'a', state: 'owned', cost: 1 }, { key: 'b', state: 'locked', cost: 2 }]), null, 'nothing within reach, no next');
+  // The tile marked Next can be acted on: an open instrument is petitioned from the board as a room is, once.
+  e.cardsOf('order', true).filter(function (c) { return c.data.order === 'kit'; }).forEach(function (c) { e.remove(c); });
+  var kitTile = function () { return CF.Precinct.goods(e).filter(function (t) { return t.key === 'kit'; })[0]; };
+  assert.strictEqual(kitTile().state, 'open', 'an instrument off the table is open on the board');
+  assert.ok(CF.Precinct.orderGood(e, 'kit'), 'an open instrument is petitioned from the board');
+  assert.strictEqual(kitTile().state, 'ordered', 'its Petition is on the table');
+  assert.ok(!CF.Precinct.orderGood(e, 'kit'), 'only one form at a time');
+  assert.ok(!CF.Precinct.orderGood(e, 'surveillance'), 'not past the office');
+  delete e.s.flags.bought.prints;
+  e.s.rank = 2;
+
+  // A Clerk's petition from the board costs a Coin less, as the Council's forms do.
+  var ck = game(77);
+  ck.s.who = 'clerk';
+  var lockerOrder = CF.ROOMS.locker.order, full = CF.ORDERS[lockerOrder].cost;
+  assert.strictEqual(CF.Precinct.tiles(ck).filter(function (t) { return t.key === 'locker'; })[0].cost, Math.max(1, full - 1), 'the board shows the Clerk his price');
+  assert.ok(CF.Precinct.order(ck, 'locker'));
+  var form = ck.cardsOf('order', true).filter(function (c) { return c.data.order === lockerOrder; })[0];
+  assert.ok(form, 'the petition is on the table');
+  assert.strictEqual(form.data.discount, 1, 'the board petition carries the Clerk discount');
+  assert.ok(form.desc.indexOf('Costs ' + Math.max(1, full - 1) + ' Coin.') >= 0, form.desc);
 
   // Intelligence Office: a linked clue reveals its front at once.
   var g = game(76);
@@ -259,4 +348,223 @@ function run(e, verb, cards) {
   run(a2, 'analyze', [a2.create('evidence', { label: doc.label, desc: doc.text, caseId: ar2.id, data: { item: doc } })]);
   assert.strictEqual(CF.clueAspects(a2.tableCards().filter(function (c) { return c.label === 'The Leaves Parted'; })[0]).forensic || 0, 0, 'paper does not');
   console.log('precinct: ok');
+})();
+
+// ---- The Seat told truly: the man chosen instead has a name; the Hangman's door is said aloud ----
+(function seatAndCap() {
+  var c = game(74, 'commissioner');
+  c.s.meters.reputation = 30; c.s.rank = CF.TOP_RANK; c.checkThresholds();
+  var seats = function () { return c.s.journal.filter(function (l) { return l.title === 'The Seat Is Empty'; }); };
+  assert.ok(/dead of a stone/.test(seats()[0].text), 'the first Seat: a death');
+  c.s.meters.pressure = 6;
+  c.favour().council = c.favour().bishop = c.favour().guild = CF.SEAT_PLEDGE;
+  var vote = run(c, 'duty', [byDef(c, 'chair')[0]]);
+  var chosen = c.s.flags.burgomaster;
+  assert.ok(chosen && vote.story.text.indexOf('chooses ' + chosen + ' of the Hill') > 0, 'the Council\'s choice is named: ' + vote.story.text);
+  c.s.week = c.s.flags.chairCooldown; c.checkThresholds();
+  var second = seats()[0];
+  assert.ok(seats().length === 2 && !/dead of a stone/.test(second.text) && second.text.indexOf(chosen + ' has lasted a season') === 0, 'the second Seat is his: ' + second.text);
+  // An older save that had already told the Seat does not bury the Burgomaster twice.
+  var old = JSON.parse(c.save()); delete old.flags.seatTold; delete old.flags.burgomaster;
+  var lo = CF.Engine.load(old);
+  assert.strictEqual(lo.s.flags.seatTold, true, 'a Seat on the table: told');
+  var fresh = JSON.parse(game(75, 'commissioner').save()); delete fresh.flags.seatTold;
+  assert.strictEqual(CF.Engine.load(fresh).s.flags.seatTold, false);
+  // The Hangman at Bailiff with the Standing for Magistrate: told once.
+  var h = CF.Engine.newGame({ seed: 76, calling: 'master', who: 'hangman' });
+  h.s.rank = h.rankCap(); h.s.meters.reputation = CF.RANK_REP[h.rankCap() + 1];
+  h.checkThresholds(); h.checkThresholds();
+  var cap = h.s.journal.filter(function (l) { return l.title === 'The Letter That Will Not Come'; });
+  assert.strictEqual(cap.length, 1, 'told once');
+  assert.ok(/Bailiff is as high as the Ravenstone reaches/.test(cap[0].text), cap[0].text);
+  var w = CF.Engine.newGame({ seed: 77, calling: 'master', who: 'watchman' });
+  w.s.rank = 2; w.s.meters.reputation = CF.RANK_REP[3]; w.checkThresholds();
+  assert.ok(!w.s.journal.some(function (l) { return l.title === 'The Letter That Will Not Come'; }), 'only for the shut door');
+  // Deputise counts in the city's days.
+  var dp = CF.RECIPES_BY_ID.delegate_case.preview;
+  var txt = typeof dp === 'function' ? dp({ caseOf: function () { return null; }, primary: null }) : dp;
+  assert.ok(new RegExp('every ' + CF.daysLeft(CF.DELEGATE_EVERY) + ' days').test(txt) && !/minute/.test(txt), txt);
+  console.log('seat and cap: ok');
+})();
+
+// ---- Lane 1, items 49-56: rank waits for the record; an office's crimes come a week on; the Seat is a campaign ----
+(function recordAndTiers() {
+  // Standing alone does not bring the letter: the record does too, and the Council says so once.
+  var e = game(401);
+  e.s.stats.convictions = 0; e.s.meters.reputation = CF.RANK_REP[1];
+  assert.strictEqual(e.recordShort(), CF.RANK_RECORD[1], 'the record still wanted');
+  e.checkThresholds(); e.checkThresholds();
+  assert.strictEqual(byDef(e, 'promotion').length, 0, 'no letter without the record');
+  var held = e.s.journal.filter(function (j) { return j.title === 'The Council Knows Your Name'; });
+  assert.strictEqual(held.length, 1, 'told once');
+  assert.ok(/wants one more case answered before it writes for the office of Sworn Examiner\./.test(held[0].text), held[0].text);
+  e.s.stats.convictions = CF.RANK_RECORD[1];
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'promotion').length, 1, 'the record met: the letter');
+  // Wrong names count against it; a settlement counts for it.
+  var w = game(402);
+  w.s.rank = 1; w.s.stats.convictions = CF.RANK_RECORD[2]; w.s.stats.wrongful = 1;
+  assert.strictEqual(w.recordShort(), 1, 'a wrong name is not a case answered');
+  w.s.stats.settled = 1;
+  assert.strictEqual(w.recordShort(), 0, 'a settlement is');
+  w.s.meters.reputation = CF.RANK_REP[2]; w.s.stats.settled = 0; w.checkThresholds();
+  assert.ok(/wants one more case answered/.test(w.s.journal[0].text), w.s.journal[0].text);
+
+  // Promoted: the office's harder crimes and charges come from the next week.
+  var p = game(403);
+  p.s.rank = 1; p.s.week = 7; p.promote();
+  assert.strictEqual(p.s.rank, 2);
+  assert.strictEqual(p.s.rankWeek, 7);
+  assert.strictEqual(p.caseRank(), 1, 'the week of the promotion: the old office\'s cases');
+  assert.ok(p.casePool().indexOf('witch') < 0, 'no new tier yet');
+  assert.strictEqual(p.caseClock(), 1.6, 'and the old clock');
+  var c1 = p.spawnCase('burglary', { quiet: true }), r1 = p.caseRec(c1.caseId);
+  p.s.week = 8;
+  assert.strictEqual(p.caseRank(), 2);
+  assert.ok(p.casePool().indexOf('witch') >= 0, 'a week on, the new tier');
+  var c2 = p.spawnCase('burglary', { quiet: true }), r2 = p.caseRec(c2.caseId);
+  var key = CF.CASE_TEMPLATES.burglary.keyAspects[0];
+  if (!r1.highProfile && !r2.highProfile) assert.ok(r2.charge[key] > r1.charge[key], 'the Bailiff\'s charge wants more, from the week after: ' + r1.charge[key] + ' then ' + r2.charge[key]);
+  // An older save starts with no promotion week.
+  var raw = JSON.parse(game(404).save()); delete raw.rankWeek;
+  var lo = CF.Engine.load(raw);
+  assert.strictEqual(lo.s.rankWeek, -1, 'an older save: no promotion week');
+  assert.strictEqual(lo.caseRank(), lo.s.rank);
+
+  // The Seat: four weeks in the red gown first, then the vote wants the three seals.
+  var c = game(405, 'commissioner');
+  c.s.rank = 2; c.s.week = 20; c.s.stats.convictions = 10; c.promote();
+  c.s.meters.reputation = 30;
+  c.checkThresholds();
+  assert.strictEqual(c.countOf('chair'), 0, 'not in the first weeks at Magistrate');
+  c.s.week = 20 + CF.SEAT_WEEKS - 1; c.checkThresholds();
+  assert.strictEqual(c.countOf('chair'), 0);
+  c.s.week = 20 + CF.SEAT_WEEKS; c.checkThresholds();
+  assert.strictEqual(c.countOf('chair'), 1, CF.SEAT_WEEKS + ' weeks on, the Seat');
+  assert.ok(/The vote wants three seals/.test(c.s.journal.filter(function (j) { return j.title === 'The Seat Is Empty'; })[0].text), 'the seals are named');
+  c.favour().council = 1; c.favour().bishop = 1; c.favour().guild = 0;
+  var pl = c.seatPledges();
+  assert.ok(pl.council && pl.bishop && !pl.guild && pl.n === 2 && !pl.all, JSON.stringify(pl));
+  c.autoSlot('duty', byDef(c, 'chair')[0].uid);
+  assert.ok(/Pledged: 2 of 3\./.test(c.preview('duty').blocked || ''), c.preview('duty').blocked);
+  c.clearSlots('duty');
+  // While a seal is wanted, that power's work comes to the desk.
+  var asked = { guild: 0, other: 0 };
+  for (var i = 0; i < 200; i++) { var com = c.commissionFor({ template: 'burglary', suspects: [{ key: 'a' }] }, CF.CASE_TEMPLATES.burglary); if (com) { if (com.from === 'guild') asked.guild++; else asked.other++; } }
+  assert.ok(asked.guild > 0 && asked.other === 0, 'the Guilds send the work their seal waits on: ' + JSON.stringify(asked));
+  c.favour().guild = 1;
+  c.s.meters.pressure = 0; c.s.meters.scrutiny = 0;
+  c.autoSlot('duty', byDef(c, 'chair')[0].uid);
+  assert.ok(!c.preview('duty').blocked && c.start('duty'), 'three seals: the vote is called');
+  c.tick(c.verb('duty').duration + 0.01);
+  assert.ok(c.s.over && c.s.over.id === 'commissioner', 'three seals, a quiet city: the Seat');
+  console.log('record, tiers a week on, the Seat as a campaign: ok');
+})();
+
+// ---- Past the last office: the Council's favour, a Magistrate's endowments (round 8) ----
+(function councilFavour() {
+  var e = game(160);
+  e.s.flags.firstCase = true;
+  e.s.rank = 2; e.s.meters.reputation = 30;
+  assert.strictEqual(e.favourNext(), null, 'no favour below the top office');
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 0);
+  e.cardsWith('promotion').forEach(function (c) { e.remove(c); });
+  e.s.rank = CF.TOP_RANK; e.s.meters.reputation = 15;
+  var f = e.favourNext();
+  assert.deepStrictEqual([f.base, f.step, f.at], [12, 0, 16], 'the next writ at 16');
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 0, 'not before the first step');
+  e.s.meters.reputation = 16; e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 1, 'four past the last office: a Writ of the Council');
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 1, 'once per step');
+  assert.strictEqual(e.favourNext().at, 20, 'the meter shows the next step');
+  e.s.meters.reputation = 15; e.s.meters.reputation = 19; e.checkThresholds();
+  assert.strictEqual(byDef(e, 'councilwrit').length, 1, 'falling back and climbing the same step writes nothing');
+  // A hangman's top office is Bailiff, and the steps start where the red gown would have.
+  var h = game(161); h.s.who = 'hangman'; h.s.rank = 2; h.s.meters.reputation = 16; h.s.flags.capTold = true;
+  assert.ok(h.favourNext() && h.favourNext().step === 1, 'a hangman at Bailiff has the favour too');
+  // With the Rolls: Suspicion -2.
+  e.s.meters.scrutiny = 3;
+  var writ = byDef(e, 'councilwrit')[0], roll = e.create('paperwork');
+  assert.ok(e.autoSlot('duty', writ.uid) === 'main');
+  assert.ok(/Put a Case/.test(e.preview('duty').blocked), 'it wants something to go with it');
+  var r = run(e, 'duty', [roll]);
+  assert.strictEqual(e.s.meters.scrutiny, 1, 'the Rolls: Suspicion -2');
+  assert.ok(r.id === 'duty_councilwrit' && byDef(e, 'councilwrit').length === 0 && !e.card(roll.uid), 'the writ and the Rolls are spent');
+  // With a Case: taken off your hands, no Crowd, Standing -1, nobody walks.
+  var w2 = e.create('councilwrit'), rec = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+  var crowd = e.s.meters.pressure, rep = e.s.meters.reputation, cold = e.s.stats.cold, abroad = e.cardsOf('atlarge', true).length;
+  run(e, 'duty', [w2, e.caseCard(rec.id)]);
+  assert.strictEqual(rec.status, 'council', 'the Council takes it');
+  assert.ok(e.s.meters.pressure === crowd && e.s.meters.reputation === rep - 1 && e.s.stats.cold === cold, 'no Crowd, Standing -1, not cold');
+  assert.strictEqual(e.cardsOf('atlarge', true).length, abroad, 'nobody walks');
+  // Not the city's great cases.
+  var w3 = e.create('councilwrit'), pat = e.caseRec(e.spawnCase('pattern', { quiet: true }).caseId);
+  e.autoSlot('duty', w3.uid); e.autoSlot('duty', e.caseCard(pat.id).uid);
+  assert.ok(/will not take/.test(e.preview('duty').blocked), 'the Pattern is yours to answer');
+  e.clearSlots('duty');
+  // With the Rival: recalled for eight weeks, their race ended.
+  var rv = e.create('rival', { label: 'The Rival: Anselm Vogt', data: { name: 'Anselm Vogt', heat: 0, stalled: 0 } });
+  var raced = e.caseRec(e.spawnCase('fraud', { quiet: true }).caseId); raced.rival = true;
+  run(e, 'duty', [w3, rv]);
+  assert.ok(!e.cardsOf('rival', true).length && e.s.flags.rivalGone === e.s.week + CF.FAVOUR_RECALL && !raced.rival, 'the Rival recalled');
+  // With a Witness: held for the Court.
+  var w4 = e.create('councilwrit'), wit = e.create('witness', e.witnessSpec(raced));
+  var life = wit.life;
+  run(e, 'duty', [w4, wit]);
+  assert.ok(e.card(wit.uid) && e.card(wit.uid).life >= life + CF.FAVOUR_HOLD - 15 && e.card(wit.uid).data.held, 'the witness held for the Court');
+  // An older save: no writ written yet, and one comes at the next step.
+  var old = JSON.parse(e.save()); delete old.flags.favourStep; delete old.councilCount;
+  var l = CF.Engine.load(old);
+  assert.ok(l.s.flags.favourStep === 0 && l.s.councilCount === null, 'older saves load with the favour and the count unset');
+
+  // A Magistrate's endowments: Petitions at the top office, no card to keep.
+  var m = game(162);
+  assert.ok(CF.ORDERS.abbey.endow && CF.ORDERS.lanes.endow && CF.ORDERS.abbey.rank === 3);
+  m.addOrdersForRank(3);
+  var lanes = byDef(m, 'order').filter(function (c) { return c.data.order === 'lanes'; })[0];
+  assert.ok(lanes && /a blow on the stair comes less often/.test(m.descOf(lanes)), 'the petition says what it buys');
+  for (var i = 0; i < 6; i++) m.create('funds');
+  var out = run(m, 'duty', [lanes].concat(byDef(m, 'funds').slice(0, CF.costOf(lanes))));
+  assert.ok(m.endowedWith('lanes') && out.story.title === 'Light the Lanes' && !out.out.some(function (c) { return c.def === 'order'; }), 'the lanes are lit');
+  var abbey = byDef(m, 'order').filter(function (c) { return c.data.order === 'abbey'; })[0];
+  for (var j = 0; j < 8; j++) m.create('funds');
+  var bishop = m.favour().bishop;
+  run(m, 'duty', [abbey].concat(byDef(m, 'funds').slice(0, CF.costOf(abbey))));
+  assert.strictEqual(m.favour().bishop, bishop + 2, 'the Bishop is pleased');
+  m.create('fatigue');
+  var lines = m.patronsWeek();
+  assert.ok(!m.countOf('fatigue') && lines.some(function (x) { return /keeps a bed for you/.test(x); }), 'a bed at the Abbey every Bell');
+  console.log('the Council\'s favour and the endowments: ok');
+})();
+
+// ---- From Bailiff the Council counts what you closed, gently (round 8) ----
+(function councilCount() {
+  var e = game(170);
+  e.s.flags.firstCase = true;
+  assert.strictEqual(e.councilExpects(), null, 'nothing expected of an Examiner');
+  e.s.rank = 2;
+  e.councilCountWeek();
+  var ex = e.councilExpects();
+  assert.deepStrictEqual([ex.n, ex.m, ex.weeksLeft], [0, 1, 2], 'a Bailiff: one case a fortnight');
+  e.s.week += 2;
+  e.s.meters.pressure = 0;
+  var short = e.councilCountWeek();
+  assert.ok(/0 of 1 this fortnight\. It expected more/.test(short[0]) && e.s.meters.pressure === 1, 'short: the Crowd rises a step');
+  e.s.stats.convictions += 1;
+  assert.strictEqual(e.councilExpects().n, 1, 'an answered case counts');
+  e.s.week += 2;
+  var met = e.councilCountWeek();
+  assert.ok(/1 of 1 this fortnight, and is content/.test(met[0]) && e.s.meters.pressure === 0, 'met: the Crowd eases');
+  // Never a road to dismissal: from Restless up, falling short adds nothing.
+  e.s.week += 2; e.s.meters.pressure = 5;
+  e.councilCountWeek();
+  assert.strictEqual(e.s.meters.pressure, 5, 'a nudge, never the last push');
+  // A Magistrate: two a fortnight; the week between says nothing.
+  e.s.rank = 3; e.s.week += 1;
+  assert.deepStrictEqual(e.councilCountWeek(), [], 'counted only at the fortnight');
+  assert.strictEqual(e.councilExpects().m, 2);
+  console.log('the Council counts: ok');
 })();

@@ -59,7 +59,7 @@ function officer(e, key, traits) {
 
   // The camera: photograph the scene, and what you found stops degrading.
   run(e, 'investigate', [kase]);
-  var frame = byLabel(e, /Pried Shutter/)[0];
+  var frame = byLabel(e, /Forced Frame|Lock Unmarked/)[0];
   assert.ok(frame.maxLife, 'evidence decays');
   var cam = e.create('camera');
   var r = run(e, 'investigate', [kase, cam]);
@@ -154,7 +154,7 @@ function officer(e, key, traits) {
   var h = game(32);
   var kh = byDef(h, 'case')[0];
   run(h, 'investigate', [kh]);
-  var ev = byLabel(h, /Pried Shutter/)[0];
+  var ev = byLabel(h, /Forced Frame|Lock Unmarked/)[0];
   h.autoSlot('analyze', ev.uid);
   var slow = h.preview('analyze').duration;
   h.autoSlot('analyze', officer(h, 'tech', ['patient']).uid);
@@ -185,4 +185,16 @@ function officer(e, key, traits) {
   var got2 = run(s1, 'investigate', [k1, d1, officer(s1, 'rookie', ['streetwise'])]).out.filter(function (c) { return c.def === 'witness'; }).length;
   assert.strictEqual(got2, got1 + 1, 'streetwise: ' + got2 + ' vs ' + got1);
   console.log('team: ok');
+})();
+
+// A priest, a sergeant, a beadle and an apothecary's boy are men; their names say so.
+(function teamNames() {
+  var e = game(64);
+  ['rookie', 'tech', 'interviewer', 'veteran'].forEach(function (k) {
+    for (var i = 0; i < 12; i++) {
+      var first = e.teammateSpec(k).data.name.split(' ')[0];
+      assert.ok(CF.NAMES.m.indexOf(first) >= 0, k + ' named ' + first);
+    }
+  });
+  console.log('team names: ok');
 })();

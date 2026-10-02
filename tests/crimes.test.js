@@ -30,7 +30,7 @@ function run(e, verb, cards) {
 
 // ---- Every new crime is a whole crime -----------------------------------------
 (function whole() {
-  ['scriptorium', 'witch', 'highway', 'contract'].forEach(function (tid) {
+  ['scriptorium', 'witch', 'highway', 'contract', 'weights', 'searchers', 'mint', 'gloryhand'].forEach(function (tid) {
     var T = CF.CASE_TEMPLATES[tid];
     assert.ok(T && T.lesser && T.items.length >= 4 && T.witnesses.length >= 3 && T.hints.length >= 3 && T.roles.length >= 3, tid + ' is complete');
     assert.ok(CF.STRUCTURES[tid] && CF.STRUCTURES[tid].length >= 1, tid + ' has structures');
@@ -49,7 +49,37 @@ function run(e, verb, cards) {
   });
   assert.ok(CF.ORDINARY_CASES.indexOf('scriptorium') >= 0 && CF.ORDINARY_CASES.indexOf('witch') >= 0 && CF.ORDINARY_CASES.indexOf('contract') >= 0);
   assert.ok(CF.ORDINARY_CASES.indexOf('highway') < 0, 'the highway is not an ordinary crime');
+  // The new crimes sit in their offices' tiers, with a ladder and three structures each.
+  assert.ok(CF.CASE_TIERS[0].indexOf('weights') >= 0 && CF.CASE_TIERS[1].indexOf('searchers') >= 0, 'false weights for an Examiner, the searchers for a Sworn Examiner');
+  assert.ok(CF.CASE_TIERS[3].indexOf('mint') >= 0 && CF.CASE_TIERS[3].indexOf('gloryhand') >= 0, 'the Mint and the Hand of Glory for a Magistrate');
+  assert.ok(CF.CASE_TEMPLATES.mint.council && CF.CASE_TEMPLATES.gloryhand.heresy, 'the Council wants the Mint quiet; the Dominicans smell the Hand of Glory');
+  assert.ok(CF.LADDERS.mint.wheel === 'The Fire' && CF.LADDERS.weights.custom === 'pillory', 'coiners burn; short measure stands in the pillory');
   console.log('whole: ok');
+})();
+
+// ---- A written mystery with one answer comes once a run ----------------------------
+(function onceARun() {
+  var e = game(31);
+  e.s.rank = 3;
+  CF.ONCE_CASES.forEach(function (tid) { assert.ok(e.casePool().indexOf(tid) >= 0, tid + ' is in a Magistrate\'s pool before it is sent'); });
+  var rec = e.caseRec(e.spawnCase('threedays', { quiet: true }).caseId);
+  assert.strictEqual(rec.template, 'threedays');
+  assert.deepStrictEqual(e.s.flags.seenCases, ['threedays'], 'the Apple in the Chest is remembered');
+  assert.ok(e.casePool().indexOf('threedays') < 0, 'and not sent again');
+  assert.ok(e.casePool().indexOf('scriptorium') >= 0 && e.casePool().indexOf('mint') >= 0, 'the rest of the pool stands');
+  for (var i = 0; i < 60; i++) { var c = e.spawnCase(null, { quiet: true }); assert.notStrictEqual(e.caseRec(c.caseId).template, 'threedays', 'never twice'); e.goCold(c.caseId); }
+  // An older save has seen the mysteries on its record.
+  var old = JSON.parse(e.save());
+  delete old.flags.seenCases;
+  var g = CF.Engine.load(old);
+  assert.deepStrictEqual(g.s.flags.seenCases.filter(function (t) { return t === 'threedays'; }), ['threedays'], 'an older save remembers from its cases');
+  assert.ok(g.casePool().indexOf('threedays') < 0);
+  var fresh = JSON.parse(game(32).save());
+  delete fresh.flags.seenCases;
+  assert.deepStrictEqual(CF.Engine.load(fresh).s.flags.seenCases, [], 'and a save with none has seen none');
+  // The harbour's body is found at its own scene.
+  assert.ok(/\{scene\}/.test(CF.CASE_TEMPLATES.harbor.title));
+  console.log('once a run: ok');
 })();
 
 // ---- The Witch Mark is always the Council's; the Fire waits at the top ----------
@@ -71,7 +101,11 @@ function run(e, verb, cards) {
   var rec = e.caseRec(e.spawnCase('scriptorium', { quiet: true }).caseId);
   e.patronsWeek();
   assert.strictEqual(rec.status, 'open', 'not yet: two weeks');
-  e.s.week += 2;
+  // A week on, the Dominican asks for the file (the warning comes a week before the seizure).
+  e.s.week += 1;
+  assert.ok(e.patronsWeek().some(function (l) { return /A Dominican has asked the Rolls/.test(l); }), 'warned at a week');
+  assert.strictEqual(rec.status, 'open');
+  e.s.week += 1;
   e.patronsWeek();
   assert.strictEqual(rec.status, 'inquisitor', 'the Inquisitor takes a heresy case left open two weeks');
   assert.ok(!e.caseCard(rec.id));
@@ -344,4 +378,86 @@ console.log('crimes: whole, witch, scriptorium, highway, opts, scene items, name
   var r4 = run(e, 'reflect', [cold3]);
   assert.strictEqual(r4.preview.label, 'Regret');
   console.log('same book: ok');
+})();
+
+// ---- Words that describe a mark --------------------------------------------------
+// A token whose words describe one of the marks (a key, pipe ash, a cut hand,
+// a left-handed letter, a Lombard's chit, attar) never points at an innocent:
+// no innocent of the case carries that mark, and on the culprit it is a mark.
+(function echoes() {
+  var tids = ['burglary', 'extortion', 'highway', 'pattern'];
+  var hits = 0, marked = 0;
+  for (var seed = 1; seed <= 300; seed++) {
+    var e = game(seed);
+    var tid = tids[seed % tids.length];
+    var rec = e.caseRec(e.spawnCase(tid, { quiet: true }).caseId);
+    var T = CF.CASE_TEMPLATES[tid];
+    var st = (CF.STRUCTURES[tid] || []).filter(function (x) { return x.id === rec.structure; })[0] || null;
+    var echoed = CF.caseEchoes(T, st);
+    assert.ok(echoed.length, tid + ' has words that describe a mark');
+    var ids = rec.suspects.map(function (x) { return x.trait; });
+    assert.strictEqual(ids.filter(function (t, i) { return ids.indexOf(t) === i; }).length, ids.length, 'every accused has their own mark');
+    rec.suspects.forEach(function (x) {
+      if (!x.guilty) assert.ok(echoed.indexOf(x.trait) < 0, 'seed ' + seed + ' ' + tid + ': innocent ' + x.name + ' carries ' + x.trait + ', which a token of the case describes');
+    });
+    var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+    rec.items.forEach(function (it) {
+      if (!it.echoes) return;
+      hits++;
+      if (it.echoes === cul.trait) { marked++; assert.strictEqual(it.trait, cul.trait, 'on the culprit the words are a mark: ' + it.label); }
+      else assert.ok(!it.trait, 'otherwise the token marks nobody: ' + it.label);
+    });
+  }
+  assert.ok(hits > 20, 'the echoing tokens turn up (' + hits + ')');
+  // A culprit whose mark the case describes: the scene item and the raw proof read from it carry it.
+  var e2 = game(5);
+  var rec2 = e2.caseRec(e2.spawnCase('extortion', { quiet: true, culpritTrait: 'lefty' }).caseId);
+  // The letter is the written case's (the stall's lead gives it).
+  var XT = CF.CASE_TEMPLATES.extortion, xgives = XT.items.slice();
+  (XT.leads || []).forEach(function (l) { xgives = xgives.concat(l.gives || []); });
+  var letter = xgives.filter(function (it) { return it.echoes === 'lefty'; })[0];
+  assert.ok(letter, 'the threatening letter echoes a left hand');
+  rec2.suspects.forEach(function (x) { if (!x.guilty) assert.notStrictEqual(x.trait, 'lefty'); });
+  e2.s.verbs.analyze.unlocked = true;
+  var item = JSON.parse(JSON.stringify(letter));
+  item.trait = 'lefty';
+  var ev = e2.create('evidence', { label: item.label, caseId: rec2.id, data: { item: item } });
+  var read = run(e2, 'analyze', [ev]).out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.ok(read && read.data.trait === 'lefty', 'the letter read carries the left hand');
+  console.log('words that describe a mark: ok (' + hits + ' tokens, ' + marked + ' on the culprit)');
+})();
+
+// ---- The accused are nobody's kin by accident, and one desk holds no two cases of one title ----------
+(function namesAndTitles() {
+  var share = 0, scene = 0, total = 0, sameTitle = 0;
+  for (var seed = 900; seed < 960; seed++) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    e.s.rank = 3;
+    for (var k = 0; k < 4; k++) {
+      var c = e.spawnCase(null, { quiet: true });
+      var rec = e.caseRec(c.caseId);
+      if (rec.special) continue;
+      var vp = CF.nameParts(rec.victim);
+      rec.suspects.forEach(function (x) {
+        var np = CF.nameParts(x.name);
+        total++;
+        if (np[0] === vp[0] || np[1] === vp[1]) share++;
+        if (rec.vars.last && np[1] === rec.vars.last) scene++;
+      });
+    }
+    var titles = e.openCases().map(function (r) { return r.title; });
+    titles.forEach(function (t, i) { if (titles.indexOf(t) !== i) sameTitle++; });
+  }
+  assert.ok(total > 500, 'enough accused: ' + total);
+  assert.ok(share <= total * 0.01, 'the accused rarely share the victim\'s names: ' + share + ' of ' + total);
+  assert.ok(scene <= total * 0.01, 'nor the scene\'s surname: ' + scene + ' of ' + total);
+  assert.strictEqual(sameTitle, 0, 'no two open cases share a title');
+  // A fixed title twice on one desk: the second is told apart.
+  var f = CF.Engine.newGame({ seed: 961, calling: 'master' }); f.s.rank = 3;
+  var a = f.caseRec(f.spawnCase('scriptorium', { quiet: true }).caseId), b = f.caseRec(f.spawnCase('scriptorium', { quiet: true }).caseId);
+  assert.ok(a.title !== b.title && b.title === a.title + ', Again', b.title);
+  // The harbour's body is found at its own scene.
+  var h = f.caseRec(f.spawnCase('harbor', { quiet: true }).caseId);
+  assert.strictEqual(h.title, 'The Body at ' + h.scene);
+  console.log('the accused nobody\'s kin, one title per desk: ok');
 })();

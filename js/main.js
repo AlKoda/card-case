@@ -12,13 +12,31 @@
   var tr = CF.T;
   function store(key, val) { try { if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val); } catch (err) { /* storage unavailable */ } }
   function load(key) { try { return localStorage.getItem(key); } catch (err) { return null; } }
-  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); if (UI.wake) UI.wake(); }
+  function show(id, on) { $(id).classList.toggle('hidden', !on); UI.modal = !!document.querySelector('.modal:not(.hidden)'); holdStill(); if (UI.wake) UI.wake(); if (UI.hushSync) UI.hushSync(); }
   function only(id) {
     document.querySelectorAll('.modal').forEach(function (m) { m.classList.toggle('hidden', m.id !== id); });
     UI.modal = !!id;
+    holdStill();
     if (UI.wake) UI.wake();
+    if (UI.hushSync) UI.hushSync();
   }
   function click(id, fn) { $(id).addEventListener('click', function (ev) { CF.Audio.play('click'); fn(ev); }); }
+
+  // While a menu, a screen or a dialog is up the clock is still, and so is the table: its pulses pause
+  // (html.cf-still), and under a screen that covers it whole (html.cf-cover) the table is not drawn at all,
+  // so a phone left on a menu does not repaint sixty times a second for nothing. The classes follow the
+  // modals themselves, however they are opened or closed.
+  var COVER = '#title:not(.hidden), #settings:not(.hidden), #archive:not(.hidden), #precinct:not(.hidden)';
+  function holdStill() {
+    var root = document.documentElement;
+    root.classList.toggle('cf-still', !!document.querySelector('.modal:not(.hidden)'));
+    root.classList.toggle('cf-cover', !!document.querySelector(COVER));
+  }
+  if (window.MutationObserver) {
+    var stillWatch = new MutationObserver(holdStill);
+    document.querySelectorAll('.modal').forEach(function (m) { stillWatch.observe(m, { attributes: true, attributeFilter: ['class'] }); });
+  }
+  holdStill();
 
   // A styled yes/no dialog in place of the browser's confirm().
   var confirmYes = null, confirmFrom = null;
@@ -40,7 +58,11 @@
   // Promotion: rank badge, and the verbs the new rank unlocks.
   UI.onPromotion = function (rank) {
     $('promo-badge').style.backgroundImage = 'var(--art-' + (['cwax-01', 'cwax-03', 'cwax-02'][((CF.RANK_DEFS[rank] || {}).badge || 1) - 1] || 'cwax-01') + ')';
-    $('promo-title').textContent = tr('Promoted: ' + CF.RANKS[rank]);
+    // A small 'Promoted' over the rank alone, so the rank clears the plate's stars.
+    var title = $('promo-title'), kick = document.createElement('small'), rk = document.createElement('span');
+    kick.className = 'lu-kick'; kick.textContent = tr('Promoted');
+    rk.className = 'lu-rank'; rk.textContent = tr(CF.RANKS[rank]);
+    title.textContent = ''; title.appendChild(kick); title.appendChild(rk);
     var unlocked = Object.keys(CF.POWERS).filter(function (k) { return CF.POWERS[k].rank === rank; });
     var note = $('promo-note');
     note.textContent = unlocked.length ? tr(CF.POWERS[unlocked[0]].text) : '';
@@ -53,9 +75,27 @@
       if (cap) cap.textContent = k ? tr(CF.POWERS[k].label) : '';
       el.classList.toggle('on', i === 1 && !!k);
     });
-    CF.Audio.play('victory');
+    // The office's own bell, not the ending's fanfare.
+    CF.Audio.play('office');
     show('promo', true);
+    // The ceremony: the panel opens, the wax comes down on it, the powers are dealt one by one.
+    var box = $('promo-box'), dealt = 0;
+    box.classList.remove('cer'); void box.offsetWidth; box.classList.add('cer');
+    [1, 2, 3].forEach(function (i) { var el = $('promo-s' + i); el.style.animationDelay = el.classList.contains('empty') ? '' : (0.75 + 0.12 * dealt++) + 's'; });
+    clearTimeout(promoStamp);
+    promoStamp = setTimeout(function () { if (!$('promo').classList.contains('hidden')) { CF.Audio.play('seal'); if (UI.haptic) UI.haptic('heavy'); } }, 650);
   };
+  var promoStamp = null;
+  // The new rank's wax glows in the top bar for a moment once the dialog is put away.
+  function closePromo() {
+    show('promo', false);
+    var rb = document.getElementById('rank-badge');
+    if (!rb) return;
+    rb.classList.remove('rank-new'); void rb.offsetWidth; rb.classList.add('rank-new');
+    // The new wax is pressed into the bar.
+    setTimeout(function () { CF.Audio.play('seal'); }, 300);
+    setTimeout(function () { rb.classList.remove('rank-new'); }, 2000);
+  }
   // A tap on a power reads it out under the slots.
   $('promo-box').addEventListener('click', function (ev) {
     var slot = ev.target.closest('.lu-slot');
@@ -64,15 +104,51 @@
     $('promo-note').textContent = tr(CF.POWERS[k].text);
     document.querySelectorAll('#promo-box .lu-slot').forEach(function (el) { el.classList.toggle('on', el === slot); });
   });
-  click('promo-close', function () { show('promo', false); });
-  click('promo-precinct', function () { show('promo', false); if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } });
+  click('promo-close', closePromo);
+  click('promo-precinct', function () { closePromo(); if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } });
 
   var inGame = false;     // a real game (not the demo table behind the title)
   var returnTo = 'title'; // where Back goes from Settings / Archive
 
   var CALLING_ART = { commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
-  var ENDING_ART = { dismissed: 'cback-04', burnout: 'cback-04', collapse: 'cback-04', consumed: 'cback-02', corruption: 'cback-06',
-    death: 'cback-04', riot: 'cback-01', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cback-06', treatycity: 'cback-05', merciful: 'cback-03', hangmans: 'cback-04', stake: 'cback-01', dagger: 'cback-04', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
+  // Every ending its own whole tile, so losing the office never reads as dying: the tower for the letter taken back,
+  // the moon for the Fever, the hourglass for the fall on the stair, the eye for the case that swallows you, the
+  // snake for the Council's sergeants, the burning street for the Crowd, the skull for death alone, the dagger, the rope; the sun
+  // for mercy, the key for the Treaty, the lion for the King of Thunes.
+  var ENDING_ART = { dismissed: 'cherald2-06', burnout: 'cmyst-01', collapse: 'cmyst-03', consumed: 'cmyst-04', corruption: 'cmyst-06',
+    death: 'cback-04', riot: 'ccrime-03', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cherald2-01', treatycity: 'cherald2-05', merciful: 'cmyst-02', hangmans: 'citem-07', stake: 'cback-01', dagger: 'citem2-07', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05',
+    // A year served out to the end: the rose, for the pension and the line in the Rolls in red ink.
+    longservice: 'cherald-05', long_service: 'cherald-05' };
+  UI.ENDING_ART = ENDING_ART;
+
+  // What would have saved you, under a losing ending: one line with the threat's seal. The line is the rules' own
+  // (s.over.lesson, from e.endingLesson, made particular by s.over.cause); an older ending without one is read
+  // again from the rules. The seal is the threat's that ended it (s.over.threat, else CF.ENDINGS[id].threat).
+  var LESSON_ART = { burnout: 'imed-10', fatigue: 'imed-13', obsession: 'iinv-13', pressure: 'cres-04', scrutiny: 'cres-03', dread: 'cres-12', wound: 'imed-09', dagger: 'citem2-07' };
+  function endLesson(over) {
+    if (!over || over.win) return null;
+    var end = CF.ENDINGS[over.id] || {};
+    var text = over.lesson || CF.Engine.prototype.endingLesson(over.id, over.cause || null);
+    if (!text) return null;
+    return { art: LESSON_ART[over.threat || end.threat] || 'imed-10', text: tr(text) };
+  }
+  UI.endLesson = endLesson;
+
+  // The epilogue's lines, read with care: a line is a sentence, or { text, vars, art, kind } (text a template with
+  // {placeholders} filled from vars; a line's key, where it has one, is that template). At most four; a line without a picture wears its kind's seal.
+  var EPI_ART = { pattern: 'cmyst-04', coquille: 'cherald2-01', king: 'cherald2-01', rival: 'cwax-02', rivals: 'cwax-02', abroad: 'cres-12', watch: 'cwit-03', watchman: 'cwit-03' };
+  function endEpilogue(e) {
+    var lines = [];
+    try { lines = CF.Story && typeof CF.Story.epilogue === 'function' ? CF.Story.epilogue(e) || [] : []; } catch (err) { lines = []; }
+    if (!(lines instanceof Array)) return [];
+    return lines.map(function (x) {
+      if (typeof x === 'string') return { text: tr(x), art: 'ccirc-01' };
+      if (!x || typeof x.text !== 'string' || !x.text) return null;
+      return { text: tr(typeof x.key === 'string' && x.key ? x.key : x.text, x.vars || undefined), art: (typeof x.art === 'string' && /^[a-z0-9-]+$/.test(x.art) && x.art) || EPI_ART[x.kind] || 'ccirc-01' };
+    }).filter(Boolean).slice(0, 4);
+  }
+  UI.endEpilogue = endEpilogue;
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   // Every save keeps the one before it, so a save that goes wrong is one step back, never gone.
   function save() {
@@ -107,19 +183,63 @@
     $('end-sub').textContent = tr('{rank} {name}', { rank: CF.RANKS[e.s.rank], name: e.s.detective }) + (e.s.who && CF.ORIGINS[e.s.who] ? tr(', once {origin}', { origin: CF.ORIGINS[e.s.who].label.toLowerCase() }) : '') + tr(', week {n}', { n: over.week }) +
       (over.origin && over.calling && over.origin !== over.calling ? tr(' · set out as {a}, ended as {b}', { a: CF.CALLINGS[over.origin].label, b: CF.CALLINGS[over.calling].label }) : '');
     $('end-text').textContent = tr(over.text);
-    // The tally as painted counters: the crown, the eye, the moon, the fire.
-    $('end-stats').innerHTML = [
+    var lesson = endLesson(over);
+    $('end-lesson').classList.toggle('hidden', !lesson);
+    $('end-lesson-icon').style.backgroundImage = lesson ? 'var(--art-' + lesson.art + ')' : '';
+    $('end-lesson-text').textContent = lesson ? lesson.text : '';
+    // What became of them: the run's own late story told back in a few lines (CF.Story.epilogue, where the story
+    // has one), each with its seal.
+    var epi = endEpilogue(e);
+    $('end-epi').classList.toggle('hidden', !epi.length);
+    $('end-epi-list').innerHTML = epi.map(function (x) { return '<li><i style="background-image:var(--art-' + x.art + ')"></i><span>' + esc(x.text) + '</span></li>'; }).join('');
+    // The tally as painted counters: the crown, the eye, the moon, the fire, each with its number beside it.
+    var tally = [
       ['Convictions', st.convictions, 'cres-09'], ['Acquittals', st.acquittals, 'cres-03'], ['Unanswered', st.cold, 'cres-12'], ['Wrongful', st.wrongful, 'cres-04'],
-    ].map(function (x) { return '<div style="--c:var(--art-' + x[2] + ')"><b>' + (x[1] || 0) + '</b><span>' + tr(x[0]) + '</span></div>'; }).join('');
+    ];
+    $('end-stats').innerHTML = tally.map(function (x) { return '<div style="--c:var(--art-' + x[2] + ')"><b></b><em>0</em><span>' + tr(x[0]) + '</span></div>'; }).join('');
+    // The card is dealt in, the wax comes down on it, and the counters count up from nothing.
+    var box = $('end').querySelector('.screen-box');
+    box.classList.remove('dealt'); void box.offsetWidth; box.classList.add('dealt');
+    countUp($('end-stats').querySelectorAll('em'), tally.map(function (x) { return x[1] || 0; }));
+    // The pad stops and the stinger rings alone.
+    if (CF.Audio.music) CF.Audio.music(false);
     CF.Audio.play(over.win ? 'victory' : 'defeat');
     only('end');
   };
+  // The tally counts up over 0.8 s (at once where the player asked for less motion).
+  var countTimer = null;
+  function countUp(els, to) {
+    clearInterval(countTimer);
+    var calm = document.documentElement.hasAttribute('data-calm') || (CF.Settings.reducedMotion && CF.Settings.reducedMotion());
+    var steps = calm ? 1 : 16, n = 0;
+    function draw() { n++; for (var i = 0; i < els.length; i++) els[i].textContent = String(Math.round(to[i] * Math.min(1, n / steps))); if (n >= steps) clearInterval(countTimer); }
+    if (calm) { draw(); return; }
+    countTimer = setInterval(draw, 50);
+  }
 
   // ---------------------------------------------------------------- Title
   function openTitle() {
     $('t-continue').classList.toggle('hidden', !saveParses());
+    artGate();
     only('title');
   }
+
+  // The heavy art sheets load beside the page (index.html, media="print" until they arrive). Until all three
+  // are in, New Game and Continue wait, an hourglass turning in place of their icons: no table is dealt bare.
+  function artReady() { return !document.querySelector('link[media="print"]'); }
+  var artWaiters = [];
+  function artGate() {
+    var wait = !artReady();
+    $('title').classList.toggle('art-wait', wait);
+    ['t-new', 't-continue'].forEach(function (id) { $(id).disabled = wait; });
+  }
+  CF.artLoaded = function () {
+    if (!artReady()) return;
+    artGate();
+    var fns = artWaiters; artWaiters = [];
+    fns.forEach(function (fn) { fn(); });
+  };
+  function whenArt(fn) { if (artReady()) fn(); else artWaiters.push(fn); }
 
   // A new game starts at once: a name and a past drawn for you, the calling
   // chosen in play. A predecessor's desk is taken up when the ending offers it.
@@ -138,7 +258,19 @@
     UI.speed = 1;
     save();
     only(null);
+    lockLandscape();
     UI.fitView();
+  }
+
+  // Installed or full screen, the page asks to be held on its side like the app; a browser that will not is
+  // answered by the turn card (js/ui.js) instead.
+  function lockLandscape() {
+    try {
+      var standalone = typeof matchMedia === 'function' && (matchMedia('(display-mode:standalone)').matches || matchMedia('(display-mode:fullscreen)').matches);
+      if (!(document.fullscreenElement || standalone) || !screen.orientation || !screen.orientation.lock) return;
+      var p = screen.orientation.lock('landscape');
+      if (p && p.catch) p.catch(function () { /* not allowed here */ });
+    } catch (err) { /* no orientation lock */ }
   }
 
   // Continue: the saved letter. One that cannot be read is never thrown away:
@@ -153,6 +285,7 @@
       UI.setSpeed && UI.setSpeed(1);
       inGame = true;
       only(null);
+      lockLandscape();
       UI.fitView();
       return true;
     } catch (err) {
@@ -164,6 +297,38 @@
     }
   }
 
+  // The Help: from the top (or at one heading, where a verb window's i sends the reader), its tab lit.
+  function openHelp(from, at) {
+    returnTo = from;
+    only('help');
+    var paper = $('help-paper'), target = at && $(at);
+    if (!paper) return;
+    if (target && target.scrollIntoView) {
+      target.scrollIntoView({ block: 'start' });
+      target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
+    } else paper.scrollTop = 0;
+    helpTab();
+  }
+  CF.openHelp = function (at) { openHelp(inGame ? 'game' : 'title', at); };
+  // The tab of the chapter in view is lit; a tab scrolls its chapter into view.
+  function helpTab() {
+    var paper = $('help-paper');
+    if (!paper) return;
+    var top = paper.getBoundingClientRect().top, cur = null;
+    document.querySelectorAll('#help-paper .help-ch').forEach(function (c) { if (c.getBoundingClientRect().top - top <= 40 || !cur) cur = c.id; });
+    // At the foot of the paper the last chapter is the one being read.
+    if (paper.scrollTop + paper.clientHeight >= paper.scrollHeight - 4) { var all = document.querySelectorAll('#help-paper .help-ch'); if (all.length) cur = all[all.length - 1].id; }
+    document.querySelectorAll('#help-tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.ch === cur); });
+  }
+  if ($('help-paper')) $('help-paper').addEventListener('scroll', helpTab, { passive: true });
+  document.querySelectorAll('#help-tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      CF.Audio.play('click');
+      var c = $(b.dataset.ch);
+      if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('#help-tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+  });
   function openSettings(from) { returnTo = from; CF.SettingsUI.open(); only('settings'); }
   function openArchive(from) { returnTo = from; CF.Archive.open(); only('archive'); }
   function goBack() { if (returnTo === 'menu') only('menu'); else if (returnTo === 'end') only('end'); else openTitle(); }
@@ -175,9 +340,9 @@
   click('t-continue', continueGame);
   click('t-archive', function () { openArchive('title'); });
   click('t-settings', function () { openSettings('title'); });
-  click('t-help', function () { returnTo = 'title'; only('help'); });
+  click('t-help', function () { openHelp('title'); });
   // The language button on the title screen cycles through the languages.
-  function langButton() { var b = $('t-lang'); if (b) b.textContent = CF.LANGS[CF.lang()].name; }
+  function langButton() { var b = $('t-lang'), w = b && (b.querySelector('span') || b); if (w) w.textContent = CF.LANGS[CF.lang()].name; }
   click('t-lang', function () {
     var codes = Object.keys(CF.LANGS), next = codes[(codes.indexOf(CF.lang()) + 1) % codes.length];
     CF.Settings.save({ lang: next });
@@ -200,12 +365,13 @@
     if (inGame) { only('menu'); return true; }
     return false;
   };
-  click('btn-help', function () { returnTo = 'game'; only('help'); });
+  click('btn-help', function () { openHelp('game'); });
+  UI.openPrecinct = function () { if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } };
   click('btn-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   click('m-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
   // On a phone the top bar keeps only the clock and the menu: the journal and the Help live here.
   click('m-journal', function () { only(null); UI.toggleJournal(true); });
-  click('m-help', function () { returnTo = 'game'; only('help'); });
+  click('m-help', function () { openHelp('game'); });
   click('precinct-close', function () { only(null); });
   click('help-close', function () { if (returnTo === 'title') openTitle(); else only(null); });
   click('btn-menu', function () { only('menu'); });
@@ -227,6 +393,9 @@
   click('end-archive', function () { openArchive('end'); });
   click('end-look', function () { only(null); });
   window.addEventListener('beforeunload', save);
+  // A phone browser may throw a hidden tab away without beforeunload: write the save as the page goes out of sight.
+  document.addEventListener('visibilitychange', function () { if (document.hidden) save(); });
+  window.addEventListener('pagehide', save);
 
   // Install in one tap: the browser's offer is kept and a plate button on the
   // title shows it. An offer prompts once, so the button goes with it.
@@ -290,7 +459,7 @@
       else history.back();
     });
   }
-  if (resume && saveParses() && continueGame()) UI.setPaused(true);
+  if (resume && saveParses()) whenArt(function () { if (continueGame()) UI.setPaused(true); });
   else {
     // A table is always showing behind the title screen (and behind the word
     // about a save that could not be read, which continueGame has put up).

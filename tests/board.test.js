@@ -653,22 +653,68 @@ console.error = function (err) { throw err; };
   var before = e.openCases().length, lines = e.rivalWeek();
   assert.ok(lines.length === 1, 'they act: ' + lines);
   void before; void seen;
-  // Wit twice: exposed.
+  // Exposure is a short hunt: one thread a week, the second by the other road.
+  if (!e.openCases().some(function (x) { return !x.rival; })) e.spawnCase('burglary', { quiet: true });
   var wit = e.tableCards().filter(function (c) { return c.def === 'focus'; })[0];
   e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
   assert.strictEqual(e.currentRecipe('interrogate').recipe.id, 'int_rival_weakness');
   assert.ok(e.start('interrogate')); e.tick(e.verb('interrogate').duration + 0.01);
-  assert.strictEqual(r.data.heat, 1); assert.ok(r.data.stalled >= e.s.week, 'they lie low');
-  assert.deepStrictEqual(e.rivalWeek(), [], 'nothing while they lie low');
+  assert.strictEqual(r.data.heat, 1);
+  assert.ok(!(r.data.stalled >= e.s.week), 'the first thread does not stall them');
+  assert.strictEqual(r.data.heatHow, 'question');
+  var found = e.verb('interrogate').story;
+  assert.strictEqual(found.title, 'A Weakness Found');
+  var eyed = r.data.eyes && e.caseRec(r.data.eyes);
+  assert.ok(eyed && found.text.indexOf('They have been asking about ' + eyed.title + '.') >= 0, 'the first thread says what they are after: ' + found.text);
+  assert.ok(/catch them at it/.test(found.text), 'and what is left to do: ' + found.text);
   e.collect('interrogate');
   assert.strictEqual(wit.def, 'spent_focus', 'Wit comes back spent');
-  var rep = e.s.meters.reputation;
+  // The same week, by either road: they are careful. Nothing is spent.
+  var inst = e.tableCards().filter(function (c) { return c.def === 'instinct'; })[0] || e.create('instinct');
+  e.autoSlot('investigate', r.uid); e.autoSlot('investigate', inst.uid);
+  assert.strictEqual(e.currentRecipe('investigate').recipe.id, 'inv_rival_shadow');
+  assert.ok(/careful this week/.test(e.preview('investigate').blocked), 'careful for a week: ' + e.preview('investigate').blocked);
+  assert.ok(!e.start('investigate'));
+  e.clearSlots('investigate');
+  // They act at the Bell all the same.
+  e.s.week++;
+  e.openCases().forEach(function (x) { x.searches = 1; x.week = Math.min(x.week || 0, e.s.week - 1); });
+  assert.ok(e.rivalWeek().length >= 1, 'they act before they can be exposed');
+  // A second thread by either road teaches them nothing: they must be caught at it.
   wit = e.create('focus');
   e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
+  assert.strictEqual(e.preview('interrogate').blocked, CF.RIVAL_CATCH, 'Wit alone: ' + e.preview('interrogate').blocked);
+  // Only their own work goes in the slot: an honest token is refused, a spoiled one taken.
+  var honest = e.create('clue', { label: 'A Boot-print', aspects: { forensic: 1 } });
+  assert.strictEqual(e.autoSlot('interrogate', honest.uid), null, 'an honest token is not their work');
+  e.clearSlots('interrogate');
+  e.autoSlot('investigate', r.uid); e.autoSlot('investigate', inst.uid);
+  assert.strictEqual(e.preview('investigate').blocked, CF.RIVAL_CATCH, 'Instinct alone: the same');
+  e.clearSlots('investigate');
+  var spoiled = e.create('clue', { label: 'A Muddled Print', aspects: { forensic: 1 }, data: { tampered: true } });
+  var rep = e.s.meters.reputation;
+  e.favour().council = 5;
+  e.autoSlot('interrogate', r.uid); e.autoSlot('interrogate', wit.uid);
+  assert.strictEqual(e.autoSlot('interrogate', spoiled.uid), 'theirs', 'their spoiled token goes in Their Work');
+  assert.strictEqual(e.currentRecipe('interrogate').recipe.id, 'int_rival_expose');
+  assert.ok(!e.preview('interrogate').blocked);
+  var wkBefore = e.s.week;
   assert.ok(e.start('interrogate')); e.tick(e.verb('interrogate').duration + 0.01);
   assert.strictEqual(e.cardsOf('rival', true).length, 0, 'exposed and sent home');
-  assert.strictEqual(e.s.meters.reputation, rep + 2);
-  assert.ok(e.s.flags.rivalGone > e.s.week);
+  assert.strictEqual(e.verb('interrogate').story.title, 'The Rival Exposed');
+  assert.strictEqual(e.s.meters.reputation, rep + 1, 'the Rival exposed: Standing +1');
+  assert.strictEqual(e.favour().council, 5, 'the Council\'s favour is held to its bounds');
+  assert.ok(e.s.flags.rivalGone >= wkBefore + CF.RIVAL_GONE_WEEKS && e.s.flags.rivalGone <= e.s.week + CF.RIVAL_GONE_WEEKS, 'gone ten weeks: ' + e.s.flags.rivalGone);
+  e.collect('interrogate');
+  assert.ok(spoiled.loc && spoiled.loc.t === 'table', 'the token comes back');
+  // An older save's examiner carries no week or road yet.
+  var oe = CF.Engine.newGame({ calling: 'crusader', name: 'Old Rival' });
+  oe.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 1, stalled: 0 } });
+  var osv = JSON.parse(oe.save());
+  Object.keys(osv.cards).forEach(function (u) { var od = osv.cards[u].def === 'rival' && osv.cards[u].data; if (od) { delete od.heatWeek; delete od.heatHow; delete od.eyes; } });
+  var ol = CF.Engine.load(osv);
+  var or = ol.cardsOf('rival', true)[0];
+  assert.ok(or.data.heatWeek === -1 && or.data.heatHow === null && or.data.eyes === null, 'an older examiner is defaulted');
   // The next one needs no introduction, and is not the same person.
   var sent = e.s.flags.rivalName;
   e.s.week = e.s.flags.rivalGone + 1;
@@ -706,4 +752,737 @@ console.error = function (err) { throw err; };
   assert.ok(!e2.s.over, 'and the game goes on');
   CF.Engine.load(e2.save());
   console.log('load tolerance: unknown verb, recipe and choice ids ok' + (errors.length ? ' (the lost recipe was reported: ' + errors.length + ')' : ''));
+})();
+
+// An ask on work that never happened: no miss line, no penalty; the answer comes back out.
+(function interruptedAsk() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Gone', seed: 61 });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  assert.ok(e.autoSlot('investigate', kase.uid) && e.start('investigate'));
+  var v = e.verb('investigate');
+  e.tick(v.duration * 0.35);
+  assert.ok(v.ask && !v.ask.filled, 'asked');
+  var fat0 = e.cardsOf('fatigue', true).length;
+  e.remove(e.card(v.ctxSlots[e.primaryKey('investigate')]));
+  e.tick(v.duration);
+  assert.strictEqual(v.story.title, 'Interrupted');
+  assert.ok(!/back room|wore you|legs know/.test(v.story.text), 'no miss line: ' + v.story.text);
+  assert.strictEqual(e.cardsOf('fatigue', true).length, fat0, 'no penalty for work that did not happen');
+  assert.ok(!v.ask, 'the ask is gone');
+  console.log('interrupted ask: ok');
+})();
+
+// How loud bad news lands: a body hurt, a need, the verdict's own word, the rest.
+(function storyCues() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Cues', seed: 62 });
+  e.hurtYou('A cudgel on the stair.');
+  assert.strictEqual(e.s.journal[0].title, 'Wounded');
+  assert.strictEqual(e.s.journal[0].cue, 'harm');
+  var need = Object.keys(CF.NEEDS)[0];
+  assert.strictEqual(e.story(CF.CARDS[need].label, 'x', 'danger').cue, 'need', 'a need arriving');
+  assert.strictEqual(e.story('Lost: Wit', 'x', 'danger').cue, 'harm', 'an ability lost');
+  assert.strictEqual(e.story('The Rival Boasts', 'x', 'danger').cue, undefined, 'a boast is an omen, not a blow');
+  assert.strictEqual(e.story('A Day', 'x', 'major').cue, undefined);
+  assert.strictEqual(e.story('Not Guilty: X', 'x', 'danger', { cue: 'quiet' }).cue, 'quiet');
+  for (var i = 0; i < 3; i++) e.create('fatigue');
+  e.checkThresholds();
+  assert.ok(e.s.journal[0].title === 'Fever' && e.s.journal[0].cue === 'harm', 'the fever is a blow');
+  // Saved and loaded, the journal keeps its cues and an old entry without one still reads.
+  var l = CF.Engine.load(e.save());
+  assert.strictEqual(l.s.journal[0].cue, 'harm');
+  // An instrument's boost reads in words.
+  assert.deepStrictEqual(CF.tagLabels(['biology', 'physical']), ['Bodies and traces']);
+  assert.deepStrictEqual(CF.tagLabels(['records']), ['Papers']);
+  console.log('story cues: ok');
+})();
+
+// A token changed inside its stack (the Rival's people at it) leaves the stack.
+(function settleStacks() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Twins', seed: 63 });
+  var a = e.create('clue', { label: 'Rumour from Rattle', caseId: 'c1', aspects: { testimony: 1 } });
+  var b = e.create('clue', { label: 'Rumour from Rattle', caseId: 'c1', aspects: { testimony: 1 } });
+  assert.ok(a.loc.x === b.loc.x && a.loc.y === b.loc.y, 'twins stack');
+  b.aspects = {};
+  e.settleStacks();
+  assert.ok(a.loc.x !== b.loc.x || a.loc.y !== b.loc.y, 'the changed one moves out');
+  var c = e.create('clue', { label: 'Rumour from Rattle', caseId: 'c1', aspects: { testimony: 1 } });
+  e.settleStacks();
+  assert.ok(c.loc.x === a.loc.x && c.loc.y === a.loc.y, 'true twins stay together');
+  console.log('settled stacks: ok');
+})();
+
+// Known to the Watch: one who walked strikes again, and their Abroad card laid
+// beside the new case in Rest names them and gives their old record (once).
+(function knownToTheWatch() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Known', seed: 71 });
+  var rec0 = e.openCases()[0];
+  e.goCold(rec0.id);
+  var al = e.cardsOf('atlarge')[0];
+  assert.ok(al && al.data.criminalId, 'the one who walked is Abroad');
+  var crim = e.criminal(al.data.criminalId);
+  var kc = e.spawnCase(e.criminalTrade(crim), { culpritName: crim.name, culpritTrait: crim.trait, criminalId: crim.id, headline: crim.name + ' Again: ', lead: 'The hand is familiar.' });
+  var rec = e.caseRec(kc.caseId);
+  assert.ok(e.autoSlot('reflect', kc.uid) && e.autoSlot('reflect', al.uid), 'the case and the Abroad card go into Rest');
+  var pv = e.preview('reflect');
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_known', 'not Mull It Over: ' + pv.label);
+  assert.ok(!pv.blocked && pv.label === 'Known to the Watch');
+  assert.ok(e.start('reflect'));
+  e.tick(e.verb('reflect').duration + 0.1);
+  var out = e.verb('reflect').out.map(function (u) { return e.card(u); });
+  var sc = out.filter(function (c) { return c.def === 'suspect'; })[0];
+  assert.ok(sc && sc.data.key === rec.culprit, 'the culprit is named');
+  var rc = out.filter(function (c) { return c.def === 'clue' && e.labelOf(c) === 'Their Old Record'; })[0];
+  assert.ok(rc && rc.data.points === rec.culprit && !rc.data.misread && rc.data.trait === crim.trait, 'the old record points at them');
+  assert.deepStrictEqual(rc.aspects, { testimony: 1, opportunity: 1 }, 'a name, not a proof');
+  assert.ok(e.card(al.uid), 'the Abroad card stays until the conviction');
+  e.collect('reflect');
+  // Once a case.
+  e.autoSlot('reflect', e.caseCard(rec.id).uid); e.autoSlot('reflect', al.uid);
+  assert.notStrictEqual(e.currentRecipe('reflect').recipe.id, 'ref_known', 'the record is read once');
+  e.clearSlots('reflect');
+  // Another one's Abroad card does nothing for this case.
+  var other = e.create('atlarge', { label: 'Abroad: Somebody Else', data: { name: 'Somebody Else', trait: 'lefty', criminalId: 'k999' } });
+  var kc2 = e.spawnCase(e.criminalTrade(crim), { culpritName: crim.name, culpritTrait: crim.trait, criminalId: crim.id });
+  e.autoSlot('reflect', kc2.uid); e.autoSlot('reflect', other.uid);
+  assert.notStrictEqual(e.currentRecipe('reflect').recipe.id, 'ref_known', 'a stranger\'s record names nobody');
+  console.log('known to the watch: ok');
+})();
+
+// A charge clears its case from the verbs at work on it: the Court says so before, and the verb says what went.
+(function chargeEndsWork() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Busy', seed: 73 });
+  var rec = e.openCases()[0], kase = e.caseCard(rec.id);
+  e.autoSlot('investigate', kase.uid);
+  assert.ok(e.start('investigate'), 'Explore works the case');
+  e.verb('investigate').duration = 200;   // a long search: the charge lands first
+  assert.deepStrictEqual(e.busyOnCase(rec.id), ['investigate']);
+  var sus = e.revealSuspect(rec, null, { key: rec.culprit });
+  e.autoSlot('arrest', sus.uid);
+  e.autoSlot('arrest', e.create('clue', { caseId: rec.id, aspects: { forensic: 1 }, data: {} }).uid); // never a name alone
+  var pv = e.preview('arrest');
+  assert.ok(/Still at work on this case: Explore\. A charge now ends that work\./.test(pv.text), 'the Court warns: ' + pv.text);
+  assert.ok(e.start('arrest'));
+  e.tick(e.verb('arrest').duration + 0.1);
+  var v = e.verb('investigate');
+  assert.ok(v.lost && v.lost.caseId === rec.id, 'Explore knows what it lost');
+  e.tick(v.duration);
+  assert.strictEqual(v.story.title, 'Interrupted');
+  assert.strictEqual(v.story.text, rec.title + ' went to the Court while you were at it.');
+  assert.ok(!v.lost, 'and forgets it');
+  // Work gone for another reason names the card, else the way.
+  var g = CF.Engine.newGame({ calling: 'master', name: 'Gone2', seed: 74 });
+  var w = g.create('witness', { label: 'Witness: Anna', data: { name: 'Anna', knows: 1 } });
+  g.autoSlot('interrogate', w.uid); g.autoSlot('interrogate', g.cardsOf('focus')[0].uid);
+  assert.ok(g.start('interrogate'));
+  g.remove(w);
+  g.tick(g.verb('interrogate').duration + 0.1);
+  assert.strictEqual(g.verb('interrogate').story.text, 'Witness: Anna was gone before you finished. The city does not wait.');
+  console.log('charge ends work: ok');
+})();
+
+// Asks are rationed: the same question from the same verb once a game week.
+(function askRation() {
+  var e = CF.Engine.newGame({ calling: 'crusader', name: 'Ration', seed: 75 });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  var v = e.verb('investigate');
+  e.autoSlot('investigate', kase.uid); e.start('investigate');
+  e.tick(v.duration * 0.4);
+  assert.ok(v.ask && v.ask.label === 'A locked door', 'the first search asks');
+  assert.strictEqual(e.s.askSeen['A locked door|investigate'], e.s.week);
+  e.tick(v.duration); e.collect('investigate');
+  e.autoSlot('investigate', e.caseCard(kase.caseId).uid);
+  assert.ok(e.start('investigate'));
+  e.tick(v.duration * 0.4);
+  assert.ok(!v.ask && v.askSkipped, 'not twice in one week');
+  e.tick(v.duration); e.collect('investigate');
+  assert.ok(!/stayed locked|wore you out/.test(v.story ? v.story.text : ''), 'and no miss for a question not put');
+  // A new week asks again.
+  e.s.week++;
+  e.autoSlot('investigate', e.caseCard(kase.caseId).uid);
+  assert.ok(e.start('investigate'));
+  e.tick(v.duration * 0.4);
+  assert.ok(v.ask, 'a week on, the door is locked again');
+  // An older save has asked nothing yet.
+  var old = JSON.parse(e.save()); delete old.askSeen;
+  assert.deepStrictEqual(CF.Engine.load(old).s.askSeen, {});
+  console.log('ask ration: ok');
+})();
+
+// An old save: the question on the table shows today's answers (the free one added since),
+// and the Merciful count backfills from the criminal records.
+(function oldSaveQuestionAndSentHome() {
+  var e = CF.Engine.newGame({ calling: 'master', name: 'Swan', seed: 76, life: true });
+  var swan = CF.CHOICES.filter(function (c) { return c.id === 'swan'; })[0];
+  e.offerChoice(swan);
+  var old = JSON.parse(e.save());
+  old.choice.options = old.choice.options.slice(0, 2);   // written before 'Sleep at the desk'
+  old.stats.sentHome = 0; delete old.askSeen;
+  old.criminals.kA = { id: 'kA', name: 'Anna Pardoned', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [{ week: 2, how: 'sentence:pardon' }] };
+  old.criminals.kB = { id: 'kB', name: 'Bart Fined', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [{ week: 3, how: 'sentence:fine' }] };
+  old.criminals.kC = { id: 'kC', name: 'Cas Spared', trait: 'lefty', crimes: 2, heat: 0, organization: 'none', traits: ['spared'], status: 'at_large', history: [{ week: 3, how: 'sentence:pardon' }] };
+  old.criminals.kD = { id: 'kD', name: 'Dirk Reformed', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [] };
+  var l = CF.Engine.load(old);
+  assert.deepStrictEqual(l.s.choice.options.map(function (o) { return o.label; }), swan.options.map(function (o) { return o.label; }), 'the stored answers follow the question as asked now');
+  assert.ok(l.s.choice.options.some(function (o, i) { return !o.cost && l.canChoose(i); }), 'a free answer is shown');
+  assert.strictEqual(l.s.choice.title, e.s.choice.title, 'the wording asked is kept');
+  assert.strictEqual(l.s.stats.sentHome, 4, 'two pardons, a fine and a citizen with no record: four sent home');
+  // A live count already higher is kept; the ending never counts fewer sent than reformed.
+  old.stats.sentHome = 9;
+  assert.strictEqual(CF.Engine.load(old).s.stats.sentHome, 9);
+  var m = CF.Engine.load(old); m.s.stats.sentHome = 0; m.s.choice = null;
+  m.gameOver('merciful');
+  assert.ok(m.s.stats.sentHome >= m.s.stats.reformed && m.s.stats.reformed === 3, 'sent ' + m.s.stats.sentHome + ', reformed ' + m.s.stats.reformed);
+  console.log('old save question and sent home: ok');
+})();
+
+// ---- Lane 1, items 49-56: the opening never strands you; the Fever is told; a story in parts ----
+(function openingLostAndFever() {
+  function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function run(g, vid, cards) { cards.forEach(function (c) { g.autoSlot(vid, c.uid); }); assert.ok(g.start(vid), vid + ' starts: ' + JSON.stringify(g.preview(vid))); g.tick(g.verb(vid).duration + 0.01); g.collect(vid); g.tick(0.1); }
+  // To the desk, the opening's case still open.
+  function toDesk(seed) {
+    var e = CF.Engine.newGame({ seed: seed, who: 'clerk', name: 'Lost', opening: true });
+    run(e, 'duty', [tbl(e, 'health')[0]]); e.tick(41);
+    run(e, 'duty', [tbl(e, 'health')[0]]);
+    e.tick(e.verb('investigate').duration + 0.01); e.collect('investigate'); e.tick(0.1);
+    e.tick(e.verb('interrogate').duration + 0.01); e.collect('interrogate'); e.tick(0.1);
+    assert.strictEqual(e.s.flags.stage, 'hired');
+    if (e.s.choice) e.choose(0);
+    return e;
+  }
+  // The opening's case goes cold: the desk, the Bell and a new case within two weeks.
+  var e = toDesk(31);
+  var rec = e.openCases().filter(function (r) { return r.opening; })[0];
+  e.goCold(rec.id);
+  assert.strictEqual(rec.status, 'cold');
+  assert.ok(!e.s.flags.opening && e.s.flags.stage === 'keep' && !e.s.flags.bellSilent && e.verb('time').unlocked, 'the desk and the Bell all the same');
+  assert.strictEqual(e.s.flags.openingLost, 'cold');
+  assert.ok(e.s.journal.some(function (j) { return j.title === 'The Desk All the Same'; }), 'and it is told');
+  var at = null;
+  for (var t = 0; t < 2 * CF.WEEK && at === null; t++) { e.tick(1); if (e.openCases().length) at = t; }
+  assert.ok(at !== null, 'a new case within two weeks of the opening gone cold');
+  // Lost to the Rival or settled by the thief-takers: the same.
+  var r2 = toDesk(32), rr = r2.openCases().filter(function (r) { return r.opening; })[0];
+  r2.rivalCloses(rr, 'Piet Wieland');
+  assert.ok(!r2.s.flags.opening && r2.s.flags.stage === 'keep' && r2.s.flags.openingLost === 'rival', 'closed by the Rival: the desk is kept');
+  var r3 = toDesk(33), sr = r3.openCases().filter(function (r) { return r.opening; })[0], settled = false;
+  for (var k = 0; k < 20 && !settled; k++) { var c3 = CF.Engine.load(r3.save()); c3.rng.setState(k * 7 + 1); c3.thieftakersSettle(c3.caseRec(sr.id)); if (c3.caseRec(sr.id).status === 'settled') { settled = true; assert.ok(!c3.s.flags.opening && c3.s.flags.stage === 'keep', 'settled: the desk is kept'); } }
+  assert.ok(settled, 'a settlement came in twenty tries');
+  // A save already stranded (the case cold, the desk never kept): load gives the desk.
+  var st = toDesk(34), srec = st.openCases().filter(function (r) { return r.opening; })[0];
+  var old = JSON.parse(st.save()); old.cases[srec.id].status = 'cold';
+  Object.keys(old.cards).forEach(function (u) { if (old.cards[u].caseId === srec.id && old.cards[u].def === 'case') delete old.cards[u]; });
+  var lo = CF.Engine.load(old);
+  assert.ok(!lo.s.flags.opening && lo.s.flags.stage === 'keep' && !lo.s.flags.bellSilent, 'a stranded save is given the desk on load');
+  var at2 = null;
+  for (var t2 = 0; t2 < 2 * CF.WEEK && at2 === null; t2++) { lo.tick(1); if (lo.openCases().length) at2 = t2; }
+  assert.ok(at2 !== null, 'and a case comes');
+  // A save mid-opening with its case open is left alone.
+  var ok = CF.Engine.load(toDesk(35).save());
+  assert.ok(ok.s.flags.opening && ok.s.flags.stage === 'hired', 'an opening still under way is not touched');
+
+  // The Fever: told on arrival with its card, and half a minute before it ends the file.
+  var f = CF.Engine.newGame({ seed: 36, calling: 'master' }), events = [];
+  f.on(function (type, p) { if (type === 'strain' || type === 'pressing') events.push({ type: type, p: p }); });
+  for (var i = 0; i < 3; i++) f.create('fatigue');
+  f.checkThresholds();
+  var fever = f.cardsOf('burnout', true)[0];
+  assert.ok(fever, 'three Weariness: the Fever');
+  var told = f.s.journal.filter(function (j) { return j.title === 'Fever'; })[0];
+  assert.strictEqual(told.uid, fever.uid, 'the story carries the card, for the toast to take you there');
+  assert.ok(events.some(function (x) { return x.type === 'strain' && x.p.uid === fever.uid && x.p.ends; }), 'and the interface is told: ' + JSON.stringify(events));
+  f.tick(fever.life - 29);
+  var warn = f.s.journal.filter(function (j) { return j.title === 'The Fever Worsens'; });
+  assert.ok(warn.length === 1 && warn[0].uid === fever.uid && warn[0].kind === 'danger', 'half a minute before: a danger story with the card');
+  assert.ok(events.some(function (x) { return x.type === 'pressing' && x.p.uid === fever.uid && x.p.ends; }), 'and pressing is emitted');
+  f.tick(1);
+  assert.strictEqual(f.s.journal.filter(function (j) { return j.title === 'The Fever Worsens'; }).length, 1, 'told once');
+
+  // A story in parts: each sentence kept whole, the text their join.
+  var p = CF.Engine.newGame({ seed: 37, calling: 'master' });
+  var en = p.story('Week 9', ['Lodging and dues take 2.', '', 'The Council\'s stipend: 1 Coin.'], 'week');
+  assert.deepStrictEqual(en.parts, ['Lodging and dues take 2.', 'The Council\'s stipend: 1 Coin.']);
+  assert.strictEqual(en.text, 'Lodging and dues take 2. The Council\'s stipend: 1 Coin.');
+  assert.strictEqual(p.story('Plain', 'One text.').parts, undefined, 'a plain story has no parts');
+  p.tick(CF.WEEK - p.s.weekT + 0.01);
+  var wk = p.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk && wk.parts && wk.parts.length >= 2 && wk.text === wk.parts.join(' '), 'the Bell tells its week in parts');
+  assert.ok(wk.parts.some(function (x) { return /^The ledger: /.test(x); }), 'the ledger is one part');
+  console.log('opening lost, the Fever told, a story in parts: ok');
+})();
+
+// ---- Tidy closes up empty zones ---------------------------------------------
+(function tidyCollapses() {
+  function g_label(e, c) { return e.labelOf(c); }
+  [3, 11, 29].forEach(function (seed) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    e.tidy();
+    var deep = T.TOP + 3 * (T.CH + T.GAP);
+    e.tableCards().forEach(function (c) {
+      assert.ok(c.loc.y <= deep, 'seed ' + seed + ': ' + g_label(e, c) + ' at y ' + c.loc.y + ' (deepest row ' + deep + ')');
+    });
+  });
+  // The order of the zones is kept: a district opens its row above the kit.
+  var g = CF.Engine.newGame({ seed: 5, calling: 'master' });
+  var d = g.create('district', { label: 'The Harbour' });
+  var kit = g.tableCards().filter(function (c) { return g.kindOf(c) === 'personnel' || g.kindOf(c) === 'equipment'; });
+  g.tidy();
+  assert.ok(g.zoneRow('district') < g.zoneRow('personnel'), 'districts stay above the kit');
+  kit.forEach(function (c) { assert.ok(c.loc.y > d.loc.y, g_label(g, c) + ' below the district'); });
+  console.log('tidy closes up empty zones: ok');
+})();
+
+// ---- Round 8, lane 1, items 57-64 ------------------------------------------------
+(function round8Late() {
+  // The verdict says where it happened: the trial card's uid and spot, and a cold case's card.
+  var e = CF.Engine.newGame({ seed: 61, calling: 'master' });
+  var events = [];
+  e.on(function (type, p) { if (type === 'resolved') events.push(p); });
+  var cc = e.spawnCase('burglary', { quiet: true }), rec = e.caseRec(cc.caseId);
+  var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  rec.status = 'trial'; e.remove(cc);
+  var trial = e.create('trial', { data: { caseId: rec.id, name: cul.name, guilty: true, solid: true, tier: 'strong', real: 9, need: 6, coerced: 0, planted: 0, contradictions: 0 } });
+  var at = { x: trial.loc.x, y: trial.loc.y };
+  e.verdict(trial);
+  assert.strictEqual(events[0].uid, trial.uid, 'the verdict names the trial card');
+  assert.deepStrictEqual(events[0].at, at, 'and where it lay');
+  var cc2 = e.spawnCase('burglary', { quiet: true });
+  e.goCold(cc2.caseId);
+  assert.strictEqual(events[1].outcome, 'cold');
+  assert.strictEqual(events[1].uid, cc2.uid, 'a case gone cold names its own card, not the Court');
+
+  // Who struck the last blow, and an ending that can name it.
+  var d = CF.Engine.newGame({ seed: 62, calling: 'master' });
+  d.cardsOf('health', true).concat(d.cardsOf('spent_health', true)).forEach(function (c) { d.remove(c); });
+  d.create('wound');
+  d.hurtYou('A blade under the ribs.', 'order');
+  assert.ok(d.s.over && d.s.over.id === 'death');
+  assert.strictEqual(d.s.stats.killedBy, 'order');
+  assert.ok(d.s.journal.some(function (j) { return j.title === 'The Last Blow'; }), 'the blow is told as itself');
+  assert.ok(!d.s.journal.some(function (j) { return j.title === 'In the Council\'s Service'; }), 'and not as a second ending title');
+  // One number helper: the engine's counts in words are the chronicle's (Story.words).
+  assert.strictEqual(CF.numberWord(0), CF.Story.words(0));
+  assert.strictEqual(CF.numberWord(7, true), 'Seven');
+  assert.strictEqual(CF.numberWord(15), '15');
+
+  // The locked door is the scene's own.
+  var a = CF.Engine.newGame({ seed: 65, calling: 'master' });
+  var hc = a.spawnCase('harbor', { quiet: true }), bc = a.spawnCase('burglary', { quiet: true });
+  var hs = a.askSpec({ id: 'investigate', recipe: 'inv_search', ctxSlots: { main: hc.uid } });
+  assert.strictEqual(hs.label, 'A battened hatch');
+  assert.ok(/hatch/.test(hs.miss) && hs.accepts.indexOf('instinct') >= 0 && hs.penalty === 'thin', 'the rest of the ask is kept');
+  assert.strictEqual(hs.base, 'A locked door', 'rationed as the one question');
+  assert.strictEqual(a.askSpec({ id: 'investigate', recipe: 'inv_search', ctxSlots: { main: bc.uid } }).label, 'A locked door', 'a house keeps its back room');
+
+  // Sleep: paid at the Swan; unpaid, one of the nights.
+  var sl = CF.Engine.newGame({ seed: 66, calling: 'master' });
+  var fat = sl.create('fatigue'), coin = sl.cardsOf('funds')[0] || sl.create('funds');
+  sl.autoSlot('reflect', fat.uid); sl.autoSlot('reflect', coin.uid);
+  assert.strictEqual(sl.currentRecipe('reflect').recipe.id, 'ref_fatigue');
+  assert.ok(sl.start('reflect')); sl.tick(sl.verb('reflect').duration + 0.01);
+  assert.ok(/the Swan/.test(sl.verb('reflect').story.text), sl.verb('reflect').story.text);
+  sl.collect('reflect');
+  var fat2 = sl.create('fatigue');
+  sl.autoSlot('reflect', fat2.uid);
+  assert.ok(sl.start('reflect')); sl.tick(sl.verb('reflect').duration + 0.01);
+  assert.ok(/sleep|Ten hours/.test(sl.verb('reflect').story.text) && !/the Swan/.test(sl.verb('reflect').story.text));
+
+  // A faded token goes into the week's ledger; one that named the culprit is told on its own.
+  var f = CF.Engine.newGame({ seed: 67, calling: 'master' });
+  f.s.flags.firstCase = true;
+  var fr = f.caseRec(f.spawnCase('burglary', { quiet: true }).caseId), fcul = fr.suspects.filter(function (x) { return x.guilty; })[0];
+  var plain = f.create('clue', f.clueSpec(fr, { label: 'A Smudge', text: 'A smudge.', aspects: { forensic: 1 } }, [], { noMisread: true }));
+  var mark = f.create('clue', f.clueSpec(fr, { label: 'The Ring Mark', text: 'A ring.', aspects: { forensic: 1 }, trait: fcul.trait }, [], { noMisread: true }));
+  plain.life = 0.5; mark.life = 0.5;
+  f.tick(1);
+  assert.ok(!f.card(plain.uid) && !f.card(mark.uid), 'both faded');
+  var told = f.s.journal.filter(function (j) { return j.title === 'The Trail Fades'; });
+  assert.strictEqual(told.length, 1, 'only the token that named the culprit is a story');
+  assert.ok(told[0].text.indexOf('The Ring Mark') === 0);
+  assert.deepStrictEqual(f.s.weekFaded, ['A Smudge']);
+  f.tick(CF.WEEK - f.s.weekT + 0.01);
+  var fw = f.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(fw.parts.indexOf('Gone stale this week: A Smudge.') >= 0, fw.text);
+  assert.deepStrictEqual(f.s.weekFaded, [], 'and the list starts again');
+
+  // Where proof comes from: only the ways open to this desk today.
+  var w = CF.Engine.newGame({ seed: 68, calling: 'master' });
+  var wr = w.caseRec(w.spawnCase('burglary', { quiet: true }).caseId);
+  w.cardsOf('district', true).forEach(function (c) { w.remove(c); });
+  w.s.rank = 0; w.s.rooms.archive = false;
+  assert.deepStrictEqual(w.aspectSources('digital', wr), ['ledgers and papers read in Study'], 'no Writ and no Rolls for a junior without them');
+  assert.deepStrictEqual(w.aspectSources('testimony', wr.id), ['the accused confronted with a token in Question']);
+  w.giveDistrict(wr.district);
+  assert.ok(w.aspectSources('testimony', wr).indexOf('door to door with ' + CF.DISTRICTS[wr.district].label) >= 0, 'the Quarter on the table opens door to door');
+  w.s.rank = 1; w.s.rooms.archive = true;
+  assert.strictEqual(w.aspectSources('digital', wr).length, 3);
+  // The opening case's own Quarter at the hire: from the stash if it waits there, once.
+  var o = CF.Engine.newGame({ seed: 69, calling: 'master' });
+  o.cardsOf('district', true).forEach(function (c) { o.remove(c); });
+  var orc = o.caseRec(o.spawnCase('burglary', { quiet: true }).caseId);
+  orc.opening = true; o.s.flags.stage = 'hired';
+  o.s.intro = { stash: [{ def: 'district', spec: { label: CF.DISTRICTS[orc.district].label, desc: '', data: { district: orc.district } } }, { def: 'informant', spec: {} }] };
+  var q = o.openingQuarter();
+  assert.ok(q && q.data.district === orc.district, 'the case\'s own Quarter');
+  assert.deepStrictEqual(o.s.intro.stash.map(function (x) { return x.def; }), ['informant'], 'only that card leaves the stash');
+  assert.strictEqual(o.openingQuarter(), null, 'once');
+
+  // The Rival: a thread goes slack; a case they took answered first is a thread, then the end of them.
+  var r = CF.Engine.newGame({ seed: 70, calling: 'master' });
+  r.s.week = 6;
+  var rv = r.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 1, stalled: 0, heatWeek: r.s.week - 2, heatHow: 'question' } });
+  assert.deepStrictEqual(r.rivalFade(), [], 'two weeks: still taut');
+  rv.data.heatWeek = r.s.week - CF.RIVAL_THREAD_WEEKS;
+  assert.deepStrictEqual(r.rivalFade(), ['The thread on Piet Wieland has gone slack. Find another.']);
+  assert.strictEqual(rv.data.heat, 0);
+  // An older save's thread (no week) starts its clock at the next Bell, not slack at once.
+  var oldThread = r.create('rival', { label: 'The Rival: Jan Smit', data: { name: 'Jan Smit', heat: 1, stalled: 0, heatWeek: -1 } });
+  r.remove(rv);
+  assert.deepStrictEqual(r.rivalFade(), [], 'an old thread is not slack at once');
+  assert.strictEqual(oldThread.data.heatWeek, r.s.week);
+  r.remove(oldThread);
+  rv = r.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 0, stalled: 0, heatWeek: null } });
+  var rr = r.caseRec(r.spawnCase('burglary', { quiet: true }).caseId), rcul = rr.suspects.filter(function (x) { return x.guilty; })[0];
+  rr.rival = true;
+  assert.ok(r.rivalWork(r.caseCard(rr.id)), 'the case they took is their work');
+  var bw = r.create('witness', { label: 'Witness: the Tiler', data: { bribed: true } });
+  assert.ok(r.rivalWork(bw) && !r.rivalWork(r.create('witness', { label: 'Witness: the Cooper', data: {} })), 'a paid witness is, an honest one is not');
+  r.onConviction(rr, { name: rcul.name, guilty: true }, []);
+  assert.strictEqual(rv.data.heat, 1, 'beaten on their case: a thread');
+  assert.ok(r.s.journal.some(function (j) { return j.title === 'Quicker than the Customs House'; }));
+  var rep = r.s.meters.reputation;
+  var rr2 = r.caseRec(r.spawnCase('burglary', { quiet: true }).caseId); rr2.rival = true;
+  r.onConviction(rr2, { name: rr2.suspects[0].name, guilty: true }, []);
+  assert.strictEqual(r.cardsOf('rival', true).length, 0, 'a second time: exposed');
+  assert.strictEqual(r.s.meters.reputation, rep + 1);
+  assert.strictEqual(r.s.stats.rivalExposed, 1);
+
+  // An older save: the new fields default.
+  var old = JSON.parse(CF.Engine.newGame({ seed: 71 }).save());
+  delete old.weekFaded; delete old.stats.killedBy; if (old.weekSnap) delete old.weekSnap.favour;
+  var ol = CF.Engine.load(old);
+  assert.deepStrictEqual(ol.s.weekFaded, []);
+  assert.strictEqual(ol.s.stats.killedBy, null);
+  assert.ok(ol.s.weekSnap.favour && ol.s.weekSnap.favour.council === 0);
+  console.log('round 8 late: the verdict\'s seat, the last blow, the scene\'s own door, faded trails, open ways, the Rival caught: ok');
+})();
+
+// ---- A render pass's memo (round 8): slot reach and verb locks asked once per pass --------------
+(function renderMemo() {
+  var bot = require('./bot.test.js');
+  var g = CF.Engine.newGame({ seed: 2, calling: 'master' });
+  bot.play(g, 60 * 12);
+  var cards = g.tableCards();
+  var plain = cards.map(function (c) { return g.unavailableReason(c); });
+  var calls = 0, orig = g.slotReachableNow;
+  g.slotReachableNow = function (vid, sl) { calls++; return orig.call(this, vid, sl); };
+  var memoed = g.withMemo(function () { return cards.map(function (c) { return g.unavailableReason(c); }); });
+  assert.deepStrictEqual(memoed, plain, 'the memo gives the same answers');
+  var keys = {};
+  CF.VERB_ORDER.forEach(function (vid) { CF.VERBS[vid].slots.forEach(function (sl) { keys[vid + '|' + sl.key] = true; }); });
+  assert.ok(calls <= Object.keys(keys).length, 'each slot reached once a pass: ' + calls);
+  assert.strictEqual(g._memo, null, 'cleared after the pass');
+  calls = 0;
+  cards.forEach(function (c) { g.unavailableReason(c); });
+  assert.ok(calls > 0, 'without a pass, nothing is remembered');
+  // Cleared even when the pass throws.
+  try { g.withMemo(function () { throw new Error('x'); }); } catch (err) { /* expected */ }
+  assert.strictEqual(g._memo, null, 'cleared after a throw');
+  assert.ok(g.save().indexOf('_memo') < 0, 'never saved');
+  console.log('render memo: ok (' + cards.length + ' cards)');
+})();
+
+// ---- One Petition per room, at the Clerk's price --------------------------------
+// The Watch-house board and the Petitions the second conviction opens share
+// one spec and one rule: never two Petitions for the same thing.
+(function onePetition() {
+  var e = CF.Engine.newGame({ seed: 812, calling: 'master', who: 'clerk' });
+  var spec = e.orderSpec('locker');
+  assert.strictEqual(spec.data.discount, 1, 'the Clerk\'s discount is on the spec');
+  assert.strictEqual(CF.costOf(spec), CF.ORDERS.locker.cost - 1, 'and on its price');
+  var first = e.petition('locker');
+  assert.ok(first && first.data.discount === 1, 'a Petition from the board keeps the discount');
+  assert.strictEqual(e.petition('locker'), null, 'a second one is refused');
+  e.s.stats.convictions = 2;
+  e.openTheCity();
+  var lockers = e.cardsOf('order', true).filter(function (c) { return c.data.order === 'locker'; });
+  assert.strictEqual(lockers.length, 1, 'the Petitions opened later do not repeat it');
+  assert.ok(e.cardsOf('order', true).some(function (c) { return c.data.order === 'prints'; }), 'the others arrive');
+  e.removeOrder('kit');
+  assert.strictEqual(e.petition('kit'), null, 'nothing already granted');
+  var plain = CF.Engine.newGame({ seed: 813, calling: 'master' });
+  assert.strictEqual(plain.orderSpec('locker').data.discount, 0, 'no discount for other origins');
+  console.log('one petition per room: ok');
+})();
+
+// ---- The Bell's week tells whether it was paid, and which Coin is the stipend ----------
+(function bellWeek() {
+  var e = CF.Engine.newGame({ seed: 814, calling: 'master' });
+  e.s.flags.bellSilent = false;
+  e.cardsOf('funds', true).forEach(function (c) { e.remove(c); });
+  var heard = [];
+  e.on(function (type, p) { if (type === 'salary') heard.push(p); });
+  e.weekTick();
+  var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk && wk.paid === false, 'an unpaid week says so');
+  assert.ok(wk.uids.length >= 1 && wk.uids.every(function (u) { return e.card(u) && e.card(u).def === 'funds'; }), 'and names the stipend Coin');
+  assert.ok(heard.length === 1 && heard[0].paid === false && heard[0].uids.join() === wk.uids.join(), 'the salary event carries them');
+  for (var i = 0; i < e.dues(); i++) e.create('funds');
+  e.weekTick();
+  wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.strictEqual(wk.paid, true, 'a paid week says so');
+  // The verb window's first look: the basics, and the powers by office.
+  var info = e.verbInfo('investigate');
+  assert.ok(info.basics && info.basics.indexOf('Disguise') < 0, 'a junior reads only what a junior can do');
+  assert.ok(info.powers.length >= 3 && info.powers.every(function (p) { return p.open === false && p.rankLabel; }), 'the office powers are listed, shut, with their office');
+  e.s.rank = 2;
+  assert.ok(e.verbInfo('investigate').powers.every(function (p) { return p.open; }), 'and open at their rank');
+  assert.strictEqual(e.verbInfo('reflect').basics, CF.VERBS.reflect.desc, 'a verb with no basics shows its description');
+  console.log('the Bell\'s week, the verb\'s first look: ok');
+})();
+
+// ---- A blow takes the idle Health first; a Mark stays through what the card becomes ----------
+(function blowAndMark() {
+  var e = CF.Engine.newGame({ seed: 4, calling: 'master', life: true });
+  e.create('health'); // a second Health, on the table
+  var walking = e.cardsOf('health').filter(function (c) { return c.loc.t === 'table'; })[0];
+  assert.ok(e.autoSlot('duty', walking.uid) && e.start('duty'), 'one Health walks the round');
+  var idle = e.cardsOf('health').filter(function (c) { return c.uid !== walking.uid; })[0];
+  assert.ok(idle, 'another waits');
+  e.hurtYou('A cudgel on the stair.');
+  assert.ok(e.card(walking.uid) && walking.loc.t === 'held', 'the round keeps its Health');
+  assert.ok(!e.card(idle.uid), 'the blow takes the one lying idle');
+  var guard = 0;
+  while (e.verb('duty').status === 'running' && guard++ < 400) e.tick(1);
+  assert.notStrictEqual(e.verb('duty').story && e.verb('duty').story.title, 'Interrupted', 'the round is not interrupted');
+
+  // The player's Mark on a Health: spent by the round, and back again, still marked.
+  var m = CF.Engine.newGame({ seed: 5, calling: 'master', life: true });
+  var hp = m.cardsOf('health').filter(function (c) { return c.loc.t === 'table'; })[0];
+  hp.data = hp.data || {}; hp.data.mark = true;
+  var shared = { kind: 'x' };
+  assert.ok(m.autoSlot('duty', hp.uid) && m.start('duty'));
+  guard = 0;
+  while (m.verb('duty').status === 'running' && guard++ < 400) m.tick(1);
+  assert.notStrictEqual(hp.def, 'health', 'spent by the round: ' + hp.def);
+  assert.ok(hp.data.mark, 'the spent card keeps its Mark');
+  m.transform(hp, 'health', { data: shared });
+  assert.ok(hp.data.mark && hp.data.kind === 'x', 'restored, still marked, with the new data');
+  assert.ok(shared.mark === undefined, 'a shared spec is copied, not marked');
+  var plainHp = m.create('health');
+  m.transform(plainHp, 'evidence', {});
+  assert.ok(!plainHp.data.mark, 'an unmarked card stays unmarked');
+  console.log('the blow takes the idle Health, the Mark stays: ok');
+})();
+
+// ---- The second ring of Insights: each office's own work teaches ----------------------------
+(function secondRing() {
+  var g = CF.Engine.newGame({ seed: 71, calling: 'master' });
+  function ids(ab) { return CF.growthWays(g, ab).map(function (w) { return w.id; }); }
+  assert.deepStrictEqual(ids('health'), ['fencing', 'iron'], 'an Examiner sees only the first ring');
+  ['writ', 'nightdoor', 'whitestaff', 'crier', 'eyes', 'muster'].forEach(function (id) {
+    var sp = CF.INSIGHTS[id];
+    assert.ok(sp.rank >= 1 && sp.how && sp.perk && sp.perkText && sp.lesson && sp.faster.every(function (r) { return CF.RECIPES_BY_ID[r]; }), id + ': opens with an office, says how, and speeds real work');
+    assert.ok(g.perkId(id), id + ': a perk');
+  });
+  g.s.stats.recipes = { undercover_op: 2, warrant_search: 2 };
+  g.s.rank = 1; g.growthTick();
+  assert.ok(g.s.insights.writ && !g.s.insights.whitestaff, 'the Writ teaches a Sworn Examiner; Disguise waits for the Bailiff');
+  assert.ok(ids('focus').indexOf('writ') >= 0 && ids('health').indexOf('whitestaff') < 0);
+  g.s.rank = 2; g.growthTick();
+  assert.ok(g.s.insights.whitestaff, 'the staff, and the Insight it was owed');
+  // Kept as a trick: that work goes a third quicker.
+  var R = CF.RECIPES_BY_ID.taskforce_run;
+  var d0 = g.durationOf(R, { verb: 'duty' });
+  g.s.perks = { column: true };
+  assert.strictEqual(g.perkPace('taskforce_run'), 2 / 3);
+  assert.strictEqual(g.perkPace('duty_beat'), 1, 'only its own work');
+  assert.ok(g.durationOf(R, { verb: 'duty' }) < d0, 'Calling Out the Watch is quicker');
+  // The promotion says the office's lessons.
+  var p = CF.Engine.newGame({ seed: 72, calling: 'master' });
+  p.s.rank = 1; p.promote();
+  var told = p.s.journal.filter(function (j) { return j.title === 'The Office Teaches'; })[0];
+  assert.ok(told && told.text.indexOf('The Night Door') >= 0 && told.text.indexOf('The White Staff') >= 0, 'the Bailiff is told what his office teaches');
+  console.log('the second ring of Insights: ok');
+})();
+
+// ---- Informers: no two of a name; the Bench cools them and seats a new one; their Quarter counts ----
+(function informers() {
+  var g = CF.Engine.newGame({ seed: 73, calling: 'master' });
+  g.cardsOf('informant', true).forEach(function (c) { g.remove(c); });
+  var names = [];
+  for (var i = 0; i < 9; i++) names.push(g.create('informant', g.informantSpec('market')).data.name);
+  assert.strictEqual(names.slice(0, 8).filter(function (n, k) { return names.indexOf(n) === k; }).length, 8, 'eight nicknames, no two alike: ' + names.join(', '));
+  assert.ok(/ the Younger$/.test(names[8]) && names.indexOf(names[8]) === 8, 'the ninth is somebody\'s junior: ' + names[8]);
+  // The Bench: heat falls at the Bell, and a Compromised informer comes back.
+  var b = CF.Engine.newGame({ seed: 74, calling: 'master' });
+  b.cardsOf('informant', true).forEach(function (c) { b.remove(c); });
+  var inf = b.create('informant', b.informantSpec('market'));
+  b.heatInformant(inf, 3);
+  assert.strictEqual(b.informantStatus(inf), 'compromised');
+  assert.deepStrictEqual(b.benchWeek(), [], 'no Bench, nothing');
+  b.s.rooms.intel = true;
+  b.s.week = 5;
+  var lines = b.benchWeek();
+  assert.ok(inf.data.heat === 2 && b.informantStatus(inf) === 'safe' && /^Informer: /.test(inf.label) && lines.length === 1, 'the Bench cools them');
+  b.s.week = 8;
+  b.benchWeek();
+  assert.strictEqual(b.cardsOf('informant', true).length, 2, 'every fourth week, a new face on the Bench');
+  assert.ok(b.s.journal.some(function (j) { return j.title === 'A New Face on the Bench'; }));
+  assert.deepStrictEqual(b.roomUseText('intel'), { text: 'One front named or informer seated', vars: { n: 1 }, n: 1 }, 'the Bench is credited');
+  b.create('informant', b.informantSpec('market')); b.s.week = 12; b.benchWeek();
+  assert.strictEqual(b.cardsOf('informant', true).length, 3, 'three seated: no more');
+  assert.ok(/cool off here every week/.test(CF.ROOMS.intel.desc) && !/Coquille/.test(CF.ROOMS.intel.desc), 'the Bench says what it does');
+  // A rumour is three times as likely from the informer's own Quarter.
+  var own = 0, cases = [{ district: 'docks' }, { district: 'market' }];
+  for (var r = 0; r < 400; r++) if (b.pickByQuarter(cases, 'docks').district === 'docks') own++;
+  assert.ok(own > 260 && own < 340, 'their own Quarter weighs three to one: ' + own + ' of 400');
+  // Met in their own Quarter: Word +1, and no heat.
+  var m = CF.Engine.newGame({ seed: 75, calling: 'master' });
+  m.cardsOf('informant', true).forEach(function (c) { m.remove(c); });
+  var rec = m.caseRec(m.spawnCase('burglary', { quiet: true }).caseId);
+  var mi = m.create('informant', m.informantSpec('docks'));
+  var dk = m.giveDistrict('docks'), coin = m.create('funds');
+  m.verb('investigate').unlocked = true;
+  [mi, coin, dk].forEach(function (c) { assert.ok(m.autoSlot('investigate', c.uid), 'slots ' + m.labelOf(c)); });
+  assert.strictEqual(m.currentRecipe('investigate').recipe.id, 'patrol_informant');
+  assert.ok(/In their own Quarter/.test(m.preview('investigate').text || JSON.stringify(m.preview('investigate'))));
+  assert.ok(m.start('investigate'));
+  for (var t = 0; t < 100 && m.verb('investigate').status === 'running'; t++) m.tick(1);
+  assert.strictEqual(mi.data.heat, 0, 'no heat met at home');
+  var word = m.verb('investigate').out.map(function (u) { return m.card(u); }).filter(function (c) { return c && c.def === 'clue' && c.caseId === rec.id; })[0];
+  assert.ok(word, 'a word about the case'); assert.strictEqual(CF.clueAspects(word).testimony, 3, 'and their word is worth more');
+  console.log('informers: one of each name, the Bench, the Quarter: ok');
+})();
+
+// ---- What the rooms did for you: counted where they work, kept in the save -------------------
+(function roomUse() {
+  var g = CF.Engine.newGame({ seed: 76, calling: 'master' });
+  g.roomUsed('suite');
+  assert.strictEqual(g.roomUseText('suite'), null, 'a room not built is not credited');
+  g.s.rooms.suite = true;
+  var rec = g.caseRec(g.spawnCase('burglary', { quiet: true }).caseId);
+  var w = g.create('witness', g.witnessSpec(rec)), wit = g.create('focus');
+  g.verb('interrogate').unlocked = true;
+  assert.ok(g.autoSlot('interrogate', w.uid) && g.autoSlot('interrogate', wit.uid) && g.start('interrogate'));
+  for (var t = 0; t < 100 && g.verb('interrogate').status === 'running'; t++) g.tick(1);
+  assert.deepStrictEqual(g.roomUseText('suite'), { text: 'One questioning with more Word', vars: { n: 1 }, n: 1 }, 'the Hole: a questioning with more Word');
+  g.roomUsed('suite', 5);
+  assert.strictEqual(g.roomUseText('suite').text, '{n} questionings with more Word');
+  CF.ROOM_ORDER.forEach(function (k) { assert.ok(CF.ROOM_USE[k] && CF.ROOM_USE[k].length === 2, k + ': one and many'); });
+  var old = JSON.parse(g.save()); delete old.roomUse;
+  assert.deepStrictEqual(CF.Engine.load(old).s.roomUse, {}, 'an older save counts from now');
+  console.log('what the rooms did: ok');
+})();
+
+// ---- How a card leaves: the engine says why, for the table to show it (round 8) ----
+(function goneWhy() {
+  var e = CF.Engine.newGame({ seed: 180, calling: 'master' });
+  var seen = {};
+  e.on(function (type, p) { if (type === 'gone') seen[p.uid] = p.why; });
+  // A Health taken for good by a need run out: lost.
+  e.create('health');
+  var hp = e.cardsOf('health').map(function (c) { return c.uid; });
+  var need = e.create('hunger', { lifetime: 1 });
+  e.needExpired(need);
+  var gone = hp.filter(function (u) { return !e.card(u); })[0];
+  assert.ok(gone && seen[gone] === 'lost', 'a Health lost for good burns: ' + seen[gone]);
+  // A token gone stale: faded. A witness leaving the city: left. A purse taken back: left.
+  var rec = e.openCases()[0];
+  var clue = e.create('clue', { label: 'A Thread', caseId: rec.id, aspects: { opportunity: 1 } });
+  var wit = e.create('witness', e.witnessSpec(rec));
+  var purse = e.create('bribe');
+  e.expire(clue); e.expire(wit); e.expire(purse);
+  assert.strictEqual(seen[clue.uid], 'faded');
+  assert.strictEqual(seen[wit.uid], 'left');
+  assert.strictEqual(seen[purse.uid], 'left');
+  // Coin paid at the Bell: spent. A blow: wounded.
+  var coins = e.cardsOf('funds').map(function (c) { return c.uid; });
+  e.s.flags.firstCase = true; e.weekTick();
+  assert.ok(coins.some(function (u) { return seen[u] === 'spent'; }), 'the Bell\'s dues are spent');
+  var h2 = e.cardsOf('health')[0];
+  e.hurtYou('A blow.', 'test');
+  assert.strictEqual(seen[h2.uid], 'wounded');
+  // A case card cleared, or a token taken by a recipe, says nothing.
+  var plain = e.create('clue', { label: 'Plain', caseId: rec.id, aspects: { motive: 1 } });
+  e.remove(plain);
+  assert.strictEqual(seen[plain.uid], undefined, 'an ordinary removal is silent');
+  console.log('how a card leaves: ok');
+})();
+
+// ---- A name to match the role: a nephew is a man, a niece a woman, whose they are does not count (round 8) ----
+(function namesByRole() {
+  var P = CF.Engine.prototype;
+  assert.strictEqual(P.sexOf('a nephew of the house'), 'm');
+  assert.strictEqual(P.sexOf('the victim\'s brother'), 'm');
+  assert.strictEqual(P.sexOf('a wool-merchant\'s son'), 'm');
+  assert.strictEqual(P.sexOf('a journeyman turned off'), 'm');
+  assert.strictEqual(P.sexOf('the widow\'s son'), 'm', 'the widow is whose he is');
+  assert.strictEqual(P.sexOf('the miller\'s wife'), 'f');
+  assert.strictEqual(P.sexOf('the child\'s older sister'), 'f');
+  assert.strictEqual(P.sexOf('a niece of the Bishop'), 'f');
+  assert.strictEqual(P.sexOf('the midwife'), 'f');
+  assert.strictEqual(P.sexOf('a person of no account'), null, 'a person is either');
+  assert.strictEqual(P.sexOf('the mason'), null, 'a mason is not a son');
+  // Every accused named for a role that says its sex gets a name of that sex, and keeps it on the record.
+  for (var i = 0; i < 30; i++) {
+    var e = CF.Engine.newGame({ seed: 190 + i, calling: 'master' });
+    var rec = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+    rec.suspects.forEach(function (x) {
+      var want = P.sexOf(x.role);
+      if (want) assert.strictEqual(e.sexOfName(x.name), want, x.name + ', ' + x.role);
+      assert.ok(x.sex === want || (!want && x.sex === e.sexOfName(x.name)), 'the record keeps the sex: ' + x.name);
+    });
+  }
+  // An older save's accused are given theirs on load.
+  var g = CF.Engine.newGame({ seed: 221, calling: 'master' }), old = JSON.parse(g.save());
+  Object.keys(old.cases).forEach(function (k) { old.cases[k].suspects.forEach(function (x) { delete x.sex; }); });
+  var l = CF.Engine.load(old);
+  l.openCases().forEach(function (r) { r.suspects.forEach(function (x) { assert.ok(x.sex !== undefined, 'migrated'); }); });
+  console.log('names by role: ok');
+})();
+
+// ---- The engine says it the way the table reads it (round 8 handoffs) ------------------------
+(function handoffs() {
+  // The Council's count, as the Bell's pane reads it.
+  var e = CF.Engine.newGame({ seed: 171, calling: 'master' });
+  assert.strictEqual(e.councilQuota(), null, 'nothing counted of an Examiner');
+  e.s.rank = 2; e.councilCountWeek(); e.s.stats.convictions += 1;
+  var ex = e.councilExpects(), q = e.councilQuota();
+  assert.deepStrictEqual([q.closed, q.expect], [ex.n, ex.m], 'the quota is the count: ' + JSON.stringify(q));
+  // A road carries its line in the journal's own field.
+  e.s.counts.mercy = 2;
+  var roads = e.roads();
+  assert.ok(roads.length >= 1, 'a mercy opens a road');
+  roads.forEach(function (r) { assert.ok(typeof r.text === 'string' && r.text === r.want, 'the road says what it wants: ' + JSON.stringify(r)); });
+  // Harm is marked as harm.
+  var hurt = e.story('Wounded', 'A blow.', 'danger', { cue: 'harm' }), omen = e.story('An Omen', 'A crow.', 'danger');
+  assert.ok(hurt.harm === true && !omen.harm, 'harm, and only harm, is marked');
+  // A verdict names its case.
+  var rec = e.openCases()[0], record = e.caseRecord(rec, 'cold', null);
+  assert.strictEqual(record.caseId, rec.id, 'the record keeps the case id');
+  // The opening's pile sits a row higher; a plain start keeps it where it was.
+  var op = CF.Engine.newGame({ seed: 172, who: 'clerk', opening: true });
+  assert.strictEqual(op.pile().y, T.TOP, 'the opening pile: the first row under the verbs');
+  op.tableCards().forEach(function (c) { assert.strictEqual(c.loc.y, T.TOP, c.def + ' within the short table'); });
+  assert.strictEqual(e.pile().y, T.TOP + 2 * T.PY, 'a plain start: as before');
+  // An older opening save without its asides gets an empty set.
+  var old = JSON.parse(op.save());
+  delete old.intro.asides;
+  assert.deepStrictEqual(CF.Engine.load(old).s.intro.asides, {}, 'asides migrated');
+  // A weakness found tells the move the Bell will see them make.
+  var g = CF.Engine.newGame({ seed: 173, calling: 'master' });
+  g.s.week = 8;
+  for (var w = 0; w < 8 && !g.cardsOf('rival', true).length; w++) g.rivalWeek();
+  var r = g.cardsOf('rival', true)[0];
+  assert.ok(r, 'a Rival to find');
+  g.openCases().forEach(function (x) { x.searches = 1; x.week = g.s.week - 2; x.rival = false; });
+  var wit = g.tableCards().filter(function (c) { return c.def === 'focus'; })[0] || g.create('focus');
+  g.autoSlot('interrogate', r.uid); g.autoSlot('interrogate', wit.uid);
+  assert.strictEqual(g.currentRecipe('interrogate').recipe.id, 'int_rival_weakness');
+  assert.ok(g.start('interrogate')); g.tick(g.verb('interrogate').duration + 0.01);
+  var next = r.data.next, found = g.verb('interrogate').story;
+  assert.ok(next && next.act, 'a move foreseen: ' + JSON.stringify(next));
+  assert.ok(/ at the next Bell/.test(found.text), 'and told: ' + found.text);
+  console.log('handoffs: ok');
 })();

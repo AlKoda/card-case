@@ -104,7 +104,8 @@ assert.strictEqual(two.bad.length, 2);
 var half = CF.Charge.describe(assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 1 })]));
 assert.strictEqual(half.tier, 'reasonable');
 assert.ok(half.notes.some(function (n) { return n.kind === 'bad' && /Half proof: the Court would convict of theft, not burglary, and the ladder stops at banishment\./.test(n.text); }), 'the lesser crime is named');
-assert.ok(half.notes.some(function (n) { return n.kind === 'dim' && /^To full proof: /.test(n.text) && /or a confession, freely given\.$/.test(n.text); }), 'what full proof wants');
+// Every row is met here (Coin 1 of 1): what is wanted is a word behind the rows, and the way to it.
+assert.ok(half.notes.some(function (n) { return n.kind === 'dim' && /^Word behind it: a witness's Deposition, two tokens bound in Rest, a hand matched to them, or a free confession\. Confront them in Question with a token of the case\.$/.test(n.text); }), 'what full proof wants: ' + JSON.stringify(half.notes));
 var gap = CF.Charge.describe(assess([clue({ forensic: 1 }), clue({ testimony: 2 }, { stake: 'reward' })]));
 assert.strictEqual(gap.tier, 'weak');
 var want = gap.notes.filter(function (n) { return /^To full proof/.test(n.text); })[0];
@@ -128,4 +129,136 @@ function trialOutcome(tier, guilty, real, need, n) {
 assert.ok(trialOutcome('strong', true, 7, 6, 60) > 0.85, 'strong charges convict');
 assert.ok(trialOutcome('weak', true, 2, 6, 60) < 0.5, 'weak charges mostly fail');
 assert.ok(trialOutcome('weak', false, 2, 6, 60) < 0.3, 'weak charges on the innocent fail');
+
+// Whose words they are: a confession, a motive or a story belongs to the one
+// who gave it. Laid against somebody else it proves nothing, and another's
+// confession is the defence's best friend. Tokens from older saves carry no
+// owner and count as they always did.
+assert.strictEqual(e.clueSpec(rec, { label: 'Motive: X', aspects: { motive: 2 }, about: culprit.key }, []).data.about, culprit.key, 'the token keeps its owner');
+var scInnocent = e.make('suspect', { caseId: rec.id, data: { key: other.key } });
+function freeConfession(key) { return clue({ testimony: 3, motive: 1 }, { confession: 'free', about: key }); }
+var ownWords = assess([freeConfession(culprit.key)]);
+assert.strictEqual(ownWords.tier, 'strong', 'the culprit\'s own free confession against the culprit is full proof');
+var strayFree = e.assessCharge(scInnocent, [freeConfession(culprit.key)]);
+assert.notStrictEqual(strayFree.tier, 'strong', 'the culprit\'s free confession against an innocent: ' + strayFree.tier);
+assert.notStrictEqual(strayFree.realTier, 'strong');
+assert.strictEqual(strayFree.confession, null, 'it is not this accused\'s confession');
+assert.strictEqual(strayFree.contradictions, 1, 'another\'s confession counts against the charge');
+var strayQuestion = assess([clue({ forensic: 2 }), clue({ testimony: 4 }, { confession: 'question', about: other.key })]);
+assert.notStrictEqual(strayQuestion.tier, 'strong', 'an innocent\'s confession under the question against the culprit');
+assert.strictEqual(strayQuestion.confession, null);
+var strayMotive = assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 }), clue({ motive: 2 }, { about: other.key })]);
+assert.strictEqual(strayMotive.contradictions, 0, 'another\'s motive is no contradiction');
+assert.ok(!strayMotive.have.motive, 'and adds nothing');
+assert.strictEqual(strayMotive.elsewhere.length, 1);
+var dStray = CF.Charge.describe(strayMotive);
+assert.ok(dStray.notes.some(function (n) { return n.kind === 'bad' && n.text === 'Motive: ' + other.name + ': about ' + other.name + ', not this accused. It counts for nothing here.'; }) || dStray.notes.some(function (n) { return n.kind === 'bad' && /: about .*, not this accused\. It counts for nothing here\.$/.test(n.text); }), 'the Court says whose it is: ' + JSON.stringify(dStray.notes));
+assert.ok(dStray.bad.indexOf(strayMotive.elsewhere[0].uid) >= 0, 'the stray token is marked in the window');
+var dFree = CF.Charge.describe(strayFree);
+assert.ok(dFree.notes.some(function (n) { return /another's confession\. It proves nothing against this accused, and the advocate will use it: −2$/.test(n.text); }), 'another\'s confession is called so');
+assert.ok(!dFree.notes.some(function (n) { return /describes? somebody else/.test(n.text); }), 'and is not counted twice');
+var oldSave = e.assessCharge(scInnocent, [clue({ testimony: 3, motive: 1 }, { confession: 'free' })]);
+assert.strictEqual(oldSave.tier, 'strong', 'a token from an older save, with no owner, counts as before');
+
+// Every row met and still half proof: the Court says what is wanted, and
+// how to get it (confront the accused with a token of the case).
+var rowsOnly = assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 })]);
+assert.strictEqual(rowsOnly.tier, 'reasonable');
+assert.ok(rowsOnly.rowsMet && rowsOnly.wordWanted, 'every row met, a word wanted');
+assert.ok(!assess([clue({ forensic: 2 }), clue({ opportunity: 2 })]).wordWanted, 'a row short is not a word wanted');
+var wordIn = assess([clue({ forensic: 2 }), clue({ opportunity: 2 }), clue({ financial: 2 }, { corroborated: true })]);
+assert.ok(wordIn.gates.filter(function (g) { return g.id === 'word'; })[0].ok && !wordIn.wordWanted, 'a word already behind it is no word wanted');
+assert.ok(!spread.wordWanted, 'full proof wants nothing');
+var dRows = CF.Charge.describe(rowsOnly);
+assert.ok(dRows.wordWanted && dRows.notes.some(function (n) { return n.kind === 'dim' && /^Word behind it: .*Confront them in Question with a token of the case\.$/.test(n.text); }), 'the way to full proof is named');
+// The four seals: here three are lit and only the word is dark.
+assert.deepStrictEqual(dRows.gates.map(function (g) { return g.id + ':' + g.ok; }), ['enough:true', 'kinds:true', 'word:false', 'clean:true'], 'the seals show the hidden fourth rule');
+assert.deepStrictEqual(dRows.gates.map(function (g) { return g.label; }), ['Enough', 'Two kinds', 'Word behind it', 'Nothing against them']);
+assert.strictEqual(dRows.fullBy, null, 'half proof is reached by nothing');
+assert.ok(spread.gates.every(function (g) { return g.ok; }) && spread.fullBy === 'seals', 'full proof by the seals lights all four');
+Object.keys(rowsOnly.standing).forEach(function (u) { assert.strictEqual(rowsOnly.standing[u].id, 'proof', 'plain proof is captioned so'); });
+// Each laid token's standing toward the accused.
+var stOther = clue({ forensic: 2 }, { trait: other.trait }), stMine = clue({ opportunity: 2 }, { points: culprit.key }), stOff = clue({ digital: 1 });
+var stand = assess([stOther, stMine, stOff]).standing;
+assert.strictEqual(stand[stOther.uid].id, 'else', 'a mark of someone else');
+assert.strictEqual(stand[stMine.uid].label, 'Names them', 'a token that names the accused');
+assert.strictEqual(stand[stOff.uid].label, 'Off the case', 'proof the case does not turn on');
+assert.strictEqual(stand[stOther.uid].label, 'Someone else');
+var cg = CF.Engine.newGame({ seed: 3, calling: 'master' });
+var ck = cg.tableCards().filter(function (c) { return c.def === 'case'; })[0], crec = cg.caseRec(ck.caseId);
+var ccul = crec.suspects.filter(function (x) { return x.guilty; })[0];
+var csus = cg.create('suspect', { caseId: crec.id, data: { key: ccul.key } });
+assert.strictEqual(cg.confrontFor(csus), null, 'nothing of the case to show them');
+var light = cg.create('clue', { caseId: crec.id, aspects: { opportunity: 1 }, data: {} });
+var heavy = cg.create('clue', { caseId: crec.id, aspects: { forensic: 2, opportunity: 1 }, data: {} });
+var plan = cg.confrontFor(csus);
+assert.ok(plan && plan.suspect === csus.uid && plan.token === heavy.uid, 'the heaviest token of the case: ' + JSON.stringify(plan));
+assert.strictEqual(typeof plan.ready, 'boolean');
+cg.create('clue', { caseId: crec.id, aspects: { testimony: 3 }, data: { confession: 'free', about: ccul.key } });
+assert.strictEqual(cg.confrontFor(csus), null, 'their free confession already lies on the table');
+void light;
+
+// Full proof and a true free confession hold; when full proof fails anyway
+// the week says why, and the Crowd does not rise: the city saw the proof.
+assert.ok(trialOutcome('strong', true, 7, 6, 200) > 0.93, 'full proof on the guilty convicts');
+var unlucky = null;
+for (var us = 0; us < 400 && !unlucky; us++) {
+  var ug = CF.Engine.newGame({ seed: 2000 + us, calling: 'master' });
+  var uk = ug.tableCards().filter(function (c) { return c.def === 'case'; })[0], ur = ug.caseRec(uk.caseId);
+  var before = ug.s.meters.pressure;
+  var ut = ug.create('trial', { data: { caseId: ur.id, name: 'X', guilty: true, solid: true, tier: 'strong', real: 7, need: 6, coerced: 0, planted: 0, contradictions: 0 } });
+  ug.verdict(ut);
+  if (ur.status === 'acquitted') unlucky = { g: ug, before: before };
+}
+assert.ok(unlucky, 'a full-proof acquittal happens, rarely');
+assert.strictEqual(unlucky.g.s.meters.pressure, unlucky.before, 'the Crowd does not rise on a full-proof acquittal');
+var ustory = unlucky.g.s.journal.filter(function (j) { return /^Not Guilty: /.test(j.title); })[0];
+assert.ok(ustory && CF.FULL_PROOF_FAILS.some(function (r) { return ustory.text.indexOf(r) >= 0; }), 'the verdict says why: ' + (ustory && ustory.text));
+var halfGame = CF.Engine.newGame({ seed: 5, calling: 'master' });
+var hk = halfGame.tableCards().filter(function (c) { return c.def === 'case'; })[0], hr = halfGame.caseRec(hk.caseId);
+var hb = halfGame.s.meters.pressure;
+halfGame.verdict(halfGame.create('trial', { data: { caseId: hr.id, name: 'X', guilty: false, solid: false, tier: 'weak', real: 0, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
+if (hr.status === 'acquitted') assert.strictEqual(halfGame.s.meters.pressure, hb + 1, 'an ordinary acquittal still raises the Crowd');
+
+// The Court repeats what the player has already worked out: the Prime Suspect
+// their reasoning named, and a free confession whose words admit the lie.
+// The tier stands; only the window speaks.
+var pg = CF.Engine.newGame({ seed: 3, calling: 'master' });
+var pk = pg.tableCards().filter(function (c) { return c.def === 'case'; })[0], prec = pg.caseRec(pk.caseId);
+var pcul = prec.suspects.filter(function (x) { return x.guilty; })[0], pinn = prec.suspects.filter(function (x) { return !x.guilty; })[0];
+var pOn = function (key) { return pg.make('suspect', { caseId: prec.id, data: { key: key } }); };
+var pClues = [pg.make('clue', { caseId: prec.id, aspects: { forensic: 2 } }), pg.make('clue', { caseId: prec.id, aspects: { opportunity: 2 } })];
+assert.strictEqual(pg.assessCharge(pOn(pinn.key), pClues).prime, null, 'nobody named yet');
+prec.identified = pcul.key;
+var pElse = pg.assessCharge(pOn(pinn.key), pClues);
+assert.strictEqual(pElse.prime, pcul.name);
+assert.strictEqual(pElse.primeKey, pcul.key);
+assert.ok(CF.Charge.describe(pElse).notes.some(function (n) { return n.kind === 'bad' && n.text === 'Your own reasoning named ' + pcul.name + '. This charge names someone else.'; }), 'the Court names the Prime Suspect');
+var pSame = pg.assessCharge(pOn(pcul.key), pClues);
+assert.strictEqual(pSame.prime, null, 'charging the Prime Suspect says nothing');
+assert.ok(!CF.Charge.describe(pSame).notes.some(function (n) { return /Your own reasoning/.test(n.text); }));
+var lie = pg.make('clue', { caseId: prec.id, aspects: { testimony: 3, motive: 1 }, data: { confession: 'free', falseConfession: true, about: pinn.key, trait: pinn.trait } });
+var pLie = pg.assessCharge(pOn(pinn.key), [lie]);
+assert.strictEqual(pLie.tier, 'strong', 'a false confession nothing contradicts is still full proof (Carolina)');
+assert.ok(pLie.falseFree);
+var dLie = CF.Charge.describe(pLie);
+assert.ok(dLie.notes.some(function (n) { return n.kind === 'bad' && n.text === 'This confession says too much: the wrong day, the wrong knife.'; }), 'the Court reads the lie');
+assert.ok(!dLie.notes.some(function (n) { return /king of proofs/.test(n.text); }), 'and does not call it the king of proofs');
+var truth = pg.make('clue', { caseId: prec.id, aspects: { testimony: 3, motive: 1 }, data: { confession: 'free', about: pcul.key } });
+assert.ok(!pg.assessCharge(pOn(pcul.key), [truth]).falseFree, 'a true confession is not flagged');
+var qLie = pg.make('clue', { caseId: prec.id, aspects: { testimony: 4 }, data: { confession: 'question', falseConfession: true, about: pinn.key } });
+assert.ok(!pg.assessCharge(pOn(pinn.key), [qLie]).falseFree, 'a confession under the question never gives away who is innocent');
+
+// ---- The Court's words are glossed where they are first met ---------------------------
+assert.strictEqual(half.tierGloss, 'Half the proof the Carolina asks: it may hold', 'half proof, glossed');
+assert.strictEqual(gap.tierGloss, 'Suspicion, not proof: it will not convict', 'indicia, glossed');
+assert.ok(!CF.Charge.TIERS.strong.gloss, 'full proof needs no gloss');
+assert.strictEqual(gap.tierLabel, 'Indicia', 'the bare name stays for the prose');
+assert.ok(/indicia, suspicion that is not yet proof, will not convict alone/.test(CF.VERBS.arrest.desc), 'the Court\'s description glosses indicia');
+var q = CF.RECIPES_BY_ID.int_suspect;
+['sufficient', 'not'].forEach(function (k) {
+  var fake = { has: function (x) { return x === 'health'; }, primary: {}, caseOf: function () { return {}; }, e: { indiciaOf: function () { return { sufficient: k === 'sufficient' }; } } };
+  assert.ok(/Carolina, the Emperor's law the Court sits under/.test(q.preview(fake)), 'the question names the Carolina\'s law: ' + k);
+});
+
 console.log('charge: profiles, diversity, corroboration, contradictions, illegal evidence, tiers, court all OK');

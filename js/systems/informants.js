@@ -59,10 +59,11 @@
   P.informantTip = function (inf) {
     var nick = inf.data.name;
     var open = this.openCases().filter(function (r) { return !r.identified && !r.special; });
-    var al = this.cardsOf('atlarge').filter(function (c) { return c.loc.t === 'table' && !c.data.sighted; });
+    var self0 = this, al = this.cardsOf('atlarge').filter(function (c) { return c.loc.t === 'table' && !self0.sightingOut(c) && self0.huntable(c); });
     var roll = this.rng();
     if (open.length && roll < 0.45) {
-      var rec = U.pick(this.rng, open);
+      // An informer hears most in their own Quarter: its cases weigh three times.
+      var rec = this.pickByQuarter(open, inf.data.district);
       var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
       this.create('clue', this.clueSpec(rec, {
         label: 'Rumour from ' + nick,
@@ -96,13 +97,65 @@
     return 'warning';
   };
 
+  // One of the cases, the informer's own Quarter's three times as likely (one draw).
+  P.pickByQuarter = function (cases, district) {
+    var w = cases.map(function (r) { return r.district === district ? 3 : 1; });
+    var total = w.reduce(function (a, b) { return a + b; }, 0), roll = this.rng() * total;
+    for (var i = 0; i < cases.length; i++) { roll -= w[i]; if (roll < 0) return cases[i]; }
+    return cases[cases.length - 1];
+  };
+
+  // The Informers' Bench, at the Bell: they meet you indoors, out of the
+  // street's sight, and every informer's heat falls by one; and every fourth
+  // week, while fewer than three sit on it, a new face takes a seat, from a
+  // Quarter you hold.
+  CF.INFORMANT.benchCool = 1;
+  CF.INFORMANT.benchEvery = 4;
+  CF.INFORMANT.benchSeats = 3;
+  P.benchWeek = function () {
+    var s = this.s, self = this, lines = [];
+    if (!s.rooms.intel) return lines;
+    var infs = this.cardsOf('informant', true), cooled = 0;
+    infs.forEach(function (c) {
+      if (!(c.data.heat > 0)) return;
+      self.heatInformant(c, -CF.INFORMANT.benchCool);
+      cooled++;
+    });
+    if (cooled) lines.push('Your informers meet you on the bench, indoors, and the street forgets their faces a little.');
+    if (s.week % CF.INFORMANT.benchEvery === 0 && infs.length < CF.INFORMANT.benchSeats) {
+      var held = Object.keys(CF.DISTRICTS).filter(function (k) { return self.hasDistrict(k); });
+      var d = held.length ? U.pick(this.rng, held) : 'market';
+      var inf = this.create('informant', this.informantSpec(d));
+      s.flags.hadInformer = true;
+      this.roomUsed('intel');
+      this.story('A New Face on the Bench', U.fill('Somebody from {quarter} has been sitting on the bench since matins, waiting to be asked. They give their name as {nick}.', { quarter: CF.DISTRICTS[d].label, nick: inf.data.name }), 'major');
+    }
+    return lines;
+  };
+
+  // What a paid meeting with an informer can give now, for the preview and
+  // the run: 'word' (a case on the desk with no name yet), 'sighting'
+  // (someone Abroad, and room on the desk), 'warning' (nothing queued yet),
+  // 'quarter' (where the queued case will come from, once), or null when
+  // they have nothing: the meeting is refused and nothing is spent.
+  // { kind, open: [unnamed case records], sight: bool }.
+  P.informerOffer = function () {
+    var e = this;
+    var open = this.openCases().filter(function (r) { return !r.identified && !r.special; });
+    var al = this.cardsOf('atlarge').filter(function (c) { return e.huntable(c); });
+    var sight = al.length > 0 && this.roomForCase(1);
+    var next = this.s.nextCase;
+    var kind = open.length ? 'word' : sight ? 'sighting' : !next ? 'warning' : !next.told ? 'quarter' : null;
+    return { kind: kind, open: open, sight: sight, atlarge: al };
+  };
+
   // Queue the next case on an informer's word (it comes sooner, and with
   // `extraTime` it comes even to a full desk) and build the Warning card.
   P.warnOfCase = function (inf, extraTime) {
     var tid = U.pick(this.rng, this.casePool());
     var T = CF.CASE_TEMPLATES[tid];
     var district = U.pick(this.rng, T.districts);
-    this.s.nextCase = { template: tid, district: district, extraTime: extraTime || 0 };
+    this.s.nextCase = { template: tid, district: district, extraTime: extraTime || 0, told: false };
     this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
     return {
       label: 'Warning: ' + T.label,

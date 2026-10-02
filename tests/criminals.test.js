@@ -159,6 +159,55 @@ function run(e, verb, cards) {
   console.log('informants: ok');
 })();
 
+// ---- A paid meeting says what the informer has, and costs nothing when they have nothing ----
+(function informerOffer() {
+  var e = game(49, 'crusader');
+  var inf = byDef(e, 'informant')[0];
+  var coin = function () { return byDef(e, 'funds').length; };
+  while (coin() < 3) e.create('funds');
+  e.s.flags.marketOpen = true;
+  // An unnamed case on the desk: they have heard talk of it.
+  var open = e.openCases().filter(function (r) { return !r.special; });
+  open.slice(1).forEach(function (r) { r.identified = r.suspects[0].key; });
+  e.cardsOf('atlarge', true).forEach(function (c) { e.remove(c); });
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  var pv = e.preview('investigate');
+  assert.strictEqual(e.currentRecipe('investigate').recipe.id, 'patrol_informant');
+  assert.ok(pv.text.indexOf(inf.data.name + ' has heard talk of ' + open[0].title + '.') === 0, pv.text);
+  e.clearSlots('investigate');
+  // Every case named and a warning queued: where it will come from, once.
+  open[0].identified = open[0].suspects[0].key;
+  e.s.nextCase = { template: 'arson', district: 'canal', extraTime: 0 };
+  var heat0 = inf.data.heat, coin0 = coin();
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  assert.ok(/knows where the next case will come from\./.test(e.preview('investigate').text));
+  var r = run(e, 'investigate', []);
+  assert.strictEqual(r.story.title, 'The Next Door');
+  assert.ok(r.story.text.indexOf(CF.DISTRICTS.canal.label) >= 0, r.story.text);
+  assert.ok(e.s.nextCase.told && e.s.nextCase.district === 'canal');
+  assert.strictEqual(coin(), coin0 - 1, 'the Coin was paid for a real answer');
+  assert.ok(e.hasDistrict('canal'), 'and the Quarter is yours to walk');
+  // Nothing more to give: the meeting is refused before anything is spent.
+  heat0 = inf.data.heat; coin0 = coin();
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  var none = e.preview('investigate');
+  assert.strictEqual(none.blocked, inf.data.name + ' has nothing for you this week. Keep your Coin.');
+  assert.ok(!e.start('investigate'));
+  e.clearSlots('investigate');
+  assert.strictEqual(coin(), coin0); assert.strictEqual(inf.data.heat, heat0);
+  // Someone Abroad and room on the desk: a sighting is certain when it is all they have.
+  var al = e.create('atlarge', { label: 'Abroad: Vance Zorn', data: { name: 'Vance Zorn', trait: 'limp' } });
+  e.autoSlot('investigate', inf.uid); e.autoSlot('investigate', byDef(e, 'funds')[0].uid);
+  assert.ok(/may know where someone Abroad sleeps\./.test(e.preview('investigate').text));
+  assert.ok(e.roomForCase(1), 'room on the desk');
+  assert.strictEqual(run(e, 'investigate', []).story.title, 'A Sighting');
+  void al;
+  // An older save's queued case has not been told.
+  var old = JSON.parse(e.save()); old.nextCase = { template: 'arson', district: 'canal', extraTime: 0 };
+  assert.strictEqual(CF.Engine.load(old).s.nextCase.told, false);
+  console.log('informer offer: ok');
+})();
+
 // ---- Criminals persist -------------------------------------------------------------
 (function criminals() {
   var e = game(51);
@@ -303,6 +352,7 @@ function run(e, verb, cards) {
   var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
   var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
   var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  innocent.alibi = 'a wedding, and forty guests who remember the dancing'; // the story they gave in Question
   e.remove(kase);
   var t = e.create('trial', { data: { caseId: rec.id, name: innocent.name, guilty: false, solid: false, tier: 'reasonable', real: 6, need: 6, coerced: 0, planted: 1, illegal: 0, contradictions: 0 } });
   var saved = e.save(), g = null;
@@ -335,6 +385,10 @@ function run(e, verb, cards) {
   assert.strictEqual(g.s.meters.pressure, pr0 + 1, 'the Crowd hears the ballad');
   var story = g.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
   assert.ok(story && story.text.indexOf(culprit.name) === 0 && story.text.indexOf(rec.title) > 0 && /the one you sent down/.test(story.text), 'the ballad names them');
+  // The ballad tells where the wrong name really was: their own alibi, true after all.
+  assert.strictEqual(crim.wrongfulAlibi, innocent.alibi, 'the wrong name\'s own alibi is kept');
+  assert.ok(/the one you sent down was dancing at a wedding before forty guests that night/.test(story.text), 'the true alibi: ' + story.text);
+  assert.ok(!/drunkenness/.test(story.text), 'not the same verse every time');
   // Pardoned, nobody hanged, and the ballad does not say so.
   var g2 = CF.Engine.load(hidden), crim2 = g2.criminalByName(culprit.name);
   g2.passSentence(byDef(g2, 'condemned')[0], 'pardon', null, {});
@@ -358,6 +412,14 @@ function run(e, verb, cards) {
   var story3 = inq.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
   assert.ok(al3 && al3.desc.indexOf('Someone else burned for ' + rec.title + '.') > 0, 'burned: ' + al3.desc);
   assert.ok(story3 && /the one the Inquisitor burned/.test(story3.text) && !/sent down/.test(story3.text), 'the ballad does not blame you: ' + story3.text);
+  assert.ok(CF.PROSE.alibis.indexOf(crim3.wrongfulAlibi) >= 0 && story3.text.indexOf(' was ' + CF.PROSE.alibiTrue[crim3.wrongfulAlibi] + ' that night') > 0, 'an alibi from the pool: ' + story3.text);
+  // Every alibi has its true telling, and a save from before keeps a hidden record's alibi steady.
+  CF.PROSE.alibis.forEach(function (a) { assert.ok(CF.PROSE.alibiTrue[a], 'a true telling for ' + a); });
+  var old = JSON.parse(hidden);
+  Object.keys(old.criminals).forEach(function (k) { delete old.criminals[k].wrongfulAlibi; });
+  var ol1 = CF.Engine.load(JSON.parse(JSON.stringify(old))), ol2 = CF.Engine.load(JSON.parse(JSON.stringify(old)));
+  var oc = ol1.criminalByName(culprit.name);
+  assert.ok(CF.PROSE.alibis.indexOf(oc.wrongfulAlibi) >= 0 && oc.wrongfulAlibi === ol2.criminalByName(culprit.name).wrongfulAlibi, 'an old save gets one alibi, the same each load');
   // The staff: a death sentence breaks it.
   CF.Criminals.WEEKLY_CRIME = p0;
   console.log('wrongful: ok');
@@ -398,10 +460,229 @@ function run(e, verb, cards) {
     if (warn) {
       warned = true;
       assert.ok(h.s.nextCase && h.s.nextCase.template === warn.data.template, 'the warned-of case is coming');
-      assert.ok(/pays a debt/.test(lines.join(' ')) && /A spared man pays his debt/.test(warn.desc));
+      assert.ok(/pays a debt/.test(lines.join(' ')) && /One you spared pays a debt/.test(warn.desc));
       assert.strictEqual(sp.crimes, 1, 'a warning, not a crime');
     }
   }
   assert.ok(warned, 'a spared man pays his debt');
   console.log('trade: ok');
+})();
+
+// ---- The Rival answers a case: not a case gone cold ------------------------------------
+(function rivalCloses() {
+  var p0 = CF.Criminals.WEEKLY_CRIME;
+  CF.Criminals.WEEKLY_CRIME = 0;
+  var right = null, wrong = null;
+  for (var i = 0; i < 40 && !(right && wrong); i++) {
+    var e = game(300 + i);
+    var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+    var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+    var pr0 = e.s.meters.pressure, rep0 = e.s.meters.reputation, cold0 = e.s.stats.cold, events = [];
+    e.on(function (type, p) { if (type === 'resolved') events.push(p); });
+    var res = e.rivalCloses(rec, 'Jost Ammann');
+    assert.ok(res, 'the case was open');
+    assert.strictEqual(rec.status, 'rival', 'answered by the Rival');
+    assert.ok(!e.caseCard(rec.id), 'the case card leaves');
+    assert.strictEqual(e.s.meters.pressure, pr0, 'the Crowd does not rise');
+    assert.strictEqual(e.s.meters.reputation, Math.max(0, rep0 - 1), 'Standing -1');
+    assert.strictEqual(e.s.stats.cold, cold0, 'not counted cold');
+    assert.strictEqual(byDef(e, 'coldcase').length, 0, 'no Unanswered card');
+    assert.strictEqual(byDef(e, 'atlarge').length, 0, 'nobody walks laughing');
+    assert.ok(events.length === 1 && events[0].outcome === 'rival', 'the journal hears it as the Rival\'s');
+    var story = e.s.journal.filter(function (j) { return j.title === 'Answered by the Rival'; })[0];
+    assert.ok(story && story.text.indexOf('Jost Ammann has closed ' + rec.title) === 0, 'told once: ' + (story && story.text));
+    assert.ok(!e.s.journal.some(function (j) { return j.title === 'The Trail Goes Cold'; }), 'and not as a cold trail');
+    assert.strictEqual(e.rivalCloses(rec), null, 'a closed case cannot be closed twice');
+    var crim = e.criminalByName(culprit.name);
+    if (res.right) {
+      assert.strictEqual(res.hanged, culprit.name);
+      assert.ok(!crim || crim.status === 'dead', 'the culprit leaves the game');
+      right = e;
+    } else {
+      assert.ok(res.hanged && res.hanged !== culprit.name, 'a wrong name hangs');
+      assert.ok(crim && crim.hidden && crim.wrongfulHow === 'rival', 'the culprit lies low');
+      wrong = { e: e, crim: crim, rec: rec };
+    }
+  }
+  assert.ok(right && wrong, 'both ends happen');
+  // The wrong name's ballad blames the Harbourmaster's examiner, not you.
+  var w = wrong.e;
+  w.s.meters.pressure = 0;
+  for (var wk = 0; wk < 4; wk++) { w.s.week++; w.criminalsAct(); }
+  var ballad = w.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
+  assert.ok(ballad && /the one the Harbourmaster's examiner hanged was /.test(ballad.text) && !/sent down/.test(ballad.text), 'the Rival\'s wrong name: ' + (ballad && ballad.text));
+  var al = byDef(w, 'atlarge').filter(function (c) { return c.data.criminalId === wrong.crim.id; })[0];
+  assert.ok(al && al.desc.indexOf('Someone else hanged for ' + wrong.rec.title + '.') > 0, 'hanged, on the Abroad card');
+  // A culprit already Abroad, hanged by the Rival: the card goes.
+  var a = game(360), ak = byDef(a, 'case')[0], ar = a.caseRec(ak.caseId), ac = ar.suspects.filter(function (x) { return x.guilty; })[0];
+  var rcd = a.criminalEscapes({ title: 'an old case' }, ac, 'cold');
+  a.create('atlarge', { label: 'Abroad: ' + ac.name, data: { name: ac.name, criminalId: rcd.id } });
+  var gone = false;
+  for (var j = 0; j < 30 && !gone; j++) {
+    var b = CF.Engine.load(a.save()); b.rng.setState(j * 7 + 1);
+    var r2 = b.rivalCloses(b.caseRec(ar.id));
+    if (r2.right) { assert.strictEqual(byDef(b, 'atlarge').length, 0, 'the Abroad card goes with the hanged'); assert.strictEqual(b.criminalByName(ac.name).status, 'dead'); gone = true; }
+  }
+  assert.ok(gone, 'the Rival hangs the right one in time');
+  CF.Criminals.WEEKLY_CRIME = p0;
+  console.log('rival closes: ok');
+})();
+
+// ---- An innocent acquitted is nobody to hunt; one name hangs once ----------------------
+(function innocentAbroad() {
+  var e = game(301), rec = e.openCases()[0];
+  var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  rec.status = 'trial';
+  var cc = e.caseCard(rec.id); if (cc) e.remove(cc);
+  var acquitted = false;
+  for (var i = 0; i < 20 && !acquitted; i++) {
+    var g = CF.Engine.load(e.save()); g.rng.setState(i * 13 + 5);
+    g.verdict(g.create('trial', { data: { caseId: rec.id, name: innocent.name, guilty: false, solid: false, tier: 'weak', real: 1, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
+    if (g.caseRec(rec.id).status === 'acquitted') { acquitted = true; e = g; }
+  }
+  assert.ok(acquitted, 'the innocent walked');
+  var al = e.cardsOf('atlarge', true).filter(function (c) { return c.data.name === innocent.name; })[0];
+  assert.ok(al && al.data.innocent && al.life > 0, 'their Abroad card is marked innocent, and leaves in time');
+  assert.ok(!e.huntable(al), 'nobody to hunt');
+  // No informer sees them, and a sighting brought anyway raises no hue and cry.
+  var inf = e.create('informant', e.informantSpec('market'));
+  for (var k = 0; k < 30; k++) e.informantTip(inf);
+  assert.ok(!e.cardsOf('intel', true).some(function (c) { return c.data.kind === 'sighting' && c.data.criminal === innocent.name; }), 'no sighting of an innocent');
+  assert.strictEqual(e.informerOffer().atlarge.indexOf(al), -1, 'a paid informer has no sighting of them');
+  var sight = e.create('intel', { label: 'Sighting: ' + innocent.name, data: { kind: 'sighting', criminal: innocent.name } });
+  e.autoSlot('reflect', sight.uid); e.autoSlot('reflect', al.uid);
+  assert.strictEqual(e.preview('reflect').blocked, CF.INNOCENT_NO_HUNT, 'a sighting of an innocent is blocked: ' + e.preview('reflect').blocked);
+  e.clearSlots('reflect');
+  var before = e.openCases().filter(function (r) { return r.template === 'manhunt'; }).length;
+  for (var w = 0; w < 6; w++) e.weekTick();
+  assert.strictEqual(e.openCases().filter(function (r) { return r.template === 'manhunt' && r.suspects.some(function (x) { return x.guilty && x.name === innocent.name; }); }).length, 0, 'no hue and cry for them');
+  void before;
+  // They leave the city in the end.
+  e.tick(al.life + 1);
+  assert.ok(!e.card(al.uid), 'gone after their weeks');
+  assert.ok(e.s.journal.some(function (j) { return j.title === 'Gone from the City'; }), 'and told');
+
+  // Two hunts for one name: a hunt at trial still counts, and a conviction calls off the other.
+  var h = game(302), cr = h.openCases()[0], cul = cr.suspects.filter(function (x) { return x.guilty; })[0];
+  var crim = h.criminalEscapes(cr, cul, 'cold');
+  var ab = h.create('atlarge', { label: 'Abroad: ' + cul.name, data: { name: cul.name, trait: cul.trait, criminalId: crim.id } });
+  var A = h.spawnCase('manhunt', { culpritName: cul.name, culpritTrait: cul.trait, atLargeUid: ab.uid, criminalId: crim.id, headline: 'Hue and Cry: ' + cul.name });
+  ab.data.hunted = A.caseId;
+  var recA = h.caseRec(A.caseId);
+  recA.status = 'trial';
+  assert.ok(h.huntRunning(ab) && !h.huntable(ab), 'a hunt before the Court is still a hunt');
+  var s2 = h.create('intel', { label: 'Sighting: ' + cul.name, data: { kind: 'sighting', criminal: cul.name } });
+  h.autoSlot('reflect', s2.uid); h.autoSlot('reflect', ab.uid);
+  assert.ok(/already hunting/.test(h.preview('reflect').blocked || ''), 'no second hue and cry while the first is at trial: ' + h.preview('reflect').blocked);
+  h.clearSlots('reflect');
+  // A second hunt raised all the same (an older save): the conviction in the first calls it off.
+  var B = h.spawnCase('manhunt', { culpritName: cul.name, culpritTrait: cul.trait, criminalId: crim.id, headline: 'Sighting: ' + cul.name });
+  var recB = h.caseRec(B.caseId);
+  h.onConviction(recA, { name: cul.name, guilty: true, solid: true }, []);
+  assert.strictEqual(recB.status, 'dropped', 'the other hue and cry is called off');
+  assert.ok(!h.caseCard(recB.id), 'its card goes');
+  assert.ok(h.s.journal.some(function (j) { return /^Called Off: /.test(j.title) && j.text.indexOf(cul.name + ' is already in the Hole') === 0; }), 'and it is told');
+  // An older save's innocent Abroad card is marked on load.
+  var o = game(303);
+  var oc = o.create('atlarge', { label: 'Abroad: Old Name', desc: 'Old Name walked out of the Blood Court smiling. They were innocent, and now they hate you.', data: { name: 'Old Name', careful: true, criminalId: null } });
+  var raw = JSON.parse(o.save()); delete raw.cards[oc.uid].data.innocent;
+  var ol = CF.Engine.load(raw), olc = ol.card(oc.uid);
+  assert.ok(olc.data.innocent === true && olc.life > 0, 'an older save: the innocent is marked, with weeks to leave');
+  console.log('innocent abroad, one hunt per name: ok');
+})();
+
+// A hue and cry that goes cold sets the name loose again: at large, hotter,
+// working again, and sightable by an informer again. An older save's stale
+// 'hunted' record heals itself at the Bell.
+(function huntEnds() {
+  var g = game(311), cr = g.openCases()[0], cul = cr.suspects.filter(function (x) { return x.guilty; })[0];
+  var crim = g.criminalEscapes(cr, cul, 'cold');
+  var al = g.create('atlarge', { label: 'Abroad: ' + cul.name, data: { name: cul.name, trait: cul.trait, criminalId: crim.id, sighted: true } });
+  var sight = g.create('intel', { label: 'Sighting: ' + cul.name, data: { kind: 'sighting', criminal: cul.name } });
+  assert.ok(g.sightingOut(al), 'a sighting in hand: no second one for that name');
+  var res = run(g, 'reflect', [sight, al]);
+  assert.strictEqual(res.id, 'ref_sighting');
+  var hunt = res.out.filter(function (c) { return c && c.def === 'case'; })[0];
+  assert.ok(hunt, 'the hue and cry is raised');
+  assert.strictEqual(crim.status, 'hunted', 'the record is hunted while it runs');
+  var heat = crim.heat || 0;
+  g.goCold(hunt.caseId);
+  assert.strictEqual(crim.status, 'at_large', 'a cold hunt leaves them at large, not hunted for good');
+  assert.strictEqual(crim.heat, heat + 1, 'and hotter');
+  assert.ok(crim.traits.indexOf('slipped') >= 0 && /Slipped the hue and cry once\./.test(al.desc), 'the Abroad card says they slipped it');
+  assert.ok(!al.data.sighted && !g.sightingOut(al) && g.huntable(al), 'and an informer can sight them again');
+  assert.ok(crim.history.some(function (h) { return h.how === 'slipped'; }), 'on the record');
+  // Every road that raises the hue and cry marks the record the same way.
+  var h2 = game(312), cr2 = h2.openCases()[0], cul2 = cr2.suspects.filter(function (x) { return x.guilty; })[0];
+  var crim2 = h2.criminalEscapes(cr2, cul2, 'cold');
+  var al2 = h2.create('atlarge', { label: 'Abroad: ' + cul2.name, data: { name: cul2.name, trait: cul2.trait } });
+  h2.huntBegins(al2, 'c999');
+  assert.strictEqual(crim2.status, 'hunted', 'found by name when the card has no record id');
+  assert.ok(h2.huntStale(crim2), 'no such hunt running: stale');
+  h2.criminalsAct();
+  assert.strictEqual(crim2.status, 'at_large', 'a stale hunted record is at large again at the Bell');
+  console.log('a cold hue and cry sets them loose: ok');
+})();
+
+// ---- Turn the Watch's Eyes waits for a case already on its way; Old Ghosts pairs a case with its own; a hunt is tried for the crime ----------
+(function queuedAndGhosts() {
+  var e = game(71); e.s.rank = 3;
+  var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+  var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  kase.life = 0.1; e.tick(1);
+  var crim = e.criminalByName(culprit.name);
+  // The criminal's next crime is queued; the Quarter in Attend cannot overwrite it.
+  e.s.nextCase = { template: e.criminalTrade(crim), culpritName: crim.name, culpritTrait: crim.trait, criminalId: crim.id, district: 'market', extraTime: 0, told: false };
+  var queued = e.s.nextCase;
+  var q = e.giveDistrict('market');
+  assert.ok(e.autoSlot('duty', q.uid), 'a Quarter in Attend');
+  var pv = e.preview('duty');
+  assert.ok(pv && pv.label === 'Turn the Watch\'s Eyes', 'the Proclamation offers itself: ' + (pv && pv.label));
+  assert.strictEqual(pv.blocked, 'Something is already on its way to your desk.');
+  assert.ok(!e.start('duty'), 'and does not start');
+  assert.strictEqual(e.s.nextCase, queued, 'the queued case is untouched');
+  e.clearSlots('duty');
+  e.s.dispatchT = 0; e.s.cases[rec.id].status = 'cold';
+  e.openCases().forEach(function (r) { r.status = 'closed'; });
+  for (var i = 0; i < 400 && e.s.nextCase; i++) e.tick(1);
+  assert.ok(e.openCases().some(function (r) { return r.criminalId === crim.id; }), 'the criminal\'s case arrives');
+  // With nothing queued it runs.
+  e.s.nextCase = null;
+  assert.ok(e.autoSlot('duty', q.uid) && !e.preview('duty').blocked && e.start('duty'), 'nothing queued: the Watch turns its eyes');
+
+  // Old Ghosts: the Abroad card must be the one who walked from that case.
+  var g = game(72);
+  var gk = byDef(g, 'case')[0], grec = g.caseRec(gk.caseId), gcul = grec.suspects.filter(function (x) { return x.guilty; })[0];
+  gk.life = 0.1; g.tick(1);
+  var cold = byDef(g, 'coldcase')[0], own = byDef(g, 'atlarge')[0];
+  assert.ok(cold && own && own.data.name === gcul.name);
+  var other = g.create('atlarge', { label: 'Abroad: Somebody Else', data: { name: 'Somebody Else', trait: gcul.trait } });
+  var ghosts = CF.RECIPES_BY_ID.ref_cold_atlarge;
+  var ctxOf = function (al) { return { e: g, first: function (k) { return k === 'coldcase' ? cold : k === 'atlarge' ? al : null; } }; };
+  assert.strictEqual(ghosts.blocked(ctxOf(other)), 'That is not the one who walked from this case.');
+  assert.strictEqual(ghosts.blocked(ctxOf(own)), null, 'the one who walked: open');
+  assert.ok(CF.walkedFrom({ data: {} }, other), 'a cold case that kept no name takes anyone');
+  g.remove(other);
+  var title = cold.data.title;
+  var res = run(g, 'reflect', [cold, own]);
+  var hunt = res.out.filter(function (c) { return c.def === 'case'; })[0];
+  var hrec = g.caseRec(hunt.caseId);
+  assert.strictEqual(hrec.template, 'manhunt');
+  assert.strictEqual(hrec.crimeTitle, title, 'the hunt remembers the crime');
+  assert.strictEqual(g.convictedOf(hrec), title, 'and is tried for it');
+  var t = g.create('trial', { data: { caseId: hrec.id, name: gcul.name, guilty: true, solid: true, tier: 'strong', real: 9, need: 4, coerced: 0, planted: 0, illegal: 0, contradictions: 0 } });
+  hrec.status = 'trial';
+  g.verdict(t);
+  var guilty = g.s.journal.filter(function (j) { return /^Guilty: /.test(j.title); })[0];
+  assert.ok(guilty, 'a conviction');
+  assert.ok(guilty.text.indexOf('is convicted of ' + title) >= 0 && !/convicted of Hue and Cry/.test(guilty.text), 'convicted of the crime: ' + guilty.text);
+  assert.ok(/The hue and cry brought them in\./.test(guilty.text));
+  var cond = byDef(g, 'condemned')[0];
+  assert.ok(!cond || cond.desc.indexOf('convicted of ' + title) >= 0, 'the Condemned card names the crime');
+  // Without a cold case the record gives the crime; an older save's hunt finds it on load.
+  assert.strictEqual(g.walkedFromTitle({ culpritName: gcul.name }), title);
+  var old = JSON.parse(g.save());
+  delete old.cases[hrec.id].crimeTitle;
+  assert.strictEqual(CF.Engine.load(old).s.cases[hrec.id].crimeTitle, title, 'backfilled from the record');
+  console.log('a queued case kept, Old Ghosts paired, the hunt tried for the crime: ok');
 })();

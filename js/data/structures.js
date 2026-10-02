@@ -3,7 +3,10 @@
 // fill ({time}, {entry}, {item}, {detail}, {escape}...) and supplies a brief
 // and two scene items written against them. Pools are drawn per case, so
 // one structure reads many ways. Templates keep their roles, witnesses,
-// leads and shared items; a structure adds to them.
+// leads and shared items; a structure adds to them. An item whose words
+// describe a mark (a key, pipe ash, a cut hand) says so with
+// `echoes: '<trait>'`: no innocent of the case carries that mark, and on
+// the culprit the item is a mark (see spawnCase).
 (function (G) {
   var CF = G.CF;
 
@@ -18,22 +21,22 @@
       { id: 'inside_key', vars: { time: ['overnight', 'during the dinner hour', 'on the one evening the shop shuts early'], entry: ['the front door, with a key', 'the yard door', 'the stair from the rooms above'], item: ['the strongbox\'s contents', 'the stock book and the stock', 'three silver spoons and a ledger'], detail: ['nothing at all, which is the strange part', 'the candle go on and off again, as if someone knew the house', 'a familiar cloak in the doorway'] },
         brief: 'No broken glass at {victim}\'s. Whoever came in {time} used {entry}, and left with {item}. A neighbour reports seeing {detail}.',
         items: [
-          { type: 'clue', label: 'A Key, Not a Crow', text: '{entry}: no marks, no damage. Whoever came in was expected, or had a key.', aspects: { opportunity: 2 } },
+          { type: 'clue', label: 'A Key, Not a Crow', text: '{entry}: no marks, no damage. Whoever came in was expected, or had a key.', aspects: { opportunity: 2 }, echoes: 'key' },
           { type: 'evidence', label: 'The Key Tally', text: 'Who has keys, and since when. Someone has crossed a name out.', needs: null,
             result: { label: 'The Key-holders', text: 'Four keys. Three are accounted for. The fourth was "lost" a month ago by someone who still comes and goes.', aspects: { opportunity: 2, testimony: 1 } } },
         ] },
       { id: 'smash_grab', vars: { time: ['at the dead of the night', 'during the storm', 'in the quarter-hour between the watchman\'s rounds'], entry: ['the shop window, with a cobble', 'the shutter, with a crow', 'the yard gate'], item: ['the window display', 'whatever stood in the shop front', 'a case of plate'], detail: ['a cart with the tail-board up', 'two people running, one of them limping under the weight', 'somebody laughing'] },
         brief: 'Splinters everywhere at {victim}\'s. Someone went through {entry} {time}, took {item}, and was gone before the watchman finished shouting. A neighbour reports seeing {detail}.',
         items: [
-          { type: 'evidence', label: 'Blood on the Glass', text: 'They cut themselves going in, or out.', needs: 'bio',
+          { type: 'evidence', label: 'Blood on the Glass', text: 'They cut themselves going in, or out.', needs: 'bio', echoes: 'bandage',
             result: { label: 'The Blood Read', text: 'A great deal of it. The barber-surgeon in the Abbey Close stitched a hand the same morning.', aspects: { forensic: 3 } } },
           { type: 'clue', label: 'The Getaway', text: 'Wheel-ruts across the gutter, {detail}. They did not care who saw.', aspects: { opportunity: 1, testimony: 1 } },
         ] },
       { id: 'quiet_safe', vars: { time: ['some time between Friday night and Monday morning', 'while the family was at a burial', 'during the wedding downstairs'], entry: ['the study casement', 'the garden door', 'the cellar hatch'], item: ['the strongbox, opened rather than forced', 'the jewel-case and nothing else', 'the deeds and the coin'], detail: ['a light in the study past compline', 'a tradesman\'s cart that no tradesman came from', 'a guest who left early'] },
         brief: '{victim} is not sure when it happened: {time}. Only {entry} was touched, and only {item} taken. A neighbour reports seeing {detail}. Somebody knew the house.',
         items: [
-          { type: 'clue', label: 'The Second Key', text: 'The strongbox was opened, not forced. Three people have a key. One of them lent it.', aspects: { opportunity: 2, motive: 1 } },
-          { type: 'evidence', label: 'Pipe Ash in the Study', text: 'Nobody in the house smokes.', needs: 'bio',
+          { type: 'clue', label: 'The Second Key', text: 'The strongbox was opened, not forced. Three people have a key. One of them lent it.', aspects: { opportunity: 2, motive: 1 }, echoes: 'key' },
+          { type: 'evidence', label: 'Pipe Ash in the Study', text: 'Nobody in the house smokes.', needs: 'bio', echoes: 'menthol',
             result: { label: 'The Tobacco Named', text: 'Cheap leaf, sold at two shops in the city. Both keep a slate for regulars.', aspects: { forensic: 2, testimony: 1 } } },
         ] },
     ],
@@ -257,19 +260,19 @@
         brief: 'The first girl was found {time}: {detail}. In the doorway, {item}.',
         items: [
           { type: 'clue', label: 'The Night After the Fair', text: '{detail}. He comes when the city is tired.', aspects: { opportunity: 2 }, pattern: true },
-          { type: 'evidence', label: '{item}', text: 'Left by a hand that did not think it was leaving anything.', needs: 'bio',
+          { type: 'evidence', label: '{item}', text: 'Left by a hand that did not think it was leaving anything.', needs: 'bio', echoes: 'sandalwood',
             result: { label: 'The Scent Named', text: 'Attar of roses, and under it something the apothecary\'s boy knows from one shop only.', aspects: { forensic: 2, testimony: 1 } } },
         ] },
-      { id: 'doors', vars: { time: ['before matins', 'in the fog', 'in the hour the lamps go out'], detail: ['every door faces the same way', 'every lane runs down to the river', 'every girl was found within a bell of the spinning-house'], item: ['a chalk mark on the lintel', 'a cut lock of hair returned, tied with ribbon', 'a coin under the tongue'] },
+      { id: 'doors', vars: { time: ['before matins', 'in the fog', 'in the hour the lamps go out'], detail: ['Every door in that lane faces the river', 'The lane runs straight down to the water', 'The door is a bell\'s walk from the spinning-house'], item: ['a chalk mark', 'a cut lock of hair, tied with ribbon', 'a coin pressed into the wood'] },
         brief: 'A girl of {scene} found {time}, hair cut off. {detail}. On the doorpost, {item}.',
         items: [
           { type: 'clue', label: 'The Doors', text: '{detail}. He chooses the door before the girl.', aspects: { opportunity: 2 }, pattern: true },
           { type: 'clue', label: '{item}', text: 'A signature, or a courtesy. He wants somebody to read it.', aspects: { motive: 1, forensic: 1 } },
         ] },
-      { id: 'attar', vars: { time: ['the night the perfumer\'s shop stayed lit', 'the night of the rose fair', 'the night after the players'], detail: ['the smell of attar in the lane', 'a phial with a shop\'s mark', 'petals in the gutter under the door'], item: ['a stoppered phial', 'a receipt for civet', 'a barber\'s strop'] },
+      { id: 'attar', vars: { time: ['the night the perfumer\'s shop stayed lit', 'the night of the rose fair', 'the night after the players came'], detail: ['the smell of attar in the lane', 'a phial with a shop\'s mark', 'petals in the gutter under the door'], item: ['a stoppered phial', 'a receipt for civet', 'a barber\'s strop'] },
         brief: 'A girl found {time} with her hair cut close, and in the doorway {detail}. Dropped nearby, {item}.',
         items: [
-          { type: 'clue', label: 'The Scent', text: '{detail}. One shop in the city sells it.', aspects: { forensic: 2 }, pattern: true },
+          { type: 'clue', label: 'The Scent', text: '{detail}. One shop in the city sells it.', aspects: { forensic: 2 }, pattern: true, echoes: 'sandalwood' },
           { type: 'evidence', label: '{item}', text: 'Not a thing the lane would drop.', needs: 'bio',
             result: { label: 'The Shop Named', text: 'The apothecary\'s boy names the shop and the hand that buys there.', aspects: { testimony: 2, opportunity: 1 } } },
         ] },
@@ -314,6 +317,92 @@
           { type: 'clue', label: 'The Light Scale', text: '{detail}. The Muhtasib tests weights on market day; this one was tested and passed, which means somebody was paid.', aspects: { financial: 1, motive: 1 } },
           { type: 'evidence', label: '{item}', text: 'Locked away like something precious, which it is.', needs: 'bio',
             result: { label: 'The Clippings Assayed', text: 'Good silver, from the new coinage, and the same shears\' bite on every edge.', aspects: { forensic: 2, financial: 1 } } },
+        ] },
+    ],
+    weights: [
+      { id: 'drilled', vars: { time: ['since Easter', 'since the new Warden', 'since the harvest'], detail: ['a curl of lead under the bench', 'red wax under the stamp', 'it rings wrong when struck'], item: ['a little drill', 'a stick of red wax', 'a second pound weight, a true one'] },
+        brief: 'The pound weight at {scene} has been light {time}: {detail}. Somebody opened it and stopped it again. In a drawer, {item}.',
+        items: [
+          { type: 'clue', label: 'The Weight Struck', text: '{detail}. A careful hand did this, and more than once.', aspects: { forensic: 1, opportunity: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Kept where nobody looks.', needs: 'prints',
+            result: { names: true, label: 'The Hand on the Drill', text: 'Vinegar brings up a thumb where the work was held, and the thumb has a name.', aspects: { forensic: 2, testimony: 1 } } },
+        ] },
+      { id: 'two_pounds', vars: { time: ['on market day', 'on Saturdays', 'while the Warden is at Mass'], detail: ['a true pound for the Warden and a light one for the farmers', 'the grain bought light and sold true', 'a second set of weights in a sack'], item: ['the factor\'s day-book', 'a bill of sale in two hands', 'a receipt from the Mint'] },
+        brief: 'At {scene} there are two pounds: {detail}. They change over {time}. Somebody keeps the books on it: {item}.',
+        items: [
+          { type: 'clue', label: 'Two Pounds', text: '{detail}. One scale, and two honest faces.', aspects: { financial: 2 } },
+          { type: 'clue', label: '{item}', text: 'Two prices for one sack, and the difference in a column of its own.', aspects: { financial: 1, testimony: 1 } },
+        ] },
+      { id: 'the_runner', vars: { time: ['every quarter-day', 'once a month', 'at Lady Day'], detail: ['the basket left an hour at a tavern', 'a seal on the basket broken and pressed again', 'the runner seen at a smith\'s'], item: ['the basket\'s seal', 'a tavern reckoning', 'a smith\'s chit for fine work'] },
+        brief: 'The weights of {scene} go to the Mint to be tried {time}, in a basket, with the Warden\'s runner. This time {detail}. Found after: {item}.',
+        items: [
+          { type: 'clue', label: 'The Basket', text: '{detail}. An hour is long enough to change a weight.', aspects: { opportunity: 2 } },
+          { type: 'clue', label: '{item}', text: 'It puts the basket somewhere it should not have been.', aspects: { testimony: 1, financial: 1 } },
+        ] },
+    ],
+    searchers: [
+      { id: 'the_pillow', vars: { time: ['on the Sunday night', 'after the bells', 'before the searchers came'], detail: ['a pillow turned the wrong way', 'feathers under the bed', 'the weave of linen pressed into a cheek'], item: ['a pillow-case with a stain', 'a cup with a sleeping-draught in the lees', 'a broken rosary'] },
+        brief: '{victim} was alive {time}, and by morning the searchers had called it plague. In the room, {detail}. Under the bed, {item}.',
+        items: [
+          { type: 'clue', label: 'The Room', text: '{detail}. A sick man does not tidy his own death.', aspects: { forensic: 1, opportunity: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Left behind when the cart came.', needs: 'bio',
+            result: { label: 'What the Room Kept', text: 'Song Ci\'s rule: look at the room before the body. The room says somebody else was in it, and stayed till it was done.', aspects: { forensic: 2, opportunity: 1 } } },
+        ] },
+      { id: 'the_fee', vars: { time: ['the same morning', 'before the bell for terce', 'within the hour'], detail: ['a gulden where fourpence was owed', 'a new shawl on the searcher', 'a jug of wine sent to her door'], item: ['the parish fee-book', 'a purse with a stranger\'s mark', 'a note in a good hand'] },
+        brief: 'The searchers wrote "plague" against {victim} {time}, and were paid for it twice: {detail}. In the searchers\' lodging, {item}.',
+        items: [
+          { type: 'clue', label: 'Paid Twice', text: '{detail}. The parish does not pay so well.', aspects: { testimony: 1, opportunity: 1 } },
+          { type: 'clue', label: '{item}', text: 'Somebody paid for a word, and the word was plague.', aspects: { testimony: 2 } },
+        ] },
+      { id: 'the_lease', vars: { time: ['the day the cross came down', 'before the body was cold', 'at the next quarter-day'], detail: ['the lease changed hands', 'the room was let again', 'the shop below was sold'], item: ['a lease with the ink still wet', 'a letter about the room', 'a landlord\'s rent-book'] },
+        brief: '{victim}\'s room was shut with a red cross for forty days, and {time} {detail}. On the table at the notary\'s, {item}.',
+        items: [
+          { type: 'clue', label: 'Who Gains the Room', text: '{detail}. The plague is good for somebody\'s business.', aspects: { opportunity: 1, testimony: 1 } },
+          { type: 'clue', label: '{item}', text: 'Dated before the death. Somebody knew there would be a room.', aspects: { opportunity: 2 } },
+        ] },
+    ],
+    mint: [
+      { id: 'the_old_die', vars: { time: ['since Michaelmas', 'since the new Mintmaster', 'for a year'], detail: ['an old die never broken', 'a die with the old eagle', 'a die wrapped in oilcloth'], item: ['a strongbox with its key', 'a ledger of dies', 'a crate of blanks'] },
+        brief: 'The Mint has been striking light {time}. In the die-room, {detail}. Behind the press, {item}.',
+        items: [
+          { type: 'clue', label: 'The Old Die', text: '{detail}. It should have been broken before the Council.', aspects: { digital: 1, forensic: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Hidden where only the Mint\'s people go.', needs: 'prints',
+            result: { names: true, label: 'The Hand on the Die', text: 'Vinegar brings up a thumb black with die-grease, and the thumb has a name.', aspects: { forensic: 2, digital: 1 } } },
+        ] },
+      { id: 'the_silver', vars: { time: ['after the bell', 'on feast days', 'when the river is high'], detail: ['a boat at the river gate', 'silver weighed by lantern', 'sacks carried in and out the same night'], item: ['a boatman\'s tally', 'a silver merchant\'s bill', 'the gatekeeper\'s purse'] },
+        brief: 'Silver comes into the Mint {time}: {detail}. More goes out than came in, and the city\'s eagle is on all of it. The trail: {item}.',
+        items: [
+          { type: 'clue', label: 'At the River Gate', text: '{detail}. The Mint\'s book has no line for it.', aspects: { financial: 2 } },
+          { type: 'clue', label: '{item}', text: 'It knows where the silver went, and who paid.', aspects: { financial: 1, digital: 1 } },
+        ] },
+      { id: 'the_beam', vars: { time: ['each quarter', 'at every melt', 'since the assayer married'], detail: ['a filed beam', 'a weight with fresh marks', 'a pan that sits low'], item: ['a fine file', 'a pound weight, drilled', 'an assay report in two hands'] },
+        brief: 'The Mint\'s scales were tried {time} and found honest by the man who tried them. Look again: {detail}. In the assay room, {item}.',
+        items: [
+          { type: 'clue', label: 'The Beam', text: '{detail}. Honest scales are not kept like this.', aspects: { forensic: 1, financial: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Put away carefully, which is the telling thing.', needs: 'bio',
+            result: { label: 'The Assay Checked', text: 'Tried again against the city\'s standard, the reports are false by the same grain every time. One hand wrote them.', aspects: { digital: 2, forensic: 1 } } },
+        ] },
+    ],
+    gloryhand: [
+      { id: 'the_candle', vars: { time: ['the night of the new moon', 'on Walpurgis night', 'the night after a hanging'], detail: ['a stub of candle on the sill', 'grease on the shutter', 'a black ring burned into the boards'], item: ['a twist of poppy', 'a bit of hemp rope', 'a tallow-chandler\'s mould'] },
+        brief: 'The house slept {time}, and the thieves walked through it. They left {detail}, and by the door, {item}.',
+        items: [
+          { type: 'clue', label: 'The Candle\'s Place', text: '{detail}. Whoever set it there knew the house would sleep.', aspects: { opportunity: 1, forensic: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Dropped on the way out.', needs: 'bio',
+            result: { label: 'What It Was Made Of', text: 'Poppy and henbane and a hanged man\'s fat. Somebody bought the first two, and somebody cut the third.', aspects: { forensic: 2, testimony: 1 } } },
+        ] },
+      { id: 'the_gibbet', vars: { time: ['three nights before', 'the night of the fair', 'after the Friday hanging'], detail: ['a ladder at the gibbet', 'a hand gone from a hanged man', 'fresh rope on the chains'], item: ['a knecht\'s knife', 'a cut sleeve', 'a sack with dark stains'] },
+        brief: 'Somebody climbed the Ravenstone {time}: {detail}. Below the gibbet, {item}.',
+        items: [
+          { type: 'clue', label: 'The Ravenstone', text: '{detail}. The executioner\'s men are the only ones who climb it by day.', aspects: { opportunity: 2 } },
+          { type: 'clue', label: '{item}', text: 'From the gibbet to the house is a long walk with a dead man\'s hand.', aspects: { forensic: 1, testimony: 1 } },
+        ] },
+      { id: 'the_posset', vars: { time: ['at nine', 'after Compline', 'at supper'], detail: ['the posset was bitter', 'the dogs were fed late', 'the shutters were left on the latch'], item: ['the posset cup', 'a paper of powder', 'a key on a string'] },
+        brief: 'The household drank its posset {time} and slept like the dead. The cook remembers that {detail}. In the kitchen, {item}.',
+        items: [
+          { type: 'clue', label: 'The Kitchen', text: '{detail}. Somebody inside helped the thieves in.', aspects: { testimony: 1, opportunity: 1 } },
+          { type: 'evidence', label: '{item}', text: 'Pushed behind the bread oven.', needs: 'bio',
+            result: { label: 'Poppy in the Lees', text: 'Poppy in the lees, and not a little. The hand of glory was a story for the Dominicans.', aspects: { forensic: 2, opportunity: 1 } } },
         ] },
     ],
   };

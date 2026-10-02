@@ -159,3 +159,114 @@ console.log('reflect: identification (possible/confirmed), conflict, theories, t
   assert.strictEqual(made.data.points, cul2.key, 'it points at the one not in the Hole');
   console.log('two confessions: ok');
 })();
+
+// One Sleep for every Weariness on the table (two without Coin), one Let It Go for every Obsession:
+// the upkeep is one run, not one run a card.
+(function restAll() {
+  var g = CF.Engine.newGame({ seed: 41, calling: 'master' });
+  function on(d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function sleep(cards) {
+    cards.forEach(function (c) { assert.ok(g.autoSlot('reflect', c.uid), 'reflect took ' + g.labelOf(c)); });
+    var pv = g.preview('reflect');
+    assert.ok(pv && !pv.blocked, 'a rest starts');
+    assert.ok(g.start('reflect'));
+    g.tick(g.verb('reflect').duration + 0.01);
+    g.collect('reflect');
+    return pv;
+  }
+  on('fatigue').forEach(function (c) { g.remove(c); });
+  on('obsession').forEach(function (c) { g.remove(c); });
+  for (var i = 0; i < 3; i++) g.create('fatigue');
+  g.autoSlot('reflect', on('fatigue')[0].uid);
+  var pv = g.preview('reflect');
+  assert.ok(/Coin takes every one/.test(pv.text || pv.preview || JSON.stringify(pv)), 'unpaid, the preview says two and what Coin buys: ' + JSON.stringify(pv));
+  g.clearSlots('reflect');
+  sleep([on('fatigue')[0]]);
+  assert.strictEqual(on('fatigue').length, 1, 'an unpaid Sleep takes two Weariness');
+  for (var j = 0; j < 3; j++) g.create('fatigue');
+  var coin = on('funds')[0] || g.create('funds');
+  pv = sleep([on('fatigue')[0], coin]);
+  assert.ok(/Every Weariness on the table/.test(JSON.stringify(pv)), 'paid, every Weariness: ' + JSON.stringify(pv));
+  assert.strictEqual(on('fatigue').length, 0, 'a paid Sleep takes every one');
+  for (var k = 0; k < 3; k++) g.create('obsession');
+  sleep([on('obsession')[0]]);
+  assert.strictEqual(on('obsession').length, 0, 'Let It Go takes every Obsession on the table');
+  g.create('burnout'); g.create('burnout');
+  sleep([on('burnout')[0]]);
+  assert.strictEqual(on('burnout').length, 1, 'A Long Rest is still one Fever at a time');
+  console.log('rest takes every like card: ok');
+})();
+
+// ---- A mark left to be found ------------------------------------------------------------------
+// From the Bailiff's office some scenes hold an innocent's mark, put there to
+// be read. Laid in Rest beside the culprit's own, Two Accounts says so.
+(function stagedMark() {
+  // The scene: at Bailiff about a third of cases carry one; an Examiner's never do.
+  var n = 0, withMark = 0, low = 0;
+  for (var seed = 1; seed <= 120; seed++) {
+    var g = CF.Engine.newGame({ seed: 4000 + seed, calling: 'master' });
+    g.s.rank = 2;
+    var r3 = g.caseRec(g.spawnCase('burglary', {}).caseId);
+    var cul3 = r3.suspects.filter(function (x) { return x.guilty; })[0];
+    var st = r3.items.filter(function (it) { return it.staged; });
+    n++;
+    if (st.length) {
+      withMark++;
+      assert.strictEqual(st.length, 1, 'one staged mark at most');
+      var inn3 = r3.suspects.filter(function (x) { return x.trait === st[0].trait; })[0];
+      assert.ok(inn3 && !inn3.guilty && st[0].trait !== cul3.trait, 'the staged mark is an innocent\'s');
+      var tdef = CF.TRAITS.filter(function (t) { return t.id === st[0].trait; })[0];
+      assert.strictEqual(st[0].label, tdef.clue.label, 'it looks like the real thing');
+      assert.ok(CF.STAGED_MARK.tells.some(function (t) { return st[0].text === tdef.clue.text + ' ' + t; }), 'with a tell: ' + st[0].text);
+    }
+    assert.ok(r3.items.some(function (it) { return it.trait === cul3.trait && !it.staged; }), 'the culprit\'s own mark is still there');
+    var g0 = CF.Engine.newGame({ seed: 4000 + seed, calling: 'master' });
+    var r0 = g0.caseRec(g0.spawnCase('burglary', {}).caseId);
+    if (r0.items.some(function (it) { return it.staged; })) low++;
+  }
+  assert.ok(withMark > n * 0.2 && withMark < n * 0.5, 'about a third of a Bailiff\'s scenes: ' + withMark + '/' + n);
+  assert.strictEqual(low, 0, 'an Examiner\'s scenes are honest');
+
+  // Rest: the staged mark beside the culprit's own.
+  var g2 = CF.Engine.newGame({ seed: 8, calling: 'master' });
+  var k2 = g2.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  var r2 = g2.caseRec(k2.caseId);
+  var cul = r2.suspects.filter(function (x) { return x.guilty; })[0];
+  var inn = r2.suspects.filter(function (x) { return !x.guilty; })[0];
+  var itd = CF.TRAITS.filter(function (t) { return t.id === inn.trait; })[0];
+  function mk(item, flags) { return g2.create('clue', g2.clueSpec(r2, item, [], flags || {})); }
+  var put = mk({ label: itd.clue.label, text: itd.clue.text + ' ' + CF.STAGED_MARK.tells[1], aspects: itd.clue.aspects, trait: inn.trait, staged: true });
+  assert.ok(put.data.staged && put.data.trait === inn.trait, 'the token carries the innocent\'s mark, and is staged');
+  // Before it is read: against the innocent it is the trap (+0.5), against the culprit a contradiction.
+  var sInn = g2.make('suspect', { caseId: r2.id, data: { key: inn.key } });
+  var sCul = g2.make('suspect', { caseId: r2.id, data: { key: cul.key } });
+  assert.strictEqual(g2.assessCharge(sInn, [put]).corroboration, 0.5, 'laid against the innocent, the trap holds');
+  assert.strictEqual(g2.assessCharge(sCul, [put]).contradictions, 1, 'laid against the culprit, it describes someone else');
+  var real = mk({ label: 'Their Own Mark', text: 'x', aspects: { forensic: 1, opportunity: 1 }, trait: cul.trait });
+  [put, real].forEach(function (c) { assert.ok(g2.autoSlot('reflect', c.uid)); });
+  var pv = g2.preview('reflect');
+  assert.ok(pv && !pv.blocked && g2.currentRecipe('reflect').recipe.id === 'ref_deduce');
+  assert.ok(g2.start('reflect'));
+  g2.tick(g2.verb('reflect').duration + 0.01);
+  var v = g2.verb('reflect');
+  var out = v.out.map(function (u) { return g2.card(u); });
+  assert.strictEqual(v.story.title, 'A Mark Left to Be Found');
+  var made = out.filter(function (c) { return c.data.deduction === 'staged'; })[0];
+  assert.ok(made, 'a token comes of it');
+  assert.strictEqual(g2.labelOf(made), 'A Mark Left to Be Found');
+  assert.deepStrictEqual(CF.clueAspects(made), { motive: 1, opportunity: 1 });
+  assert.ok(made.data.points === cul.key && made.data.corroborated, 'it names the culprit, and corroborates');
+  assert.strictEqual(out.length, 3, 'both tokens come back beside it');
+  assert.strictEqual(g2.labelOf(put), 'Staged: ' + itd.clue.label, 'the staged token is called so');
+  assert.ok(!put.data.trait, 'and marks nobody now');
+  assert.deepStrictEqual(Object.keys(CF.clueAspects(put)), ['opportunity'], 'plain Presence');
+  assert.strictEqual(g2.assessCharge(sCul, [put]).contradictions, 0, 'read, it no longer counts against the culprit');
+  if (v.status === 'done') g2.collect('reflect');
+  // Two honest marks of two people: still the plain Two Accounts.
+  var a1 = mk({ label: 'A', text: 'a', aspects: { testimony: 2 }, trait: cul.trait }), a2 = mk({ label: 'B', text: 'b', aspects: { testimony: 2 }, trait: inn.trait });
+  [a1, a2].forEach(function (c) { assert.ok(g2.autoSlot('reflect', c.uid)); });
+  assert.ok(g2.start('reflect'));
+  g2.tick(g2.verb('reflect').duration + 0.01);
+  assert.strictEqual(g2.verb('reflect').story.title, 'Two Different People');
+  console.log('a mark left to be found: ok (' + withMark + '/' + n + ' Bailiff scenes)');
+})();

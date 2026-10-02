@@ -177,7 +177,9 @@
   //
   //   { id: 'scene', verb: 'investigate', label, duration, preview,
   //     needs: { aspects, without: [aspects that must be absent], tags, after: ['lead ids'], item: 'evidence key',
-  //              tool: 'bio'|'prints'|'lab', suspects: 1, sameDistrict: true, when(ctx, rec) },
+  //              tool: 'bio'|'prints'|'lab', suspects: 1, sameDistrict: true, when(ctx, rec),
+  //              structure: 'id' | ['ids'] (null for a case built before structures) },
+  //     also: ['lead ids'] this one stands in for (done together, and neither runs after the other),
   //     once: true (default), consume: true (the primary evidence),
   //     gives: [ { type: 'clue', label, text, aspects, trait: true, points: 'culprit' },
   //              { type: 'evidence', key, label, text, needs, result: { label, text, aspects } },
@@ -189,6 +191,9 @@
   // {culprit}) plus {seen}: what a witness would notice about the culprit.
   function leadVars(rec) {
     var vars = U.clone(rec.vars || {});
+    // A case written before its template's variables: the template's defaults.
+    var defs = (CF.CASE_TEMPLATES && CF.CASE_TEMPLATES[rec.template] && CF.CASE_TEMPLATES[rec.template].varDefaults) || {};
+    for (var dk in defs) if (vars[dk] === undefined) vars[dk] = defs[dk];
     var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
     vars.seen = cul ? CF.TRAIT_SEEN[cul.trait] : '';
     vars.culprit = cul ? cul.name : vars.culprit;
@@ -204,7 +209,9 @@
     if (n.without && list(n.without).some(function (a) { return ctx.has(a); })) return false;
     if (n.tags && !tagsOk(ctx, n.tags)) return false;
     if (n.after && !list(n.after).every(function (id) { return (rec.leads || {})[id]; })) return false;
-    if (n.item && !(ctx.primary.data && ctx.primary.data.item && ctx.primary.data.item.key === n.item)) return false;
+    if (n.item && !(ctx.primary.data && ctx.primary.data.item && list(n.item).indexOf(ctx.primary.data.item.key) >= 0)) return false;
+    // The structure the case was built from (a key or a list; null is a case from before structures).
+    if (n.structure !== undefined && list(n.structure).indexOf(rec.structure || null) < 0) return false;
     if (n.tool && !e.hasTool(ctx, n.tool)) return false;
     if (n.suspects && rec.suspects.filter(function (x) { return x.revealed; }).length < n.suspects) return false;
     if (n.sameDistrict) { var d = ctx.first('district'); if (!d || d.data.district !== rec.district) return false; }
@@ -217,14 +224,22 @@
     var cul = rec.suspects.filter(function (x) { return x.guilty; })[0];
     if (g.type === 'clue') {
       var flags = { points: g.points === 'culprit' ? rec.culprit : g.points || null, noMisread: !!g.noMisread };
-      var item = { label: fill(g.label), text: fill(g.text), aspects: g.aspects, tags: g.tags, trait: g.trait && cul ? cul.trait : null };
+      // `echoes`: words that describe a mark are the culprit's mark when it is theirs.
+      var echo = g.echoes && cul && cul.trait === g.echoes ? g.echoes : null;
+      var item = { label: fill(g.label), text: fill(g.text), aspects: g.aspects, tags: g.tags, trait: g.trait && cul ? cul.trait : echo };
       return ctx.give('clue', e.clueSpec(rec, item, e.helpers(ctx), flags));
     }
     if (g.type === 'evidence') {
       var needs = g.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[g.needs] + ' to analyse properly.' : '';
       var res = g.result ? { label: fill(g.result.label), text: fill(g.result.text), aspects: g.result.aspects } : null;
       return ctx.give('evidence', { label: fill(g.label), desc: fill(g.text) + ' Take it to Study.' + needs + ' (Raw proof in: ' + rec.title + ')',
-        caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res } } });
+        caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res,
+          trait: g.echoes && cul && cul.trait === g.echoes ? g.echoes : null } } });
+    }
+    // The Vanished, found alive: their own word, with nothing to gain by it.
+    if (g.type === 'witness' && g.victim) {
+      return ctx.give('witness', { label: 'Witness: ' + rec.victim, desc: U.fill('{victim}, found alive. Knows who put them in the cellar, and will swear to it. (Witness in: {title})', { victim: rec.victim, title: rec.title }),
+        caseId: rec.id, data: { knows: true, stake: 'none', who: 'the vanished', victim: true } });
     }
     if (g.type === 'witness') {
       var spec = e.witnessSpec(rec, g.who ? fill(g.who) : undefined);
@@ -248,7 +263,7 @@
           requires: { case: tid, primary: lead.primary || { investigate: 'case', analyze: 'evidence', interrogate: ['witness', 'suspect'], reflect: ['case', 'clue'] }[lead.verb], when: function (ctx) {
             var rec = leadRec(ctx);
             if (!rec) return false;
-            if (lead.once !== false && (rec.leads || {})[lead.id]) return false;
+            if (lead.once !== false && [lead.id].concat(list(lead.also)).some(function (id) { return (rec.leads || {})[id]; })) return false;
             return needsMet(lead, ctx, rec);
           } },
           run: function (ctx) {
@@ -256,6 +271,8 @@
             if (!rec) return { title: 'Too Late', text: 'By the time you get to it, the case is no longer open. The moment has passed.' };
             rec.leads = rec.leads || {};
             rec.leads[lead.id] = true;
+            // A lead that stands in for another (the key-opened scene for the forced one) counts as it.
+            list(lead.also).forEach(function (id) { rec.leads[id] = true; });
             if (lead.verb === 'investigate') rec.searches++;
             e.caseWork(rec, ctx);
             var vars = leadVars(rec);

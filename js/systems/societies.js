@@ -1,7 +1,7 @@
 // Endings from the counts, and the two late societies (docs/CITY.md §8, §10).
 //
 //   The Merciful Judge      Mercy 8, Cruelty at most 1, three reformed citizens
-//   The Hangman's Examiner  Cruelty 8: the Council keeps you, the city fears you
+//   The Hangman's Examiner  Cruelty 12 and Dread 5: the Council keeps you, the city fears you
 //   The Stake               the Inquisitor's charge lands on you
 //   The Dagger on the Pillow  the Order of the Mountain, warned once and ignored
 //
@@ -20,9 +20,21 @@
 
   var Soc = (CF.Societies = {});
   Soc.MERCIFUL = { mercy: 12, cruelty: 1, reformed: 4 };
-  Soc.HANGMANS = { cruelty: 14, dread: 5 };
+  Soc.HANGMANS = { cruelty: 12, dread: 5 };
   Soc.MOUNTAIN = { week: 8, rank: 2, chance: 0.12, grace: 6 };
   Soc.EUMENIDES = { week: 8, chance: 0.2 };
+
+  // The Merciful warning counts honestly what is still wanted: mercies (up
+  // to two) and citizens made (up to one).
+  Soc.MERCIFUL_LINES = {
+    '0,0': 'The Council has begun to call you the merciful judge. Hold to it one more week, and it will be your name.',
+    '1,0': 'The Council has begun to call you the merciful judge. One more mercy, and it will be your name.',
+    '2,0': 'The Council has begun to call you the merciful judge. Two more mercies, and it will be your name.',
+    '0,1': 'The Council has begun to call you the merciful judge. One more citizen made, and it will be your name.',
+    '1,1': 'The Council has begun to call you the merciful judge. One more mercy and one more citizen made, and it will be your name.',
+    '2,1': 'The Council has begun to call you the merciful judge. Two more mercies and one more citizen made, and it will be your name.',
+  };
+  Soc.mercifulLine = function (n, r) { return Soc.MERCIFUL_LINES[Math.min(2, n) + ',' + Math.min(1, r)]; };
 
   P.reformedCount = function () {
     var n = 0, s = this.s.criminals;
@@ -40,7 +52,7 @@
     var mercy = cnt.mercy || 0, cruelty = cnt.cruelty || 0, reformed = this.reformedCount();
     if (!s.flags.mercifulWarned && mercy >= M.mercy - 2 && cruelty <= M.cruelty && reformed >= M.reformed - 1) {
       s.flags.mercifulWarned = true;
-      this.story('The Merciful Judge', 'The Council has begun to call you the merciful judge. One more pardon and it will be your name.', 'major');
+      this.story('The Merciful Judge', Soc.mercifulLine(Math.max(0, M.mercy - mercy), Math.max(0, M.reformed - reformed)), 'major');
       return;
     }
     if (s.flags.mercifulWarned && mercy >= M.mercy && cruelty <= M.cruelty && reformed >= M.reformed) { this.gameOver('merciful'); return; }
@@ -61,25 +73,84 @@
   };
 
   // ---- The Order of the Mountain ---------------------------------------------------
+  // Three beats: a dagger; ignored, a blade and two daggers; ignored again, the
+  // coin is tossed. And the Order wants something: under the dagger, a slip
+  // with one of your open cases and a line through one name in it. Close the
+  // case on somebody else and the Order leaves for good; charge that name and
+  // it is at war with you.
   P.mountainWeek = function () {
     var s = this.s, lines = [];
-    if (s.calling !== 'commissioner' || s.rank < Soc.MOUNTAIN.rank || s.week < Soc.MOUNTAIN.week) return lines;
+    if (s.calling !== 'commissioner' || s.rank < Soc.MOUNTAIN.rank || s.week < Soc.MOUNTAIN.week || s.flags.mountainDone) return lines;
     if (s.flags.mountainPaidUntil && s.week <= s.flags.mountainPaidUntil) return lines;
-    if (this.countOf('dagger') || this.rng() >= Soc.MOUNTAIN.chance) return lines;
-    this.create('dagger', {
-      label: 'A Dagger on the Pillow',
-      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Rest it with Coin to buy a season; contemplate it alone to endure. Let it lie and they come back.',
-      data: { week: s.week },
-    });
+    if (this.cardsOf('dagger', true).length || this.rng() >= Soc.MOUNTAIN.chance) return lines;
+    var want = this.mountainWant();
+    var desc = 'You wake and it is there, on the pillow beside your head, and the door is still barred. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.';
+    var data = { week: s.week };
+    if (want) {
+      desc = U.fill('Under the dagger, a slip: the name of {title}, and a line through the name of {suspect}.', { title: want.rec.title, suspect: want.sus.name }) + ' ' + desc;
+      data.caseId = want.rec.id;
+      data.struck = want.sus.name;
+    }
+    if (s.flags.mountainWar) desc = 'You charged the name they struck out. The Order does not warn you any more. ' + desc;
+    this.create('dagger', { label: 'A Dagger on the Pillow', desc: desc, data: data });
     lines.push('There was a dagger on your pillow this morning. The door was barred. Somebody wants you to know what they can do.');
     return lines;
   };
-  // The warning ignored.
+  // The case the Order wants left alone, and the name in it struck out: the
+  // one already named, or a new one from an open case. Null when none fits.
+  P.mountainWant = function () {
+    var s = this.s;
+    if (s.flags.mountainWar) return null;
+    var open = this.openCases().filter(function (r) { return !r.special && !r.opening && r.status === 'open'; });
+    var named = open.filter(function (r) { return r.mountain; })[0];
+    if (named) return { rec: named, sus: named.suspects.filter(function (x) { return x.key === named.mountainKey; })[0] };
+    open = open.filter(function (r) { return r.suspects.filter(function (x) { return !x.cleared; }).length >= 2; });
+    if (!open.length) return null;
+    var rec = U.pick(this.rng, open);
+    var sus = U.pick(this.rng, rec.suspects.filter(function (x) { return !x.cleared; }));
+    rec.mountain = true;
+    rec.mountainKey = sus.key;
+    rec.mountainName = sus.name;
+    return { rec: rec, sus: sus };
+  };
+  // The warning ignored. The first time they come for blood, not a life, and
+  // leave two daggers; only a warning ignored after that may be the end.
   P.mountainStrikes = function () {
     var s = this.s;
-    if (this.rng() < 0.5) { this.gameOver('dagger'); return; }
-    this.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts. The Order of the Mountain keeps its word.');
+    if (s.flags.mountainIgnored && this.rng() < 0.5) { this.gameOver('dagger'); return; }
+    var first = !s.flags.mountainIgnored;
+    s.flags.mountainIgnored = true;
+    this.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts. The Order of the Mountain keeps its word.', 'order');
     this.meter('dread', 1);
+    if (first && !s.over) {
+      this.create('dagger', {
+        label: 'Two Daggers on the Pillow',
+        desc: 'They came back, and this time there were two. The Order does not warn three times. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard.',
+        data: { week: s.week, second: true },
+      });
+      this.story('Two Daggers on the Pillow', 'They came back, and this time there were two. The Order does not warn three times.', 'danger');
+    }
+  };
+  // A verdict in the case the Order named. The struck-out name charged: war,
+  // and the next warning ignored is the toss. The case closed on anyone else:
+  // the Order is satisfied and leaves for good.
+  P.mountainVerdict = function (rec, d, convicted) {
+    var s = this.s;
+    if (!rec || !rec.mountain || s.flags.mountainDone || s.flags.mountainWar) return;
+    if (d.name === rec.mountainName) {
+      s.flags.mountainWar = true;
+      s.flags.mountainIgnored = true;
+      s.flags.mountainPaidUntil = 0;
+      rec.mountain = false;
+      this.story('The Mountain at War', U.fill('You charged {name}, the name under the line. The Order does not leave slips any more.', { name: d.name }), 'danger');
+      return;
+    }
+    if (!convicted) return;
+    s.flags.mountainDone = true;
+    rec.mountain = false;
+    var self = this;
+    this.cardsOf('dagger').forEach(function (c) { if (c.loc.t === 'table') self.remove(c); });
+    this.story('The Mountain Is Satisfied', 'The slip comes back with the line through it inked over. Nobody in the house saw who brought it.', 'major');
   };
 
   // ---- The Eumenides --------------------------------------------------------------

@@ -82,13 +82,13 @@
     hunger: { label: 'Hunger', kind: 'threat', tags: ['need'], image: 'icon-fatigue', aspects: { hunger: 1 }, decay: 110, onExpire: 'need',
       desc: 'You cannot remember your last hot meal. In Rest: with Coin, a dinner; with a watchman, the Watch-house pot (slow, free); with a Quarter, a meal on credit (quick, and a debt); with an Informer, a bowl at their table (they remember it). Let the clock run out and it takes your Health: for good, if you had it to spare.' },
     sickness: { label: 'Sickness', kind: 'threat', tags: ['need'], image: 'icon-burnout', aspects: { sickness: 1 }, decay: 130, onExpire: 'need',
-      desc: 'A cough from the river, a heat behind the eyes. In Rest: with Coin, a physician; with the Physician\'s Case, treat yourself; with Health, sweat it out (slow, and it tires you); with a watchman, their grandmother\'s remedy. Let the clock run out and it takes your Instinct: for good, if you had it to spare.' },
+      desc: 'A cough from the river, and the river in your chest. In Rest: with Coin, a physician; with the Physician\'s Case, treat yourself; with Health, sweat it out (slow, and it tires you); with a watchman, their grandmother\'s remedy. Let the clock run out and it takes your Instinct: for good, if you had it to spare.' },
     stress: { label: 'Stress', kind: 'threat', tags: ['need'], image: 'icon-obsession', aspects: { stress: 1 }, decay: 110, onExpire: 'need',
       desc: 'The same case behind your eyes every night. In Rest: alone, an evening off; with Coin, a quick one; with Instinct, walk it off (quick, free); with a watchman, a drink with the Watch. Let the clock run out and it takes your Wit: for good, if you had it to spare.' },
     rival: { label: 'The Rival', kind: 'criminal', tags: ['person', 'rival'], aspects: { rival: 1 },
-      desc: 'The Harbourmaster\'s Examiner, appointed to show the Council it has a choice. They work your cases from the other side: they close them first, spoil your scenes, pay your witnesses to forget. Question them with Wit to find their weakness (twice, and you can expose them), with Coin to buy a quiet fortnight, with Health to frighten them; shadow them in Explore with Instinct.' },
+      desc: 'The Harbourmaster\'s Examiner, appointed to show the Council it has a choice. They work your cases from the other side: they close them first, spoil your scenes, pay your witnesses to forget. Find a thread on them: Question them with Wit, or shadow them in Explore with Instinct. Then catch them at it: a token they spoiled, a witness they paid or a case they took, with them in Question; or answer their case in the Blood Court first. Coin buys a quiet fortnight; Health frightens them.' },
     burnout: { label: 'Fever', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
-      desc: 'You cannot face the street. Attend, Walk the Ward, Examine and Question are shut to you. Rest in Rest before this runs out, or they carry you to the pesthouse.' },
+      desc: 'You cannot face the street. Attend, Explore and Question are shut to you. Lie down in Rest before this runs out, or they carry you to the pesthouse.' },
     obsession: { label: 'Obsession', kind: 'threat', tags: ['strain'], image: 'icon-obsession', aspects: { obsession: 1 }, stackable: true,
       desc: 'A case has got under your skin. Three of these harden into Fixation. Closing the case eases it; so does letting go in Rest.' },
     tunnel: { label: 'Fixation', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-redeye', aspects: { tunnel: 1 },
@@ -119,7 +119,7 @@
     //   unlocks: a recipe id it makes possible; unlocksVerb: a verb it opens
     camera: { label: 'Sketch-book', kind: 'equipment', tags: ['tool'], image: 'icon-camera', aspects: { tool: 1 },
       mods: { unlocks: 'inv_photograph', boost: { tags: ['watching'], aspects: { opportunity: 1 } } },
-      desc: 'Charcoal and good paper. Put it in Examine with a case to draw the scene before it is tidied: what you have found there stops fading, and the drawings are proof. On a Watch, it catches faces.' },
+      desc: 'Charcoal and good paper. Put it in Explore with a case to draw the scene before it is tidied: what you have found there stops fading, and the drawings are proof. On a Watch, it catches faces.' },
     prints: { label: 'Vinegar and Umbrella', kind: 'equipment', tags: ['tool', 'kit', 'surfaces'], image: 'aspect-forensic', aspects: { tool: 1, kit_prints: 1 },
       mods: { gate: 'prints', boost: { tags: ['surfaces'], aspects: { forensic: 1 } } },
       desc: 'The coroner\'s trick from the old book: wash a surface with vinegar and wine, and read it under a red umbrella in sunlight. Old wounds, old blood and the marks of a hand come up plain.' },
@@ -161,13 +161,13 @@
     gang: { label: 'Band', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
       desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Post the Watch on them in Attend with a watchman; at Bailiff, go in Disguise to build a case against them.' },
     syndicate: { label: 'The Coquille', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-pyramid', aspects: { syndicate: 1, criminal: 1 },
-      desc: 'The bands have sworn to one shell now, and the shell has a king. The Vendetta surges every week. Only a long Disguise reaches the Court of Miracles.' },
+      desc: 'The bands have sworn to one shell now, and the shell has a king. The Vendetta surges every week. Only a long Disguise reaches the Court of Miracles. Until you carry the Bailiff\'s staff you cannot go among them: post the Watch on its stair.' },
 
     // --- Court and paper -------------------------------------------
     trial: { label: 'The Blood Court', kind: 'court', tags: ['court'], image: 'icon-gavel', aspects: { trial: 1 }, decay: 45, onExpire: 'verdict',
       desc: 'The case is before the judge and the sworn men. The verdict comes when the sand runs out.' },
     condemned: { label: 'The Condemned', kind: 'condemned', tags: ['court', 'person'], aspects: { condemned: 1 }, decay: 120, onExpire: 'sentence_default',
-      desc: 'Convicted, and waiting in the Hole for your word. Put them in Sentence with a rung of the ladder. Say nothing and the Council sentences by custom.' },
+      desc: 'Convicted, and waiting in the Hole for your word. Put them in The Court with a rung of the ladder. Say nothing and the Council sentences by custom.' },
     rung: { label: 'A Rung', kind: 'sentence', tags: ['court', 'ladder'], aspects: { rung: 1 },
       desc: 'One rung of the Carolina\'s ladder. It leaves the table with the Condemned it belongs to.' },
     plea: { label: 'A Plea', kind: 'plea', tags: ['court', 'letter'], aspects: { plea: 1 }, decay: 100, onExpire: 'vanish',
@@ -179,26 +179,34 @@
     tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
       desc: 'The Court of Miracles pays its Examiner while the Treaty stands. Put it in Attend to take it; every week taken is Purse +1. Let it lie and the King notes that too.' },
     dagger: { label: 'A Dagger on the Pillow', kind: 'threat', tags: ['warning'], aspects: { dagger: 1 }, decay: 100, onExpire: 'mountain',
-      desc: 'The Order of the Mountain warns once. Rest it with Coin to buy a season; alone, to endure. Let it lie and they come back.' },
+      desc: 'The Order of the Mountain warns, and wants a name left alone. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 
     // --- Office ----------------------------------------------------------
     promotion: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The Council has noticed you. Attend on them.' },
+    // A patron's favour you can call in once (patrons.js, Pat.SEAL): the instance carries its patron.
+    seal: { label: 'A Patron\'s Seal', kind: 'career', tags: ['career', 'letter'], aspects: { seal: 1 },
+      desc: 'A favour owed you. Put it in Attend to call it in, at the cost of the patron\'s favour.' },
+    // The Council's favour past the last office (engine.js, favourNext): one use, picked by what goes with it.
+    councilwrit: { label: 'Writ of the Council', kind: 'career', tags: ['career', 'letter'], image: 'icon-court', aspects: { councilwrit: 1 },
+      desc: 'The Council grants you one favour. Put it in Attend with a Case (the Council takes it off your hands), with the Rolls (Suspicion -2), with the Rival (recalled for eight weeks) or with a Witness (held for the Court).' },
     // Kept for older saves; the generic `promotion` card replaced them.
     promo_inspector: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The Council has noticed you. Attend on them.' },
     promo_chief: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'They want you to hold the Watch-house. Attend on them.' },
     chair: { label: 'The Burgomaster\'s Seat', kind: 'career', tags: ['career'], image: 'icon-court', aspects: { chair: 1 },
-      desc: 'The Council meets to choose a Burgomaster. Bring this to Attend. They will look hard at the Crowd and at Suspicion.' },
+      desc: 'The Council meets to choose a Burgomaster. Bring this to Attend once the Council, the Bishop and the Guilds have each pledged their seal. They will look hard at the Crowd and at Suspicion.' },
 
     // --- Insight (victory paths) ---------------------------------------
     looseend: { label: 'Loose End', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { looseend: 1 }, stackable: true,
       desc: 'A detail that belongs to no case. The same shape keeps turning up. Three of these, together in Rest, might show you the hand that draws it.' },
     ledger: { label: 'A Leaf of the Ledger', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { ledger: 1 }, stackable: true,
       desc: 'A page from the Coquille\'s book: payments, names, dates. Enough of these and the King of Thunes cannot hide.' },
+    customsleaf: { label: 'A Leaf from the Customs House', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { customsleaf: 1 }, stackable: true,
+      desc: 'What the Harbourmaster paid his examiner, and for what. Two of these, together in Rest, open his books.' },
     notes: { label: 'The Last Examiner\'s Casebook', kind: 'insight', tags: ['insight'], image: 'icon-folder', aspects: { notes: 1 },
       desc: 'Your predecessor\'s casebook. Half of it is water-stained. Read it in Rest.' },
 
@@ -225,6 +233,11 @@
     thieftakers: { label: 'The Thief-takers\' Office', cost: 6, room: 'thieftakers', rank: 1 },
     lab: { label: 'The Apothecary', cost: 10, room: 'lab', rank: 3 },
     survroom: { label: 'The Belfry', cost: 8, room: 'survroom', rank: 3 },
+    // A Magistrate's endowments: Coin for a lasting good, no card to keep (engine.js, endowed).
+    abbey: { label: 'Endow the Abbey Hospital', cost: 8, endow: true, rank: 3,
+      desc: 'The Bishop\'s favour +2, and the Abbey keeps a bed for you: a Weariness lifted at every Bell.' },
+    lanes: { label: 'Light the Lanes', cost: 6, endow: true, rank: 3,
+      desc: 'Lanterns at every corner of the Stews and the Warrens: a blow on the stair comes less often.' },
   };
 
   // The Watch-house: a second board. Each room changes a system (see
@@ -233,10 +246,10 @@
     locker: { label: 'Strongroom', order: 'locker', desc: 'Tokens and raw proof keep twice as long behind an iron door.' },
     suite: { label: 'The Hole', order: 'suite', desc: 'A cell under the Watch-house with a table and one candle. Questioning is faster and draws out more Word.' },
     archive: { label: 'The Rolls', order: 'archive', desc: 'The court\'s old books, shelved and indexed. Unanswered cases can be opened again in Study.' },
-    intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. A token that points at a front names it at once; the Coquille shows itself.' },
+    intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. Your informers cool off here every week, and now and then a new one takes a seat. A token that points at a front names it at once.' },
     training: { label: 'The Drill Yard', order: 'training', desc: 'Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.' },
     lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, no raw proof needs a special instrument, a token goes back to the bench without the Key, and what the body says reads one point stronger.' },
-    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you, and every week the belfry sees who uses a known front.' },
+    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you, and every week the belfry sees who uses a known front: a band\'s door, or the receiver\'s, where the city\'s stolen goods are sold.' },
     thieftakers: { label: 'The Thief-takers\' Office', order: 'thieftakers', desc: 'A room let to men who know every fence in the city. Put a Case in Attend with 2 Coin and they get the goods back for a cut, without a trial. Some of what they bring back is a frame.' },
   };
   CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'thieftakers', 'lab', 'survroom'];
@@ -251,18 +264,34 @@
     steady: { label: 'Steady', desc: 'Working beside them, you do not tire.' },
   };
 
+  // What an instrument's boost reads, in words: the tags of the finds it sharpens.
+  // CF.tagLabels(['biology', 'physical']) gives ['Bodies and traces'] (one label, not two);
+  // `words` are the finds themselves, for the dossier's boost line (story.js Story.boostLine).
+  CF.TAGS = {
+    biology: { label: 'Bodies and traces', words: 'blood and hair' },
+    physical: { label: 'Bodies and traces', words: 'things handled' },
+    surfaces: { label: 'Surfaces', words: 'marks on doors and sills' },
+    records: { label: 'Papers', words: 'papers and the Rolls' },
+    watching: { label: 'Watching', words: 'watching and waiting' },
+  };
+  CF.tagLabels = function (tags) {
+    var out = [];
+    (tags || []).forEach(function (t) { var l = (CF.TAGS[t] || { label: t }).label; if (out.indexOf(l) < 0) out.push(l); });
+    return out;
+  };
+
   // People you can take into service. aspects are what they bring to a case;
   // traits are drawn from the pool when they are hired.
   CF.PERSONNEL = {
-    rookie: { label: 'Beadle', cost: 1, role: 'Beadle', aspects: { testimony: 1, opportunity: 1 }, traits: ['thorough', 'streetwise', 'steady'],
+    rookie: { label: 'Beadle', cost: 1, role: 'Beadle', sex: 'm', aspects: { testimony: 1, opportunity: 1 }, traits: ['thorough', 'streetwise', 'steady'],
       desc: 'A parish beadle with a staff and a loud voice. Knocks on doors without complaining and whips beggars without being asked.' },
-    tech: { label: 'Apothecary\'s Boy', cost: 3, role: 'Apothecary\'s Boy', aspects: { forensic: 2 }, traits: ['sharp', 'patient', 'thorough'],
+    tech: { label: 'Apothecary\'s Boy', cost: 3, role: 'Apothecary\'s Boy', sex: 'm', aspects: { forensic: 2 }, traits: ['sharp', 'patient', 'thorough'],
       desc: 'Talks to jars more than people. Knows the taste of every powder in the shop and which ones he should not have tasted.' },
-    interviewer: { label: 'Confessor', cost: 3, role: 'Confessor', aspects: { testimony: 2, motive: 1 }, traits: ['empathetic', 'patient', 'streetwise'],
+    interviewer: { label: 'Confessor', cost: 3, role: 'Confessor', sex: 'm', aspects: { testimony: 2, motive: 1 }, traits: ['empathetic', 'patient', 'streetwise'],
       desc: 'A priest without a parish. Sits. Listens. People tell him things they have never told God.' },
     analyst: { label: 'Clerk', cost: 4, role: 'Clerk', aspects: { digital: 2, financial: 2 }, traits: ['sharp', 'patient'],
       desc: 'Reads a ledger like a romance and a forged hand like a confession. Ink under every nail.' },
-    veteran: { label: 'Sergeant of the Watch', cost: 5, role: 'Sergeant', aspects: { opportunity: 2, motive: 2, testimony: 1 }, traits: ['thorough', 'streetwise', 'steady', 'empathetic'], nTraits: 2,
+    veteran: { label: 'Sergeant of the Watch', cost: 5, role: 'Sergeant', sex: 'm', aspects: { opportunity: 2, motive: 2, testimony: 1 }, traits: ['thorough', 'streetwise', 'steady', 'empathetic'], nTraits: 2,
       desc: 'Thirty years with a halberd. Has seen this before. Has seen everything before, and hanged some of it.' },
   };
 
@@ -277,24 +306,32 @@
     { id: 'inspector', label: 'Bailiff', rep: 7, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
       text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).',
       scene: 'The Council gives you the white staff and the key to the Hole\'s outer door. The sergeants stand when you come in. Some of them mean it.' },
-    { id: 'chief', label: 'Magistrate', rep: 12, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
+    { id: 'chief', label: 'Magistrate', rep: 12, salary: 4, maxCases: 5, badge: 3, dispatch: 10,
       text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.',
       scene: 'A red gown, a seat at the end of the bench, and the Burgomaster\'s hand on your shoulder for exactly as long as the chamber is watching. Everything that goes wrong in the city is yours now.' },
   ];
+  // The record the Council wants before it writes, as well as the Standing:
+  // cases answered (convictions and settlements, less the wrong names).
+  CF.RANK_RECORD = [0, 1, 3, 6];
   CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
   CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // standing needed for the Council to write
   CF.TOP_RANK = CF.RANK_DEFS.length - 1;
   CF.COMMISSIONER_REP = 18;
 
+  // win: the gain line for the calling's option in 'What You Want' (the
+  // calling's own ending; others remain open).
   CF.CALLINGS = {
     commissioner: { card: 'calling_commissioner', label: 'The Burgomaster', theme: 'Power',
       blurb: 'Rise through the offices. Remake the city\'s Watch from the Council chamber.',
-      bonus: 'Begin with an extra Coin and a Beadle already in service.' },
+      bonus: 'Begin with an extra Coin and a Beadle already in service.',
+      win: 'Your ending: the Council\'s Seat, by office and calm' },
     master: { card: 'calling_master', label: 'The Scholar', theme: 'Knowledge',
       blurb: 'Trace every small crime back to the hidden hand that drew it.',
-      bonus: 'Begin with a Sketch-book. Loose Ends appear on sound convictions.' },
+      bonus: 'Begin with a Sketch-book. Loose Ends appear on sound convictions.',
+      win: 'Your ending: the Architect sentenced, by threads and loose ends' },
     crusader: { card: 'calling_crusader', label: 'The Reformer', theme: 'Justice',
       blurb: 'Break the Coquille by any means, even if it costs your office.',
-      bonus: 'Begin with an Informer. The Council\'s eye looks away a little longer.' },
+      bonus: 'Begin with an Informer. The Council\'s eye looks away a little longer.',
+      win: 'Your ending: the Coquille broken and its King hanged' },
   };
 })(typeof window !== 'undefined' ? window : globalThis);

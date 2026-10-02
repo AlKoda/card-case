@@ -20,15 +20,18 @@
     duty: {
       label: 'Attend', rank: 0, lockedBy: 'burnout',
       desc: 'The Watch-house. Work for Coin (Health walks a hard round, Wit keeps the day-book), spend it (a Petition or a Letter of Service with Coin), and attend to what lands on the desk: the Council\'s letters, purses, your watchmen. A Case here with watchmen musters them; with Wit and Coin it is cried through the city.',
+      // What a junior can do here; the office powers follow from CF.POWERS (Engine.verbInfo).
+      basics: 'The Watch-house. Health walks a round for Coin; Wit keeps the day-book. A Petition or a Letter of Service with Coin is paid here, and the Council\'s letters, purses and your watchmen are seen to.',
       slots: [
-        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'chair', 'informant', 'case', 'order', 'personnel', 'district', 'gang'], primary: true },
+        { key: 'main', label: 'Hours', accepts: ['health', 'focus', 'teammate', 'bribe', 'writsale', 'tribute', 'promotion', 'seal', 'councilwrit', 'chair', 'informant', 'case', 'order', 'personnel', 'district', 'gang', 'syndicate', 'dagger'], primary: true },
         { key: 'extra', label: 'Rolls / Coin', accepts: ['paperwork', 'funds'], when: function (p) { return any(p, ['focus', 'teammate', 'case', 'district']); } },
         { key: 'extra2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['teammate', 'case']); } },
         { key: 'mind', label: 'Wit', accepts: ['focus'], when: function (p) { return has(p, 'case'); } },
-        { key: 't1', label: 'Watchman', accepts: ['teammate'], when: function (p) { return any(p, ['case', 'gang']); } },
+        { key: 't1', label: 'Watchman', accepts: ['teammate'], when: function (p) { return any(p, ['case', 'gang', 'syndicate']); } },
         { key: 't2', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
         { key: 't3', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'case'); } },
-        { key: 'guard', label: 'Watchman', accepts: ['teammate'], when: function (p) { return has(p, 'informant'); } },
+        { key: 'guard', label: 'Watchman', accepts: ['teammate'], when: function (p) { return any(p, ['informant', 'dagger']); } },
+        { key: 'favour', label: 'Favour', accepts: ['case', 'paperwork', 'rival', 'witness'], when: function (p) { return has(p, 'councilwrit'); } },
         { key: 'f1', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
         { key: 'f2', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
         { key: 'f3', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['order', 'personnel']); } },
@@ -43,9 +46,10 @@
     investigate: {
       label: 'Explore', rank: 0, lockedBy: 'burnout',
       desc: 'Go out. A Case: search its scene, or with its Quarter go door to door. Instinct alone: walk the ward and see what the city offers; an Informer with Coin talks. An Accused: search their lodging without a Writ, or with a token as cause serve one (Sworn Examiner), or with Instinct or a watchman watch their door (Bailiff). Someone Abroad, a Band or the Coquille with Instinct: go in Disguise (Bailiff).',
+      basics: 'Go out. A Case: search its scene; with its Quarter, go door to door. Instinct alone: walk the ward. An Informer with Coin talks. An Accused: search their lodging.',
       slots: [
         { key: 'main', label: 'Case / Mark', accepts: ['case', 'suspect', 'instinct', 'health', 'informant', 'front', 'atlarge', 'gang', 'syndicate', 'rival', 'nextdoor'], primary: true },
-        { key: 'where', label: 'Quarter', accepts: ['district'], when: function (p) { return any(p, ['case', 'instinct', 'health']); } },
+        { key: 'where', label: 'Quarter', accepts: ['district'], when: function (p) { return any(p, ['case', 'instinct', 'health', 'informant']); } },
         { key: 'tool', label: 'Instrument', accepts: ['tool'], when: function (p) { return any(p, ['case', 'suspect', 'front']); } },
         { key: 'help', label: 'Watch', accepts: ['teammate'], when: function (p) { return any(p, ['case', 'suspect', 'instinct', 'health', 'atlarge', 'gang', 'syndicate', 'nextdoor']); } },
         { key: 'mind', label: 'Manner', accepts: ['focus', 'instinct', 'teammate'], when: function (p) { return any(p, ['case', 'suspect', 'front', 'atlarge', 'gang', 'syndicate', 'rival', 'nextdoor']); } },
@@ -69,12 +73,14 @@
     },
     interrogate: {
       label: 'Question', rank: 0, lockedBy: 'burnout',
-      desc: 'Question a Witness or an Accused. Your manner matters: Wit to listen, Instinct to bluff, Health to lean. Confronting the accused with a token from their own case can break them.',
+      desc: 'Question a Witness or an Accused. Your manner matters: Wit to listen, Instinct to bluff, Health to lean. Confronting the accused with a token from their own case can break them. The Rival, with their own work in hand, is caught at it.',
       slots: [
         { key: 'main', label: 'Subject', accepts: ['witness', 'suspect', 'rival', 'watchq'], primary: true },
         { key: 'mind', label: 'Manner', accepts: ['focus', 'instinct', 'health'], when: function (p) { return !!p; } },
         { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return has(p, 'rival'); } },
         { key: 'clue', label: 'Confront With', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },
+        // The Rival caught at it: only their own work (a token they spoiled, a witness they paid, a case they took).
+        { key: 'theirs', label: 'Their Work', accepts: ['clue', 'evidence', 'witness', 'case'], fits: function (c, e) { return !!(e && e.rivalWork && e.rivalWork(c)); }, when: function (p) { return has(p, 'rival'); } },
         { key: 'help', label: 'Watch', accepts: ['teammate'], when: function (p) { return !!p; } },
       ],
     },
@@ -82,9 +88,9 @@
       label: 'Rest', rank: 0,
       desc: 'Your study, and your bed. Sleep off Weariness and Fever. Let go of Obsession. Lay tokens side by side and reason: two descriptions of one person become an identification, coin and motive become a theory. Bring a Case with its tokens to see who it points to.',
       slots: [
-        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'hunger', 'sickness', 'stress', 'coldcase', 'looseend', 'notes', 'clue', 'intel', 'thread', 'dagger', 'spent', 'lesson', 'wound'], primary: true },
+        { key: 'main', label: 'Mind', accepts: ['case', 'fatigue', 'burnout', 'obsession', 'tunnel', 'hunger', 'sickness', 'stress', 'coldcase', 'looseend', 'customsleaf', 'notes', 'clue', 'intel', 'thread', 'dagger', 'spent', 'lesson', 'wound'], primary: true },
         { key: 'grow', label: 'Keep it', accepts: ['health', 'focus', 'instinct'], when: function (p) { return has(p, 'lesson'); } },
-        { key: 'a', label: 'Token', accepts: ['clue', 'atlarge', 'looseend', 'gang', 'syndicate'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'clue', 'intel', 'thread']); } },
+        { key: 'a', label: 'Token', accepts: ['clue', 'atlarge', 'looseend', 'customsleaf', 'gang', 'syndicate'], when: function (p) { return any(p, ['case', 'coldcase', 'looseend', 'customsleaf', 'clue', 'intel', 'thread']); } },
         { key: 'b', label: 'Token', accepts: ['clue', 'looseend'], when: function (p) { return any(p, ['case', 'looseend', 'clue']); } },
         { key: 'c', label: 'Token', accepts: ['clue'], when: function (p) { return any(p, ['case', 'clue']); } },
         { key: 'pay', label: 'Coin', accepts: ['funds'], when: function (p) { return any(p, ['fatigue', 'burnout', 'obsession', 'tunnel', 'dagger', 'hunger', 'sickness', 'stress', 'wound']); } },
@@ -98,7 +104,7 @@
     },
     arrest: {
       label: 'The Court', rank: 0,
-      desc: 'The Blood Court. An Accused with tokens from their case is a charge: indicia alone will not convict; the Court wants two witnesses, a confession, or enough of the right proof. The Condemned with a rung of the ladder is a sentence; a plea or a free confession is a reason for mercy.',
+      desc: 'The Blood Court. An Accused with tokens from their case is a charge: indicia, suspicion that is not yet proof, will not convict alone; the Court wants two witnesses, a confession, or enough of the right proof. The Condemned with a rung of the ladder is a sentence; a plea or a free confession is a reason for mercy.',
       slots: [
         { key: 'main', label: 'Accused / Condemned', accepts: ['suspect', 'condemned'], primary: true },
         { key: 'c1', label: 'Proof', accepts: ['clue'], when: function (p) { return has(p, 'suspect'); } },

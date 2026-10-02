@@ -36,9 +36,9 @@
     "{name} has faded beyond use.": "{name} تلاشى حتى لم يعد فيه نفع.",
     "The week turns.": "ينقضي الأسبوع.",
     "Week {n}": "الأسبوع {n}",
-    "Lodging and dues take {n}. The Council's stipend: {m} Coin.": "السكن والرسوم يأخذان {n}. راتب المجلس: {m} من النقود.",
+    "Lodging and dues take {n}. The Council's stipend: {m} Coin.": { by: "m", one: "السكن والرسوم يأخذان {n}. راتب المجلس: قطعة نقد واحدة.", two: "السكن والرسوم يأخذان {n}. راتب المجلس: قطعتا نقد.", few: "السكن والرسوم يأخذان {n}. راتب المجلس: {m} قطع نقد.", many: "السكن والرسوم يأخذان {n}. راتب المجلس: {m} قطعةَ نقد.", other: "السكن والرسوم يأخذان {n}. راتب المجلس: {m} قطعة نقد." },
     "Lodging and dues take {n}.": "السكن والرسوم يأخذان {n}.",
-    "The Council's stipend: {m} Coin.": "راتب المجلس: {m} من النقود.",
+    "The Council's stipend: {m} Coin.": { by: "m", one: "راتب المجلس: قطعة نقد واحدة.", two: "راتب المجلس: قطعتا نقد.", few: "راتب المجلس: {m} قطع نقد.", many: "راتب المجلس: {m} قطعةَ نقد.", other: "راتب المجلس: {m} قطعة نقد." },
     "You cannot pay your lodging. The landlord puts your chest in the lane at prime. You sleep in the Watch-house, on the bench.": "لا تستطيع دفع أجرة سكنك. يضع صاحب الدار صندوقك في الزقاق عند صلاة الفجر. تنام في دار الحرس، على المقعد الخشبي.",
     "You cannot pay your lodging.": "لا تستطيع دفع أجرة سكنك.",
     "The landlord puts your chest in the lane at prime.": "يضع صاحب الدار صندوقك في الزقاق عند صلاة الفجر.",
@@ -154,10 +154,10 @@
     "Read it in Contemplate.": "اقرأه في التأمل.",
     "Your predecessor, {name}, left you their desk, their unanswered cases and their enemies. The enemies have already sent a welcome: a dagger, on the pillow.": "سلفك، {name}، ترك لك مكتبه، وقضاياه التي بلا جواب، وأعداءه. والأعداء أرسلوا الترحيب من قبلُ: خنجراً، على الوسادة.",
     "Letter: {label}": "كتاب: {label}",
-    "{desc} Costs {n} Coin.": "{desc} يكلّف {n} من النقود.",
-    "Costs {n} Coin.": "يكلّف {n} من النقود.",
-    "{desc} Slot them into a verb to help. {traits}": "{desc} ضعهم في خانة فعل ليساعدوا. {traits}",
-    "Slot them into a verb to help.": "ضعهم في خانة فعل ليساعدوا.",
+    "{desc} Costs {n} Coin.": { one: "{desc} يكلّف قطعة نقد واحدة.", two: "{desc} يكلّف قطعتي نقد.", few: "{desc} يكلّف {n} قطع نقد.", many: "{desc} يكلّف {n} قطعةَ نقد.", other: "{desc} يكلّف {n} قطعة نقد." },
+    "Costs {n} Coin.": { one: "تكلّف قطعة نقد واحدة.", two: "تكلّف قطعتي نقد.", few: "تكلّف {n} قطع نقد.", many: "تكلّف {n} قطعةَ نقد.", other: "تكلّف {n} قطعة نقد." },
+    "{desc} Slot them into a verb to help. {traits}": "{desc} ضعه في خانة فعل ليعينك. {traits}",
+    "Slot them into a verb to help.": "ضعه في خانة فعل ليعينك.",
     "Unlocked: {verb}": "فُتح: {verb}",
     "Informer: {nick}": "المخبر: {nick}",
     "{name}, known in the taverns as {nick}. Works {district}. Meet them on the Ward with Coin for a word.": "{name}، المعروف في الحانات باسم {nick}. يعمل في {district}. قابله في الدرب ومعك النقود لتسمع كلمة.",
@@ -286,7 +286,14 @@
   };
   // A text joined from several sentences reaches the lookup with its last
   // full stop stripped, so every sentence key also gets a stop-less twin.
-  for (var k in S) if (/\.$/.test(k) && S[k.slice(0, -1)] === undefined) S[k.slice(0, -1)] = S[k].replace(/\.$/, '');
+  // A plural entry (an object of forms) loses the stop from every form.
+  function unstop(v) {
+    if (typeof v === 'string') return v.replace(/\.$/, '');
+    var o = {};
+    for (var f in v) o[f] = f === 'by' ? v[f] : v[f].replace(/\.$/, '');
+    return o;
+  }
+  for (var k in S) if (/\.$/.test(k) && S[k.slice(0, -1)] === undefined) S[k.slice(0, -1)] = unstop(S[k]);
   G.CF.addStrings('ar', S);
   // Only ever shown with the ' (Accused in: {title})' suffix (covered above);
   // as a bare template it would match any text with ', ' and '. ' in it, so

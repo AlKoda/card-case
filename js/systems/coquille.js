@@ -34,6 +34,8 @@
     missing: { role: 'Envoyeur', desc: 'a sender: people who are not seen again' },
     poison: { role: 'Blanc coulon', desc: 'a sleeper: the drugged cup in the inn dormitory' },
     arson: { role: 'Espieur', desc: 'a scout: watches, marks, and sometimes burns' },
+    weights: { role: 'Beffleur', desc: 'a decoy: lures the trusting into rigged games' },
+    gloryhand: { role: 'Crocheteur', desc: 'a lock-picker: in and out without a mark' },
   };
   Coq.roleOf = function (c) {
     var t = c && c.role || (c && c.history && c.history.length ? c.history[0].template : null);
@@ -48,11 +50,12 @@
 
   // When the Coquille forms, the man abroad with the most crimes is King:
   // never one in the Hole, on the road, or in the ground. He gets a card.
+  // A king is a man (the epilogue and the Court's words say 'his'): a woman is passed over.
   P.crownKing = function () {
-    var s = this.s, court = this.court(), best = null;
+    var s = this.s, court = this.court(), best = null, self = this;
     var most = function (list) {
       var top = null;
-      list.forEach(function (c) { if (!c.hidden && (!top || c.crimes > top.crimes)) top = c; });
+      list.forEach(function (c) { if (!c.hidden && self.sexOfName(c.name) !== 'f' && (!top || c.crimes > top.crimes)) top = c; });
       return top;
     };
     best = most(this.criminalsAtLarge());
@@ -66,7 +69,7 @@
       best = most(loose);
     }
     if (!best) {
-      best = { id: 'k' + s.nextUid++, name: this.newName(), trait: U.pick(this.rng, CF.TRAITS).id, crimes: 5, heat: 0, organization: 'syndicate', traits: [], status: 'at_large', history: [] };
+      best = { id: 'k' + s.nextUid++, name: this.newName('m'), trait: U.pick(this.rng, CF.TRAITS).id, crimes: 5, heat: 0, organization: 'syndicate', traits: [], status: 'at_large', history: [] };
       s.criminals[best.id] = best;
     }
     best.organization = 'syndicate';
@@ -75,7 +78,7 @@
     court.king = { name: best.name, trait: best.trait, criminalId: best.id };
     this.abroadCard(best, 'Crowned King of Thunes under the Warrens.');
     var card = this.cardsOf('syndicate', true)[0];
-    if (card) card.desc = 'The bands have sworn to one shell now, and the shell has a king: ' + best.name + ', the King of Thunes, on a barrel in a cellar under the Warrens. The Vendetta surges every week. Go in Disguise: with the ledger, to break it; with Wit, to parley; with Instinct and Coin, to be tried by its court and stay.';
+    if (card) card.desc = 'The bands have sworn to one shell now, and the shell has a king: ' + best.name + ', the King of Thunes, on a barrel in a cellar under the Warrens. The Vendetta surges every week. Go in Disguise: with the ledger, to break it; with Wit, to parley; with Instinct and Coin, to be tried by its court and stay.' + (this.s.rank < 2 ? ' Until you carry the Bailiff\'s staff you cannot go among them: post the Watch on its stair.' : '');
     return best;
   };
 

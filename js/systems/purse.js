@@ -14,7 +14,9 @@
   var P = CF.Engine.prototype;
 
   var Purse = (CF.Purse = {});
-  Purse.THIEFTAKER = { purse: 6, wrongful: 1, standing: 6, rank: 2 };
+  // The corrupt road is a road: the office of a Magistrate, a name in the
+  // chamber, and the thief-takers' settlements walked more than once.
+  Purse.THIEFTAKER = { purse: 9, wrongful: 1, standing: 12, rank: 3, settled: 2 };
   Purse.OLDBAILEY = { purse: 6, wrongful: 3, frames: 2, debt: 4 };
 
   // A patrician wants a rival's house searched. The letter waits on the desk.
@@ -40,6 +42,9 @@
     if (roll < 0.6) {
       // Settled: the goods come back, the case closes, nobody stands trial.
       rec.status = 'settled';
+      // The Council wanted it answered: settled is cold to the Council. The Bishop and the Guilds had nobody to judge.
+      if (rec.commission && rec.commission.from === 'council') { if (this.commissionCold) this.commissionCold(rec); }
+      else if (rec.commission && !rec.commission.delivered) rec.commission.delivered = 'settled';
       this.releaseDelegate(rec);
       var cc = this.caseCard(rec.id);
       if (cc) this.remove(cc);
@@ -48,9 +53,11 @@
       this.count('purse', 1);
       this.create('funds'); this.create('funds');
       s.stats.settled = (s.stats.settled || 0) + 1;
+      if (this.roomUsed) this.roomUsed('thieftakers');
       this.emit('resolved', this.caseRecord(rec, 'settled', null));
       var c = this.criminalEscapes(rec, culprit, 'settled');
       this.abroadCard(c, 'Named by the thief-takers, never charged. The goods came back; they did not.');
+      if (rec.opening && this.openingLost) this.openingLost(rec, 'settled');
       return { title: 'Settled: ' + rec.title, text: 'Two days later the goods are on your desk, most of them, and a thief-taker\'s man is waiting for his cut. ' + culprit.name + ' is named in a low voice and will not be charged; that was the price. The victim is grateful. The Rolls say the case is answered. They do not say how.', kind: 'minor' };
     }
     if (roll < 0.85) {
@@ -68,9 +75,58 @@
     return { title: 'Nothing for Your Coin', text: 'The thief-takers take the Coin and come back with shrugs. The goods are already out of the city, they say. They may even be telling the truth.', kind: 'minor' };
   };
 
+  // The upright man's offer, taken (life.js 'upright', 'Take it'): a Coin
+  // now, and a Coin a week while his band stands (s.flags.uprightPaid holds
+  // the band's name). Returns the band's name, or null with no band.
+  P.takeUpright = function () {
+    var band = this.cardsOf('gang', true)[0];
+    this.create('funds');
+    this.count('purse');
+    this.meter('retaliation', -3);
+    this.s.flags.uprightPaid = band ? band.data.name : null;
+    this.s.flags.uprightBroken = false;
+    return this.s.flags.uprightPaid;
+  };
+  // The boy's weekly visit, or the week he does not come.
+  P.uprightWeek = function () {
+    var s = this.s, name = s.flags.uprightPaid;
+    if (!name) return [];
+    var stands = this.cardsOf('gang', true).some(function (c) { return c.data && c.data.name === name; });
+    if (stands) {
+      this.create('funds');
+      if (s.week % 2 === 0) this.count('purse');
+      return ['The upright man\'s boy brings the week\'s Coin. The band keeps clear of your stair.'];
+    }
+    var broken = !!s.flags.uprightBroken;
+    s.flags.uprightPaid = null;
+    s.flags.uprightBroken = false;
+    return [broken ? 'The boy does not come this week. His upright man is in the Hole, and so, in a manner of speaking, is your Coin.'
+      : 'The boy does not come this week. His band answers to the Coquille now, and the Coquille pays nobody.'];
+  };
+
+  // The purse left on the desk with a note (life.js 'purse'): the note names
+  // an open case of yours, chosen by the week. Null when no case is open.
+  P.purseNote = function () {
+    var open = this.openCases().filter(function (r) { return !r.special; });
+    if (!open.length) return null;
+    var rec = open[this.s.week % open.length];
+    return { caseId: rec.id, title: rec.title };
+  };
+  // Who left it: a suspect of that case who is of the Hill, revealed as a
+  // card, or null when the case has none (then the Informer on the Hill).
+  Purse.HILL = /\bHill\b|patrician|councillor|benefactor|judge|doctor of laws/i;
+  P.purseSender = function (caseId) {
+    var rec = this.caseRec(caseId);
+    if (!rec || rec.status !== 'open') return null;
+    var hill = rec.suspects.filter(function (x) { return !x.cleared && Purse.HILL.test(x.role || ''); })[0];
+    if (!hill) return null;
+    var card = this.cardsOf('suspect', true).filter(function (c) { return c.caseId === rec.id && c.data && c.data.key === hill.key; })[0];
+    return card || this.revealSuspect(rec, null, { key: hill.key });
+  };
+
   // Every week: debts are called in, letters arrive, and two roads end.
   P.purseWeek = function () {
-    var s = this.s, lines = [], cnt = s.counts || {};
+    var s = this.s, lines = this.uprightWeek(), cnt = s.counts || {};
     if (s.rank >= 1 && !this.countOf('writsale') && this.rng() < 0.15) {
       this.offerWritSale();
       lines.push('A letter under a good seal waits on your desk. It asks nothing outright.');
@@ -86,17 +142,47 @@
     return lines;
   };
 
-  // The two ends of the corrupt road.
+  // Whether the Thief-taker General's counts hold now (for the warning, the
+  // ending and the interface).
+  P.thieftakerMet = function () {
+    var s = this.s, cnt = s.counts || {}, st = s.stats || {}, T = Purse.THIEFTAKER;
+    return (cnt.purse || 0) >= T.purse && (st.wrongful || 0) <= T.wrongful && s.meters.reputation >= T.standing &&
+      s.rank >= T.rank && (st.settled || 0) >= T.settled;
+  };
+
+  // Whether the Old Bailey's counts hold now, and whether they are one step
+  // short of it (a purse, a wrong name, a frame or a debt away).
+  P.oldbaileyMet = function () {
+    var s = this.s, cnt = s.counts || {}, st = s.stats || {}, B = Purse.OLDBAILEY;
+    return (cnt.purse || 0) >= B.purse && ((st.wrongful || 0) >= B.wrongful || (st.frames || 0) >= B.frames || (cnt.debt || 0) >= B.debt);
+  };
+  P.oldbaileyNear = function () {
+    var s = this.s, cnt = s.counts || {}, st = s.stats || {}, B = Purse.OLDBAILEY;
+    return (cnt.purse || 0) >= B.purse - 1 && ((st.wrongful || 0) >= B.wrongful - 1 || (st.frames || 0) >= B.frames - 1 || (cnt.debt || 0) >= B.debt - 1);
+  };
+
+  // The two ends of the corrupt road, each told a week before it lands, as
+  // every count ending is (societies.js). The Old Bailey is told a step
+  // early, while another purse, wrong name, frame or debt can still be
+  // refused (the counts never go down).
   P.checkPurseEndings = function () {
-    var s = this.s, cnt = s.counts || {}, st = s.stats;
+    var s = this.s;
     if (s.over) return;
-    var purse = cnt.purse || 0;
-    if (purse >= Purse.OLDBAILEY.purse && (st.wrongful >= Purse.OLDBAILEY.wrongful || (st.frames || 0) >= Purse.OLDBAILEY.frames || (cnt.debt || 0) >= Purse.OLDBAILEY.debt)) {
+    if (this.oldbaileyNear() && !s.flags.oldbaileyWarned) {
+      s.flags.oldbaileyWarned = true;
+      this.story('The Brother\'s Ledger', 'A man in black has been copying the Rolls for every case you closed with the thief-takers. He has a brother on the Ravenstone. Another purse, another wrong name or another debt to the thief-takers, and he will have enough.', 'danger');
+      return;
+    }
+    if (s.flags.oldbaileyWarned && this.oldbaileyMet()) {
       this.gameOver('oldbailey');
       return;
     }
-    if (purse >= Purse.THIEFTAKER.purse && st.wrongful <= Purse.THIEFTAKER.wrongful && s.meters.reputation >= Purse.THIEFTAKER.standing && s.rank >= Purse.THIEFTAKER.rank) {
-      this.gameOver('thieftaker');
+    if (!this.thieftakerMet()) return;
+    if (!s.flags.thieftakerWarned) {
+      s.flags.thieftakerWarned = true;
+      this.story('The General', 'The fences of the Free City have started to call you General.', 'major');
+      return;
     }
+    this.gameOver('thieftaker');
   };
 })(typeof window !== 'undefined' ? window : globalThis);

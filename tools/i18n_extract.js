@@ -25,6 +25,20 @@ function isText(s) {
   if (!/\s/.test(s) && !/^[A-Z]/.test(s)) return false;
   return true;
 }
+// A string literal in the code: 'key' (a whole thing the player reads), 'fragment' (a piece of a built sentence,
+// which needs a {placeholder} key by hand) or 'skip' (not text at all).
+function literalKind(s) {
+  if (!isText(s)) return 'skip';
+  if (!/\s/.test(s) && !/^[A-Z][a-z]+$/.test(s)) return 'skip';
+  if (/^(BUTTON|SELECT|TEXTAREA|A)$|^[A-Z][a-z]+(Sans|Serif|Prime|One|English)/.test(s)) return 'skip';
+  // A lowercase start is usually a piece of a built sentence ('the {who} says'), but a run of three words or more
+  // that ends on a stop is a whole sentence the player reads ('or drop a card on the token. ... finds less.').
+  var sentence = /^[a-z][\s\S]*\s\S+\s\S+[.!?]$/.test(s) && !/[<>="{}]/.test(s);
+  if (/[<>="]|^[#.)%,:;]|^\s|\s$/.test(s) || (/^[a-z]/.test(s) && !sentence) || !/[A-Za-z]{2}.*[A-Za-z]/.test(s)) return 'fragment';
+  return 'key';
+}
+// A piece of a string built in code, not a whole one the player reads.
+function fragment(s) { return literalKind(s) !== 'key'; }
 function walk(v, out, seen, depth) {
   if (depth > 12 || v === null) return;
   if (typeof v === 'string') { if (isText(v)) out[v] = 1; return; }
@@ -56,10 +70,10 @@ CODE.forEach(function (f) {
   var re = /'((?:\\.|[^'\\\n])*)'|"((?:\\.|[^"\\\n])*)"/g, m, keys = [], frags = [];
   while ((m = re.exec(src))) {
     var s = (m[1] !== undefined ? m[1] : m[2]).replace(/\\'/g, "'").replace(/\\"/g, '"');
-    if (!isText(s) || all[s]) continue;
-    if (!/\s/.test(s) && !/^[A-Z][a-z]+$/.test(s)) continue;
-    if (/^(BUTTON|SELECT|TEXTAREA|A)$|^[A-Z][a-z]+(Sans|Serif|Prime|One|English)/.test(s)) continue;
-    if (/[<>="]|^[#.)%,:;]|^\s|\s$|^[a-z]/.test(s) || !/[A-Za-z]{2}.*[A-Za-z]/.test(s)) { frags.push(s); continue; }
+    if (all[s]) continue;
+    var kind = literalKind(s);
+    if (kind === 'skip') continue;
+    if (kind === 'fragment') { frags.push(s); continue; }
     all[s] = 1; keys.push(s);
   }
   if (keys.length) byFile[f] = (byFile[f] || []).concat(keys);
@@ -91,12 +105,13 @@ function missing(lang) {
   if (fs.existsSync(dir)) fs.readdirSync(dir).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(dir, f), 'utf8'), { filename: f }); });
   var d = globalThis.CF.I18N.dicts[lang] || {}, miss = {}, n = 0, total = 0;
   Object.keys(byFile).forEach(function (f) {
-    var m2 = byFile[f].filter(function (k) { total++; return d[k] === undefined; });
+    // A value in forms by count ({ one, two, few, many, other }, see js/i18n.js) is an entry when it has its general form.
+    var m2 = byFile[f].filter(function (k) { total++; return d[k] === undefined || (typeof d[k] === 'object' && (!d[k] || typeof d[k].other !== 'string')); });
     if (m2.length) { miss[f] = m2; n += m2.length; }
   });
   return { missing: miss, count: n, total: total };
 }
-module.exports = { keys: byFile, fragments: fragments, missing: missing };
+module.exports = { keys: byFile, fragments: fragments, missing: missing, literalKind: literalKind, fragment: fragment };
 if (require.main === module) cli();
 function cli() {
 var args = process.argv.slice(2);

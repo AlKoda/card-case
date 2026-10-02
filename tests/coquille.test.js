@@ -69,6 +69,16 @@ function run(e, verb, cards) {
   var k3 = e3.criminal(e3.court().king.criminalId), told3 = e3.s.journal.filter(function (j) { return j.title === 'The Coquille'; })[0];
   assert.ok(k3 && e3.atLargeCardFor(k3), 'a new King still gets a card');
   assert.ok(/The name is .*\. It is not in your Rolls\. It will be\./.test(told3.text), told3.text);
+  assert.notStrictEqual(e3.sexOfName(k3.name), 'f', 'a new King is a man: ' + k3.name);
+  // A woman with more crimes is passed over: the King of Thunes is a man (the epilogue says 'his barrel').
+  var e5 = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  e5.s.rank = 2;
+  var she = e5.criminalEscapes({ title: 'The Mint Robbery', template: 'coining' }, { name: CF.NAMES.f[0] + ' Bakker', trait: 'scar' }, 'cold');
+  she.crimes = 9;
+  var he = e5.criminalEscapes({ title: 'The Fire at the Tannery', template: 'arson' }, { name: CF.NAMES.m[0] + ' Pfister', trait: 'limp' }, 'cold');
+  he.crimes = 2;
+  e5.spawnSyndicate('test');
+  assert.strictEqual(e5.court().king.name, he.name, 'the man is crowned, not the woman');
   // The King is not sworn into a band: three more abroad, and he keeps his crown and his shell.
   var e4 = CF.Engine.newGame({ seed: 3, calling: 'master' });
   e4.s.rank = 2;
@@ -165,6 +175,19 @@ function run(e, verb, cards) {
     if (e.court().inside) inside = e;
   }
   assert.ok(inside, 'the Court\'s trial can be passed');
+  // Failed with a Wound and no Health left, the beating kills: the last blow is not told as luck.
+  var dead = null;
+  for (var di = 0; di < 30 && !dead; di++) {
+    var de = game(60 + di);
+    de.cardsOf('health', true).concat(de.cardsOf('spent_health', true)).forEach(function (c) { de.remove(c); });
+    de.create('wound'); de.create('funds'); de.create('funds');
+    run(de, 'investigate', [byDef(de, 'syndicate')[0], byDef(de, 'instinct')[0], byDef(de, 'funds')[0], byDef(de, 'funds')[1]]);
+    if (de.s.over && de.s.stats.killedBy === 'court') dead = de;
+  }
+  assert.ok(dead && dead.s.over.id === 'death' && dead.s.stats.killedBy === 'court', 'the Court can kill');
+  var last = dead.s.journal.filter(function (j) { return j.title === 'The Last Blow'; })[0];
+  assert.ok(last && !/lucky/.test(last.text), 'the killing blow: ' + (last && last.text));
+  assert.ok(/this time you did not climb out/.test(dead.s.over.text) && !/once and let you climb out/.test(dead.s.over.text), dead.s.over.text);
   var e2 = inside;
   assert.ok(!e2.canTakeThrone());
   assert.ok(/does not crown the honest|weeks/.test(e2.throneReason()));
@@ -198,6 +221,102 @@ function run(e, verb, cards) {
   var old = JSON.parse(CF.Engine.newGame({ seed: 5, calling: 'master' }).save()); delete old.court;
   assert.strictEqual(CF.Engine.load(old).court().stance, null);
   console.log('eradicate: ok');
+})();
+
+// ---- The Crusader's Coquille waits for the Bailiff's Disguise ---------------------
+(function crusaderWaits() {
+  var e = CF.Engine.newGame({ seed: 41, calling: 'crusader' });
+  e.s.week = 6; e.s.rank = 0;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 0, 'no Coquille at week 6 below Bailiff: nothing could touch it');
+  var word = e.s.journal.filter(function (j) { return j.title === 'The Same Door'; });
+  assert.strictEqual(word.length, 1, 'the city says its name instead');
+  e.s.week = 12; e.s.rank = 1;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 0, 'still none under a Sworn Examiner');
+  assert.strictEqual(e.s.journal.filter(function (j) { return j.title === 'The Same Door'; }).length, 1, 'said once');
+  e.s.rank = 2; e.s.week = 9;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 0, 'a new Bailiff gets a week or two first');
+  e.s.week = 10;
+  e.organise();
+  assert.strictEqual(e.countOf('syndicate'), 1, 'at Bailiff from week ten the Coquille is there, and Disguise with it');
+  // The broadsheet's tally: the Coquille counts one, and nothing while you are inside it.
+  var t0 = e.abroadTally();
+  assert.strictEqual(t0.n, e.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length + e.countOf('gang') * 2 + 1);
+  assert.strictEqual(t0.at, 4);
+  assert.strictEqual(t0.every, 1, 'every week under a Bailiff');
+  // An older save past week six has had its warning; a newer one keeps what it has.
+  var old = JSON.parse(CF.Engine.newGame({ seed: 42, calling: 'crusader' }).save());
+  delete old.flags.coquilleWord; old.week = 9;
+  assert.strictEqual(CF.Engine.load(old).s.flags.coquilleWord, true, 'an old save past week six is not warned late');
+  var young = JSON.parse(CF.Engine.newGame({ seed: 43, calling: 'crusader' }).save());
+  delete young.flags.coquilleWord;
+  var ly = CF.Engine.load(young);
+  assert.strictEqual(ly.s.flags.coquilleWord, false, 'an old save before week six will hear it');
+  ly.s.week = 6; ly.organise();
+  assert.ok(ly.s.journal.some(function (j) { return j.title === 'The Same Door'; }));
+  console.log('crusader waits: ok');
+})();
+
+// ---- The broadsheet's tally names its count ----------------------------------------
+(function tally() {
+  var e = CF.Engine.newGame({ seed: 44, calling: 'master' });
+  e.s.week = 8;
+  for (var i = 0; i < 3; i++) e.create('atlarge', { label: 'Abroad: N' + i, data: { name: 'N' + i } });
+  assert.strictEqual(e.abroadTally().n, 3);
+  assert.strictEqual(e.abroadTally().every, 2, 'every other week below Bailiff');
+  e.spawnSyndicate('test');
+  var names = e.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length; // the King may walk abroad too
+  assert.strictEqual(e.abroadTally().n, names + 1, 'the Coquille counts one: its sworn feed the Vendetta, not the broadsheet');
+  e.s.cases.inside = { id: 'inside', template: 'syndicate', status: 'open', suspects: [], witnesses: [] };
+  assert.strictEqual(e.abroadTally().n, names, 'and nothing while a case against it is open');
+  console.log('tally: ok');
+})();
+
+// ---- Below Bailiff the Coquille is answered from the Watch-house ------------------------
+(function watchedStair() {
+  var e = CF.Engine.newGame({ seed: 61, calling: 'crusader' });
+  e.s.rank = 1;
+  e.spawnSyndicate('test');
+  var coq = byDef(e, 'syndicate')[0];
+  assert.ok(/post the Watch on its stair/.test(e.descOf(coq)), 'the card says what a lower office can do: ' + e.descOf(coq));
+  // No one abroad: below Bailiff the Coquille weighs like a band, and the Vendetta cools.
+  e.cardsOf('atlarge', true).forEach(function (c) { e.remove(c); });
+  e.s.meters.retaliation = 3;
+  e.weekTick();
+  assert.ok(e.s.meters.retaliation <= 3, 'below Bailiff a lone Coquille adds one and lets it cool: ' + e.s.meters.retaliation);
+  // Post the Watch: a watchman on its stair. The Vendetta cools, and now and then a leaf drops.
+  var leaves = 0, tries = 0;
+  for (var i = 0; i < 12; i++) {
+    var g = CF.Engine.load(e.save()); g.rng.setState(i * 17 + 3);
+    g.s.week += i * 2; g.s.meters.retaliation = 4;
+    var guard = g.create('teammate', g.personnelSpec('rookie'));
+    var r = run(g, 'duty', [byDef(g, 'syndicate')[0], guard]);
+    assert.strictEqual(r.recipe, 'duty_post_watch');
+    assert.ok(g.s.meters.retaliation <= 3, 'the Vendetta cools');
+    assert.strictEqual(g.s.flags.coqWatched, g.s.week);
+    tries++;
+    if (byDef(g, 'ledger').length) {
+      leaves++;
+      // Not twice in a fortnight.
+      var guard2 = byDef(g, 'teammate')[0] || g.create('teammate', g.personnelSpec('rookie'));
+      for (var j = 0; j < 5; j++) { g.rng.setState(j + 1); var n0 = byDef(g, 'ledger').length; run(g, 'duty', [byDef(g, 'syndicate')[0], byDef(g, 'teammate')[0] || guard2]); assert.strictEqual(byDef(g, 'ledger').length, n0, 'one leaf a fortnight at most'); }
+    }
+  }
+  assert.ok(leaves > 0 && leaves < tries, 'a leaf sometimes: ' + leaves + ' of ' + tries);
+  // At Bailiff the Court surges, unless the Watch stood on its stair that week.
+  var b = CF.Engine.newGame({ seed: 62, calling: 'crusader' });
+  b.s.rank = 2; b.spawnSyndicate('test');
+  b.cardsOf('atlarge', true).forEach(function (c) { b.remove(c); });
+  b.s.meters.retaliation = 0; b.weekTick();
+  var surged = b.s.meters.retaliation;
+  var bw = CF.Engine.newGame({ seed: 62, calling: 'crusader' });
+  bw.s.rank = 2; bw.spawnSyndicate('test');
+  bw.cardsOf('atlarge', true).forEach(function (c) { bw.remove(c); });
+  bw.s.meters.retaliation = 0; bw.s.flags.coqWatched = bw.s.week; bw.weekTick();
+  assert.ok(surged >= 2 && bw.s.meters.retaliation < surged, 'a watched week keeps the Court off your stair: ' + surged + ' then ' + bw.s.meters.retaliation);
+  console.log('the Watch on the Coquille\'s stair: ok');
 })();
 
 console.log('coquille: king, treaty, rule, eradicate all OK');

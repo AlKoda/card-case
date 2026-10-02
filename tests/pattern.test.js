@@ -96,6 +96,21 @@ function run(e, verb, cards) {
   pc.goCold(prec.id);
   var coldLine = pc.s.journal.filter(function (j) { return j.title === 'The Trail Goes Cold'; })[0];
   assert.ok(coldLine && /You knew the door, and nobody stood in it/.test(coldLine.text), coldLine && coldLine.text);
+  // It arrives with its name, and its brief reads as sentences, whichever door it chose.
+  for (var hs = 0; hs < 12; hs++) {
+    var hg = game(700 + hs);
+    var hrec = hg.caseRec(hg.spawnCase('pattern', { headline: 'The Pattern: ', lead: 'The first of them.' }).caseId);
+    var hj = hg.s.journal[0];
+    assert.strictEqual(hj.title, 'The Pattern: ' + hrec.title, 'the headline carries the case');
+    assert.ok(!/\.\s+[a-z]/.test(hj.text), 'no sentence starts lower-case: ' + hj.text);
+    assert.ok(!/every girl/.test(hj.text), 'the first brief does not speak of every girl');
+  }
+  var hh = game(720);
+  var hue = hh.caseRec(hh.spawnCase(null, { headline: 'Hue and Cry', lead: 'You are hailed in the street.' }).caseId);
+  assert.strictEqual(hh.s.journal[0].title, 'Hue and Cry', 'a headline with no colon stands alone');
+  var again = hh.caseRec(hh.spawnCase('burglary', { headline: 'Ursel Dyer Again: ' }).caseId);
+  assert.strictEqual(hh.s.journal[0].title, 'Ursel Dyer Again: ' + again.title, 'a repeat names the case');
+  void hue;
   console.log('pattern: ok');
 })();
 
@@ -117,6 +132,9 @@ function run(e, verb, cards) {
   assert.ok(/steady voice/.test(r.story.text));
   var a = e.assessCharge(sc, [conf]);
   assert.strictEqual(a.tier, 'strong', 'it reads as full proof');
+  assert.strictEqual(conf.data.about, liar.key, 'the confession is his');
+  var husband = e.revealSuspect(rec, null, { key: rec.culprit });
+  assert.notStrictEqual(e.assessCharge(husband, [conf]).tier, 'strong', 'and laid against the husband it proves nothing');
   assert.ok(!liar.cleared, 'and the liar is not cleared by it');
   console.log('three days: ok');
 })();

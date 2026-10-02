@@ -20,13 +20,13 @@
 
   CF.RUNGS = {
     pardon: { label: 'Pardon', short: 'Pardon', icon: 'ilaw-13',
-      desc: 'Let them walk, for a reason: youth, penitence, a plea. Mercy. Without a reason the Council frowns, and on a case the crier sang, the crowd mutters.',
+      desc: 'Let them walk, for a reason: youth, penitence, a plea. Mercy. Without a reason the Council frowns, and on a case the crier sang, the crowd mutters. The city remembers who sent them home.',
       cost: 'Mercy +2 · Suspicion +1 without a reason' },
     fine: { label: 'Fine and Restitution', short: 'A Fine', icon: 'itrade-20',
-      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter. They go home and, as far as the city ever learns, stay honest.',
-      cost: 'Mercy +1 · 1 Coin' },
+      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter and, as far as the city learns, honest. The city remembers who sent them home.',
+      cost: 'Mercy +1 · Coin +1 for the Watch-house' }, // the fee comes to you
     pillory: { label: 'The Pillory', short: 'Pillory', icon: 'ilaw-07',
-      desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: next time, the quarter knows them at once. They walk, marked; if they do it again the quarter will name them at once.',
+      desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: they walk, marked, and the quarter names them next time.',
       cost: 'Crowd −1' },
     banish: { label: 'Flogging and Banishment', short: 'Banished', icon: 'iinv-17',
       desc: 'Whipped at the cart\'s tail to the gate and forbidden the city for ten years. Some come back.',
@@ -35,13 +35,16 @@
       desc: 'The iron on the cheek. A marked man cannot swear before a court, cannot be pardoned again, and has nowhere to go but the Coquille.',
       cost: 'Dread +1 · Cruelty +1' },
     sword: { label: 'The Sword', short: 'The Sword', icon: 'itrade-08',
-      desc: 'An honourable death, kneeling, one stroke. For the penitent and the well-born. No band swears vengeance for a man who died well.',
+      desc: 'An honourable death, kneeling, one stroke. For the penitent and the well-born. No band swears vengeance for one who died well.',
       cost: 'Cruelty +1 · Crowd −2' },
     rope: { label: 'The Rope', short: 'The Rope', icon: 'icrime-02',
       desc: 'The gallows on the Ravenstone, before the crowd. For thieves, burglars and receivers.',
       cost: 'Cruelty +1 · Crowd −2 · Vendetta +1' },
     wheel: { label: 'The Wheel', short: 'The Wheel', icon: 'icrime-05',
       desc: 'The spectacle the Carolina keeps for murder with cruelty, arson, coining and poison. The city will remember your name for it. So will the underworld.',
+      // The capital rung under its own name (CF.LADDERS[tid].wheel).
+      descFire: 'The stake in the ring below the Ravenstone, as the Carolina keeps for arson, coining and witchcraft. The city will remember your name for it. So will the underworld.',
+      descWater: 'Sewn into a sack and put into the river from the Harbour bridge, the Carolina\'s death for a poisoner. Quick, and the city watches it all the same.',
       cost: 'Cruelty +2 · Crowd −3 · Dread +2 · Vendetta +2' },
   };
   Sen.ORDER = ['pardon', 'fine', 'pillory', 'banish', 'brand', 'sword', 'rope', 'wheel'];
@@ -66,6 +69,12 @@
     gang: { rungs: ['pardon', 'banish', 'rope', 'wheel'], custom: 'rope' },
     syndicate: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'wheel', capital: true },
     architect: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'rope' },
+    harbourmaster: { rungs: ['pardon', 'fine', 'banish', 'sword', 'rope'], custom: 'banish' },
+    receiver: { rungs: ['pardon', 'fine', 'pillory', 'banish', 'brand'], custom: 'pillory', repeat: 'banish' },
+    weights: { rungs: ['pardon', 'fine', 'pillory', 'banish'], custom: 'pillory', repeat: 'banish' },
+    searchers: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'rope', capital: true },
+    mint: { rungs: ['pardon', 'fine', 'banish', 'sword', 'wheel'], custom: 'wheel', capital: true, wheel: 'The Fire' },
+    gloryhand: { rungs: ['pardon', 'banish', 'brand', 'rope'], custom: 'rope' },
   };
   Sen.ladderOf = function (tid) { return CF.LADDERS[tid] || CF.LADDERS.burglary; };
   Sen.rungLabel = function (tid, rung) {
@@ -76,6 +85,16 @@
     var L = Sen.ladderOf(tid);
     return rung === 'wheel' && L.wheel ? L.wheel : CF.RUNGS[rung].short;
   };
+
+  // What a rung does, under the name this crime gives it.
+  Sen.rungDesc = function (tid, rung) {
+    var L = Sen.ladderOf(tid), R = CF.RUNGS[rung];
+    if (rung === 'wheel' && L.wheel === 'The Fire') return R.descFire;
+    if (rung === 'wheel' && L.wheel === 'The Water') return R.descWater;
+    return R.desc;
+  };
+  // Where a pardoned, mended life is found a year on.
+  Sen.REFORMED_PLACES = ['a stall in the Market', 'a bench in a cooper\'s yard', 'the ferry below the Water-gate'];
 
   // A record for anyone the Court has dealt with, whether or not they ever
   // escaped before.
@@ -108,36 +127,44 @@
     // Half proof convicts of the lesser crime: nothing past banishment.
     if (lesser) rungs = rungs.filter(function (r) { return Sen.ORDER.indexOf(r) <= Sen.ORDER.indexOf('banish'); });
     if (c && c.traits.indexOf('branded') >= 0) rungs = rungs.filter(function (r) { return r !== 'pardon'; });
+    // A branded hand on half proof of a crime whose only lighter rung is mercy (a poisoning, say):
+    // the lesser crime's limit, banishment, is the ladder.
+    if (!rungs.length) rungs = ['banish'];
     var penitent = d.confession === 'free';
     var custom = lesser ? (rungs.indexOf('pillory') >= 0 ? 'pillory' : rungs[rungs.length - 1]) : (c && c.crimes >= 2 && L.repeat ? L.repeat : L.custom);
     var sus = rec.suspects.filter(function (x) { return x.name === d.name; })[0] || {};
+    // A Bishop's or a Guild's commission is judged at the sentence: the card says who asked, and the rungs that please them carry the patron.
+    var patron = rec.commission && (rec.commission.from === 'bishop' || rec.commission.from === 'guild') && CF.Patrons && CF.Patrons.WISH ? rec.commission.from : null;
+    var wish = patron ? CF.Patrons.WISH[patron].filter(function (r) { return rungs.indexOf(r) >= 0; }) : [];
     var cond = this.create('condemned', {
       label: d.name,
-      desc: d.name + (sus.role ? ', ' + sus.role : '') + ', convicted of ' + rec.title + (lesser ? ' (the lesser crime)' : '') + ', waits in the Hole for your word. ' +
-        (penitent ? 'They confessed freely and ask for the Church. ' : '') + 'By custom the Council would give them ' + Sen.rungLabel(rec.template, custom).toLowerCase() + '. Say nothing and it will.',
+      desc: d.name + (sus.role ? ', ' + sus.role : '') + ', convicted of ' + (this.convictedOf ? this.convictedOf(rec) : rec.title) + (lesser ? ' (the lesser crime)' : '') + ', waits in the Hole for your word. ' +
+        (penitent ? 'They confessed freely and ask for the Church. ' : '') + 'By custom the Council would give them ' + Sen.rungLabel(rec.template, custom).toLowerCase() + '. Say nothing and it will.' +
+        (patron && wish.length ? ' ' + CF.Patrons.asksLine(patron, wish) : ''),
       caseId: rec.id,
       data: { name: d.name, caseId: rec.id, guilty: !!d.guilty, lesser: lesser, penitent: penitent, custom: custom, template: rec.template,
-        highProfile: !!rec.highProfile, trait: sus.trait || null, role: sus.role || '', crimes: c ? c.crimes : 1 },
+        highProfile: !!rec.highProfile, trait: sus.trait || null, role: sus.role || '', crimes: c ? c.crimes : 1, patron: patron, patronWants: wish },
     });
     var self = this;
     rungs.forEach(function (r) {
       self.create('rung', {
         label: Sen.rungShort(rec.template, r),
-        desc: Sen.rungLabel(rec.template, r) + '. ' + CF.RUNGS[r].desc + (r === custom ? ' This is the custom for the crime.' : '') + ' (' + CF.RUNGS[r].cost + ')',
-        caseId: rec.id, data: { rung: r, condemned: cond.uid },
+        desc: Sen.rungLabel(rec.template, r) + '. ' + Sen.rungDesc(rec.template, r) + (r === custom ? ' This is the custom for the crime.' : '') + ' (' + CF.RUNGS[r].cost + ')',
+        caseId: rec.id, data: { rung: r, condemned: cond.uid, patron: wish.indexOf(r) >= 0 ? patron : null },
       });
     });
     // Pleas arrive with the morning.
     var pleas = [];
     var rng = this.rng;
-    if (rng() < (penitent ? 0.8 : 0.25)) pleas.push({ from: 'church', label: 'The Bishop\'s Plea', text: 'The Bishop\'s chaplain writes that ' + d.name + ' has made a good confession and asks mercy for a penitent. The Church counts pardons.' });
-    if (['burglary', 'fraud', 'coining', 'extortion'].indexOf(rec.template) >= 0 && rng() < 0.3) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: 'The wardens of ' + d.name + '\'s guild ask that a brother be fined and shamed, not hanged. They would remember the favour.' });
+    // The patron who commissioned the case always pleads.
+    if (patron === 'bishop' || rng() < (penitent ? 0.8 : 0.25)) pleas.push({ from: 'church', label: 'The Bishop\'s Plea', text: 'The Bishop\'s chaplain writes that ' + d.name + ' has made a good confession and asks mercy for a penitent. The Church counts pardons.' });
+    if (patron === 'guild' || (['burglary', 'fraud', 'coining', 'extortion', 'weights'].indexOf(rec.template) >= 0 && rng() < 0.3)) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: 'The wardens of ' + d.name + '\'s guild ask that a brother be fined and shamed, not hanged. They would remember the favour.' });
     if (rng() < 0.5) {
       var purse = rng() < 0.4;
       pleas.push({ from: 'family', purse: purse, label: 'A Family\'s Plea', text: d.name + '\'s ' + U.pick(rng, ['mother', 'wife', 'brother', 'father', 'sister']) + ' waits at the Watch-house door with a letter for the Examiner.' + (purse ? ' The letter is heavier than paper.' : '') });
     }
     pleas.forEach(function (p) {
-      self.create('plea', { label: p.label, desc: p.text + ' Put it in Sentence with a lighter rung and it counts as a reason.', caseId: rec.id, data: { from: p.from, purse: !!p.purse, condemned: cond.uid } });
+      self.create('plea', { label: p.label, desc: p.text + ' Put it in The Court with a lighter rung and it counts as a reason.', caseId: rec.id, data: { from: p.from, purse: !!p.purse, condemned: cond.uid } });
     });
     if (this.inquisitorTakes && this.inquisitorTakes(cond)) return null;
     this.story('Condemned: ' + d.name, d.name + ' goes down to the Hole to wait. The ladder is on your desk: ' + rungs.map(function (r) { return Sen.rungShort(rec.template, r); }).join(', ') + '. The Council will follow your word, or its custom.' +
@@ -183,7 +210,7 @@
           c.status = 'reformed';
           var alc = this.atLargeCardFor(c);
           if (alc) this.remove(alc);
-          text = name + ' walks out of the Hole into the Market and does not look back. A year from now they keep a stall in the Abbey Close, and a family, and they cross the street when they see you.';
+          text = name + ' walks out of the Hole into the Market and does not look back. A year from now they keep ' + U.pick(this.rng, Sen.REFORMED_PLACES) + ', and a family, and they cross the street when they see you.';
         } else {
           c.status = 'at_large';
           if (c.traits.indexOf('spared') < 0) c.traits.push('spared');
@@ -195,7 +222,7 @@
             text = name + ' knows what a pardon costs and what it is worth. A week later they are waiting on the Informers\' Bench with something to sell. They owe you, and they know it.';
           } else {
             this.abroadCard(c, 'Pardoned by the Examiner, and the underworld knows it.');
-            text = name + ' walks. The Coquille hears of it before the bell. A spared man owes the Examiner, and everybody knows to whom he owes it.';
+            text = name + ' walks. The Coquille hears of it before the bell. The spared owe the Examiner, and everybody knows to whom.';
           }
         }
         break;
@@ -235,7 +262,7 @@
         this.meter('pressure', d.highProfile ? -2 : -1);
         if (L.capital && d.custom === 'wheel') { count('mercy', 1); notes.push('Commuted from ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ', out of mercy. The Bishop approves.'); }
         c.status = 'dead';
-        text = 'The judge breaks the white staff over the head of ' + name + '. At first light they kneel on the Ravenstone and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for a man who died well.';
+        text = 'The judge breaks the white staff over the head of ' + name + '. At first light they kneel on the Ravenstone and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for one who died well.';
         break;
       case 'rope':
         count('cruelty', 1);
@@ -250,7 +277,11 @@
         this.meter('dread', 2);
         this.meter('retaliation', 2);
         c.status = 'dead';
-        text = 'The staff is broken, and ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ' follows, before the whole city. It takes most of the morning. The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
+        var wv = Sen.ladderOf(d.template).wheel;
+        text = (wv === 'The Fire' ? 'The staff is broken. The faggots are stacked at the Ravenstone before noon, and the smoke is seen from the Harbour.'
+          : wv === 'The Water' ? 'The staff is broken. They carry ' + name + ' to the Harbour bridge in a sack, and the river is quick about it, which is the only mercy in it.'
+          : 'The staff is broken, and the wheel is brought out on the Ravenstone. It takes most of the morning.') +
+          ' The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
         break;
     }
     if (!d.guilty && rec.id) this.wrongfulSentenced(rec, rung);
@@ -288,7 +319,7 @@
         c.status = 'at_large';
         c.crimes++;
         self.abroadCard(c, 'Back from banishment. Hangs if caught.');
-        lines.push(c.name + ', banished, is back inside the walls. A returned banished man hangs if caught, and knows it.');
+        lines.push(c.name + ', banished, is back inside the walls. The banished who come back hang if caught, and know it.');
       } else c.returnWeek = s.week + 3;
     });
     return lines;

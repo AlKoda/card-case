@@ -18,6 +18,7 @@
   Deduce.fits = function (d, clues, tunnel) {
     var n = d.needs || {};
     if (tunnel && n.distinctTraits) return false;
+    if (n.never) return false;
     if (clues.length < (n.min || 2)) return false;
     if (n.aspects) {
       var agg = {};
@@ -59,6 +60,7 @@
     var e = ctx.e;
     if (d.id === 'connect') return Deduce.connect(ctx, clues);
     if (d.id === 'alibi') return Deduce.alibi(ctx, d, rec, clues);
+    if (d.id === 'conflict') { var staged = Deduce.staged(ctx, rec, clues); if (staged) return staged; }
     var traits = traitsOf(clues);
     var shared = Object.keys(traits).filter(function (t) { return traits[t] >= 2; })[0] || null;
     var trait = shared || (Object.keys(traits).length === 1 ? Object.keys(traits)[0] : null);
@@ -118,6 +120,31 @@
     if (d.id === 'identify') text2 += fits ? ' It is ' + fits.name + '.' : ' Whoever it is, you have not met them yet.';
     return { title: U.fill(st.title || d.label, vars), text: text2, kind: st.kind || (fits ? 'major' : undefined), made: made };
   };
+  // Two Accounts, when one of them was put there: a staged mark beside the
+  // culprit's own. Somebody who knew whose mark it was wanted it read. The
+  // staged token loses its mark (it is plain Presence now) and a token
+  // naming the culprit comes of it. Null when the tokens are not that pair.
+  Deduce.staged = function (ctx, rec, clues) {
+    var e = ctx.e;
+    var cul = rec && rec.suspects.filter(function (x) { return x.guilty; })[0];
+    if (!cul) return null;
+    var put = clues.filter(function (c) { return c.data.staged && c.data.trait && c.data.trait !== cul.trait; })[0];
+    var real = clues.filter(function (c) { return !c.data.staged && c.data.trait === cul.trait; })[0];
+    if (!put || !real) return null;
+    var d = CF.DEDUCTIONS.filter(function (x) { return x.id === 'staged'; })[0] || {};
+    var g = d.gives || {};
+    put.label = 'Staged: ' + e.labelOf(put).replace(/^Staged: /, '');
+    put.data.trait = null;
+    put.data.stagedRead = true;
+    var asp = CF.clueAspects(put);
+    put.aspects = { opportunity: Math.max(1, asp.opportunity || 0) };
+    put.fresh = true;
+    e.dirty = true;
+    var made = ctx.give('clue', { label: g.label, desc: g.text, aspects: U.clone(g.aspects), caseId: rec.id,
+      data: { misread: false, coerced: false, planted: false, corroborated: true, trait: null, points: cul.key, deduction: 'staged' } });
+    var st = d.story || {};
+    return { title: st.title, text: st.text, kind: st.kind || 'major', made: made };
+  };
   // Two confessions laid side by side: both stay, and both are false now.
   Deduce.falseConfessions = function (e, clues) {
     clues.forEach(function (c) {
@@ -162,18 +189,20 @@
     clues.forEach(function (c) { var r = e.caseRec(c.caseId); if (r && titles.indexOf(r.title) < 0) titles.push(r.title); });
     ctx.give('thread', {
       label: 'Thread: ' + front.name,
-      desc: titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Rest with a Band or Coquille card to close in.',
-      data: { front: front.id, cases: titles },
+      desc: front.fence ? U.fill('{cases} both lead to {front}. A receiver of stolen goods keeps it. Bring the Thread to Rest alone to open a case against him.', { cases: titles.join(' and '), front: front.name })
+        : titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Rest with a Band or Coquille card to close in.',
+      data: { front: front.id, cases: titles, fence: !!front.fence },
     });
     e.revealFront(front);
     e.pathGain('master', 2, 'found a connection');
     var extra = [];
     if (e.s.calling === 'master') {
-      e.casesAtFront(front.id).forEach(function (r) { var sc = e.revealSuspect(r, ctx); if (sc) extra.push(e.labelOf(sc) + ' (' + r.title + ')'); });
+      // Each a whole phrase of its own ('{name} (accused in {title})'), so a reader in any language reads it whole.
+      e.casesAtFront(front.id).forEach(function (r) { var sc = e.revealSuspect(r, ctx); if (sc) extra.push(U.fill('{name} (accused in {title})', { name: e.labelOf(sc), title: r.title })); });
     }
     var vars = { clues: clues.map(function (c) { return e.labelOf(c); }).join(', '), front: front.name };
     var d = CF.DEDUCTIONS.filter(function (x) { return x.id === 'connect'; })[0];
     return { title: U.fill(d.story.title, vars), kind: 'major',
-      text: U.fill(d.story.text, vars) + (extra.length ? ' And a name for each: ' + extra.join('; ') + '.' : '') };
+      text: extra.length ? U.fill('{text} And a name for each: {list}.', { text: U.fill(d.story.text, vars), list: extra.join('; ') }) : U.fill(d.story.text, vars) };
   };
 })(typeof window !== 'undefined' ? window : globalThis);
