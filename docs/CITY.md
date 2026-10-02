@@ -227,6 +227,8 @@ money changes the truth:
 | **The Thief-takers' cut** | Recovering goods for a fee without prosecuting [Wild] | 2 Funds per case closed this way | +1, and Underworld Debt |
 | **Selling a writ** | A patrician, wanting a rival searched | 3 Funds | +1, Suspicion +1 if the rival is a Council family |
 | **The King's tribute** | The underworld, weekly, once a Treaty stands (§8) | Funds every week | +1 per week taken |
+| **The upright man's Coin** | A band's upright man, once a Band is on the table | 1 Fund every week while that band stands; the boy stops coming when it is broken | +1, then +1 every other week |
+| **The note with the purse** | Somebody who wants one of your open cases dropped; the note names it | 3 Funds, or trace the boy to a door on the Hill and a name in that case | +1 if pocketed |
 | **Blood money** | Convicting for the reward with a frame [Macdaniel] | 3 Funds | +2, and a wrongful conviction |
 
 Two exits from the corrupt road, and the whole design hinges on both
@@ -356,6 +358,14 @@ witness. Exposing them is a short hunt, not a chore: one weakness a week,
 found once by questioning (Wit) and once by shadowing (Instinct). The
 first does not stop them; it shows their next move, and that is the move
 they make at the Bell if it can still be made. The second sends them home.
+
+A case the Rival closes is answered, not unanswered: no Crowd, no card
+for the one who walked, but Standing falls, because the Council notes who
+was quicker. Most often they hanged the right name. Sometimes the
+confession was bought and the wrong neck paid; the real culprit keeps
+their head down for a few weeks, and then a ballad tells the Market whose
+confession it was. The Rival never races a case of the bands, the Court
+or the Architect.
 
 **9.3 Informers with nothing.** An informer who has nothing to sell says
 so before you pay: the meeting names what they have (a word on a case

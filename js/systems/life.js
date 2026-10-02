@@ -388,7 +388,7 @@
   function rivalOptions(e, wk) {
     var open = e.openCases();
     return {
-      mine: open.filter(function (x) { return !x.rival && x.searches > 0 && wk - (x.week || 0) >= 1; }),
+      mine: open.filter(function (x) { return !x.rival && !x.special && x.searches > 0 && wk - (x.week || 0) >= 1; }),
       ripe: open.filter(function (x) { return x.rival && wk - (x.rivalSince || 0) >= 2; }),
       clues: e.tableCards().filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && CF.CLUE_ASPECTS.some(function (k) { return CF.aspectsOf(c)[k] > 0; }); }),
       witnesses: e.tableCards().filter(function (c) { return c.def === 'witness' && c.life > 40; }),
@@ -425,10 +425,84 @@
     return U.fill(CF.RIVAL_FORESEEN[act], { name: r.data.name, target: t.uid ? this.labelOf(t) : t.title });
   };
 
+  // The upright man's Coin, taken once (the 'upright' choice), comes every week while his band
+  // stands: one Coin, and every other week the purse is counted. When the band is broken the
+  // boy stops coming, and says so once.
+  CF.UPRIGHT_WEEK = {
+    paid: 'The upright man\'s boy brings the week\'s Coin. The band keeps clear of your stair.',
+    broken: 'The boy does not come this week. His upright man is in the Hole, and so, in a manner of speaking, is your Coin.',
+    // Two bands sworn into the Coquille: the band card goes, but nobody broke it.
+    sworn: 'The boy does not come this week. His band has gone under the Warrens to the King of Thunes, and the King pays nobody.',
+  };
+  function uprightWeek(e, lines) {
+    var f = e.s.flags, band = f.uprightPaid;
+    if (!band) return;
+    var stands = e.cardsOf('gang', true).some(function (g) { return g.data && g.data.name === band; });
+    if (!stands) {
+      delete f.uprightPaid;
+      lines.push(e.countOf('syndicate') && !f.syndicateFallen ? CF.UPRIGHT_WEEK.sworn : CF.UPRIGHT_WEEK.broken);
+      return;
+    }
+    coins(e, 1);
+    f.uprightWeeks = (f.uprightWeeks || 0) + 1;
+    if (f.uprightWeeks % 2 === 0) e.count('purse');
+    lines.push(CF.UPRIGHT_WEEK.paid);
+  }
+
+  // The Rival closes a case of yours before you do: answered, not cold. No Crowd, no Unanswered
+  // card; the Council notes who was quicker (Standing -1). Most often they hanged the right name,
+  // and the culprit is done; sometimes the confession was bought, the wrong neck paid, and the real
+  // culprit keeps their head down until a ballad tells the city (surfaceCriminal, below).
+  // A case of the bands, the Court or the Architect is never theirs to close (rivalOptions).
+  CF.RIVAL_RIGHT = 0.6;
+  P.rivalCloses = function (rec, rival) {
+    var s = this.s;
+    if (!rec || rec.status !== 'open') return null;
+    if (rec.special) { this.goCold(rec.id); return null; }
+    var card = this.caseCard(rec.id);
+    if (card) this.remove(card);
+    rec.status = 'rival';
+    if (this.commissionCold) this.commissionCold(rec);
+    this.releaseDelegate(rec);
+    var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+    var others = rec.suspects.filter(function (x) { return !x.guilty; });
+    var right = !culprit || !others.length || this.rng() < CF.RIVAL_RIGHT;
+    var hanged = right ? culprit : U.pick(this.rng, others);
+    s.stats.byRival = (s.stats.byRival || 0) + 1;
+    this.emit('resolved', this.caseRecord(rec, 'rival', hanged ? hanged.name : null));
+    this.clearCaseCards(rec.id);
+    this.meter('reputation', -1);
+    if (culprit && right) {
+      var caught = this.criminalCaught(culprit.name);
+      var al = caught && this.atLargeCardFor(caught);
+      if (al) this.remove(al);
+    } else if (culprit) {
+      var crim = this.criminalEscapes(rec, culprit, 'rival');
+      if (this.atLargeCardFor(crim)) this.refreshAtLarge(crim);
+      else { this.hideCriminal(crim, rec, 'rope'); crim.wrongfulBy = rival || 'the Harbourmaster\'s Examiner'; }
+    }
+    this.story('Answered by the Rival', U.fill('{rival} has closed {title} with a confession from {name}, and the Harbourmaster is pleased with it. The Council notes who was quicker.',
+      { rival: rival || 'The Harbourmaster\'s Examiner', title: rec.title, name: hanged ? hanged.name : 'somebody' }), 'danger');
+    this.dirty = true;
+    return { right: right, name: hanged ? hanged.name : null };
+  };
+  // The wrong name the Rival hanged: the ballad blames their bought confession, not you.
+  var surfaceCriminal = P.surfaceCriminal;
+  if (surfaceCriminal) P.surfaceCriminal = function (c, crimeFirst) {
+    var by = c.wrongfulBy, title = c.wrongfulTitle || 'an old case';
+    var dl = CF.DISTRICTS[c.district] ? CF.DISTRICTS[c.district].label : 'the Warrens';
+    surfaceCriminal.call(this, c, crimeFirst || !!by);
+    if (!by) return;
+    delete c.wrongfulBy;
+    if (!crimeFirst) this.story('The Wrong Name', U.fill('{name} has been seen in {district}, alive and careful, and a ballad-seller has a new verse about {title}: the confession {rival} was so pleased with was bought, and the wrong neck paid for it. The Warrens have known for a week. Now the Market does.',
+      { name: c.name, district: dl, title: title, rival: by }), 'danger');
+  };
+
   CF.RIVAL_NAMES = ['Anselm Vogt', 'Lucia Brenner', 'Konrad Aschauer', 'Margarethe Sturm', 'Piet Wieland', 'Ottilie Kress'];
   P.rivalWeek = function () {
     var s = this.s, lines = [];
     foretellCoquille(this); // the week's other word from the street, before the Rival's
+    uprightWeek(this, lines); // and the upright man's boy, if you took his Coin
     if (s.week < 5 || (s.intro && !s.intro.finished)) return lines;
     var r = this.cardsOf('rival', true)[0];
     if (!r) {
@@ -480,9 +554,7 @@
       lines.push(name2 + ' has taken up one of your cases.');
     } else if (act === 'close') {
       var rec2 = aim || U.pick(this.rng, ripe);
-      this.goCold(rec2.id);
-      this.meter('reputation', -1);
-      this.story('Answered by the Rival', name2 + ' has closed ' + rec2.title + ' with a confession the Harbourmaster is pleased with. The Council notes who was quicker.', 'danger');
+      this.rivalCloses(rec2, name2);
       lines.push(name2 + ' closed a case of yours first.');
     } else if (act === 'tamper') {
       var c = aim || U.pick(this.rng, clues), asp = CF.aspectsOf(c);
@@ -541,11 +613,12 @@
   CF.CHOICES = [
     // Put to you once you have the desk: what you want from it. Never offered by the clock.
     { id: 'calling', when: function () { return false; },
-      title: 'What You Want', text: 'A desk under the stair, a caseload, and a city that has not decided what you are. You have. What is this for?',
+      // The answer is the end you work toward: each option names it (other ends stay open).
+      title: 'What You Want', text: 'A desk under the stair, a caseload, and a city that has not decided what you are. You have. What is this for? Your answer is the end you work toward.',
       options: [
-        { label: 'The Burgomaster', text: 'Power. Rise through the offices and remake the Watch from the Council chamber. An extra Coin, and a Beadle in service.', effect: function (e) { e.applyCalling('commissioner'); } },
-        { label: 'The Scholar', text: 'Knowledge. Trace every small crime back to the hidden hand that drew it. A Sketch-book, and Loose Ends on sound convictions.', effect: function (e) { e.applyCalling('master'); } },
-        { label: 'The Reformer', text: 'Justice. Break the Coquille by any means, even if it costs your office. An Informer, and the Council\'s eye looks away a little longer.', effect: function (e) { e.applyCalling('crusader'); } },
+        { label: 'The Burgomaster', gain: 'Your end: the Council\'s Seat, by office and calm weeks', text: 'Power. Rise through the offices and remake the Watch from the Council chamber. An extra Coin, and a Beadle in service.', effect: function (e) { e.applyCalling('commissioner'); } },
+        { label: 'The Scholar', gain: 'Your end: the Architect sentenced, by threads and loose ends', text: 'Knowledge. Trace every small crime back to the hidden hand that drew it. A Sketch-book, and Loose Ends on sound convictions.', effect: function (e) { e.applyCalling('master'); } },
+        { label: 'The Reformer', gain: 'Your end: the Coquille broken and its King hanged', text: 'Justice. Break the Coquille by any means, even if it costs your office. An Informer, and the Council\'s eye looks away a little longer.', effect: function (e) { e.applyCalling('crusader'); } },
       ] },
     // --- On the city's clock ---------------------------------------------------
     { id: 'beggar', when: function (e) { return e.cardsOf('funds').length >= 1; },
@@ -569,13 +642,24 @@
         { label: 'Give them the vagrant', gain: 'The Crowd goes quiet; Dread rises', text: 'The Crowd is fed. Someone who did nothing hangs for it, and the city learns what you are.', effect: function (e) { e.meter('pressure', -3); e.meter('dread', 2); e.count('cruelty', 2); e.s.stats.wrongful++; } },
         { label: 'Hold the line', cost: 'health', gain: 'Standing rises; Mercy', text: 'You say the case is open. The song gets another verse.', effect: function (e) { e.meter('pressure', 1); e.meter('reputation', 1); e.count('mercy'); } },
       ] },
-    { id: 'purse', when: function (e) { return e.s.week >= 2; },
-      title: 'A Purse on the Desk', text: 'Nobody saw who left it. Three Coin, good silver, and a note with the name of a case on it and nothing else.',
-      again: 'Another purse, heavier than the last, and the same hand on the note.',
+    // The note names one of your open cases: the one somebody wants dropped.
+    { id: 'purse', when: function (e) { return e.s.week >= 2 && e.openCases().length > 0; },
+      context: function (e) { var rec = U.pick(e.rng, e.openCases()); return rec ? { caseId: rec.id } : null; },
+      fill: function (e, ctx) { var rec = anyOpenCase(e, ctx); return { 'case': rec ? rec.title : 'a case of yours' }; },
+      title: 'The Note with the Purse', text: 'Three Coin, good silver, and a note with one thing on it: {case}. Nobody saw who left it.',
+      again: 'Another purse, heavier than the last, and the same hand on the note: {case}.',
       options: [
         { label: 'Pocket it', gain: '+3 Coin; the Council\'s eye', text: 'Silver is silver. Somebody now believes you can be bought, because you can.', effect: function (e) { coins(e, 3); e.count('purse'); e.meter('scrutiny', 1); } },
-        { label: 'Find who left it', cost: 'instinct', gain: 'An Informer on the Hill', text: 'A boy, a lane, a door on the Hill that does not open to you. But the boy will, for a coin now and then.',
-          effect: function (e) { e.meter('scrutiny', -1); e.meter('retaliation', 1); e.favour().council += 1; e.create('informant', e.informantSpec('uptown')); } },
+        { label: 'Find who left it', cost: 'instinct', gain: 'A name in that case, or an Informer on the Hill', text: 'A boy, a lane, a door on the Hill.',
+          effect: function (e, ctx) {
+            e.meter('scrutiny', -1); e.meter('retaliation', 1); e.favour().council += 1;
+            // The door belongs to somebody in the case the note named, if anyone there is still unnamed.
+            var rec = anyOpenCase(e, ctx);
+            var sc = rec && rec.suspects.some(function (x) { return !x.revealed && !x.cleared; }) ? e.revealSuspect(rec, null) : null;
+            if (sc) return U.fill('The boy leads you up the Hill to a door that does not open to you. You know whose it is: {name}, in {case}.', { name: sc.label, 'case': rec.title });
+            e.create('informant', e.informantSpec('uptown'));
+            return 'A boy, a lane, a door on the Hill that does not open to you. But the boy will, for a coin now and then.';
+          } },
         { label: 'Give it to the poor-box', gain: 'The Bishop\'s favour; Standing rises', text: 'The chaplain blinks. The Council hears of it, and so does whoever left it.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); e.favour().bishop += 1; } },
       ] },
     { id: 'informer', when: function (e) { return e.cardsOf('informant').length >= 1; },
@@ -677,7 +761,8 @@
     { id: 'upright', when: function (e) { return e.cardsOf('gang', true).length >= 1; },
       title: 'The Upright Man\'s Offer', text: 'A boy brings a purse and a message from the band\'s upright man: a Coin a week, and the band keeps clear of your stair.',
       options: [
-        { label: 'Take it', gain: '+1 Coin; Purse; Vendetta eases', text: 'The boy comes every week. The band keeps clear of your stair, and the Market knows why.', effect: function (e) { coins(e, 1); e.count('purse'); e.meter('retaliation', -3); } },
+        { label: 'Take it', gain: '+1 Coin a week while the band stands; Purse; Vendetta eases', text: 'The boy comes every week. The band keeps clear of your stair, and the Market knows why.',
+          effect: function (e) { coins(e, 1); e.count('purse'); e.meter('retaliation', -3); var g = e.cardsOf('gang', true)[0]; if (g) e.s.flags.uprightPaid = g.data.name; } },
         { label: 'Send the boy back with the purse', gain: 'Standing rises; Vendetta', text: 'The boy goes back with the purse and the message. The band hears it, and so does the lane.', effect: function (e) { e.meter('reputation', 1); e.meter('retaliation', 1); } },
       ] },
     { id: 'dinner', when: function (e) { return e.s.meters.reputation >= 6; },
@@ -760,6 +845,9 @@
     var s = this.s;
     // Asked before: the second wording, if it has one.
     var text = choiceAsked(this, spec) && spec.again ? spec.again : spec.text;
+    // A question about something of yours: the case it is about is chosen now, and named in the text.
+    if (!ctx && spec.context) ctx = spec.context(this);
+    if (spec.fill) text = U.fill(text, spec.fill(this, ctx || null));
     (s.choicesSeen || (s.choicesSeen = {}))[spec.id] = s.week;
     s.choiceLast = s.t;
     s.choice = { id: spec.id, title: spec.title, text: text, ctx: ctx || null,
@@ -803,8 +891,9 @@
       else this.remove(pay);
     }
     s.choice = null;
-    opt.effect(this, c.ctx || null);
-    this.story(c.title + ': ' + opt.label, opt.text + (opt.gain ? ' (' + opt.gain + ')' : ''), 'major');
+    // An answer that turns out one of two ways says which (the effect returns its own words).
+    var told = opt.effect(this, c.ctx || null);
+    this.story(c.title + ': ' + opt.label, (typeof told === 'string' ? told : opt.text) + (opt.gain ? ' (' + opt.gain + ')' : ''), 'major');
     this.emit('chosen', { id: c.id, option: i });
     this.dirty = true;
     return true;

@@ -537,7 +537,10 @@ builds it.
 
 ## 19. Callings as drift
 
-The Calling chosen at the start is a leaning, not a campaign. It keeps its
+The Calling is put to you once you have the desk ('What You Want'), and
+each answer names the end it works toward: the Council's Seat, the
+Architect sentenced, or the Coquille broken and its King hanged. Other
+ends stay open. The Calling is a leaning, not a campaign. It keeps its
 starting bonus (`s.origin`), seeds its path with a head start, and then
 the run drifts toward whichever path the detective actually walks
 (`js/systems/callings.js`, `s.paths`):

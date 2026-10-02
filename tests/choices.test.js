@@ -175,8 +175,18 @@ assert.ok(lines.some(function (l) { return /boasting/.test(l); }), 'a week on th
 assert.ok(rv.s.journal.some(function (j) { return j.title === 'The Rival Boasts' && j.text.indexOf(rec.title) >= 0; }), 'in the Red Ox, by name');
 assert.strictEqual(rec.status, 'open', 'and the case is still yours');
 rv.s.week += 1;
+var crowd0 = rv.s.meters.pressure, cold0 = rv.s.stats.cold, rep0 = rv.s.meters.reputation, ended = [];
+rv.on(function (type, p) { if (type === 'resolved') ended.push(p); });
 rv.rivalWeek();
-assert.strictEqual(rec.status, 'cold', 'two weeks on they close it');
+// Answered by the Rival, not gone cold: no Crowd, no Unanswered card, no 'walked'; Standing pays.
+assert.strictEqual(rec.status, 'rival', 'two weeks on they close it');
+assert.strictEqual(rv.s.meters.pressure, crowd0, 'the Crowd does not rise for a case the Rival answered');
+assert.strictEqual(rv.s.stats.cold, cold0, 'not counted unanswered');
+assert.strictEqual(rv.s.meters.reputation, Math.max(0, rep0 - 1), 'the Council notes who was quicker');
+assert.strictEqual(rv.countOf('coldcase'), 0, 'no Unanswered card');
+assert.ok(!rv.s.journal.some(function (j) { return j.title === 'The Trail Goes Cold'; }), 'nobody hears the crier and laughs');
+assert.ok(ended.length === 1 && ended[0].outcome === 'rival' && ended[0].charged, 'the archive says the Rival answered it, and whom they hanged');
+assert.ok(rv.s.journal.some(function (j) { return j.title === 'Answered by the Rival' && j.text.indexOf(ended[0].charged) >= 0; }), 'the story names the confession');
 // Spoiled tokens and bought witnesses carry the mark.
 var rv2 = game(12); rv2.s.week = 8;
 while (!rv2.cardsOf('rival', true).length) rv2.rivalWeek();
@@ -190,6 +200,127 @@ for (var tries2 = 0; tries2 < 40 && !wtn.data.bribed; tries2++) rv2.rivalWeek();
 assert.ok(wtn.data.bribed, 'a bought witness is marked');
 console.log('the rival races you: ok');
 
+// ---- The Rival's close: the right name, or a wrong one the ballad tells later --------------
+(function rivalCloses() {
+  var rights = 0, wrongs = 0;
+  for (var sd = 30; sd < 50; sd++) {
+    var g = game(sd), r = g.openCases()[0], culprit = r.suspects.filter(function (x) { return x.guilty; })[0];
+    var res = g.rivalCloses(r, 'Piet Wieland');
+    var c = g.criminalByName(culprit.name);
+    if (res.right) {
+      rights++;
+      assert.strictEqual(res.name, culprit.name);
+      assert.ok(!c || c.status === 'jailed', 'the right name is done with');
+      assert.strictEqual(g.criminalsAtLarge().filter(function (x) { return x.name === culprit.name; }).length, 0);
+    } else {
+      wrongs++;
+      assert.notStrictEqual(res.name, culprit.name, 'a wrong name hanged');
+      assert.ok(c && c.hidden && c.wrongfulBy === 'Piet Wieland' && c.wrongfulHow === 'rope', 'the real culprit keeps their head down');
+      assert.strictEqual(g.atLargeCardFor(c), null, 'no Abroad card yet');
+      g.s.week = c.surfaceWeek;
+      g.surfaceCriminal(c, false);
+      var told = g.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
+      assert.ok(told && told.text.indexOf('Piet Wieland') > 0 && told.text.indexOf('you sent down') < 0, 'the ballad blames the Rival: ' + (told && told.text));
+      assert.strictEqual(g.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; }).length, 1, 'told once');
+      assert.ok(g.atLargeCardFor(c), 'and now they are Abroad');
+      assert.ok(!c.wrongfulBy, 'the mark is spent');
+    }
+    assert.strictEqual(g.countOf('coldcase'), 0);
+    assert.strictEqual(g.s.stats.wrongful, 0, 'the Rival\'s wrong name is not counted against you');
+  }
+  assert.ok(rights > 0 && wrongs > 0, 'both happen: ' + rights + '/' + wrongs);
+  // A case of the bands, the Court or the Architect is never theirs to take.
+  var sp = game(51); sp.s.week = 8;
+  sp.openCases().forEach(function (x) { x.special = true; x.searches = 1; x.week = 0; });
+  sp.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 0, stalled: 0 } });
+  sp.tableCards().filter(function (c) { return c.def === 'clue' || c.def === 'evidence' || c.def === 'witness'; }).forEach(function (c) { sp.remove(c); });
+  assert.deepStrictEqual(sp.rivalWeek(), [], 'nothing of the bands or the Court to race');
+  console.log('the rival closes: ok');
+})();
+
+// ---- The upright man's Coin comes every week while the band stands --------------------------
+(function upright() {
+  var u = game(21);
+  u.s.flags.firstCase = true;
+  var band = u.create('gang', { label: 'Band: The Lanternless', data: { name: 'the Lanternless' } });
+  u.offerChoice(spec('upright'));
+  assert.ok(/a week while the band stands/.test(u.s.choice.options[0].gain), 'the gain says it comes weekly');
+  assert.ok(u.choose(0));
+  assert.strictEqual(u.s.flags.uprightPaid, 'the Lanternless');
+  var purse0 = u.s.counts.purse;
+  for (var w = 0; w < 2; w++) {
+    var f0 = u.cardsOf('funds', true).length, lines = u.rivalWeek();
+    assert.ok(lines.indexOf(CF.UPRIGHT_WEEK.paid) >= 0, 'the boy comes: ' + lines);
+    assert.strictEqual(u.cardsOf('funds', true).length, f0 + 1, 'with a Coin');
+  }
+  assert.strictEqual(u.s.counts.purse, purse0 + 1, 'the purse counted every other week');
+  u.remove(band);
+  var l2 = u.rivalWeek(), f1 = u.cardsOf('funds', true).length;
+  assert.ok(l2.indexOf(CF.UPRIGHT_WEEK.broken) >= 0, 'the band broken: the boy stops coming');
+  assert.ok(!u.s.flags.uprightPaid);
+  assert.ok(u.rivalWeek().indexOf(CF.UPRIGHT_WEEK.broken) < 0, 'and that is said once');
+  assert.strictEqual(u.cardsOf('funds', true).length, f1);
+  console.log('the upright man pays weekly: ok');
+})();
+
+// ---- The note with the purse names a case of yours ---------------------------------------
+(function purseNote() {
+  var p = game(22);
+  var rec = p.openCases()[0];
+  p.offerChoice(spec('purse'));
+  assert.strictEqual(p.s.choice.title, 'The Note with the Purse');
+  assert.notStrictEqual(spec('purse').title, 'A Purse on the Desk', 'not the bribe card\'s words');
+  assert.ok(p.s.choice.text.indexOf(rec.title) > 0 && p.s.choice.text.indexOf('{') < 0, 'the note names the case: ' + p.s.choice.text);
+  assert.strictEqual(p.s.choice.ctx.caseId, rec.id);
+  var unnamed = rec.suspects.filter(function (x) { return !x.revealed; }).length;
+  p.create('instinct');
+  assert.ok(p.choose(1), 'find who left it');
+  assert.strictEqual(rec.suspects.filter(function (x) { return !x.revealed; }).length, unnamed - 1, 'a name in that case');
+  var told = p.s.journal.filter(function (j) { return j.title === 'The Note with the Purse: Find who left it'; })[0];
+  assert.ok(told && told.text.indexOf(rec.title) > 0, 'told whose door it was: ' + (told && told.text));
+  // Nobody left to name: the Informer on the Hill, as before.
+  var q = game(23), rq = q.openCases()[0];
+  rq.suspects.forEach(function (x) { x.revealed = true; });
+  q.offerChoice(spec('purse')); q.create('instinct');
+  var inf0 = q.countOf('informant');
+  assert.ok(q.choose(1));
+  assert.strictEqual(q.countOf('informant'), inf0 + 1, 'an Informer on the Hill');
+  // No open case: the note has nothing to name, and the question is not put.
+  var z = game(24); z.s.week = 3;
+  z.openCases().forEach(function (x) { x.status = 'closed'; });
+  assert.ok(!spec('purse').when(z), 'no case, no note');
+  console.log('the note with the purse: ok');
+})();
+
+// ---- A save from before: an old purse question, a Rival's case, no upright flag ----------
+(function oldSave() {
+  var o = game(25);
+  o.s.flags.firstCase = true;
+  var orec = o.openCases()[0];
+  var raw = JSON.parse(o.save());
+  // As an older build saved it: the old title and words, no case chosen, no new flags.
+  raw.choice = { id: 'purse', title: 'A Purse on the Desk', text: 'Nobody saw who left it. Three Coin, good silver, and a note with the name of a case on it and nothing else.', ctx: null,
+    options: spec('purse').options.map(function (op) { return { label: op.label, text: op.text, cost: op.cost || null, gain: op.gain || null, forGood: false }; }) };
+  delete raw.flags.uprightPaid; delete raw.flags.uprightWeeks; delete raw.stats.byRival;
+  var l = CF.Engine.load(JSON.stringify(raw));
+  assert.ok(l.s.choice && l.s.choice.id === 'purse', 'the old question is still put');
+  assert.ok(l.choose(0), 'and can be answered');
+  assert.deepStrictEqual(l.rivalWeek().filter(function (x) { return x === CF.UPRIGHT_WEEK.paid; }), [], 'no boy for an offer never taken');
+  l.create('rival', { label: 'The Rival: Piet Wieland', data: { name: 'Piet Wieland', heat: 0, stalled: 0 } });
+  var lrec = l.caseRec(orec.id);
+  assert.ok(l.rivalCloses(lrec, 'Piet Wieland') && lrec.status === 'rival' && l.s.stats.byRival === 1, 'the Rival closes a case of an old save');
+  console.log('an old save loads: ok');
+})();
+
+// ---- The calling says which end it is ------------------------------------------------------
+(function callingEnds() {
+  var cl = spec('calling');
+  assert.ok(/end you work toward/.test(cl.text));
+  cl.options.forEach(function (o) { assert.ok(/^Your end: /.test(o.gain), o.label + ' names its end'); });
+  assert.ok(/Seat/.test(cl.options[0].gain) && /Architect/.test(cl.options[1].gain) && /Coquille/.test(cl.options[2].gain));
+  console.log('the calling names its end: ok');
+})();
+
 // ---- The ending's own numbers ----------------------------------------------------------
 var m = game(13);
 m.s.stats.sentHome = 9;
@@ -198,6 +329,12 @@ m.gameOver('merciful');
 assert.strictEqual(m.s.over.text.indexOf('9 times you sent a poor sinner home'), 0, 'the Merciful Judge counts the ones sent home: ' + m.s.over.text);
 assert.ok(m.s.over.text.indexOf('and 2 of them are citizens now') > 0, 'and the reformed');
 assert.ok(m.s.over.text.indexOf('{') < 0, 'nothing left unfilled');
+// A save from before the count of those sent home: never fewer sent home than reformed.
+var m2 = game(14);
+delete m2.s.stats.sentHome;
+for (var cj = 0; cj < 3; cj++) m2.criminalFor('Burgher ' + cj, null).status = 'reformed';
+m2.gameOver('merciful');
+assert.strictEqual(m2.s.over.text.indexOf('3 times you sent a poor sinner home'), 0, 'an old save counts the reformed as sent home: ' + m2.s.over.text);
 CF.ENDING_VARIANTS.master.forEach(function (v) { assert.ok(/your own lintel, and you rub them out with your thumb\.$/.test(v.text), 'the Scholar ends at the lintel'); });
 console.log('the ending\'s numbers: ok');
 

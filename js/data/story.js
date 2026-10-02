@@ -31,9 +31,9 @@
     0: { title: 'What the Scene Gives', text: 'A scene is never finished with you. What you carry away is raw: proof has to be made to speak in Study, and there is more to find if you go back with a different eye. Your Instinct is on the table now. Wit is patient; Instinct follows the itch.' },
     1: { title: 'People', text: 'Now there is somebody to talk to. How you go in matters: patience draws the truth out slowly, a bluff shakes things loose or frightens them off, and leaning on someone is fast and is remembered. Your Health is on the table; it is what you spend when you lean.' },
     2: { title: 'The Casebook', text: 'Two tokens are a pattern or a contradiction. Rest is where you lay them side by side: two descriptions of one person become an identification, coin and motive become a theory, and two different descriptions tell you that one of them is lying.' },
-    3: { title: 'The Charge', text: 'An accused and the tokens that fit them make a charge. The Blood Court wants the right kinds of proof in enough weight, and it will tell you, before you commit, how it looks. Indicia will not convict alone. A thin charge can still hang someone, and an acquitted man walks out remembering your face.' },
-    4: { title: 'The Sworn Men', text: 'The sworn men take as long as they take. The Watch-house does not wait: Attend is your hours, and your hours are Coin. Everything you will ever buy is bought there.' },
-    5: { title: 'The Ladder', text: 'A conviction is not the end of a case. The Condemned wait in the Hole for your word, and the ladder is on your desk: from a Pardon to the Wheel, every rung with its price. Mercy and Cruelty are both counted, and the city remembers which you chose.' },
+    3: { title: 'The Charge', text: 'An accused and the tokens that fit them make a charge. The Blood Court judges it by the Carolina, the Emperor\'s law: the right kinds of proof in enough weight, and it will tell you, before you commit, how it looks. Indicia, suspicion that is not yet proof, will not convict alone. A thin charge can still hang someone, and an acquitted man walks out remembering your face.' },
+    4: { title: 'The Sworn Men', text: 'The sworn men, the citizens who sit with the judge, take as long as they take. The Watch-house does not wait: Attend is your hours, and your hours are Coin. Everything you will ever buy is bought there.' },
+    5: { title: 'The Ladder', text: 'A conviction is not the end of a case. The Condemned wait in the Hole, the cells under the Watch-house, for your word, and the ladder is on your desk: from a Pardon to the Wheel, every rung with its price. Mercy and Cruelty are both counted, and the city remembers which you chose.' },
     acquit: { title: 'The Sworn Men Acquit', text: 'Not every charge holds. The one who walked out is Abroad now, on a card of their own, and remembers your face. If they did it, fresh proof can take them again.' },
     desk: { title: 'The Desk', text: 'The rest of the office arrives with the morning: your stipend, the petitions the treasury will consider, a letter from someone who would serve under you, and the quarters themselves. Lodging and dues come out at every bell. Cases arrive on the city\'s clock, and the clock does not wait for you to be ready.' },
   };
@@ -132,6 +132,15 @@
   };
   // A won run looks back, at the end, to the death it began with (the opening's victim).
   CF.ENDING_FIRST_CASE = 'The first case in your casebook is still the death of {victim}. You never needed to read it again.';
+  // The run's numbers for an ending. A save from before the count of those sent home still
+  // knows the reformed (each of them was sent home), so the count is never fewer than they.
+  function endingCounts(st) {
+    var out = {};
+    for (var k in st) out[k] = st[k];
+    out.sentHome = Math.max(st.sentHome || 0, st.reformed || 0);
+    out.reformed = st.reformed || 0;
+    return out;
+  }
   // The ending's text, with the run's own numbers where it counts them ({sentHome}, {reformed}).
   Story.ending = function (e, id) {
     var list = CF.ENDING_VARIANTS[id], text;
@@ -141,7 +150,7 @@
       var fit = list.filter(function (v) { return v.when && v.when(e.s.stats, e.s); });
       var plain = list.filter(function (v) { return !v.when; });
       var pool = plain.length ? plain : [list[list.length - 1]];
-      text = U.fill(fit.length ? fit[0].text : pool[e.s.seed % pool.length].text, e.s.stats || {});
+      text = U.fill(fit.length ? fit[0].text : pool[e.s.seed % pool.length].text, endingCounts(e.s.stats || {}));
     }
     var victim = e.firstVictim ? e.firstVictim() : null;
     if (victim && CF.ENDINGS[id] && CF.ENDINGS[id].win) text += ' ' + U.fill(CF.ENDING_FIRST_CASE, { victim: victim });
