@@ -23,10 +23,10 @@
       desc: 'Let them walk, for a reason: youth, penitence, a plea. Mercy. Without a reason the Council frowns, and on a case the crier sang, the crowd mutters.',
       cost: 'Mercy +2 · Suspicion +1 without a reason' },
     fine: { label: 'Fine and Restitution', short: 'A Fine', icon: 'itrade-20',
-      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter.',
+      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter. They go home and, as far as the city ever learns, stay honest.',
       cost: 'Mercy +1 · 1 Coin' },
     pillory: { label: 'The Pillory', short: 'Pillory', icon: 'ilaw-07',
-      desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: next time, the quarter knows them at once.',
+      desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: next time, the quarter knows them at once. They walk, marked; if they do it again the quarter will name them at once.',
       cost: 'Crowd −1' },
     banish: { label: 'Flogging and Banishment', short: 'Banished', icon: 'iinv-17',
       desc: 'Whipped at the cart\'s tail to the gate and forbidden the city for ten years. Some come back.',
@@ -92,7 +92,7 @@
     var card = this.atLargeCardFor(c);
     if (card) { this.refreshAtLarge(c); return card; }
     return this.create('atlarge', {
-      label: CF.Criminals.rankOf(c).label + ': ' + c.name,
+      label: this.atLargeLabel(c),
       desc: c.name + '. ' + why + ' ' + this.criminalDesc(c),
       data: { name: c.name, trait: c.trait, criminalId: c.id },
     });
@@ -174,6 +174,7 @@
     switch (rung) {
       case 'pardon':
         count('mercy', 2);
+        s.stats.sentHome = (s.stats.sentHome || 0) + 1;
         if (!reason && !byCouncil) { this.meter('scrutiny', 1); notes.push('The Council asks, in writing, why. You have no answer it will like.'); }
         if (d.highProfile) { this.meter('pressure', 1); notes.push('The crowd that came for a hanging goes home puzzled.'); }
         var reformed = this.rng() < (reason ? 0.75 : 0.5);
@@ -182,7 +183,7 @@
           c.status = 'reformed';
           var alc = this.atLargeCardFor(c);
           if (alc) this.remove(alc);
-          text = name + ' walks out of the Hole into the Market and does not look back. A year from now they are a journeyman in the Abbey Close with a wife and a stall, and they cross the street when they see you.';
+          text = name + ' walks out of the Hole into the Market and does not look back. A year from now they keep a stall in the Abbey Close, and a family, and they cross the street when they see you.';
         } else {
           c.status = 'at_large';
           if (c.traits.indexOf('spared') < 0) c.traits.push('spared');
@@ -200,6 +201,7 @@
         break;
       case 'fine':
         count('mercy', 1);
+        s.stats.sentHome = (s.stats.sentHome || 0) + 1;
         this.create('funds');
         c.status = 'reformed';
         text = name + ' pays what they can and works off the rest. The victim gets their goods back, the Watch-house gets its fee, and the Market Warden nods.';
@@ -208,6 +210,7 @@
         this.meter('pressure', -1);
         if (c.traits.indexOf('pilloried') < 0) c.traits.push('pilloried');
         c.status = 'at_large';
+        this.abroadCard(c, 'Pilloried, and known by every quarter.');
         text = 'A day in the collar in the Market, with the turnips. By evening every quarter knows ' + name + '\'s face. If they are seen near a crime again, they will be named at once.';
         break;
       case 'banish':
@@ -232,14 +235,14 @@
         this.meter('pressure', d.highProfile ? -2 : -1);
         if (L.capital && d.custom === 'wheel') { count('mercy', 1); notes.push('Commuted from ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ', out of mercy. The Bishop approves.'); }
         c.status = 'dead';
-        text = name + ' kneels on the Ravenstone at first light and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for a man who died well.';
+        text = 'The judge breaks the white staff over the head of ' + name + '. At first light they kneel on the Ravenstone and it is over in one stroke. A good death, the crowd says. Nobody swears vengeance for a man who died well.';
         break;
       case 'rope':
         count('cruelty', 1);
         this.meter('pressure', -2);
         this.meter('retaliation', 1);
         c.status = 'dead';
-        text = name + ' hangs on the Ravenstone before the whole city, and the ballad-sellers have the verses printed by nones. ' + (c.organization !== 'none' ? 'Their band drinks to them in a cellar and to you in a different tone.' : 'The crowd goes home satisfied.');
+        text = 'The staff is broken. ' + name + ' hangs on the Ravenstone before the whole city, and the ballad-sellers have the verses printed by nones. ' + (c.organization !== 'none' ? 'Their band drinks to them in a cellar and to you in a different tone.' : 'The crowd goes home satisfied.');
         break;
       case 'wheel':
         count('cruelty', 2);
@@ -247,9 +250,10 @@
         this.meter('dread', 2);
         this.meter('retaliation', 2);
         c.status = 'dead';
-        text = Sen.rungLabel(d.template, 'wheel') + ', before the whole city. It takes most of the morning. The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
+        text = 'The staff is broken, and ' + Sen.rungLabel(d.template, 'wheel').toLowerCase() + ' follows, before the whole city. It takes most of the morning. The crowd is very quiet by the end, and so is the Market for a week after. The underworld learns your name from it.';
         break;
     }
+    if (!d.guilty && rec.id) this.wrongfulSentenced(rec, rung);
     if (!d.guilty && Sen.DEATH.indexOf(rung) >= 0) {
       this.meter('dread', 1);
       notes.push('Somebody in the crowd shouts that the wrong one is dying. Somebody always does. This time they are right.');
@@ -257,6 +261,8 @@
     c.history.push({ week: s.week, how: 'sentence:' + rung });
     if (this.commissionSentence && !byCouncil) this.commissionSentence(this.caseRec(d.caseId), rung, notes);
     if (byCouncil) notes.unshift('You said nothing, so the Council said it for you.');
+    // A sentence passed in your own voice on a case the whole city watched is Standing.
+    if (!byCouncil && d.highProfile) { this.meter('reputation', 1); notes.push('The city saw you pass the sentence yourself, on a case the crier sang.'); }
 
     // The ladder, the pleas and the poor sinner leave the table together.
     var self = this;

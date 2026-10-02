@@ -70,6 +70,30 @@ function run(e, verb, cards) {
   assert.ok(newRec.suspects.some(function (x) { return x.revealed; }), 'a first name on the board');
   assert.strictEqual(winf.data.trust, trust0 + 1, 'a warning that came true earns trust');
 
+  // A warning whose card runs out while its case still waits (the desk was
+  // full) keeps its promise: the case comes with the time and the name.
+  var w2 = game(43, 'crusader');
+  var winf2 = byDef(w2, 'informant')[0];
+  var k2; for (var m2 = 0; m2 < 30 && k2 !== 'warning'; m2++) { w2.rng.setState(m2 * 17 + 3); k2 = w2.informantTip(winf2); }
+  assert.strictEqual(k2, 'warning');
+  var warn2 = byDef(w2, 'intel')[0], trust2 = winf2.data.trust;
+  w2.s.nextCase.extraTime = 0;
+  w2.s.dispatchT = 1e9; // the case does not come yet
+  w2.expire(warn2);
+  assert.ok(!w2.card(warn2.uid), 'the card is gone');
+  assert.ok(w2.s.nextCase && w2.s.nextCase.warned && w2.s.nextCase.warned.informant === winf2.uid, 'its promise rides the queued case');
+  assert.strictEqual(winf2.data.trust, trust2, 'no trust lost for a full desk');
+  w2.s.dispatchT = 0.1;
+  var n2 = byDef(w2, 'case').length;
+  w2.tick(1);
+  var cases2 = byDef(w2, 'case');
+  assert.strictEqual(cases2.length, n2 + 1, 'the warned-of case arrived later');
+  var rec2 = w2.caseRec(cases2[cases2.length - 1].caseId);
+  assert.strictEqual(rec2.template, warn2.data.template);
+  assert.strictEqual(cases2[cases2.length - 1].maxLife, Math.round(CF.CASE_TEMPLATES[rec2.template].lifetime * w2.caseClock()) + CF.INFORMANT.warningExtraTime, 'with the extra time');
+  assert.ok(rec2.suspects.some(function (x) { return x.revealed; }), 'and the name');
+  assert.strictEqual(winf2.data.trust, trust2 + 1, 'and the informer is thanked');
+
   // A sighting plus the At Large card in Reflect starts a manhunt.
   var sg = game(44, 'crusader');
   var al = sg.create('atlarge', { label: 'At Large: Vance Zorn', data: { name: 'Vance Zorn', trait: 'van' } });
@@ -106,7 +130,21 @@ function run(e, verb, cards) {
   var pr = run(h, 'duty', []);
   assert.strictEqual(pr.id, 'duty_protect');
   assert.strictEqual(hinf.data.heat, 0);
-  assert.ok(/^Informant/.test(h.labelOf(hinf)));
+  assert.ok(/^Informer: /.test(h.labelOf(hinf)), 'the label says Informer: ' + h.labelOf(hinf));
+  // Crossing to Compromised is told once, by name; cooling and more heat on a marked informer are not.
+  var m = game(48, 'crusader');
+  var minf = byDef(m, 'informant')[0];
+  var marked = function () { return m.s.journal.filter(function (j) { return j.title === 'Marked: ' + minf.data.name; }).length; };
+  m.heatInformant(minf, 2);
+  assert.strictEqual(marked(), 0, 'warm is not marked');
+  m.heatInformant(minf, 1);
+  assert.strictEqual(marked(), 1, 'told on crossing');
+  assert.ok(/asked, by name, who .*friend at the Watch-house is/.test(m.s.journal[0].text) && m.s.journal[0].kind === 'danger');
+  m.heatInformant(minf, 1);
+  assert.strictEqual(marked(), 1, 'not told twice');
+  m.heatInformant(minf, -4);
+  m.heatInformant(minf, 3);
+  assert.strictEqual(marked(), 2, 'told again after a Protect and a new crossing');
 
   // Burned while compromised: a missing person case.
   var b = game(47, 'crusader');
@@ -188,10 +226,63 @@ function run(e, verb, cards) {
   var member = g.criminalByName('Crook 0');
   assert.strictEqual(member.organization, 'gang');
   assert.strictEqual(CF.Criminals.rankOf(member).label, 'Sworn of a Band');
+  // The sworn keep their Abroad cards, marked with the band, and do not count as loose.
+  var band = byDef(g, 'gang')[0];
+  var sworn = byDef(g, 'atlarge');
+  assert.strictEqual(sworn.length, 3, 'the three stay on the table');
+  assert.ok(sworn.every(function (c) { return c.data.band === band.data.name && /^Sworn of a Band: /.test(g.labelOf(c)); }), 'marked as sworn');
+  g.organise();
+  assert.strictEqual(g.countOf('gang'), 1, 'the sworn do not form a second band');
+  // The court asks one more point a rung, but an Examiner's court at most one.
   member.crimes = 4;
   assert.strictEqual(CF.Criminals.rankOf(member).label, 'Upright Man');
+  assert.strictEqual(g.caseRankBonus(member.id), 1, 'capped at rank 0');
+  g.s.rank = 1;
+  assert.strictEqual(g.caseRankBonus(member.id), CF.Criminals.rankIndex(member));
+  assert.strictEqual(g.caseRankBonus(null), 0, 'nothing without a record');
+  g.s.rank = 0;
+  // Post the Watch: a watchman on the stair cools the Vendetta, and may follow one of them home.
+  g.s.rank = 0;
+  var officer = g.create('teammate', g.teammateSpec('rookie'));
+  g.meter('retaliation', 3);
+  var ret0 = g.s.meters.retaliation;
+  var titles = {};
+  for (var pw = 0; pw < 12 && !titles['Followed Home']; pw++) {
+    g.rng.setState(pw * 13 + 5);
+    var pr = run(g, 'duty', [band, officer]);
+    assert.strictEqual(pr.id, 'duty_post_watch');
+    titles[pr.story.title] = true;
+    if (pw === 0) assert.strictEqual(g.s.meters.retaliation, ret0 - 1, 'the Vendetta cools');
+    g.openCases().filter(function (r) { return r.template === 'manhunt'; }).forEach(function (r) { r.status = 'cold'; });
+  }
+  assert.ok(titles['Followed Home'], 'a sighting from the stair: ' + JSON.stringify(titles));
+  assert.ok(sworn.some(function (c) { return c.data.hunted; }), 'one of the sworn is hunted');
+  // The band broken: the rest scatter, smaller men, and are plain Abroad again.
+  var gangRec = g.spawnCase('gang', { quiet: true, gangName: band.data.name, gangUid: band.uid });
+  var grec = g.caseRec(gangRec.caseId);
+  g.onConviction(grec, { guilty: true, solid: true, name: 'Crook 0' }, []);
+  assert.strictEqual(g.countOf('gang'), 0);
+  assert.strictEqual(g.criminalByName('Crook 1').organization, 'none');
+  assert.strictEqual(g.criminalByName('Crook 1').crimes, 0, 'crimes halved');
+  assert.ok(g.criminalByName('Crook 1').history.some(function (h) { return h.how === 'scattered'; }));
+  assert.ok(byDef(g, 'atlarge').every(function (c) { return !c.data.band && !/^Sworn/.test(g.labelOf(c)); }), 'plain Abroad again');
+  byDef(g, 'atlarge').forEach(function (c) { c.data.band = 'the Old Band'; });
+  g.criminalJoins('Crook 0', 'gang'); g.criminalJoins('Crook 1', 'gang'); g.criminalJoins('Crook 2', 'gang');
+  member.crimes = 4;
   g.spawnSyndicate('x');
   assert.strictEqual(CF.Criminals.rankOf(member).label, 'Of the Coquille');
+  assert.ok(g.caseRankBonus(member.id) >= 1);
+  // The Coquille broken: every record of it is nobody's again, and the rank bonus goes.
+  var kase = g.spawnCase('syndicate', { quiet: true });
+  var krec = g.caseRec(kase.caseId);
+  g.onConviction(krec, { guilty: false, solid: true, name: 'Nobody' }, []);
+  assert.ok(g.s.flags.syndicateFallen);
+  assert.strictEqual(g.criminalByName('Crook 2').organization, 'none');
+  assert.ok(byDef(g, 'atlarge').every(function (c) { return !c.data.band; }));
+  member.organization = 'syndicate';
+  assert.strictEqual(g.caseRankBonus(member.id), 0, 'no bonus for the fallen Coquille');
+  member.organization = 'none';
+  g.criminalJoins('Crook 1', 'syndicate');
 
   // Records survive save/load and ride the legacy.
   var s2 = CF.Engine.load(g.save());
@@ -202,4 +293,115 @@ function run(e, verb, cards) {
   next.applyLegacy(L);
   assert.ok(next.criminalByName('Crook 2'), 'the successor inherits the record');
   console.log('criminals: ok');
+})();
+
+// ---- A wrongful conviction surfaces later ---------------------------------------------
+(function wrongful() {
+  var p0 = CF.Criminals.WEEKLY_CRIME;
+  CF.Criminals.WEEKLY_CRIME = 0; // no new crime: the ballad tells it
+  var e = game(61);
+  var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+  var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
+  var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  e.remove(kase);
+  var t = e.create('trial', { data: { caseId: rec.id, name: innocent.name, guilty: false, solid: false, tier: 'reasonable', real: 6, need: 6, coerced: 0, planted: 1, illegal: 0, contradictions: 0 } });
+  var saved = e.save(), g = null;
+  for (var i = 0; i < 40 && !g; i++) {
+    var gg = CF.Engine.load(saved);
+    gg.rng.setState(i * 77 + 3);
+    gg.verdict(gg.card(t.uid));
+    if (gg.caseRec(rec.id).status === 'closed') g = gg;
+  }
+  assert.ok(g, 'a wrongful conviction');
+  var guilty = g.s.journal.filter(function (j) { return /^Guilty: /.test(j.title); })[0];
+  assert.ok(guilty && /down to the Hole/.test(guilty.text) && !/staff/.test(guilty.text), 'the staff waits for the sentence');
+  var crim = g.criminalByName(culprit.name);
+  assert.ok(crim && crim.hidden && crim.surfaceWeek >= g.s.week + 2 && crim.surfaceWeek <= g.s.week + 4, 'hidden for a few weeks');
+  assert.strictEqual(byDef(g, 'atlarge').length, 0, 'no Abroad card the same tick');
+  g.criminalsAct();
+  assert.strictEqual(byDef(g, 'atlarge').length, 0, 'nor the same week');
+  // The wrong name's end goes on the real culprit's record: nothing yet, then the rung.
+  assert.strictEqual(crim.wrongfulHow, null, 'no sentence yet');
+  var hidden = g.save();
+  var cond = byDef(g, 'condemned')[0];
+  assert.ok(cond && cond.data.caseId === rec.id && !cond.data.guilty, 'the innocent waits in the Hole');
+  g.passSentence(cond, 'rope', null, {});
+  assert.strictEqual(crim.wrongfulHow, 'rope', 'the rope, on the record');
+  var pr0 = g.s.meters.pressure;
+  for (var wk = 0; wk < 4; wk++) { g.s.week++; g.criminalsAct(); }
+  assert.ok(!crim.hidden, 'surfaced');
+  var al = byDef(g, 'atlarge')[0];
+  assert.ok(al && al.data.criminalId === crim.id && al.desc.indexOf('Someone else hanged for ' + rec.title + '.') > 0, 'the Abroad card, after four weeks: ' + al.desc);
+  assert.strictEqual(g.s.meters.pressure, pr0 + 1, 'the Crowd hears the ballad');
+  var story = g.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
+  assert.ok(story && story.text.indexOf(culprit.name) === 0 && story.text.indexOf(rec.title) > 0 && /the one you sent down/.test(story.text), 'the ballad names them');
+  // Pardoned, nobody hanged, and the ballad does not say so.
+  var g2 = CF.Engine.load(hidden), crim2 = g2.criminalByName(culprit.name);
+  g2.passSentence(byDef(g2, 'condemned')[0], 'pardon', null, {});
+  assert.strictEqual(crim2.wrongfulHow, 'pardon');
+  for (var wk2 = 0; wk2 < 4; wk2++) { g2.s.week++; g2.criminalsAct(); }
+  var al2 = byDef(g2, 'atlarge').filter(function (c) { return c.data.criminalId === crim2.id; })[0];
+  assert.ok(al2 && al2.desc.indexOf('Someone else answered for ' + rec.title + '.') > 0, 'pardoned: answered for, not hanged: ' + al2.desc);
+  // Taken by the Inquisitor: the wrong one burned, and the player sent nobody down.
+  var inq = null;
+  for (var k = 0; k < 20 && !inq; k++) {
+    var gi = CF.Engine.load(saved); gi.s.flags.inquisitor = true; gi.rng.setState(k * 13 + 1);
+    gi.inquisitorSeizes(gi.caseRec(rec.id));
+    var ci = gi.criminalByName(culprit.name);
+    if (ci && ci.hidden) inq = gi;
+  }
+  assert.ok(inq, 'the Inquisitor names the wrong one');
+  var crim3 = inq.criminalByName(culprit.name);
+  assert.strictEqual(crim3.wrongfulHow, 'burned');
+  for (var wk3 = 0; wk3 < 4; wk3++) { inq.s.week++; inq.criminalsAct(); }
+  var al3 = byDef(inq, 'atlarge').filter(function (c) { return c.data.criminalId === crim3.id; })[0];
+  var story3 = inq.s.journal.filter(function (j) { return j.title === 'The Wrong Name'; })[0];
+  assert.ok(al3 && al3.desc.indexOf('Someone else burned for ' + rec.title + '.') > 0, 'burned: ' + al3.desc);
+  assert.ok(story3 && /the one the Inquisitor burned/.test(story3.text) && !/sent down/.test(story3.text), 'the ballad does not blame you: ' + story3.text);
+  // The staff: a death sentence breaks it.
+  CF.Criminals.WEEKLY_CRIME = p0;
+  console.log('wrongful: ok');
+})();
+
+// ---- Criminals keep their trade; a spared man owes a debt --------------------------
+(function trade() {
+  var same = 0;
+  for (var i = 0; i < 10; i++) {
+    var e = game(70 + i);
+    byDef(e, 'case').forEach(function (c) { e.remove(c); });
+    var c = e.criminalEscapes({ title: 'x', template: 'burglary' }, { name: 'Crook ' + i, trait: 'limp' }, 'cold');
+    assert.strictEqual(c.role, 'burglary');
+    var again = null;
+    for (var wk = 0; wk < 40 && !again; wk++) { e.criminalsAct(); again = e.openCases().filter(function (r) { return r.criminalId === c.id; })[0]; }
+    assert.ok(again, 'a new crime');
+    if (again.template === 'burglary') same++;
+  }
+  assert.ok(same >= 5, 'a burglar burgles: ' + same + '/10');
+  // Spared records never join a band.
+  var g = game(81);
+  for (var k = 0; k < 3; k++) {
+    var r = g.criminalEscapes({ title: 'y' + k }, { name: 'Spared ' + k, trait: 'limp' }, 'cold');
+    r.traits.push('spared');
+    g.create('atlarge', { label: 'Abroad: Spared ' + k, data: { name: 'Spared ' + k, trait: 'limp', criminalId: r.id } });
+  }
+  g.organise();
+  assert.strictEqual(g.countOf('gang'), 0, 'a spared man is sworn to nobody');
+  // A spared man's crime roll is, half the time, a warning instead.
+  var warned = false;
+  for (var s = 0; s < 40 && !warned; s++) {
+    var h = game(90 + s);
+    byDef(h, 'case').forEach(function (c) { h.remove(c); });
+    var sp = h.criminalEscapes({ title: 'z', template: 'burglary' }, { name: 'Debtor', trait: 'limp' }, 'cold');
+    sp.traits.push('spared');
+    var lines = h.criminalsAct();
+    var warn = byDef(h, 'intel').filter(function (c) { return c.data.kind === 'warning' && c.data.spared === sp.id; })[0];
+    if (warn) {
+      warned = true;
+      assert.ok(h.s.nextCase && h.s.nextCase.template === warn.data.template, 'the warned-of case is coming');
+      assert.ok(/pays a debt/.test(lines.join(' ')) && /A spared man pays his debt/.test(warn.desc));
+      assert.strictEqual(sp.crimes, 1, 'a warning, not a crime');
+    }
+  }
+  assert.ok(warned, 'a spared man pays his debt');
+  console.log('trade: ok');
 })();

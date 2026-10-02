@@ -5,6 +5,8 @@
 (function (G) {
   var CF = G.CF;
   var U = CF.util;
+  // Ways renamed since a save was written: old id -> new id, so a running verb finishes under the new name.
+  CF.RECIPE_ALIAS = {};
 
   function A(card) { return card ? CF.aspectsOf(card) : {}; }
   function openRec(ctx, card) {
@@ -76,8 +78,8 @@
       ctx.give('personnel', e.personnelSpec(['rookie', 'tech', 'interviewer', 'veteran'][s.rank] || 'veteran'));
       ctx.give('funds'); ctx.give('funds');
       return { title: 'Promoted: ' + rank.label, kind: 'major',
-        text: 'They give you a new title under the city\'s seal, a better stipend and a heavier caseload. You are now ' + rank.label + '. ' + rank.text +
-          (unlocked.length ? ' New tools are open to you: ' + unlocked.join(', ') + '.' : '') + ' The Council will send you up to ' + e.maxOpenCases() + ' cases at once, and pay ' + rank.salary + ' a week. New petitions arrive with the letter.' };
+        text: (rank.scene ? rank.scene + ' ' : '') + 'You are now ' + rank.label + '. ' + rank.text +
+          (unlocked.length ? ' New tools are open to you: ' + unlocked.join(', ') + '.' : '') + ' The Council will send you up to ' + e.maxOpenCases() + ' cases at once, and pay ' + rank.salary + ' a week.' };
     },
   });
   R.push({
@@ -179,13 +181,51 @@
     },
   });
   R.push({
-    id: 'duty_team', verb: 'duty', label: 'Put Them on the Round', duration: 20,
-    preview: 'They walk a round in your name. The fee comes to you.',
+    id: 'duty_post_watch', verb: 'duty', label: 'Post the Watch', duration: 30,
+    preview: 'A watchman on the cellar stair every night for a week. The band drinks elsewhere, and somebody is seen going home.',
+    requires: { primary: 'gang', aspects: ['teammate'] },
+    run: function (ctx) {
+      var e = ctx.e, band = ctx.primary, guard = ctx.first('teammate');
+      e.meter('retaliation', -1);
+      var sworn = e.cardsOf('atlarge').filter(function (c) { return c.data.band === band.data.name && !(c.data.hunted && e.caseRec(c.data.hunted) && e.caseRec(c.data.hunted).status === 'open'); });
+      if (sworn.length && ctx.rng() < 0.4 && e.roomForCase(1)) {
+        var al = U.pick(ctx.rng, sworn);
+        var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid, criminalId: al.data.criminalId,
+          headline: 'Sighting: ' + al.data.name, lead: 'Your watchman followed one of them home.' });
+        al.data.hunted = card.caseId;
+        var crim = al.data.criminalId && e.criminal(al.data.criminalId);
+        if (crim) crim.status = 'hunted';
+        return { title: 'Followed Home', text: (guard.data.name || e.labelOf(guard)) + ' stands on the stair until the band stops coming, and follows ' + al.data.name + ' home. The Hue and Cry can be raised.' };
+      }
+      return { title: 'Watched', text: 'The band drinks somewhere else this week. The Vendetta cools a little, and nobody is caught.' };
+    },
+  });
+  // A watchman on the round earns the fee, and the round hears things: now
+  // and then a word about an open case, now and then the desk left to you.
+  R.push({
+    id: 'duty_team', verb: 'duty', label: 'Put Them on the Round', duration: 45,
+    preview: 'They walk a round in your name. The fee comes to you, and sometimes what the round hears.',
     requires: { primary: 'teammate' }, forbids: ['funds'],
-    effects: [
-      { give: 'funds' },
-      { story: { title: 'A Round Walked', text: function (ctx) { return ctx.primary.data.name + ' walks the round without complaint. The Council\'s ledger reads your name.'; } } },
-    ],
+    run: function (ctx) {
+      var e = ctx.e, name = ctx.primary.data.name || e.labelOf(ctx.primary);
+      ctx.give('funds');
+      var open = e.openCases().filter(function (r) { return !r.identified && !r.special; });
+      var roll = ctx.rng();
+      if (open.length && roll < 0.3) {
+        var rec = U.pick(ctx.rng, open), cul = culpritOf(rec);
+        ctx.give('clue', e.clueSpec(rec, {
+          label: 'Heard on the Round',
+          text: name + ' heard it at the conduit, about ' + rec.title + ': "' + CF.TRAIT_SEEN[cul.trait] + '"',
+          aspects: { testimony: 1 }, trait: cul.trait,
+        }, [], { noMisread: true }));
+        return { title: 'A Round Walked', text: 'The round hears things: a word about ' + rec.title + '.' };
+      }
+      if (roll >= 0.3 && roll < 0.4) {
+        ctx.give('fatigue');
+        return { title: 'A Round Walked', text: 'You covered the desk yourself while they walked.' };
+      }
+      return { title: 'A Round Walked', text: name + ' walks the round without complaint. The Council\'s ledger reads your name.' };
+    },
   });
   R.push({
     id: 'duty_file', verb: 'duty', label: 'Enter the Rolls', duration: 15,
@@ -251,15 +291,32 @@
         }));
         return { title: 'A Word', text: nick + ' counts the coin twice before talking. It is worth it. They know something about ' + rec.title + '.' };
       }
-      if (al.length && ctx.rng() < 0.5) {
+      if (al.length && ctx.rng() < 0.5 && e.roomForCase(1)) {
         var target = U.pick(ctx.rng, al);
         var hunt = e.spawnCase('manhunt', { ctx: ctx, culpritName: target.data.name, culpritTrait: target.data.trait, atLargeUid: target.uid, criminalId: target.data.criminalId,
           headline: 'Sighting: ' + target.data.name, lead: nick + ' has seen ' + target.data.name + '.' });
         target.data.hunted = hunt.caseId;
         return { title: 'A Sighting', text: nick + ' leans in. "' + target.data.name + '. I know where they sleep."' };
       }
-      e.spawnCase(null, { ctx: ctx, extraTime: 90, headline: 'A Word Ahead', lead: nick + ' tells you of it before the crier does.' });
-      return { title: 'Ahead of the Crier', text: '"Something is going to happen," says ' + nick + '. "Tonight." It does. But you are ready for it.' };
+      // A word ahead: the next case is queued, and comes even to a full desk. One at a time.
+      if (!e.s.nextCase) {
+        var warn = e.warnOfCase(inf, 90);
+        warn.desc += ' It will come even to a full desk.';
+        ctx.give('intel', warn);
+        return { title: 'Ahead of the Crier', text: '"Something is going to happen," says ' + nick + '. "Soon." Keep the warning on the table: when it comes, you will be ready for it.' };
+      }
+      if (open.length) {
+        var rec2 = U.pick(ctx.rng, open);
+        var cul2 = culpritOf(rec2);
+        ctx.give('clue', e.clueSpec(rec2, {
+          label: 'Word from ' + nick,
+          text: nick + ' says, about ' + rec2.title + ': "' + CF.TRAIT_SEEN[cul2.trait] + '"',
+          aspects: { testimony: 2, motive: 1 },
+          trait: cul2.trait,
+        }));
+        return { title: 'A Word', text: nick + ' counts the coin twice before talking. It is worth it. They know something about ' + rec2.title + '.' };
+      }
+      return { title: 'Nothing Tonight', text: nick + ' takes the coin and has nothing for it. "Next week," they say.' };
     },
   });
   R.push({
@@ -282,7 +339,8 @@
         if (e.revealSuspect(rec, ctx)) return { title: 'A Name', text: 'A tapster in ' + dl + ' gives you a name connected to ' + rec.title + '. Then he asks you to leave.' };
       }
       var al = e.cardsOf('atlarge').filter(function (c) { return !c.data.hunted || !e.caseRec(c.data.hunted) || e.caseRec(c.data.hunted).status !== 'open'; });
-      if (al.length && ctx.rng() < 0.45) {
+      var heat = al.reduce(function (h, c) { var r = c.data.criminalId ? e.criminal(c.data.criminalId) : e.criminalByName(c.data.name); return Math.max(h, r ? r.heat || 0 : 0); }, 0);
+      if (al.length && ctx.rng() < 0.45 + 0.1 * heat && e.roomForCase(1)) {
         var t = U.pick(ctx.rng, al);
         var card = e.spawnCase('manhunt', { ctx: ctx, district: d, culpritName: t.data.name, culpritTrait: t.data.trait, atLargeUid: t.uid,
           headline: 'Sighting: ' + t.data.name, lead: 'You catch a glimpse of a face you know in ' + dl + '.' });
@@ -326,7 +384,7 @@
           return { title: 'Overheard', text: 'At the conduit you hear someone talking about ' + rec.title + '. They were there.' };
         }
       }
-      if (r < 0.62 && open.length < 4) {
+      if (r < 0.62 && e.roomForCase()) {
         e.spawnCase(null, { ctx: ctx, headline: 'Hue and Cry', lead: 'You are hailed in the street.' });
         return { title: 'Hailed', text: 'A woman runs up to you, out of breath, pointing. It is going to be a long day.' };
       }
@@ -401,7 +459,7 @@
       var extra = [];
       if (first) {
         var sc = e.revealSuspect(rec, ctx);
-        if (sc) extra.push('The first name on the board: ' + sc.label + '.');
+        if (sc) extra.push('The first name in the casebook: ' + sc.label + '.');
         if (!e.hasDistrict(rec.district) && e.s.flags.marketOpen) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
       }
       if (ctx.has('instinct') && ctx.rng() < 0.5) {
@@ -495,16 +553,51 @@
         spec.label = 'Partial: ' + res.label;
         spec.text = 'Without ' + needsLabel(item.needs) + ', you only get part of it. ' + res.text;
       }
+      // The apothecary's bench: what the body says reads one point stronger.
+      var bench = !!e.s.rooms.lab && CF.itemTags(item).indexOf('biology') >= 0;
+      if (bench) { spec.aspects.forensic = (spec.aspects.forensic || 0) + 1; spec.text += ' At the apothecary\'s bench it reads one point stronger.'; }
+      // Proof that promises a name gives one: the culprit's, if they are in
+      // the casebook; otherwise a hand to hold against a name later.
+      var flags = {};
+      if (res.names && ok) {
+        var cul = culpritOf(rec);
+        if (cul.revealed && !cul.cleared) { flags.points = rec.culprit; flags.noMisread = true; spec.text += ' It is ' + cul.name + '\'s.'; }
+        else { spec.trait = cul.trait; spec.names = true; spec.text += ' Nobody in the casebook yet has this hand. Keep it.'; }
+      }
       ctx.consume(ev);
-      ctx.give('clue', e.clueSpec(rec, spec, e.helpers(ctx)));
+      ctx.give('clue', e.clueSpec(rec, spec, e.helpers(ctx), flags));
       return { title: ok ? 'Results' : 'Partial Results', text: spec.text };
+    },
+  });
+  // A hand, a seal, a signature with no name yet: hold it against an accused.
+  R.push({
+    id: 'an_hold_against', verb: 'analyze', label: 'Hold It Against a Name', duration: 15,
+    preview: function (ctx) { return 'Hold ' + ctx.e.labelOf(ctx.primary) + ' against ' + ctx.e.labelOf(ctx.slots.who).replace('Prime Suspect: ', '') + '.'; },
+    blocked: function (ctx) { return ctx.slots.who.caseId !== ctx.primary.caseId ? 'That name belongs to another case.' : null; },
+    requires: { primary: 'clue', when: function (ctx) { var c = ctx.primary; return !!(c.data && c.data.names && !c.data.points && ctx.slots.who); } },
+    run: function (ctx) {
+      var e = ctx.e, c = ctx.primary, sc = ctx.slots.who;
+      var rec = openRec(ctx, c);
+      if (!rec) return closed();
+      var sus = e.suspectOf(sc);
+      if (!sus) return { title: 'No Match', text: 'Not this one. Keep it.' };
+      e.caseWork(rec, ctx);
+      if (sus.guilty) {
+        c.data.points = sus.key;
+        c.data.names = false;
+        c.label = 'Matched: ' + e.labelOf(c);
+        c.fresh = true;
+        e.dirty = true;
+        return { title: 'A Match', kind: 'major', text: 'The same hand. It belongs to ' + sus.name + '.' };
+      }
+      return { title: 'No Match', text: 'Not this one. Keep it.' };
     },
   });
   R.push({
     id: 'an_enhance', verb: 'analyze', label: 'Back to the Bench', duration: 20,
     preview: function (ctx) { return 'Take ' + ctx.e.labelOf(ctx.primary) + ' to the apothecary\'s back room and get more out of it. Once.'; },
     blocked: function (ctx) { return ctx.primary.data.enhanced ? 'The apothecary has already had everything he can get from this.' : null; },
-    requires: { primary: 'clue', cards: ['labpass'] },
+    requires: { primary: 'clue', when: function (ctx) { return !!ctx.e.s.rooms.lab || ctx.cards.some(function (c) { return c.def === 'labpass'; }); } },
     run: function (ctx) {
       var e = ctx.e, c = ctx.primary;
       var rec = openRec(ctx, c);
@@ -523,13 +616,13 @@
   R.push({
     id: 'an_clue_none', verb: 'analyze', label: 'Back to the Bench', duration: 5,
     preview: 'A token is not raw proof. Only the apothecary can get more out of it.',
-    blocked: 'Only the apothecary gets more out of a token. Petition for the Apothecary\'s Key.',
-    requires: { primary: 'clue' }, forbids: { cards: ['labpass'] },
+    blocked: 'Only the apothecary gets more out of a token. Petition for the Apothecary\'s Key, or for his bench.',
+    requires: { primary: 'clue' }, forbids: { cards: ['labpass'], when: function (ctx) { return !!ctx.e.s.rooms.lab; } },
   });
   R.push({
     id: 'an_reopen', verb: 'analyze', label: 'Open the Case Again', duration: 60,
     preview: 'Pull the old books from the Rolls. Read everything again with fresh eyes.',
-    blocked: function (ctx) { return ctx.e.s.rooms.archive ? null : 'You need the Rolls to open an unanswered case again.'; },
+    blocked: function (ctx) { return !ctx.e.s.rooms.archive ? 'You need the Rolls to open an unanswered case again.' : !ctx.e.roomForCase(1) ? 'The desk is full. Close or let go of a case before you open an old one again.' : null; },
     requires: ['coldcase'],
     run: function (ctx) {
       ctx.e.pathGain('master', 1, 'reopened a cold case');
@@ -537,7 +630,7 @@
       ctx.consume(cc);
       var tid = CF.CASE_TEMPLATES[d.template] ? d.template : U.pick(ctx.rng, CF.ORDINARY_CASES);
       var alCard = d.atLargeUid && e.card(d.atLargeUid);
-      e.spawnCase(tid, { ctx: ctx, culpritName: d.culpritName, culpritTrait: d.culpritTrait, atLargeUid: d.atLargeUid, reopened: true,
+      e.spawnCase(tid, { ctx: ctx, culpritName: d.culpritName, culpritTrait: d.culpritTrait, atLargeUid: d.atLargeUid, reopened: true, from: d.from || null,
         criminalId: (alCard && alCard.data.criminalId) || (e.criminalByName(d.culpritName) || {}).id || null,
         lifetime: 320, headline: 'Opened Again', lead: 'The old book on ' + (d.title || 'an old case') + ' is open on your desk again.' });
       return { title: 'Opened Again', text: 'Dust, faded ink, a witness list with half the names crossed out. But the answer was always in here somewhere.' };
@@ -588,7 +681,22 @@
       e.caseWork(rec, ctx);
       var cul = culpritOf(rec);
       var T = CF.CASE_TEMPLATES[rec.template];
-      var hint = w.data.knows ? CF.TRAIT_SEEN[cul.trait] : U.pick(ctx.rng, T.hints);
+      // What was heard has a target: a hint about nobody, or about the
+      // culprit's trade; one about an innocent in the casebook only from a
+      // witness with a reason (a grudge, or the reward).
+      var points = null, hint;
+      if (w.data.knows) hint = CF.TRAIT_SEEN[cul.trait];
+      else {
+        var eager = w.data.stake === 'hates' || w.data.stake === 'reward';
+        var pool = T.hints.filter(function (h) {
+          if (!h.role || h.role === cul.role) return true;
+          return eager && rec.suspects.some(function (x) { return x.revealed && !x.cleared && !x.guilty && x.role === h.role; });
+        });
+        var h = U.pick(ctx.rng, pool.length ? pool : T.hints);
+        hint = h.text;
+        var target = h.role && rec.suspects.filter(function (x) { return x.role === h.role && (x.guilty || (x.revealed && !x.cleared)); })[0];
+        if (target) points = target.key;
+      }
       var name = w.label.replace('Witness: ', '');
       var helpers = ctx.with('teammate');
       var vars = { witness: name, hint: hint };
@@ -596,7 +704,7 @@
       var aspects = { testimony: 2 };
       if (w.data.knows) aspects.opportunity = 1;
       var spec = { label: 'Deposition: ' + name, text: '"' + hint + '"' + (w.data.stake ? ' (' + CF.STAKES[w.data.stake].label + '.)' : ''), aspects: aspects, trait: w.data.knows ? cul.trait : null };
-      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against) };
+      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against), points: points };
       if (ctx.has('instinct')) {
         if (!e.teamHas(ctx, 'empathetic') && ctx.rng() < 0.4) {
           w.life = Math.max(20, (w.life || 60) - 60);
@@ -610,7 +718,7 @@
       if (ctx.has('health')) {
         ctx.consume(w);
         spec.aspects.testimony = 3;
-        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, { stake: stakeFlags.stake, witness: stakeFlags.witness, againstInterest: stakeFlags.againstInterest, coerced: true })));
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, spec, helpers, { stake: stakeFlags.stake, witness: stakeFlags.witness, againstInterest: stakeFlags.againstInterest, points: stakeFlags.points, coerced: true })));
         e.meter('scrutiny', 1);
         e.meter('dread', 1);
         e.revealSuspect(rec, ctx);
@@ -648,6 +756,7 @@
       var rec = openRec(ctx, sc);
       if (!rec) return closed();
       var sus = e.suspectOf(sc);
+      var again = !!sus.questioned;
       sus.questioned = true;
       e.caseWork(rec, ctx);
       var P = CF.PROSE;
@@ -681,9 +790,22 @@
           made.data.misread = true;
           return { title: 'Guilty Eyes', text: 'Every pause, every glance at the door: guilt. It has to be.' };
         }
-        sus.cleared = true;
-        ctx.consume(sc);
-        return { title: 'Cleared: ' + sus.name, text: U.fill(U.pick(ctx.rng, P.suspectAlibi), vars) };
+        // The innocent have a story. Written down, it is a token to check
+        // in Rest against the hours, not a verdict; an Examiner's first
+        // cases take it at its word.
+        if (ctx.has('instinct') && ctx.rng() >= 0.4) return { title: 'Nothing Shaken Loose', text: U.fill(U.pick(ctx.rng, P.suspectBluffFail), vars) };
+        if (!sus.alibi) sus.alibi = vars.alibi;
+        vars.alibi = sus.alibi;
+        if (e.s.rank === 0) {
+          // Taken at its word: no token, so nothing for the magnet to carry into a charge.
+          sus.cleared = true;
+          ctx.consume(sc);
+          return { title: 'Cleared: ' + sus.name, text: U.fill(U.pick(ctx.rng, P.suspectAlibi), vars) };
+        }
+        if (!sus.alibiGiven) ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
+          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
+        sus.alibiGiven = true;
+        return { title: 'An Alibi', text: 'You try ' + sus.name + '\'s story: ' + sus.alibi + '. It will want checking.' };
       }
 
       if (confront) {
@@ -708,6 +830,15 @@
         return { title: 'Nothing Shaken Loose', text: U.fill(U.pick(ctx.rng, P.suspectBluffFail), vars) };
       }
 
+      // Asked again, the culprit has a story too, once. It will not hold.
+      if (again && !sus.alibiGiven) {
+        sus.alibiGiven = true;
+        if (!sus.alibi) sus.alibi = vars.alibi;
+        vars.alibi = sus.alibi;
+        ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Alibi: ' + sus.name, text: sus.alibi.charAt(0).toUpperCase() + sus.alibi.slice(1) + '.',
+          aspects: { testimony: 1 }, trait: sus.trait, alibi: sus.key }, helpers, { noMisread: true })));
+        return { title: 'An Alibi', text: 'You try ' + sus.name + '\'s story: ' + sus.alibi + '. It will want checking.' };
+      }
       ctx.give('clue', suiteBonus(e, e.clueSpec(rec, { label: 'Motive: ' + sus.name, text: sus.motive, aspects: { motive: 2 } }, helpers)));
       return { title: 'A Reason', text: U.fill(U.pick(ctx.rng, P.suspectEmpathy), vars) };
     },
@@ -725,7 +856,7 @@
       e.s.flags.rivalGone = e.s.week + 8;
       e.meter('reputation', 2);
       e.favour().council += 1;
-      return { title: 'The Rival Exposed', text: how + ' The Council reads the file in silence and sends the Provost\'s Examiner back to the Provost. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
+      return { title: 'The Rival Exposed', text: how + ' The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
     }
     rivalStall(ctx, 1);
     return { title: 'A Weakness Found', text: how + ' They will be careful for a week. One more, and you will have them.', kind: 'verb' };
@@ -736,15 +867,15 @@
     run: function (ctx) { return rivalHeat(ctx, 'Two hours of polite questions, and a name they did not want spoken: a moneylender, a widow, a file of their own.'); } });
   R.push({ id: 'int_rival_buy', verb: 'interrogate', label: 'Buy a Quiet Fortnight', duration: 8,
     preview: 'A Coin, and they find other things to do for two weeks.', requires: { primary: 'rival', aspects: ['funds'] },
-    effects: [{ consume: 'funds', n: 1 }, { call: function (ctx) { rivalStall(ctx, 2); } }, { story: { title: 'Bought', text: 'They take it without counting it. Two weeks, they say, and then the Provost will ask why nothing is happening.' } }] });
+    effects: [{ consume: 'funds', n: 1 }, { call: function (ctx) { rivalStall(ctx, 2); } }, { story: { title: 'Bought', text: 'They take it without counting it. Two weeks, they say, and then the Harbourmaster will ask why nothing is happening.' } }] });
   R.push({ id: 'int_rival_threat', verb: 'interrogate', label: 'Frighten Them', duration: 10,
     preview: 'Lean on them. It works for a week, and the city hears about it.', requires: { primary: 'rival', aspects: ['health'] },
-    effects: [{ call: function (ctx) { rivalStall(ctx, 1); } }, { meter: { dread: 1, retaliation: 1 } }, { story: { title: 'Frightened', text: 'You explain what happens to examiners who spoil scenes. They go pale. They also go to the Provost.' } }] });
+    effects: [{ call: function (ctx) { rivalStall(ctx, 1); } }, { meter: { dread: 1, retaliation: 1 } }, { story: { title: 'Frightened', text: 'You explain what happens to examiners who spoil scenes. They go pale. They also go to the Harbourmaster.' } }] });
   R.push({ id: 'int_rival_none', verb: 'interrogate', label: 'A Polite Conversation', duration: 5,
     preview: 'Without Wit, Coin or Health, this is a chat about the weather.', requires: { primary: 'rival' },
     effects: [{ story: { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' } }] });
   R.push({ id: 'inv_rival_shadow', verb: 'investigate', label: 'Shadow Them', duration: 30,
-    preview: 'Follow the Provost\'s Examiner through a night. See where they go, and who pays.', requires: { primary: 'rival', aspects: ['instinct'] },
+    preview: 'Follow the Harbourmaster\'s Examiner through a night. See where they go, and who pays.', requires: { primary: 'rival', aspects: ['instinct'] },
     run: function (ctx) { return rivalHeat(ctx, 'A night in doorways, and at the end of it a door you can name and a purse you saw change hands.'); } });
 
   // ================================================================== REFLECT
@@ -757,6 +888,7 @@
   }
   aid('ref_hunger_pot', 'hunger', 'teammate', 'The Watch-house Pot', 25, 'Whatever the Watch is eating, you are eating. It is mostly barley. It is hot.', 'Eat with the Watch. Slow, and free.');
   aid('ref_hunger_credit', 'hunger', 'district', 'Eat on Credit', 12, 'The cookshop on the corner knows the Examiner. The Examiner will pay next week. The cookshop writes it down.', 'A meal on the Quarter\'s credit. Quick, and it is written down.', [{ call: function (ctx) { ctx.e.count('debt'); } }]);
+  aid('ref_hunger_dole', 'hunger', 'health', 'The Abbey Dole', 25, 'You stand in the line at the Abbey gate with the beggars and take the bread. The clerks on the Hill hear of it, and so does the Warrens, which thinks better of you for it.', 'Bread at the Abbey gate. Free, and seen.', [{ meter: { reputation: -1, dread: -1 } }]);
   aid('ref_hunger_informer', 'hunger', 'informant', 'A Bowl at Their Table', 15, 'They feed you without asking why. They will not forget that they did.', 'Your informer feeds you. They remember it.', [{ call: function (ctx) { var inf = ctx.first('informant'); if (inf && ctx.e.trustInformant) ctx.e.trustInformant(inf, -1); } }]);
   aid('ref_sickness_sweat', 'sickness', 'health', 'Sweat It Out', 60, 'Every blanket you own, a jug of water, and two days you do not remember. On the third the fever is gone and so is most of your strength.', 'No physician. Sweat it out. Slow, and it costs you.', [{ give: 'fatigue' }]);
   aid('ref_sickness_watch', 'sickness', 'teammate', 'A Watchman\'s Remedy', 45, 'Onion, honey, something from a jar with no label. His grandmother swore by it. It works, or the fever was leaving anyway.', 'A watchman knows a remedy. Free, and it usually works.', [{ chance: 0.4, then: [{ give: 'fatigue' }] }]);
@@ -819,9 +951,16 @@
     preview: 'Sit down for a moment and let it come back.',
     requires: { primary: 'spent' },
     run: function (ctx) {
-      var def = CF.CARDS[ctx.primary.def];
-      ctx.e.transform(ctx.primary, def.restores);
-      return { title: 'Yourself Again', text: 'A moment on the bench, and the ' + CF.CARDS[def.restores].label + ' is back.' };
+      var e = ctx.e;
+      // The primary comes back out whole (a held card would be spent again on its way out).
+      var restores = CF.CARDS[ctx.primary.def].restores;
+      ctx.consume(ctx.primary);
+      ctx.give(restores);
+      // Every other spent faculty on the table comes back with it.
+      e.cardsOf('spent_health').concat(e.cardsOf('spent_focus'), e.cardsOf('spent_instinct')).forEach(function (c) {
+        if (c.loc && c.loc.t === 'table') { e.transform(c, CF.CARDS[c.def].restores); e.placeOnTable(c, { x: c.loc.x, y: c.loc.y }); }
+      });
+      return { title: 'Yourself Again', text: 'A moment on the bench, and you are yourself again.' };
     },
   });
 
@@ -843,7 +982,7 @@
     id: 'ref_hunger', verb: 'reflect', label: 'Eat', duration: 8,
     preview: 'A hot dinner at the Swan, and a second. It costs a Coin.',
     requires: { primary: 'hunger' },
-    blocked: function (ctx) { return ctx.has('funds') ? null : 'You need Coin to eat. Put a Coin in with it.'; },
+    blocked: function (ctx) { return ctx.has('funds') ? null : 'You need Coin to eat, or a watchman, a Quarter, an Informer or your Health beside it.'; },
     effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'A Hot Dinner', text: 'Mutton, bread, small beer, and a second helping. Your hands stop shaking somewhere around the pudding.' } }],
   });
   R.push({
@@ -851,7 +990,26 @@
     preview: 'A physician wants a Coin; with the Physician\'s Case you can dose yourself.',
     requires: { primary: 'sickness' },
     blocked: function (ctx) { return ctx.has('funds') || ctx.has('kit_bio') ? null : 'A physician wants Coin, or you need the Physician\'s Case.'; },
-    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'The Fever Breaks', text: 'Bitter bark in wine, two days sweating under every blanket you own, and on the third morning the river smells like a river again.' } }],
+    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { story: { title: 'The Cough Clears', text: 'Bitter bark in wine, two days sweating under every blanket you own, and on the third morning the river smells like a river again.' } }],
+  });
+  // A Wound: dressed from the Case, paid to the barber-surgeon, or slept off. First match wins.
+  R.push({
+    id: 'ref_wound_case', verb: 'reflect', priority: 2, label: 'The Physician\'s Case', duration: 15,
+    preview: 'Nurse it yourself with the Case: no Coin, no waiting.',
+    requires: { primary: 'wound', when: function (ctx) { return ctx.has('kit_bio'); } },
+    effects: [{ consume: 'primary' }, { give: 'health' }, { story: { title: 'The Physician\'s Case', text: 'You dress it yourself, as you have dressed a hundred others. The stitches come out early.' } }],
+  });
+  R.push({
+    id: 'ref_wound_barber', verb: 'reflect', priority: 1, label: 'The Barber-surgeon', duration: 20,
+    preview: 'A Coin to the barber-surgeon and the stitches come out now.',
+    requires: { primary: 'wound', when: function (ctx) { return ctx.has('funds'); } },
+    effects: [{ consume: 'primary' }, { consume: 'funds', n: 1 }, { give: 'health' }, { story: { title: 'The Barber-surgeon', text: 'Silver on the counter and the stitches come out early. You can take a blow again. Probably.' } }],
+  });
+  R.push({
+    id: 'ref_wound_lie', verb: 'reflect', label: 'Lie Still', duration: 40,
+    preview: 'Lie still and let it knit faster.',
+    requires: { primary: 'wound' },
+    effects: [{ modify: 'primary', life: function (ctx) { return ctx.primary.life - 60; } }, { story: { title: 'Lie Still', text: 'A day in the dark with the shutters closed and the barber-surgeon\'s bottle. The stitches hold.' } }],
   });
   rest('ref_stress', 'stress', 'An Evening Off', 25, 'You walk to the mill-race and back without once thinking about a case. On the way home you think about one. It is a start.', 'Put it all down for an evening.');
   rest('ref_tunnel', 'tunnel', 'Clear Your Head', 60, 'You take the string off the walls. You write to your sister. You make yourself admit that you might be wrong. It helps.', 'Step back. Admit you might be wrong about everything.');
@@ -867,12 +1025,12 @@
       else ctx.give('informant', e.informantSpec(U.pick(ctx.rng, Object.keys(CF.DISTRICTS))));
       ctx.give('funds');
       return { title: 'Their Casebook', text: 'Between the wine-rings and the crossings-out: a name, a street, a few coins tucked in the back board. ' +
-        (e.s.calling === 'master' ? 'And a drawing of a paper crane, circled three times.' : 'A contact your predecessor trusted.') };
+        (e.s.calling === 'master' ? 'And a mason\'s mark drawn in the margin, circled three times.' : 'A contact your predecessor trusted.') };
     },
   });
   R.push({
     id: 'ref_architect', verb: 'reflect', label: 'Pull the Thread', duration: 45,
-    preview: 'Three loose ends. The same hand, the same paper crane. Lay them side by side.',
+    preview: 'Three loose ends. The same hand, the same three strokes. Lay them side by side.',
     blocked: function (ctx) {
       if (ctx.e.s.calling !== 'master') return 'Whatever pattern is here, it is not yours to chase.';
       if (ctx.count('looseend') < 3) return 'You need three Loose Ends to see the shape of it.';
@@ -891,6 +1049,7 @@
   R.push({
     id: 'ref_cold_atlarge', verb: 'reflect', label: 'Old Ghosts', duration: 30,
     preview: 'The unanswered case and the one who walked. Think about where they would go.',
+    blocked: function (ctx) { return ctx.e.roomForCase(1) ? null : 'The desk is full. Close or let go of a case before you raise the hue and cry.'; },
     requires: ['coldcase', 'atlarge'],
     run: function (ctx) {
       var e = ctx.e;
@@ -902,7 +1061,7 @@
       e.pathGain('master', 1, 'reopened a cold trail');
       if (e.s.calling === 'master') ctx.give('looseend');
       return { title: 'Old Ghosts', text: 'You read the old book again, and think like ' + al.data.name + '. Where would you go? Who would you trust? By first light, you have a guess.' +
-        (e.s.calling === 'master' ? ' And in the margin of the old book, a doodle you never noticed: a paper crane.' : '') };
+        (e.s.calling === 'master' ? ' And in the margin of the old book, a doodle you never noticed: three strokes, a mason\'s mark.' : '') };
     },
   });
   R.push({
@@ -910,7 +1069,7 @@
     label: function (ctx) { return ctx.count('funds') >= 2 ? 'Pay the Mountain' : 'Endure the Warning'; },
     duration: 20,
     preview: function (ctx) { return ctx.count('funds') >= 2 ? 'Two Coin left where the dagger lay. The Order takes it, and leaves you alone for a season.' : 'Bar the door, change the servant, sleep with a blade. They cannot be broken. They can be outlasted, sometimes.'; },
-    danger: function (ctx) { return ctx.count('funds') >= 2 ? null : 'Dread +1 · Vendetta +2 · they may come anyway'; },
+    danger: function (ctx) { return ctx.count('funds') >= 2 ? null : (ctx.e.blowWouldKill() ? 'You already carry a Wound: another will kill you. ' : '') + 'Dread +1 · Vendetta +2 · they may come anyway'; },
     requires: { primary: 'dagger' },
     run: function (ctx) {
       var e = ctx.e;
@@ -953,7 +1112,7 @@
       e.pathGain('master', 1, 'closed in on the network');
       if (e.s.calling === 'master') ctx.give('looseend');
       return { title: 'The Shape of It', kind: 'major', text: 'You draw the map on the wall of your study: the cases, the place, ' + e.labelOf(target) + '. A Disguise through ' + (front ? front.name : 'the front') + ' will be safer now that you know the doors.' +
-        (e.s.calling === 'master' ? ' And in the corner of the map, something that is not a band at all: a paper crane.' : '') };
+        (e.s.calling === 'master' ? ' And in the corner of the map, something that is not a band at all: a mason\'s mark.' : '') };
     },
   });
   R.push({
@@ -986,6 +1145,7 @@
       if (!al) return 'Add the Abroad card of the person who was seen.';
       if (al.data.name !== ctx.primary.data.criminal) return 'That is not who was seen.';
       if (al.data.hunted && ctx.e.caseRec(al.data.hunted) && ctx.e.caseRec(al.data.hunted).status === 'open') return 'You are already hunting them.';
+      if (!ctx.e.roomForCase(1)) return 'The desk is full. Close or let go of a case before you raise the hue and cry.';
       return null;
     },
     requires: { primary: 'intel', when: function (ctx) { return ctx.primary.data.kind === 'sighting'; } },
@@ -1007,12 +1167,27 @@
     blocked: 'Keep this on the table. It pays off when the case comes in.',
     requires: { primary: 'intel', when: function (ctx) { return ctx.primary.data.kind !== 'sighting'; } },
   });
+  // The old book has leaves nobody read: once per unanswered case, one of
+  // the things never found becomes a token that keeps until the case is opened again.
+  function oldBookItem(cc) {
+    var from = cc.data.from;
+    if (cc.data.read || !from || !from.items || !from.items.length) return null;
+    return from.items.filter(function (it) { return it.type === 'clue'; })[0] || from.items[0];
+  }
   R.push({
-    id: 'ref_cold', verb: 'reflect', label: 'Regret', duration: 10,
-    preview: 'Turn the unanswered case over in your mind. It will not change anything on its own.',
+    id: 'ref_cold', verb: 'reflect', label: function (ctx) { return oldBookItem(ctx.primary) ? 'Read the Old Book' : 'Regret'; }, duration: 10,
+    preview: function (ctx) { return oldBookItem(ctx.primary) ? 'Turn the leaves of the old book. Something in it was never read.' : 'Turn the unanswered case over in your mind. It will not change anything on its own.'; },
     requires: ['coldcase'],
     run: function (ctx) {
-      return { title: 'Regret', text: 'You remember every mistake. If you knew where the one who walked was now, you could do something about it.' };
+      var e = ctx.e, cc = ctx.primary, item = oldBookItem(cc);
+      if (!item) return { title: 'Regret', text: 'You remember every mistake. If you knew where the one who walked was now, you could do something about it.' };
+      var from = cc.data.from;
+      from.items.splice(from.items.indexOf(item), 1);
+      cc.data.read = true;
+      var read = item.type === 'clue' ? item : (item.result || item);
+      ctx.give('clue', { label: read.label, desc: 'Between two leaves of the old book, something the beadle bagged and nobody read.', aspects: U.clone(read.aspects || {}),
+        caseId: from.id || null, lifetime: 0, data: { trait: item.trait || null, coerced: false, planted: false, illegal: false, points: null, link: item.link || null, oldBook: true } });
+      return { title: 'The Old Book', text: 'Between two leaves of the old book, something the beadle bagged and nobody read. It keeps until the case is opened again.' };
     },
   });
   // Deduction: clues laid side by side become theories, identifications, or
@@ -1023,7 +1198,9 @@
     label: function (ctx) { return deduction(ctx).label; },
     duration: function (ctx) { return deduction(ctx).duration || 30; },
     preview: function (ctx) {
-      return deduction(ctx).gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
+      var d = deduction(ctx);
+      if (d.id === 'identify') return 'These fit together: one name, and everything they carried.';
+      return d.gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
     },
     blocked: function (ctx) {
       if (CF.Deduce.crossCase(deduction(ctx))) return null;
@@ -1114,13 +1291,29 @@
         var known = rec.suspects.filter(function (x) { return x.key === rec.identified; })[0];
         return { title: 'You Already Know', text: 'It keeps coming back to ' + known.name + '. You know who did it. Now you have to prove it.' };
       }
-      var key = rec.culprit;
-      if (misread) {
-        var others = rec.suspects.filter(function (x) { return !x.guilty && !x.cleared; });
-        if (others.length) key = U.pick(ctx.rng, others).key;
+      // A name only when the tokens give one: a token that points at an
+      // accused, or a trait that one of the accused carries.
+      var named = clues.map(function (c) { return c.data.points; }).filter(Boolean)[0] || null;
+      var laidTrait = clues.filter(function (c) { return !c.data.alibi; }).map(function (c) { return c.data.trait; }).filter(Boolean)[0] || null;
+      var fits = rec.suspects.filter(function (x) { return !x.cleared && (x.key === named || (laidTrait && x.trait === laidTrait)); })[0] || null;
+      if (fits) {
+        var key = fits.key;
+        if (misread) {
+          var others = rec.suspects.filter(function (x) { return !x.guilty && !x.cleared; });
+          if (others.length) key = U.pick(ctx.rng, others).key;
+        }
+        var sus = identify(ctx, rec, key);
+        return { title: th.title, kind: 'major', text: th.text + ' It was ' + sus.name + ', ' + sus.role + '. It has to be.' };
       }
-      var sus = identify(ctx, rec, key);
-      return { title: th.title, kind: 'major', text: th.text + ' It was ' + sus.name + ', ' + sus.role + '. It has to be.' };
+      // The theory itself is a token, once per kind: what sort of person, not yet which.
+      var td = laidTrait && trait(laidTrait);
+      var who = td ? (td.who || td.desc.charAt(0).toLowerCase() + td.desc.slice(1)) : '';
+      rec.theories = rec.theories || {};
+      if (!rec.theories[th.title]) {
+        rec.theories[th.title] = true;
+        ctx.give('clue', e.clueSpec(rec, { label: 'Theory: ' + th.title, text: th.text + (who ? ' Someone who ' + who : ''), aspects: { motive: 1, opportunity: 1 }, trait: laidTrait }, []));
+      }
+      return { title: th.title, text: th.text + ' You know what kind of person. Not yet which.' };
     },
   });
   R.push({
@@ -1143,7 +1336,7 @@
 
   // =================================================================== ARREST
   R.push({
-    id: 'arrest_charge', verb: 'arrest', label: function (ctx) { return 'Indict ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', ''); },
+    id: 'arrest_charge', verb: 'arrest', label: function (ctx) { return 'Charge ' + ctx.e.labelOf(ctx.primary).replace('Prime Suspect: ', ''); },
     duration: 30,
     preview: function (ctx) {
       var e = ctx.e;
@@ -1316,6 +1509,25 @@
     },
   });
 
+  // The Pattern read: the next door is known, and somebody stands in it.
+  R.push({
+    id: 'inv_next_door', verb: 'investigate', label: 'Stand in the Doorway', duration: 45,
+    preview: 'The lane he walks next, the night after the fair. Stand in the doorway with the lantern shuttered.',
+    blocked: function (ctx) { return ctx.has('instinct') || ctx.has('teammate') ? null : 'Somebody has to stand in the doorway: Instinct, or a watchman.'; },
+    requires: { primary: 'nextdoor' },
+    run: function (ctx) {
+      var e = ctx.e;
+      var rec = openRec(ctx, ctx.primary);
+      if (!rec) return closed();
+      e.caseWork(rec, ctx);
+      e.revealSuspect(rec, ctx, { key: rec.culprit });
+      ctx.give('clue', e.clueSpec(rec, { label: 'Taken at the Door', text: 'He came up the lane at the hour the lamps go out, and you were in the doorway.',
+        aspects: { opportunity: 3, forensic: 2 }, tags: ['watching'] }, e.helpers(ctx), { points: rec.culprit, noMisread: true }));
+      ctx.consume(ctx.primary);
+      return { title: 'The Doorway', kind: 'major', text: 'He comes up the lane at the hour the lamps go out, gentle-voiced, a cloth over his arm. He asks her name. You say yours.' };
+    },
+  });
+
   // =============================================================== UNDERCOVER
   // ---- The Court of Miracles: parley, the Court's trial, the throne.
   R.push({
@@ -1327,6 +1539,9 @@
       ctx.consume(ctx.primary);
       ctx.give('funds'); ctx.give('funds');
       ctx.e.count('purse', 1);
+      var court = ctx.e.court();
+      court.ignoredTribute = 0;
+      court.tributeNoted = false;
       return { title: 'The Tribute', text: 'Two Coin, clipped and heavy. You do not ask whose they were.' };
     },
   });
@@ -1388,9 +1603,10 @@
       if (ctx.has('gang')) return 'A new name, a new past, and months of pretending. Get close enough to build a case against their upright man.';
       return 'Go to ground in their world until you find them.';
     },
-    danger: function (ctx) { return 'Dangerous: you may be Wounded' + (ctx.has('teammate') ? ' (a second halves the risk)' : ''); },
+    danger: function (ctx) { return (ctx.e.blowWouldKill() ? 'You already carry a Wound: another will kill you. ' : '') + 'Dangerous: you may be Wounded' + (ctx.has('teammate') ? ' (a second halves the risk)' : ''); },
     blocked: function (ctx) {
       if (!ctx.has('instinct')) return ctx.has('focus') && (ctx.has('syndicate') || ctx.primary.def === 'front') ? null : 'You need Instinct to hold a cover.';
+      if (ctx.primary.def === 'atlarge' && !ctx.e.roomForCase(1)) return 'The desk is full. Close or let go of a case before you raise the hue and cry.';
       var g = ctx.first('gang') || (ctx.primary.def === 'front' ? ctx.e.cardsOf('gang').filter(function (x) { return x.data.name === ctx.primary.data.gang; })[0] : null);
       if (g && g.data.caseId && ctx.e.caseRec(g.data.caseId) && ctx.e.caseRec(g.data.caseId).status === 'open') return 'You already have an operation running against them.';
       if (ctx.has('syndicate') && ctx.e.s.flags.syndicateCase && ctx.e.caseRec(ctx.e.s.flags.syndicateCase).status === 'open') return 'The case against the Coquille is already open.';
@@ -1420,7 +1636,11 @@
         out = { title: 'Found Them', text: 'Three weeks in a lodging-house, drinking with the wrong people. Then someone mentions where ' + t.data.name + ' sleeps now.' };
       } else if (t.def === 'gang') {
         e.meter('retaliation', 1);
-        var gc = e.spawnCase('gang', { ctx: ctx, gangName: t.data.name, gangUid: t.uid, headline: 'Among the Band: ' + t.data.name, lead: 'You are in.' });
+        // The upright man is the member with the longest record.
+        var upright = null;
+        (t.data.members || []).forEach(function (n) { var r = e.criminalByName(n); if (r && (!upright || r.crimes > upright.crimes)) upright = r; });
+        var gc = e.spawnCase('gang', { ctx: ctx, gangName: t.data.name, gangUid: t.uid, headline: 'Among the Band: ' + t.data.name, lead: 'You are in.',
+          culpritName: upright ? upright.name : undefined, culpritTrait: upright ? upright.trait : undefined, criminalId: upright ? upright.id : null });
         t.data.caseId = gc.caseId;
         out = { title: 'Sworn In', kind: 'major', text: 'They trust you now. Mostly. You have seen the tally, the back cellar, and the upright man\'s face. Now build the case before they find out who you are.' };
       } else {
@@ -1428,7 +1648,9 @@
         var ledgers = e.cardsOf('ledger').filter(function (c) { return c.loc.t === 'table'; });
         if (ledgers.length >= 2) {
           ledgers.slice(0, 2).forEach(function (c) { e.remove(c); });
-          var sc = e.spawnCase('syndicate', { ctx: ctx, headline: 'The Court of Miracles', lead: 'The ledger and your own eyes are enough.' });
+          var king = e.court().king;
+          var sc = e.spawnCase('syndicate', { ctx: ctx, headline: 'The Court of Miracles', lead: 'The ledger and your own eyes are enough.',
+            culpritName: king ? king.name : undefined, culpritTrait: king ? king.trait : undefined, criminalId: king ? king.criminalId : null });
           e.s.flags.syndicateCase = sc.caseId;
           out = { title: 'The Court of Miracles', kind: 'major', text: 'You pour wine in a cellar under the Warrens where the lame walk and the blind see, and hear the King of Thunes speak for eleven minutes about the city as if he owned it. He does. For now.' };
         } else {
@@ -1489,7 +1711,7 @@
   // ============================================================= MAJOR CRIMES
   R.push({
     id: 'major_declare', verb: 'duty', src: 'majorcrimes', rank: 3, label: 'Have It Cried', duration: 20,
-    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.major ? 'The crier has already sung it.' : 'Costs 2 Coin. The case gets two minutes more, a name on the board, a witness, and the whole city watching. Convictions pay in Standing; an unanswered case costs the Crowd.'; },
+    preview: function (ctx) { var rec = ctx.caseOf(ctx.primary); return rec && rec.major ? 'The crier has already sung it.' : 'Costs 2 Coin. The case gets two weeks more, a name in the casebook, a witness, and the whole city watching. Convictions pay in Standing; an unanswered case costs the Crowd.'; },
     blocked: function (ctx) {
       var rec = ctx.caseOf(ctx.primary);
       if (rec && rec.major) return 'The crier has already sung this one.';

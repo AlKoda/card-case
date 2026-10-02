@@ -29,10 +29,15 @@
     card.data.trust = U.clamp((card.data.trust || 0) + delta, 0, 3);
     if (card.data.trust >= 3) this.s.flags.trusted = true;
   };
+  // Heat rises with every meeting. The day it crosses to Compromised, you are told.
   P.heatInformant = function (card, delta) {
+    var was = this.informantStatus(card);
     card.data.heat = Math.max(0, (card.data.heat || 0) + delta);
     var st = this.informantStatus(card);
-    card.label = (st === 'compromised' ? 'Compromised: ' : 'Informant: ') + card.data.name;
+    card.label = (st === 'compromised' ? 'Compromised: ' : 'Informer: ') + card.data.name;
+    if (delta > 0 && was === 'safe' && st === 'compromised') {
+      this.story('Marked: ' + card.data.name, 'Somebody in the Warrens has asked, by name, who ' + card.data.name + '\'s friend at the Watch-house is. They stop coming to the bench. Guard them in Attend with a watchman, or the next time they are asked it will not be politely.', 'danger');
+    }
     this.dirty = true;
   };
 
@@ -68,11 +73,16 @@
       return 'rumor';
     }
     if (al.length && roll < 0.75) {
-      var target = U.pick(this.rng, al);
+      // The hotter the record, the more often they are seen.
+      var self = this;
+      var weights = al.map(function (c) { var r = c.data.criminalId ? self.criminal(c.data.criminalId) : self.criminalByName(c.data.name); return 1 + (r ? r.heat || 0 : 0); });
+      var total = weights.reduce(function (a, w) { return a + w; }, 0);
+      var pickRoll = this.rng() * total, target = al[al.length - 1];
+      for (var wi = 0; wi < al.length; wi++) { pickRoll -= weights[wi]; if (pickRoll <= 0) { target = al[wi]; break; } }
       target.data.sighted = true;
       this.create('intel', {
         label: 'Sighting: ' + target.data.name,
-        desc: nick + ' has seen ' + target.data.name + ' in ' + CF.DISTRICTS[inf.data.district].label + '. Bring this to Contemplate with their Abroad card to raise the hue and cry. It will not stay true for long.',
+        desc: nick + ' has seen ' + target.data.name + ' in ' + CF.DISTRICTS[inf.data.district].label + '. Bring this to Rest with their Abroad card to raise the hue and cry. It will not stay true for long.',
         data: { kind: 'sighting', criminal: target.data.name, informant: inf.uid },
       });
       this.story('A Sighting', nick + ' has seen ' + target.data.name + '. "Same tavern every night. Ask me how I know."', 'minor');
@@ -80,24 +90,31 @@
     }
     // A warning: something is about to happen. One at a time.
     if (this.s.nextCase) return null;
-    var tid = U.pick(this.rng, this.casePool());
-    var T = CF.CASE_TEMPLATES[tid];
-    var district = U.pick(this.rng, T.districts);
-    this.s.nextCase = { template: tid, district: district };
-    this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
-    this.create('intel', {
-      label: 'Warning: ' + T.label,
-      desc: nick + ' says something is going to happen in ' + CF.DISTRICTS[district].label + ': ' + T.label.toLowerCase() + '. Keep this on the table. When the case comes in you will be ahead of it.',
-      data: { kind: 'warning', template: tid, district: district, informant: inf.uid },
-    });
-    this.story('A Warning', '"' + T.label + '," says ' + nick + ', "in ' + CF.DISTRICTS[district].label + '. Soon. Don\'t ask me how I know."', 'minor');
+    var spec = this.warnOfCase(inf, 0);
+    this.create('intel', spec);
+    this.story('A Warning', '"' + CF.CASE_TEMPLATES[spec.data.template].label + '," says ' + nick + ', "in ' + CF.DISTRICTS[spec.data.district].label + '. Soon. Don\'t ask me how I know."', 'minor');
     return 'warning';
   };
 
-  // A warning on the table for this case, if any: the case arrives with
-  // more time and a name already on the board.
+  // Queue the next case on an informer's word (it comes sooner, and with
+  // `extraTime` it comes even to a full desk) and build the Warning card.
+  P.warnOfCase = function (inf, extraTime) {
+    var tid = U.pick(this.rng, this.casePool());
+    var T = CF.CASE_TEMPLATES[tid];
+    var district = U.pick(this.rng, T.districts);
+    this.s.nextCase = { template: tid, district: district, extraTime: extraTime || 0 };
+    this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
+    return {
+      label: 'Warning: ' + T.label,
+      desc: inf.data.name + ' says something is going to happen in ' + CF.DISTRICTS[district].label + ': ' + T.label.toLowerCase() + '. Keep this on the table. When the case comes in you will be ahead of it.',
+      data: { kind: 'warning', template: tid, district: district, informant: inf.uid },
+    };
+  };
+
+  // A warning on the table (or waiting in a verb's output) for this case,
+  // if any: the case arrives with more time and a name already on the board.
   P.warningFor = function (templateId) {
-    return this.cardsOf('intel').filter(function (c) { return c.loc.t === 'table' && c.data.kind === 'warning' && c.data.template === templateId; })[0] || null;
+    return this.cardsOf('intel').filter(function (c) { return (c.loc.t === 'table' || c.loc.t === 'out') && c.data.kind === 'warning' && c.data.template === templateId; })[0] || null;
   };
 
   // An informant is burned: gone, and if they were already compromised the
@@ -107,7 +124,7 @@
     var name = card.data.name;
     this.remove(card);
     this.story('An Informer Is Burned', text, 'danger');
-    if (was === 'compromised' && this.openCases().length < 4) {
+    if (was === 'compromised' && this.roomForCase(1)) {
       this.spawnCase('missing', { victim: name, headline: 'Vanished: ' + name, lead: 'Nobody has seen ' + name + ' since the night they were questioned.', extraTime: 30 });
     }
   };

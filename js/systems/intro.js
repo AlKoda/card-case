@@ -72,21 +72,27 @@
     this.layoutVerbs();
   };
 
-  // The steps, in order; each waits for its cue on the table.
+  // The opening path (no office, the notice, the Watch): it gives the first lessons itself.
+  function openingPath(e) { return !!(e.s.flags.opening || e.s.flags.stage); }
+  // How many verbs have finished, all told.
+  function verbsRun(e) { var sv = e.s.stats.verbs || {}, n = 0; for (var k in sv) n += sv[k]; return n; }
+
+  // The steps, in order; each waits for its cue on the table. A step with
+  // skipIf is passed over when the opening has already taught it.
   var STEPS = [
-    { beat: 0, cue: function (e) { return !!e.s.intro.done.investigate; },
+    { beat: 0, skipIf: openingPath, cue: function (e) { return !!e.s.intro.done.investigate; },
       run: function (e) {
         e.introUnlock(['analyze']);
         e.introReveal(['instinct']);
         return { hint: 'Raw proof goes into Study. Put Wit or Instinct in with the case to search differently.' };
       } },
-    { beat: 1, cue: function (e) { return e.countOf('witness') + e.countOf('suspect') > 0; },
+    { beat: 1, skipIf: openingPath, cue: function (e) { return e.countOf('witness') + e.countOf('suspect') > 0; },
       run: function (e) {
         e.introUnlock(['interrogate']);
         e.introReveal(['health']);
         return { hint: 'People go into Question: Wit to listen, Instinct to bluff, Health to lean on them.' };
       } },
-    { beat: 2, cue: function (e) { return e.countOf('clue') >= 2; },
+    { beat: 2, skipIf: openingPath, cue: function (e) { return e.countOf('clue') >= 2; },
       run: function (e) {
         e.introUnlock(['reflect']);
         return { hint: 'Two tokens side by side in Rest: see whether they tell one story.' };
@@ -112,13 +118,21 @@
   P.introTick = function () {
     var s = this.s;
     if (s.flags.opening && s.flags.stage !== 'hired' && s.flags.stage !== 'keep') return; // the opening tells its own story
-    var step = this.introSteps()[s.intro.step];
+    var steps = this.introSteps(), step = steps[s.intro.step];
+    while (step && step.skipIf && step.skipIf(this)) { s.intro.step++; step = steps[s.intro.step]; }
     if (!step) { this.introFinish(); return; }
     if (!step.cue(this)) return;
+    // After the hire the beats come one at a time: eight seconds after the
+    // last, and once a verb has finished since (or half a minute has passed).
+    if (step.beat !== undefined && openingPath(this) && s.intro.lastBeatT !== undefined) {
+      var since = s.t - s.intro.lastBeatT;
+      if (since < 8) return;
+      if (verbsRun(this) <= (s.intro.lastBeatVerbs || 0) && since < 30) return;
+    }
     var beat = step.beat !== undefined ? CF.Story.beat(this, step.beat) : null;
     var res = step.run(this);
     s.intro.step++;
-    if (beat) this.story(beat.title, beat.text, 'major');
+    if (beat) { this.story(beat.title, beat.text, 'major'); s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); }
     if (res && res.hint && !s.intro.silent) s.intro.hint = res.hint;
     this.dirty = true;
   };

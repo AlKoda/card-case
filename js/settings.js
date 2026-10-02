@@ -3,7 +3,7 @@
   var CF = window.CF;
   var KEY = 'casefile.settings.v1';
   var DEFAULTS = { master: 80, music: 60, sfx: 70, textSpeed: 50, shake: true, lang: 'en', pauseOnCase: false, pauseOnVerb: false, pauseOnBlur: true,
-    gap: 14, guided: true, uiScale: 100, pauseOnDrag: false, grid: false, snap: true, strings: true, haptics: true };
+    gap: 14, guided: true, uiScale: 100, pauseOnDrag: false, grid: false, snap: true, strings: true, haptics: true, tilt: true };
 
   var Settings = (CF.Settings = { values: {}, listeners: [] });
 
@@ -13,13 +13,28 @@
     for (var k in DEFAULTS) Settings.values[k] = v[k] !== undefined ? v[k] : DEFAULTS[k];
     // A first run follows the device's language, when the game speaks it.
     if (v.lang === undefined) Settings.values.lang = Settings.deviceLang();
+    // The table lies flat from the first run where the device asks for less motion.
+    if (v.tilt === undefined && Settings.reducedMotion()) Settings.values.tilt = false;
+    Settings.applyTilt();
     return Settings.values;
   };
 
   Settings.save = function (vals) {
     for (var k in DEFAULTS) if (vals[k] !== undefined) Settings.values[k] = vals[k];
     try { localStorage.setItem(KEY, JSON.stringify(Settings.values)); } catch (err) { /* storage unavailable */ }
+    Settings.applyTilt();
     Settings.listeners.forEach(function (fn) { fn(Settings.values); });
+  };
+
+  Settings.reducedMotion = function () {
+    try { return typeof matchMedia === 'function' && !!matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (err) { return false; }
+  };
+  // The stylesheet lays the table flat under html[data-flat] (no tilt, no perspective).
+  Settings.applyTilt = function () {
+    try {
+      var root = document.documentElement;
+      if (Settings.values.tilt === false) root.setAttribute('data-flat', ''); else root.removeAttribute('data-flat');
+    } catch (err) { /* no document */ }
   };
 
   Settings.deviceLang = function () {

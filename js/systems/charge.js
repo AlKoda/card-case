@@ -12,9 +12,9 @@
 
   var Charge = (CF.Charge = {});
   Charge.TIERS = {
-    weak: { label: 'Indicia', text: 'Enough to hold them in the Hole. Before the sworn men, an advocate will eat it alive.' },
+    weak: { label: 'Indicia', text: 'Indicia: suspicion, not proof. Enough to hold them in the Hole, the cells under the Watch-house; before the sworn men who judge, an advocate will eat it alive.' },
     reasonable: { label: 'Half Proof', text: 'It could go either way. The sworn men might take it, or convict of the lesser crime.' },
-    strong: { label: 'Full Proof', text: 'Several independent kinds of proof, all pointing one way. The Carolina is satisfied. It should hold.' },
+    strong: { label: 'Full Proof', text: 'Several independent kinds of proof, all pointing one way. The Carolina, the Emperor\'s law the Court sits under, is satisfied. It should hold.' },
   };
 
   // The charge profile of a case: {aspect: points needed}. Generated cases
@@ -99,7 +99,9 @@
     if (r.confession === 'free' && r.contradictions === 0) return 'strong';
     if (r.fingerpost && r.contradictions === 0 && r.covered >= 1) return 'strong';
     if (r.confession === 'question' && r.contradictions === 0) return r.checked ? 'strong' : 'reasonable';
-    if (r.score >= need && r.covered >= 2 && r.contradictions === 0) return 'strong';
+    // Enough of the right proof is full proof only with Word behind it: a
+    // witness, a confession, or a token that names or corroborates.
+    if (r.score >= need && r.covered >= 2 && r.contradictions === 0 && (r.witnesses >= 1 || r.confession || r.corroboration >= 1)) return 'strong';
     if (r.score >= need * 0.6) return 'reasonable';
     return 'weak';
   }
@@ -128,9 +130,11 @@
     res.quality = res.tier;
     res.solid = res.realTier === 'strong';
     // Which clues describe somebody else, for the preview.
+    var self = this;
     res.contradicting = own.filter(function (c) {
       return sus && ((c.data.points && c.data.points !== sus.key) || (c.data.trait && c.data.trait !== sus.trait));
     });
+    res.contradictingLabels = res.contradicting.map(function (c) { return self.labelOf(c); });
     return res;
   };
 
@@ -149,9 +153,22 @@
     if (a.againstInterest) notes.push({ kind: 'good', text: 'A witness who spoke against their own interest: +' + a.againstInterest });
     if (a.diversity) notes.push({ kind: 'good', text: 'Independent kinds of proof: +' + a.diversity });
     if (a.corroboration) notes.push({ kind: 'good', text: 'Corroboration, or proof that names them: +' + a.corroboration });
-    if (a.contradictions) notes.push({ kind: 'bad', text: a.contradictions + ' token' + (a.contradictions > 1 ? 's' : '') + ' describe' + (a.contradictions > 1 ? '' : 's') + ' somebody else: −' + a.contradictions * 2 });
+    var bad = (a.contradicting || []).map(function (c) { return c.uid; });
+    if (a.contradictions) {
+      var names = (a.contradictingLabels || []).filter(Boolean);
+      var who = names.length ? names.join(' and ') : a.contradictions + ' token' + (a.contradictions > 1 ? 's' : '');
+      notes.push({ kind: 'bad', text: who + (a.contradictions > 1 ? ' describe' : ' describes') + ' somebody else: −' + a.contradictions * 2 });
+    }
     if (a.illegal) notes.push({ kind: 'bad', text: 'Beaten out, arranged, or found without a writ: −' + a.illegal + ', and the advocate may find out.' });
     if (a.foreign) notes.push({ kind: 'bad', text: a.foreign + ' token' + (a.foreign > 1 ? 's have' : ' has') + ' nothing to do with this case.' });
-    return { rows: rows, notes: notes, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text };
+    // What the Court would make of it, and what full proof still wants.
+    var T = a.rec && CF.CASE_TEMPLATES[a.rec.template];
+    if (a.tier === 'reasonable') notes.push({ kind: 'bad', text: 'Half proof: the Court would convict of ' + (T && T.lesser ? T.lesser : 'the lesser crime') + ', and the ladder stops at banishment.' });
+    if (a.tier !== 'strong') {
+      var gaps = rows.filter(function (r) { return r.have < r.need; }).map(function (r) { return CF.ASPECTS[r.aspect].label + ' ' + (r.need - r.have); });
+      var wants = gaps.length ? gaps.join(', ') : 'proof that names them';
+      notes.push({ kind: 'dim', text: 'To full proof: ' + wants + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
+    }
+    return { rows: rows, notes: notes, bad: bad, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

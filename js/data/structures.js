@@ -15,19 +15,19 @@
           { type: 'clue', label: 'Marks at {entry}', text: 'Scuffs and splinters where {entry} was worked open. They knew which way it gave.', aspects: { forensic: 1, opportunity: 1 } },
           { type: 'clue', label: 'What Was Taken', text: '{item}: chosen, not grabbed. Whoever it was knew what was worth carrying.', aspects: { financial: 2 } },
         ] },
-      { id: 'inside_key', vars: { time: ['overnight', 'during the dinner hour', 'on the one evening the shop shuts early'], entry: ['the front door, with a key', 'the yard door', 'the stair from the rooms above'], item: ['the strongbox\'s contents', 'the stock book and the stock', 'three watches and a ledger'], detail: ['nothing at all, which is the strange part', 'the candle go on and off again, as if someone knew the house', 'a familiar cloak in the doorway'] },
+      { id: 'inside_key', vars: { time: ['overnight', 'during the dinner hour', 'on the one evening the shop shuts early'], entry: ['the front door, with a key', 'the yard door', 'the stair from the rooms above'], item: ['the strongbox\'s contents', 'the stock book and the stock', 'three silver spoons and a ledger'], detail: ['nothing at all, which is the strange part', 'the candle go on and off again, as if someone knew the house', 'a familiar cloak in the doorway'] },
         brief: 'No broken glass at {victim}\'s. Whoever came in {time} used {entry}, and left with {item}. A neighbour reports seeing {detail}.',
         items: [
           { type: 'clue', label: 'A Key, Not a Crow', text: '{entry}: no marks, no damage. Whoever came in was expected, or had a key.', aspects: { opportunity: 2 } },
           { type: 'evidence', label: 'The Key Tally', text: 'Who has keys, and since when. Someone has crossed a name out.', needs: null,
             result: { label: 'The Key-holders', text: 'Four keys. Three are accounted for. The fourth was "lost" a month ago by someone who still comes and goes.', aspects: { opportunity: 2, testimony: 1 } } },
         ] },
-      { id: 'smash_grab', vars: { time: ['at the dead of the night', 'during the storm', 'in the quarter-hour between the watchman\'s rounds'], entry: ['the shop window, with a cobble', 'the shutter, with a crow', 'the yard gate'], item: ['the window display', 'whatever was in the till', 'a case of plate'], detail: ['a cart with the tail-board up', 'two people running, one of them limping under the weight', 'somebody laughing'] },
-        brief: 'Glass everywhere at {victim}\'s. Someone went through {entry} {time}, took {item}, and was gone before the watchman finished shouting. A neighbour reports seeing {detail}.',
+      { id: 'smash_grab', vars: { time: ['at the dead of the night', 'during the storm', 'in the quarter-hour between the watchman\'s rounds'], entry: ['the shop window, with a cobble', 'the shutter, with a crow', 'the yard gate'], item: ['the window display', 'whatever stood in the shop front', 'a case of plate'], detail: ['a cart with the tail-board up', 'two people running, one of them limping under the weight', 'somebody laughing'] },
+        brief: 'Splinters everywhere at {victim}\'s. Someone went through {entry} {time}, took {item}, and was gone before the watchman finished shouting. A neighbour reports seeing {detail}.',
         items: [
           { type: 'evidence', label: 'Blood on the Glass', text: 'They cut themselves going in, or out.', needs: 'bio',
             result: { label: 'The Blood Read', text: 'A great deal of it. The barber-surgeon in the Abbey Close stitched a hand the same morning.', aspects: { forensic: 3 } } },
-          { type: 'clue', label: 'The Getaway', text: 'Wheel-ruts over the kerb, {detail}. They did not care who saw.', aspects: { opportunity: 1, testimony: 1 } },
+          { type: 'clue', label: 'The Getaway', text: 'Wheel-ruts across the gutter, {detail}. They did not care who saw.', aspects: { opportunity: 1, testimony: 1 } },
         ] },
       { id: 'quiet_safe', vars: { time: ['some time between Friday night and Monday morning', 'while the family was at a burial', 'during the wedding downstairs'], entry: ['the study casement', 'the garden door', 'the cellar hatch'], item: ['the strongbox, opened rather than forced', 'the jewel-case and nothing else', 'the deeds and the coin'], detail: ['a light in the study past compline', 'a tradesman\'s cart that no tradesman came from', 'a guest who left early'] },
         brief: '{victim} is not sure when it happened: {time}. Only {entry} was touched, and only {item} taken. A neighbour reports seeing {detail}. Somebody knew the house.',
@@ -65,7 +65,7 @@
         items: [
           { type: 'clue', label: 'Heard from the Barge', text: '{detail}, {time}. The bargeman went back to sleep. He is sorry now.', aspects: { testimony: 1, opportunity: 1 } },
           { type: 'evidence', label: '{item}', text: 'Sealed in oilcloth. The victim wanted it kept.', needs: 'lab',
-            result: { label: 'What They Kept', text: 'Marks and names, and one of the names is on your board.', aspects: { financial: 2, motive: 1 } } },
+            result: { names: true, label: 'What They Kept', text: 'Marks and names, and one of the names is in your casebook.', aspects: { financial: 2, motive: 1 } } },
         ] },
       { id: 'warehouse_floor', vars: { time: ['on the night gang', 'after the last cart left', 'on Sunday, when nobody should have been there'], detail: ['a hoist left swinging', 'fresh whitewash over something on the floor', 'the watchman\'s stool by the wrong door'], item: ['a weigh-house ticket', 'a foreman\'s tally', 'a sample bag of something white'] },
         brief: '{victim} was found on a warehouse floor at the Harbour, {time}. The scene had been tidied: {detail}. What they missed: {item}.',
@@ -82,7 +82,7 @@
         ] },
     ],
     arson: [
-      { id: 'three_places', vars: { time: ['at matins', 'an hour after the gate bell', 'during the bear-baiting, when the streets were empty'], detail: ['a man watching from across the road, not running', 'a cart leaving without a lantern', 'a smell of lamp-oil in the yard beforehand'], item: ['a fresh bond of assurance', 'a lease near its end', 'a notice to quit'] },
+      { id: 'three_places', vars: { time: ['at matins', 'an hour after the gate bell', 'during the bear-baiting, when the streets were empty'], detail: ['a man watching from across the road, not running', 'a cart leaving without a lantern', 'a smell of lamp-oil in the yard beforehand'], item: ['a bond pledging the building for three times its worth', 'a lease near its end', 'a notice to quit'] },
         brief: 'The bucket-chain got to {scene} in time to save the walls, {time}. The fire-warden says it started in three places at once. Fires do not do that. A witness saw {detail}. In the strongbox, unburnt: {item}.',
         items: [
           { type: 'clue', label: 'Three Seats of Fire', text: 'Three places, lit within a minute of each other. One person moving fast, or two moving slowly.', aspects: { forensic: 2 } },
@@ -136,7 +136,7 @@
         brief: '{victim} has been paying {time}, because of {detail}. What is wanted is {item}. They came to you because they cannot pay any more.',
         items: [
           { type: 'evidence', label: '{detail}', text: 'What they were shown. Handled, folded, handled again.', needs: 'prints',
-            result: { label: 'The Hand on the Paper', text: 'The blackmailer\'s own hand, on the thing they were most careful about.', aspects: { forensic: 3 } } },
+            result: { names: true, label: 'The Hand on the Paper', text: 'The blackmailer\'s own hand, on the thing they were most careful about.', aspects: { forensic: 3 } } },
           { type: 'clue', label: 'The Price', text: '{item}. It is never really about the money, until it is.', aspects: { motive: 2, financial: 1 } },
         ] },
       { id: 'the_club', vars: { time: ['since the keeper changed', 'since the new doorman', 'since the licence came before the Council'], detail: ['a fire in the kitchen that was not an accident', 'a delivery that never comes on time', 'a brawl that starts whenever the till is full'], item: ['a share', 'the back room, for their own use', 'the tavern itself, eventually'] },
@@ -165,7 +165,7 @@
         brief: 'The powder that killed {victim} came from a shop in the city, {time}. At the Sign of the Pestle, {detail}. What went out the door: {item}.',
         items: [
           { type: 'evidence', label: 'The Poison Book', text: '{detail}. Every apothecary must keep one.', needs: 'lab',
-            result: { label: 'The Cut Leaf Read', text: 'The leaf beneath took the impress of the pen. A name, a date, {item}.', aspects: { digital: 2, forensic: 1 } } },
+            result: { names: true, label: 'The Cut Leaf Read', text: 'The leaf beneath took the impress of the pen. A name, a date, {item}.', aspects: { digital: 2, forensic: 1 } } },
           { type: 'clue', label: 'The Boy\'s Errand', text: '{detail}. Somebody wanted the shop empty for a quarter of an hour.', aspects: { opportunity: 2 } },
         ] },
     ],
@@ -300,7 +300,7 @@
         items: [
           { type: 'clue', label: 'Smoke After Curfew', text: '{detail}. No forge is licensed there.', aspects: { opportunity: 2 } },
           { type: 'evidence', label: '{item}', text: 'Thrown away in a hurry.', needs: 'prints',
-            result: { label: 'The Hand on the Mould', text: 'Vinegar brings up the hand that pressed it: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
+            result: { names: true, label: 'The Hand on the Mould', text: 'Vinegar brings up the hand that pressed it: a thumb, and a missing nail.', aspects: { forensic: 2, opportunity: 1 } } },
         ] },
       { id: 'the_passer', vars: { time: ['at the cattle market', 'in the dice-cellars', 'at every tavern on the Harbour'], detail: ['always paid in new coin', 'always by candlelight', 'always to strangers'], item: ['a tally of what was passed where', 'a purse with two compartments', 'a ferryman\'s token'] },
         brief: 'The false coin is being passed {time}, {detail}. The Mintmaster wants the die; the Council wants a name. On the passer, when the passer was nearly taken: {item}.',

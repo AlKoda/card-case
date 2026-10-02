@@ -1,5 +1,5 @@
-// Deductions: what Contemplate makes of tokens laid side by side (roadmap
-// Phase 6). Contemplate is reasoning, not bench work: a pattern across two
+// Deductions: what Rest makes of tokens laid side by side (roadmap
+// Phase 6). Rest is reasoning, not bench work: a pattern across two
 // or more tokens of one case becomes a new token, a theory or an
 // identification. The first pattern (in order) that fits is the one that runs.
 //
@@ -7,6 +7,7 @@
 //     needs: { min: 2, aspects: {aspect: total needed}, sameTrait: true, distinctTraits: 2, points: true },
 //     gives: { label, text, aspects, tags },   // omitted = nothing is made, the tokens come back
 //     consume: true,                           // the tokens fold into the result
+//     keep: true,                              // the result also keeps the tokens' aspects (each capped at 3)
 //     story: { title, text, kind } }
 //
 // Text is filled with {name} (the accused the pattern identifies, if any),
@@ -20,12 +21,24 @@
     { id: 'connect', label: 'Follow the Thread', duration: 25,
       needs: { min: 2, sharedLink: true, crossCase: true },
       story: { title: 'These Cases Are One', text: '{clues}: two cases, one door. Somebody is working through {front}, and more than one of your cases leads there.', kind: 'major' } },
+    // An alibi laid beside the hours: the night is checked. An innocent is
+    // struck from the casebook; a liar's night becomes a token against them.
+    { id: 'alibi', label: 'Check the Night', duration: 20,
+      needs: { min: 2, alibi: true, aspects: { opportunity: 1 } },
+      consume: true },
+    // Two free confessions to one crime: neither survives the other. Both
+    // stay on the table as false, and the lie points at whoever they shield.
+    { id: 'two_confessions', label: 'Two Men, One Knife', duration: 20,
+      needs: { min: 2, confessions: 2 },
+      gives: { label: 'Two Confessions', text: 'The wrong day in one, the wrong knife in the other, and each of them looking at the door when the other is named.', aspects: { testimony: 1, motive: 2 } },
+      consume: false,
+      story: { title: 'Two Men, One Knife', text: 'Two men cannot both have done one thing alone. Lay the confessions side by side and neither survives the other: one is lying for love, one for shame, and somebody they both know is not in the Hole.', kind: 'major' } },
     // Two tokens that describe the same person: an identification. Confirmed
-    // when an accused on the board fits; only "possible" until then.
+    // when an accused in the casebook fits; only "possible" until then.
     { id: 'identify', label: 'Put a Face to It', duration: 30,
       needs: { min: 2, sameTrait: true },
       gives: { label: 'Identification', text: 'Everything points to the same person: {trait}', aspects: { opportunity: 2, testimony: 1 } },
-      consume: true,
+      consume: true, keep: true, // the result keeps what the tokens carried (each aspect capped at 3)
       story: { title: 'The Same Person', text: '{clues}: different tokens, one description. {trait} You know who you are looking for.' } },
 
     // Two descriptions that cannot both be the culprit. Nothing is made.
@@ -36,7 +49,7 @@
     // Two pieces of the pattern: where he goes next.
     { id: 'pattern', label: 'Read the Pattern', duration: 60,
       needs: { min: 2, pattern: 2 },
-      gives: { label: 'The Next Door', text: 'The doors, the nights, the hair. You know which lane he walks next, and which night.', aspects: { opportunity: 3, forensic: 1 } },
+      gives: { label: 'The Next Door', text: 'The doors, the nights, the hair. You know which lane he walks next, and which night. Stand in the doorway (Explore, with Instinct or a watchman).', aspects: { opportunity: 3, forensic: 1, nextdoor: 1 } },
       consume: true,
       story: { title: 'The Pattern Read', text: 'You draw the doors on a map of the quarter and the lines meet. He is not choosing girls. He is walking a shape, and the shape has one door left in it. Be there.', kind: 'major' } },
 

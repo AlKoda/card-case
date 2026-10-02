@@ -17,12 +17,12 @@ is the same code as the web page.
 | Back that means something | Back must close what is open, and leave only from the top; Android 13+ predictive back needs the `OnBackPressedCallback` API, not `onBackPressed()`. | `OnBackPressedCallback` asks the game first; at the top, "press again to leave". `enableOnBackInvokedCallback` is on. |
 | Pause on lock, sleep, switch; resume after | Sleep_Resume, Lock_Resume, App_Switcher in the core checklist. | `onPause` silences audio, saves, pauses the WebView; `onResume` brings it back. |
 | Sound stops in the background | A game playing music from behind the home screen is the top complaint of every wrapper. | Audio is suspended in `onPause` and by the page's own visibility events. |
-| State kept across process death | Android kills background apps; the player must not lose the game. | The game autosaves on every change and on pause; the WebView state is saved too. |
+| State kept across process death | Android kills background apps; the player must not lose the game. | The game autosaves on every change and on pause; the WebView state is saved too, and after a process death the app reopens on the table, paused (`#resume`), whether or not that state restores. |
 | Backup and device-to-device transfer rules | Auto Backup should carry saves and settings to a new phone; the rules must say so explicitly on Android 12+. | `dataExtractionRules` and `fullBackupContent` include the WebView storage and exclude caches. |
-| Edge-to-edge with insets respected | Android 15 draws behind system bars and into cutouts; a game must keep controls out of the notch and gesture areas. | The wrapper reads the cutout and system-bar insets and hands them to the page as CSS variables; the page pads its top bar and windows with them. |
+| Edge-to-edge with insets respected | Android 15 draws behind system bars and into cutouts; a game must keep controls out of the notch and gesture areas. | The wrapper reads the cutout insets and hands them to the page as CSS variables; the page pads its top bar and windows with them. The bars themselves are hidden and only shown for a moment by a swipe, so their insets are not padded. |
 | Full screen for a game | Immersive mode is the accepted exception to "keep the bars visible" for games, with a swipe to bring the bars back. | `WindowInsetsControllerCompat`, `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`. |
 | A screen that stays on while playing | Nobody wants the screen to sleep during a 60-second verb, but a wake lock forever drains the battery. | The screen stays on only while a game is running and not paused; the page tells the wrapper. |
-| Recovery when the renderer dies | The WebView renderer can be killed for memory; the app must not show a blank screen. | `onRenderProcessGone` rebuilds the WebView and reloads the game, which resumes from its save. |
+| Recovery when the renderer dies | The WebView renderer can be killed for memory; the app must not show a blank screen. | `onRenderProcessGone` rebuilds the WebView and loads the game with `#resume`: it reopens on the table, paused, from its save. |
 | A message when WebView is missing | Some devices have WebView disabled; the app should say so instead of crashing. | A dialog explains, then exits. |
 | Right-to-left support | The game has Arabic. | `supportsRtl` on; the page itself flips. |
 | Per-app language | Android 13 lets the user pick a language per app in system settings. | `localeConfig` lists English and Arabic; a first run follows the device language. |
@@ -51,7 +51,7 @@ is the same code as the web page.
 
 | Expectation | Here |
 | --- | --- |
-| It opens where I left off | The game autosaves; the app restores it on launch and after any interruption. |
+| It opens where I left off | The game autosaves; the app restores it on launch and after any interruption. After a process death or a killed renderer it reopens on the table, paused. |
 | Back works like every other app | Back closes windows, menus and dialogs in order; twice at the top leaves. |
 | Silence when I switch away, sound when I return | Yes. |
 | It pauses when I look away | "Pause when you switch away" setting, on by default. |

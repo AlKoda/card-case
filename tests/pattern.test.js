@@ -45,7 +45,10 @@ function run(e, verb, cards) {
   assert.strictEqual(rec.victims || 1, v0, 'no second girl in the week she arrived');
   e.weekTick();
   assert.strictEqual(rec.victims, v0 + 1, 'another girl every week');
-  assert.ok(e.s.meters.pressure > p0, 'and the Crowd grows');
+  var p1 = e.s.meters.pressure;
+  e.weekTick();
+  assert.strictEqual(rec.victims, v0 + 2, 'and another');
+  assert.ok(e.s.meters.pressure > p1 && e.s.meters.pressure > p0, 'and the Crowd counts every other door');
   assert.ok(doors().length >= 2);
   var r = run(e, 'reflect', doors().slice(0, 2));
   assert.strictEqual(r.recipe, 'ref_deduce');
@@ -56,10 +59,43 @@ function run(e, verb, cards) {
   var v1 = rec.victims;
   e.weekTick();
   assert.strictEqual(rec.victims, v1, 'once read, no more girls');
+  // 'Be at the next door' has a verb: the Next Door token in Explore, with Instinct or a watchman.
+  assert.ok(next.data.nextDoor && CF.aspectsOf(next).nextdoor, 'the Next Door token opens Explore');
+  assert.ok(e.autoSlot('investigate', next.uid), 'Explore takes the Next Door');
+  var pv = e.preview('investigate');
+  assert.ok(pv && /Instinct, or a watchman/.test(pv.blocked), 'somebody has to stand in it: ' + (pv && pv.blocked));
+  assert.strictEqual(pv.label, 'Stand in the Doorway');
+  e.clearSlots('investigate');
+  var before = byDef(e, 'suspect').filter(function (c) { return c.caseId === rec.id && c.data.key === rec.culprit; }).length;
+  var door = run(e, 'investigate', [next, byDef(e, 'instinct')[0]]);
+  assert.strictEqual(door.recipe, 'inv_next_door');
+  assert.strictEqual(door.story.title, 'The Doorway');
+  assert.strictEqual(door.story.kind, 'major');
+  var taken = door.out.filter(function (c) { return /Taken at the Door/.test(e.labelOf(c)); })[0];
+  assert.ok(taken && taken.data.points === rec.culprit && !taken.data.misread, 'taken at the door, and it names him');
+  assert.strictEqual(CF.clueAspects(taken).opportunity, 3);
+  assert.ok(!e.card(next.uid), 'the Next Door is spent');
+  assert.ok(byDef(e, 'suspect').filter(function (c) { return c.caseId === rec.id && c.data.key === rec.culprit; }).length >= Math.max(1, before), 'he is on the board');
   // It comes once a run, from week six.
   var seen = 0;
-  for (var i = 0; i < 20; i++) { var g = game(600 + i); g.s.week = 6; for (var w = 0; w < 10 && !g.s.over; w++) { g.s.meters.pressure = 0; g.weekTick(); } if (g.s.flags.patternSeen) seen++; }
+  for (var i = 0; i < 20; i++) { var g = game(600 + i); g.s.week = 6; g.s.rank = 2; for (var w = 0; w < 10 && !g.s.over; w++) { g.s.meters.pressure = 0; g.weekTick(); } if (g.s.flags.patternSeen) seen++; }
   assert.ok(seen >= 8, 'the Pattern arrives in most runs: ' + seen);
+  // It waits for a Bailiff: an Examiner never sees it, a Sworn Examiner not before week twelve.
+  [[0, 11], [1, 11]].forEach(function (rw) {
+    var g = game(640 + rw[0]); g.s.week = 6; g.s.rank = rw[0];
+    for (var w = 0; w < 5 && !g.s.over; w++) { g.s.meters.pressure = 0; g.weekTick(); }
+    assert.ok(!g.s.flags.patternSeen, 'rank ' + rw[0] + ' before week twelve: no Pattern');
+  });
+  var late = 0;
+  for (var j = 0; j < 20; j++) { var g2 = game(660 + j); g2.s.week = 12; g2.s.rank = 1; for (var w2 = 0; w2 < 10 && !g2.s.over; w2++) { g2.s.meters.pressure = 0; g2.weekTick(); } if (g2.s.flags.patternSeen) late++; }
+  assert.ok(late >= 8, 'a Sworn Examiner sees it from week twelve: ' + late);
+  // A Pattern read and then left to go cold says so: you knew the door.
+  var pc = game(22);
+  var prec = pc.caseRec(pc.spawnCase('pattern', { quiet: true }).caseId);
+  prec.patternRead = true;
+  pc.goCold(prec.id);
+  var coldLine = pc.s.journal.filter(function (j) { return j.title === 'The Trail Goes Cold'; })[0];
+  assert.ok(coldLine && /You knew the door, and nobody stood in it/.test(coldLine.text), coldLine && coldLine.text);
   console.log('pattern: ok');
 })();
 

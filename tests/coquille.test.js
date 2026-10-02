@@ -45,6 +45,51 @@ function run(e, verb, cards) {
   assert.ok(/King of Thunes/.test(e.criminalDesc(k)));
   var c = e.criminalEscapes({ title: 'x', template: 'burglary' }, { name: 'Test Name', trait: 'scar' }, 'cold');
   assert.ok(/crocheteur/.test(e.criminalDesc(c)), 'a burglar is a crocheteur: ' + e.criminalDesc(c));
+  // The King is never a jailed man: the record abroad is crowned over the one in the Hole, and gets a card.
+  var e2 = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  e2.s.rank = 2;
+  var jailed = e2.criminalEscapes({ title: 'The Mint Robbery', template: 'coining' }, { name: 'Jailed Man', trait: 'scar' }, 'cold');
+  jailed.crimes = 9; e2.criminalCaught('Jailed Man');
+  var loose = e2.criminalEscapes({ title: 'The Fire at the Tannery', template: 'arson' }, { name: 'Loose Man', trait: 'limp' }, 'cold');
+  loose.crimes = 2;
+  e2.spawnSyndicate('test');
+  var king2 = e2.criminal(e2.court().king.criminalId);
+  assert.strictEqual(king2.name, 'Loose Man', 'the man abroad is crowned, not the one in the Hole');
+  assert.strictEqual(jailed.status, 'jailed');
+  assert.strictEqual(king2.status, 'at_large');
+  var kc = e2.atLargeCardFor(king2);
+  assert.ok(kc && /^The King of Thunes: Loose Man$/.test(kc.label), 'the King has an Abroad card under his crown: ' + (kc && kc.label));
+  var told = e2.s.journal.filter(function (j) { return j.title === 'The Coquille'; })[0];
+  assert.ok(told && /It is Loose Man, who walked from The Fire at the Tannery in week/.test(told.text), 'the story names the king: ' + (told && told.text));
+  // With nobody on the Rolls, the King is a new name, and the story says so.
+  var e3 = CF.Engine.newGame({ seed: 4, calling: 'master' });
+  e3.s.rank = 2;
+  for (var kk in e3.s.criminals) delete e3.s.criminals[kk];
+  e3.spawnSyndicate('test');
+  var k3 = e3.criminal(e3.court().king.criminalId), told3 = e3.s.journal.filter(function (j) { return j.title === 'The Coquille'; })[0];
+  assert.ok(k3 && e3.atLargeCardFor(k3), 'a new King still gets a card');
+  assert.ok(/The name is .*\. It is not in your Rolls\. It will be\./.test(told3.text), told3.text);
+  // The King is not sworn into a band: three more abroad, and he keeps his crown and his shell.
+  var e4 = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  e4.s.rank = 2;
+  function abroad(n) {
+    var c = e4.criminalEscapes({ title: 'Case ' + n, template: 'burglary' }, { name: 'Thief ' + n, trait: 'limp' }, 'cold');
+    e4.create('atlarge', { label: 'Abroad: ' + c.name, data: { name: c.name, trait: c.trait, criminalId: c.id } });
+    return c;
+  }
+  var boss = abroad(0); boss.crimes = 9;
+  e4.spawnSyndicate('test');
+  var king4 = e4.criminal(e4.court().king.criminalId);
+  assert.strictEqual(king4.name, 'Thief 0');
+  abroad(1); abroad(2);
+  e4.organise();
+  assert.strictEqual(king4.organization, 'syndicate', 'the King keeps the Coquille');
+  assert.ok(!e4.atLargeCardFor(king4).data.band, 'his card wears no band');
+  assert.ok(!byDef(e4, 'gang').length, 'two men do not make a band without him');
+  abroad(3);
+  e4.organise();
+  var band = byDef(e4, 'gang')[0];
+  assert.ok(band && band.data.members.indexOf('Thief 0') < 0, 'three others do, and he is not of it: ' + (band && band.data.members));
   console.log('king: ok');
 })();
 
@@ -71,6 +116,28 @@ function run(e, verb, cards) {
   assert.strictEqual(t.recipe, 'duty_tribute');
   assert.strictEqual(byDef(e, 'funds').length - f0, 2);
   assert.strictEqual(e.s.counts.purse, 1);
+  // A tribute left to lie is counted; twice, and the Court's boy stops bringing names until it is taken.
+  var open1 = e.openCases().length;
+  e.expire(e.create('tribute'));
+  assert.strictEqual(e.court().ignoredTribute, 1, 'the King counts a purse that came back');
+  e.expire(e.create('tribute'));
+  assert.strictEqual(e.court().ignoredTribute, 2);
+  e.openCases().forEach(function (r) { e.goCold(r.id); });
+  e.s.meters.pressure = 3; e.s.week = e.court().since + 1;
+  var l2 = e.coquilleWeek();
+  assert.strictEqual(e.openCases().length, 0, 'no name comes up from the Warrens while the purse lies');
+  assert.ok(l2.some(function (l) { return /stops bringing names/.test(l); }), 'and the week says so once');
+  e.s.week++;
+  var l3 = e.coquilleWeek();
+  assert.ok(!l3.some(function (l) { return /stops bringing names/.test(l); }), 'said once');
+  assert.strictEqual(e.openCases().length, 0, 'still no names');
+  var t2 = run(e, 'duty', [byDef(e, 'tribute')[0]]);
+  assert.strictEqual(t2.recipe, 'duty_tribute');
+  assert.strictEqual(e.court().ignoredTribute, 0, 'taking the tribute makes it good');
+  e.s.meters.pressure = 3; e.s.week++;
+  e.coquilleWeek();
+  assert.ok(e.openCases().length >= 1, 'and the names come back');
+  void open1;
   // Two weeks in, a case arrives closed by the Court.
   e.s.week = e.court().since + 2;
   e.coquilleWeek();

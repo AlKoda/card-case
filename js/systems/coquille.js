@@ -46,13 +46,24 @@
     return s.court;
   };
 
-  // When the Coquille forms, the gang lieutenant with the most crimes is King.
+  // When the Coquille forms, the man abroad with the most crimes is King:
+  // never one in the Hole, on the road, or in the ground. He gets a card.
   P.crownKing = function () {
     var s = this.s, court = this.court(), best = null;
-    for (var k in s.criminals) {
-      var c = s.criminals[k];
-      if (c.status === 'dead' || c.status === 'reformed') continue;
-      if (!best || c.crimes > best.crimes) best = c;
+    var most = function (list) {
+      var top = null;
+      list.forEach(function (c) { if (!c.hidden && (!top || c.crimes > top.crimes)) top = c; });
+      return top;
+    };
+    best = most(this.criminalsAtLarge());
+    if (!best) {
+      var loose = [];
+      for (var k in s.criminals) {
+        var c = s.criminals[k];
+        if (c.status === 'dead' || c.status === 'reformed' || c.status === 'jailed' || c.status === 'banished') continue;
+        loose.push(c);
+      }
+      best = most(loose);
     }
     if (!best) {
       best = { id: 'k' + s.nextUid++, name: this.newName(), trait: U.pick(this.rng, CF.TRAITS).id, crimes: 5, heat: 0, organization: 'syndicate', traits: [], status: 'at_large', history: [] };
@@ -60,7 +71,9 @@
     }
     best.organization = 'syndicate';
     best.king = true;
+    best.status = 'at_large';
     court.king = { name: best.name, trait: best.trait, criminalId: best.id };
+    this.abroadCard(best, 'Crowned King of Thunes under the Warrens.');
     var card = this.cardsOf('syndicate', true)[0];
     if (card) card.desc = 'The bands have sworn to one shell now, and the shell has a king: ' + best.name + ', the King of Thunes, on a barrel in a cellar under the Warrens. The Vendetta surges every week. Go in Disguise: with the ledger, to break it; with Wit, to parley; with Instinct and Coin, to be tried by its court and stay.';
     return best;
@@ -141,11 +154,17 @@
       this.meter('pressure', -1);
       this.meter('retaliation', -1);
       court.quietWeeks = s.meters.pressure <= 3 ? court.quietWeeks + 1 : 0;
-      if (this.openCases().length < this.maxOpenCases()) { this.courtHandsOver('The Treaty holds.'); court.handed++; }
+      // The purse left to lie twice: the King notices, and the names stop until it is taken.
+      if ((court.ignoredTribute || 0) >= 2) {
+        if (!court.tributeNoted) { court.tributeNoted = true; lines.push('The King notices the purse came back. The Court\'s boy stops bringing names.'); }
+      } else if (this.openCases().length < this.maxOpenCases()) {
+        this.courtHandsOver(['The Treaty holds.', 'The King keeps his word.', 'A name comes up from the Warrens, as agreed.'][(s.week - court.since) % 3]);
+        court.handed++;
+      }
       if ((s.week - court.since) % 2 === 0) this.closedByCourt();
       if (!this.countOf('tribute')) { this.create('tribute'); lines.push('The King\'s tribute waits on the desk: a purse and no note. Attend to it, or let it lie.'); }
       if ((s.week - court.since) % 3 === 0) { this.meter('scrutiny', 1); lines.push('The Bishop preaches on the Examiner who dines with thieves. The Council pretends not to hear.'); }
-      lines.push('The Stews are quiet under the Treaty.');
+      lines.push('The Stews are quiet under the Treaty: week ' + court.quietWeeks + ' of ' + Coq.TREATY_WEEKS + '.');
       if (court.quietWeeks >= Coq.TREATY_WEEKS) { this.gameOver('treatycity'); return lines; }
     }
     if (court.stance === 'rule' && court.inside) {
@@ -153,7 +172,8 @@
       this.meter('retaliation', -1);
       if (court.insideWeeks % 2 === 0 && this.openCases().length < this.maxOpenCases()) this.courtHandsOver('From inside the Court you feed the Watch-house a name.');
       if (this.rng() < 0.15) { this.meter('scrutiny', 1); lines.push('Somebody on the Council wonders aloud where the Examiner goes at night.'); }
-      lines.push('Week ' + court.insideWeeks + ' inside the Court of Miracles.' + (this.canTakeThrone() ? ' The barrel is within reach.' : ''));
+      var insideLine = ['Week {n} inside the Court of Miracles.', 'Week {n} inside. The doorkeeper no longer looks at you twice.', 'Week {n} inside. You know which barrel is the throne.'][court.insideWeeks % 3];
+      lines.push(U.fill(insideLine, { n: court.insideWeeks }) + (this.canTakeThrone() ? ' The barrel is within reach.' : ''));
     }
     void cnt;
     return lines;

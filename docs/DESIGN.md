@@ -428,7 +428,12 @@ card is a view of the record and follows it.
 
 Every week each criminal at large may commit another crime (20%, 30% for
 repeat offenders), which arrives as a new case with their name and trait
-on it: "*Name* again." Rank follows the record: Petty Criminal → Repeat
+on it: "*Name* again," and seven times in ten it is their own trade. A
+*Spared* man pays his debt instead, half the time: a Warning in the shape
+of an informer's, and no band will swear him. The real culprit behind a
+wrongful conviction keeps their head down (`hidden`, two to four weeks):
+no card until the ballad-sellers have the wrong name, then the Crowd +1
+and "The Wrong Name". Rank follows the record: Petty Criminal → Repeat
 Offender (2 crimes) → Gang Member (three At Large form a gang) → Gang
 Lieutenant (4 crimes) → Syndicate Member (two gangs). Each rank adds a
 point to what the court wants for their cases. A conviction jails them;
@@ -477,12 +482,20 @@ crime types several hundred distinct briefs without random prose.
 Four ranks (`CF.RANK_DEFS`), each of which changes the game rather than a
 percentage:
 
-| Rank | Reputation | Salary | Cases at once | Brings |
+| Rank | Standing | Salary | Cases at once | Brings |
 |---|---|---|---|---|
-| Detective | 0 | 1 | 3 | Duty, Patrol, Investigate, Analyze, Interrogate, Reflect, Arrest, Requisition |
-| Senior Detective | 4 | 2 | 4 | Warrant; the Interview Room, Archive and Lab Access requisitions |
-| Inspector | 9 | 3 | 4 | Stakeout, **Delegate**, Undercover; Surveillance Gear, the Intelligence Office and Training Room; cases come a little faster |
-| Chief Inspector | 15 | 4 | 5 | Task Force, **Major Crimes**; the Crime Lab and Surveillance Room; cases come faster still |
+| Examiner | 0 | 1 | 2 | Attend, Explore, Study, Question, Rest, the Court; Post the Watch on a band |
+| Sworn Examiner | 3 | 2 | 3 | The Writ; the Hole, the Rolls, the Apothecary's Key and the Thief-takers' Office |
+| Bailiff | 7 | 3 | 4 | Watch a door, **Deputise**, Disguise; Lantern and Cloak, the Informers' Bench and the Drill Yard; cases come a little faster |
+| Magistrate | 12 | 4 | 4 | **Muster**, **Proclamation**; the Apothecary and the Belfry; cases come faster still |
+
+Standing comes from the Court: every conviction, one more for full proof,
+one more for a case the crier sang, one for someone Abroad put away, and
+one for a sentence you pass yourself on a case the city watched. The
+Crowd's weekly count of the thieves abroad holds while a hue and cry is
+up, and below Bailiff only every other week, so the ladder is reachable:
+about half the bot's games make Bailiff by week 20. The Burgomaster's Seat
+waits for Magistrate and a Standing of 18.
 
 Reputation convenes a promotion board (one at a time); attending it in
 Duty promotes, with a personnel file and two Funds. The Commissioner's
@@ -512,8 +525,8 @@ builds it.
 | Archive | Cold cases can be reopened in Analyze. |
 | Intelligence Office | A clue that points at a front reveals the front at once. |
 | Training Room | Training costs 1 Fund; at level 3 an officer learns a new trait. |
-| Crime Lab | Analysis faster; no evidence needs special equipment. |
-| Surveillance Room | Stakeouts take half the night and never tire you. |
+| Crime Lab | Analysis faster; no evidence needs special equipment; *Back to the Bench* without the Key; Forensic +1 on what the body says. |
+| Surveillance Room | Stakeouts take half the night and never tire you; every week, one open case through each known front gets a *Seen from the Belfry* token and a name. |
 
 ## 19. Callings as drift
 

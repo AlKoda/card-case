@@ -46,6 +46,7 @@ console.error = function (err) { throw err; };
   Object.keys(CF.KINDS).forEach(function (k) { carried[k] = true; });
   Object.keys(CF.CARDS).forEach(function (id) { Object.keys(CF.CARDS[id].aspects).forEach(function (a) { carried[a] = true; }); });
   CF.CLUE_ASPECTS.forEach(function (a) { carried[a] = true; });
+  CF.TOKEN_ASPECTS.forEach(function (a) { carried[a] = true; }); // set on a single token (the Next Door token)
   Object.keys(slotAspects).forEach(function (a) { assert.ok(carried[a], 'slot accepts aspect nobody carries: ' + a); });
   console.log('schema: ' + Object.keys(CF.CARDS).length + ' card definitions valid');
 })();
@@ -202,20 +203,117 @@ console.error = function (err) { throw err; };
   console.log('fade warning: once, at 30s');
 })();
 
-// A fading card inside a verb warns too, and names the verb.
+// A card at work in a running verb keeps its time; one left in an idle
+// verb's slot keeps aging, warns naming the verb, and frees the slot when it goes.
 (function fadeInVerb() {
   var e = CF.Engine.newGame({ calling: 'crusader', name: 'FadeSlot' });
   var seen = [];
   e.on(function (type, p) { if (type === 'expiring') seen.push(p); });
   var w = e.create('witness', { label: 'Nervous Clerk', lifetime: 35 });
-  assert.ok(e.slotCard('interrogate', CF.VERBS.interrogate.slots[0].key, w.uid), 'the witness goes into Interrogate');
+  var main = CF.VERBS.interrogate.slots[0].key;
+  assert.ok(e.slotCard('interrogate', main, w.uid), 'the witness goes into Interrogate');
+  assert.ok(e.autoSlot('interrogate', e.cardsOf('focus')[0].uid) && e.start('interrogate'), 'the hearing starts');
   e.tick(8);
-  assert.strictEqual(w.life, 35, 'the clock waits while the card is in a verb');
+  assert.strictEqual(w.life, 35, 'the clock waits while the card is at work in a verb');
   assert.strictEqual(seen.length, 0);
-  e.unslot('interrogate', CF.VERBS.interrogate.slots[0].key);
-  e.tick(8);
-  assert.strictEqual(seen.length, 1, 'warned once back on the table');
-  console.log('fade warning: also inside a verb');
+  e.tick(e.verb('interrogate').duration);
+  e.collect('interrogate');
+  // Idle: the witness waits in the slot, and the clock does not.
+  var f = CF.Engine.newGame({ calling: 'crusader', name: 'IdleSlot' });
+  var seen2 = [];
+  f.on(function (type, p) { if (type === 'expiring') seen2.push(p); });
+  var w2 = f.create('witness', { label: 'Nervous Clerk', lifetime: 35 });
+  assert.ok(f.slotCard('interrogate', main, w2.uid));
+  f.tick(8);
+  assert.strictEqual(w2.life, 27, 'a card in an idle verb\'s slot keeps aging');
+  assert.strictEqual(seen2.length, 1, 'warned once in the slot');
+  assert.strictEqual(seen2[0].verb, 'interrogate', 'the warning names the verb');
+  f.tick(30);
+  assert.ok(!f.card(w2.uid), 'the witness has gone');
+  assert.deepStrictEqual(f.verb('interrogate').slots, {}, 'the slot is empty, and the verb\'s secondaries with it');
+  console.log('fade warning: at work the clock waits; idle in a slot it does not');
+})();
+
+// Coin left in an idle verb's slot still pays the Bell: the table first, then the slot.
+(function duesFromSlot() {
+  var e = CF.Engine.newGame({ seed: 3, calling: 'crusader', name: 'SlotCoin' });
+  var letter = e.tableCards().filter(function (c) { return c.def === 'personnel'; })[0];
+  var funds = e.cardsOf('funds');
+  assert.ok(e.slotCard('duty', 'main', letter.uid) && e.slotCard('duty', 'f1', funds[0].uid), 'a Coin waits in Attend');
+  funds.slice(1).forEach(function (c) { e.remove(c); });
+  var seen = null; e.on(function (t, p) { if (t === 'dues') seen = p; });
+  e.weekTick();
+  assert.deepStrictEqual(seen, { uids: [funds[0].uid] }, 'the Coin in the slot pays the dues');
+  assert.strictEqual(e.countOf('fatigue'), 0, 'no night on the bench');
+  assert.strictEqual(e.verb('duty').slots.f1, undefined, 'the slot is empty');
+  console.log('dues from a slot: ok');
+})();
+
+// Catch Your Breath brings back every spent faculty on the table at once.
+(function spentAll() {
+  var e = CF.Engine.newGame({ seed: 5, calling: 'crusader', name: 'Breath' });
+  var a = e.create('spent_health'), b = e.create('spent_focus'), c = e.create('spent_instinct');
+  assert.ok(e.autoSlot('reflect', a.uid));
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_spent');
+  assert.ok(e.start('reflect')); e.tick(e.verb('reflect').duration + 0.01);
+  e.collect('reflect');
+  var defs = e.tableCards().map(function (x) { return x.def; });
+  assert.ok(defs.indexOf('spent_health') < 0 && defs.indexOf('spent_focus') < 0 && defs.indexOf('spent_instinct') < 0, 'nothing spent is left: ' + defs);
+  assert.ok(defs.indexOf('health') >= 0 && defs.indexOf('focus') >= 0 && defs.indexOf('instinct') >= 0, 'all three are back: ' + defs);
+  assert.deepStrictEqual([b.def, c.def], ['focus', 'instinct'], 'the ones on the table were restored in place');
+  void a;
+  console.log('catch your breath: every spent card');
+})();
+
+// A spent card left in Rest's slot recovers with time, and the whole card
+// comes back to the table: the slot took Winded, not Health.
+(function restoreInSlot() {
+  var e = CF.Engine.newGame({ seed: 5, calling: 'crusader', name: 'SlotRest' });
+  var sp = e.create('spent_health');
+  assert.ok(e.slotCard('reflect', 'main', sp.uid), 'Winded goes into Rest');
+  assert.strictEqual(e.currentRecipe('reflect').recipe.id, 'ref_spent');
+  e.tick(41);
+  assert.strictEqual(sp.def, 'health', 'recovered');
+  assert.strictEqual(sp.loc.t, 'table', 'and back on the table: ' + JSON.stringify(sp.loc));
+  assert.deepStrictEqual(e.verb('reflect').slots, {}, 'the slot is empty');
+  assert.strictEqual(e.currentRecipe('reflect'), null, 'nothing is waiting in Rest');
+  console.log('restore in a slot: the faculty returns to the table');
+})();
+
+// The round hears things: a watchman on the round brings the fee, now and then a word about an open case, now and then Weariness.
+(function roundHears() {
+  var words = 0, tired = 0;
+  for (var i = 0; i < 40 && !(words && tired); i++) {
+    var e = CF.Engine.newGame({ seed: 100 + i, calling: 'commissioner', name: 'Round' });
+    var t = e.cardsOf('teammate')[0];
+    assert.ok(e.autoSlot('duty', t.uid));
+    assert.strictEqual(e.currentRecipe('duty').recipe.id, 'duty_team');
+    var before = e.cardsOf('funds').length;
+    assert.ok(e.start('duty')); e.tick(e.verb('duty').duration + 0.01);
+    var out = e.verb('duty').out.map(function (u) { return e.card(u); });
+    assert.strictEqual(out.filter(function (c) { return c.def === 'funds'; }).length, 1, 'one Coin');
+    var word = out.filter(function (c) { return c.def === 'clue'; })[0];
+    if (word) { words++; assert.strictEqual(e.labelOf(word), 'Heard on the Round'); assert.ok(word.caseId && word.data.trait, 'about an open case, with the culprit\'s trait'); }
+    if (out.some(function (c) { return c.def === 'fatigue'; })) tired++;
+    e.collect('duty');
+    assert.strictEqual(e.cardsOf('funds').length, before + 1);
+  }
+  assert.ok(words && tired, 'a word and a tired desk in 40 rounds: ' + words + '/' + tired);
+  console.log('the round hears things: ok');
+})();
+
+// The week's story turns: three lines by the week, and the band named when there is one.
+(function weekStory() {
+  var e = CF.Engine.newGame({ seed: 8, calling: 'master', name: 'Week' });
+  e.create('atlarge', { label: 'At Large: Some One', data: { name: 'Some One', trait: 'limp' } });
+  var seen = {};
+  for (var w = 0; w < 3; w++) { e.s.week = 1 + w; e.s.meters.retaliation = 0; e.weekTick(); e.s.journal.slice(0, 3).forEach(function (j) { if (/walls|Red Ox|Stews/.test(j.text)) seen[j.text.match(/(walls|Red Ox|Stews)/)[1]] = 1; }); }
+  assert.ok(Object.keys(seen).length >= 2, 'the line changes with the week: ' + Object.keys(seen));
+  e.create('gang', { label: 'Band: the Lanternless', data: { name: 'the Lanternless', members: [] } });
+  e.s.meters.retaliation = 0;
+  e.weekTick();
+  assert.ok(e.s.journal.slice(0, 3).some(function (j) { return /the Lanternless keep a cellar now, and a tally\./.test(j.text); }), 'the band is named');
+  console.log('week story: ok');
 })();
 
 // The magnet: a verb with its subject pulls in what its open slots take; the Bell's dues grow with the Watch.
@@ -240,6 +338,50 @@ console.error = function (err) { throw err; };
   assert.ok(seen && seen.uids.length === 2, 'the Bell draws the dues: ' + JSON.stringify(seen));
   assert.strictEqual(e.cardsOf('funds').length, before - 2 + ((CF.RANK_DEFS[0] || {}).salary || 1));
   console.log('magnet and dues: ok');
+})();
+
+// The magnet keeps to the case on the bench: with two cases open, the Court
+// pulls only the Accused's own token, and the token that points at them first.
+(function magnetSameCase() {
+  var e = CF.Engine.newGame({ seed: 31, calling: 'master' });
+  e.s.rank = 2;
+  var a = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+  var b = e.caseRec(e.spawnCase('fraud', { quiet: true }).caseId);
+  var sc = e.revealSuspect(a, null, { key: a.culprit });
+  var other = e.create('clue', e.clueSpec(b, { label: 'Other Token', text: 'x', aspects: { testimony: 2 } }, []));
+  var stray = e.create('clue', e.clueSpec(a, { label: 'Stray Token', text: 'x', aspects: { testimony: 1 } }, []));
+  var aimed = e.create('clue', e.clueSpec(a, { label: 'Aimed Token', text: 'x', aspects: { testimony: 1 } }, [], { points: a.culprit, noMisread: true }));
+  assert.ok(other.uid < stray.uid && stray.uid < aimed.uid);
+  assert.ok(e.autoSlot('arrest', sc.uid));
+  var list = e.magnetCandidates('arrest');
+  assert.ok(list.length >= 2 && list.every(function (it) { return e.card(it.uid).caseId === a.id; }), 'only the own case: ' + JSON.stringify(list));
+  assert.strictEqual(list[0].uid, aimed.uid, 'the token that points at the Accused first');
+  assert.strictEqual(list[1].uid, stray.uid);
+  e.magnet('arrest');
+  assert.strictEqual(other.loc.t, 'table', 'the other case\'s token stays on the table');
+  console.log('magnet keeps to the case: ok');
+})();
+
+// Losing or moving a subject frees its hidden secondaries: a case moved from
+// Rest to Explore with a token in slot a; a Need removed from Rest with Coin in pay.
+(function primaryGoes() {
+  var e = CF.Engine.newGame({ seed: 32, calling: 'master' });
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  var rec = e.caseRec(kase.caseId);
+  var tok = e.create('clue', e.clueSpec(rec, { label: 'A Token', text: 'x', aspects: { testimony: 1 } }, []));
+  assert.ok(e.slotCard('reflect', 'main', kase.uid) && e.slotCard('reflect', 'a', tok.uid));
+  assert.strictEqual(tok.loc.t, 'slot');
+  assert.ok(e.autoSlot('investigate', kase.uid), 'the case moves to Explore');
+  assert.strictEqual(kase.loc.verb, 'investigate');
+  assert.deepStrictEqual(e.verb('reflect').slots, {}, 'Rest is empty');
+  assert.strictEqual(tok.loc.t, 'table', 'the token is back on the table');
+  var need = e.create('hunger');
+  var coin = e.create('funds');
+  assert.ok(e.slotCard('reflect', 'main', need.uid) && e.slotCard('reflect', 'pay', coin.uid));
+  e.remove(need);
+  assert.deepStrictEqual(e.verb('reflect').slots, {}, 'the Coin is not left in a slot nobody can see');
+  assert.strictEqual(coin.loc.t, 'table');
+  console.log('a subject gone frees its secondaries: ok');
 })();
 
 // Mid-work asks: part-way through a search the verb wants one more card;
@@ -368,7 +510,7 @@ console.error = function (err) { throw err; };
   assert.strictEqual(e.s.meters.dread, 4, 'turning her away is remembered');
   assert.ok(!e.s.choice); e.tick(1); assert.ok(e.s.t > t0, 'and the clock runs again');
   void d0;
-  var e2 = CF.Engine.load(e.save()); assert.ok(!e2.s.choice && e2.s.choicesSeen.beggar, 'the choice is remembered');
+  var e2 = CF.Engine.load(e.save()); assert.ok(!e2.s.choice && e2.s.choicesSeen.beggar === e.s.week, 'the choice is remembered, with the week it was asked');
   // A question that follows a verb, about its case, with a return you can point to.
   var e4 = CF.Engine.newGame({ seed: 3, calling: 'master', name: 'Hodge Ebner' });
   e4.s.flags.firstCase = true; if (e4.s.intro) e4.s.intro.finished = true;
@@ -378,7 +520,7 @@ console.error = function (err) { throw err; };
   e4.tick(e4.verb('investigate').duration + 0.01);
   assert.ok(e4.s.choiceHook && e4.s.choiceHook.verb === 'investigate' && e4.s.choiceHook.caseId === rec4.id, 'a finished search invites a question about its case');
   var lamp = CF.CHOICES.filter(function (c) { return c.id === 'lamplighter'; })[0];
-  assert.ok(lamp.after === 'investigate' && lamp.when(e4, { caseId: rec4.id }), 'the lamplighter has a word about an unsolved case');
+  assert.ok(lamp.after === 'investigate' && lamp.when(e4, { caseId: rec4.id }), 'the tiler has a word about an unsolved case');
   e4.create('funds');
   e4.offerChoice(lamp, { caseId: rec4.id });
   assert.ok(e4.s.choice && e4.s.choice.options[0].gain && e4.s.choice.options[0].cost === 'funds', 'the answer says what it gives and what it takes');
@@ -386,8 +528,8 @@ console.error = function (err) { throw err; };
   assert.ok(e4.choose(0));
   assert.strictEqual(e4.cardsOf('witness').length, w0 + 1, 'a Coin buys a witness for the case');
   assert.strictEqual(e4.cardsOf('funds').length, f0 - 1, 'and the Coin is gone');
-  var wit = e4.cardsOf('witness').filter(function (c) { return /Lamplighter/.test(c.label); })[0];
-  assert.ok(wit && wit.caseId === rec4.id && wit.data.knows, 'it is the lamplighter, who knows');
+  var wit = e4.cardsOf('witness').filter(function (c) { return /Tiler/.test(c.label); })[0];
+  assert.ok(wit && wit.caseId === rec4.id && wit.data.knows, 'it is the tiler, who knows');
   assert.ok(e4.s.journal.some(function (j) { return /A Witness who saw it/.test(j.text || ''); }), 'the journal says what the answer gave');
   assert.ok(!e4.s.choiceHook || e4.s.choiceHook.verb !== 'x', 'the hook is state, not a choice');
   // Growth: each ability lists its ways and how far along they are.
@@ -398,6 +540,21 @@ console.error = function (err) { throw err; };
   e4.growthTick(); assert.ok(!e4.s.insights.fencing, 'not yet earned');
   e4.s.stats.recipes.duty_beat = 3; e4.growthTick();
   assert.ok(e4.s.insights.fencing && CF.growthWays(e4, 'health').filter(function (w) { return w.id === 'fencing'; })[0].state === 'waiting', 'the third round earns the Insight, which waits on the table');
+  // In play: three hard rounds walked through Attend earn the Insight by themselves.
+  var e6 = CF.Engine.newGame({ seed: 61, calling: 'master' });
+  for (var round = 0; round < 3; round++) {
+    e6.tableCards().filter(function (c) { return c.def === 'fatigue'; }).forEach(function (c) { e6.remove(c); });
+    var hp6 = e6.tableCards().filter(function (c) { return c.def === 'health'; })[0] || e6.create('health');
+    assert.strictEqual(e6.autoSlot('duty', hp6.uid), 'main');
+    assert.strictEqual(e6.currentRecipe('duty').recipe.id, 'duty_beat');
+    assert.ok(e6.start('duty'));
+    for (var tk = 0; tk < 200 && e6.verb('duty').status === 'running'; tk++) e6.tick(1);
+    assert.strictEqual(e6.verb('duty').status, 'done', 'round ' + round + ' finished');
+    e6.collect('duty');
+  }
+  var insight = e6.tableCards().filter(function (c) { return c.def === 'insight'; })[0];
+  assert.ok(insight && insight.data.insight === 'fencing', 'the Fencing-master arrives on the third round');
+  assert.ok(e6.s.journal.some(function (j) { return /^An Insight: /.test(j.title); }), 'and the journal says so');
   // An old save: the cards below the verb row move down with the taller verbs.
   var old = JSON.parse(e4.save()); old.version = 1;
   var y0 = e4.tableCards()[0].loc.y, uid0 = e4.tableCards()[0].uid;
@@ -405,6 +562,67 @@ console.error = function (err) { throw err; };
   assert.strictEqual(e5.card(uid0).loc.y, y0 >= 200 ? y0 + CF.TABLE.TOP - 200 : y0, 'an old save is moved down once');
   assert.strictEqual(CF.Engine.load(e5.save()).card(uid0).loc.y, e5.card(uid0).loc.y, 'and only once');
   console.log('life: opening, needs, choices ok');
+})();
+
+// A save from another day: a way renamed, a card gone from a slot, a question the city no longer asks.
+(function reconcile() {
+  var e = CF.Engine.newGame({ seed: 11, calling: 'crusader', name: 'Load' });
+  var hp = e.tableCards().filter(function (c) { return c.def === 'health'; })[0] || e.create('health');
+  assert.strictEqual(e.autoSlot('duty', hp.uid), 'main');
+  assert.ok(e.start('duty'));
+  var saved = e.save().replace('"recipe":"duty_beat"', '"recipe":"duty_old_name"');
+  assert.ok(/duty_old_name/.test(saved));
+  // A renamed way: the alias carries the running verb to the new name and it finishes there.
+  CF.RECIPE_ALIAS.duty_old_name = 'duty_beat';
+  var e2 = CF.Engine.load(saved);
+  delete CF.RECIPE_ALIAS.duty_old_name;
+  assert.strictEqual(e2.verb('duty').recipe, 'duty_beat', 'the old name follows the alias');
+  assert.strictEqual(e2.verb('duty').status, 'running');
+  e2.tick(e2.verb('duty').duration + 0.01);
+  assert.strictEqual(e2.verb('duty').status, 'done', 'and the round finishes under it');
+  // A way gone for good: the verb gives its cards back and goes idle.
+  var e3 = CF.Engine.load(saved);
+  assert.strictEqual(e3.verb('duty').status, 'idle', 'an unknown way stops the verb');
+  assert.ok(!e3.verb('duty').held.length && e3.card(hp.uid).loc.t === 'table', 'and its cards are on the table again');
+  // The recipe gone mid-run: no crash, an interruption.
+  var e3b = CF.Engine.load(saved); e3b.verb('duty').status = 'running'; e3b.verb('duty').recipe = 'duty_old_name'; e3b.verb('duty').held = [hp.uid]; e3b.card(hp.uid).loc = { t: 'held', verb: 'duty' };
+  e3b.complete('duty');
+  assert.strictEqual(e3b.s.journal[0].title, 'Interrupted');
+  // A card deleted from under a slot, and one a verb forgot.
+  var e4 = CF.Engine.newGame({ seed: 12, calling: 'crusader', name: 'Load' });
+  var clue = e4.create('clue'), wit = e4.create('instinct');
+  assert.ok(e4.autoSlot('reflect', clue.uid));
+  var s4 = JSON.parse(e4.save());
+  delete s4.cards[clue.uid];
+  s4.cards[wit.uid].loc = { t: 'slot', verb: 'reflect', slot: 'aid' };
+  var e5 = CF.Engine.load(s4);
+  assert.ok(!Object.keys(e5.verb('reflect').slots).some(function (k) { return e5.verb('reflect').slots[k] === clue.uid; }), 'the deleted card leaves its slot');
+  assert.strictEqual(e5.card(wit.uid).loc.t, 'table', 'a card the verb never held comes back to the table');
+  assert.ok(e5.tableCards().every(function (c) { var q = e5.clampToTable(c.loc.x, c.loc.y, T.CW, T.CH); return q.x === c.loc.x && q.y === c.loc.y; }), 'every card on the table');
+  // A stale choice and an old hook are dropped; a live choice is kept.
+  var s6 = JSON.parse(e4.save());
+  s6.choice = { id: 'no_such_choice', title: 'x', text: 'x', options: [] };
+  s6.choiceHook = { verb: 'duty', t: s6.t - 30 };
+  var e6 = CF.Engine.load(s6);
+  assert.ok(!e6.s.choice && !e6.s.choiceHook, 'a question the city no longer asks is dropped');
+  var t6 = e6.s.t; e6.tick(1); assert.ok(e6.s.t > t6, 'and the clock runs');
+  var spec = CF.CHOICES.filter(function (c) { return c.id === 'beggar'; })[0];
+  e6.offerChoice(spec);
+  var e7 = CF.Engine.load(e6.save());
+  assert.ok(e7.s.choice && e7.s.choice.id === 'beggar', 'a live question survives the load');
+  // A verb pushed off the table comes back onto it; one in its place stays.
+  var s8 = JSON.parse(e4.save()), dx = s8.verbs.duty.x, dy = s8.verbs.duty.y;
+  s8.verbs.duty.x = 99999; s8.verbs.duty.y = -99999;
+  var e8 = CF.Engine.load(s8);
+  var q8 = e8.clampToTable(e8.verb('duty').x, e8.verb('duty').y, T.VW, T.VH);
+  assert.ok(q8.x === e8.verb('duty').x && q8.y === e8.verb('duty').y, 'the verb is on the table');
+  assert.ok(e8.verb('reflect').x === s8.verbs.reflect.x && e8.verb('reflect').y === s8.verbs.reflect.y, 'the others did not move');
+  void dx; void dy;
+  // The counts carry the debt even from a save without it.
+  var s9 = JSON.parse(e4.save()); delete s9.counts;
+  var e9 = CF.Engine.load(s9); e9.count('debt');
+  assert.strictEqual(e9.s.counts.debt, 1);
+  console.log('reconcile: renamed recipe, lost cards, stale choice, verb positions ok');
 })();
 
 // Ways around the needs, and the Rival.
@@ -428,7 +646,10 @@ console.error = function (err) { throw err; };
   var seen = 0;
   for (var w = 0; w < 6 && !e.cardsOf('rival', true).length; w++) { e.rivalWeek(); }
   var r = e.cardsOf('rival', true)[0];
-  assert.ok(r, 'the Provost sends an examiner');
+  assert.ok(r, 'the Harbourmaster sends an examiner');
+  // They race you only on a case you have opened and held a week: an untouched desk gives them nothing.
+  assert.deepStrictEqual(e.rivalWeek(), [], 'nothing to race you on yet');
+  e.openCases().forEach(function (x) { x.searches = 1; });
   var before = e.openCases().length, lines = e.rivalWeek();
   assert.ok(lines.length === 1, 'they act: ' + lines);
   void before; void seen;
@@ -448,5 +669,41 @@ console.error = function (err) { throw err; };
   assert.strictEqual(e.cardsOf('rival', true).length, 0, 'exposed and sent home');
   assert.strictEqual(e.s.meters.reputation, rep + 2);
   assert.ok(e.s.flags.rivalGone > e.s.week);
+  // The next one needs no introduction, and is not the same person.
+  var sent = e.s.flags.rivalName;
+  e.s.week = e.s.flags.rivalGone + 1;
+  var again = [];
+  for (var w2 = 0; w2 < 40 && !e.cardsOf('rival', true).length; w2++) again = e.rivalWeek();
+  var r2 = e.cardsOf('rival', true)[0];
+  assert.ok(r2 && r2.data.name !== sent, 'another examiner, with another name');
+  assert.deepStrictEqual(again, ['The Harbourmaster has sent another examiner.']);
+  var told = e.s.journal.filter(function (j) { return j.title === 'Another Examiner'; })[0];
+  assert.ok(told && told.text.indexOf(r2.data.name) > 0 && !/wants the Council to see/.test(told.text), 'told as the second, not the first');
+  assert.strictEqual(e.s.journal.filter(function (j) { return j.title === 'The Harbourmaster\'s Examiner'; }).length, 1, 'the first story is told once');
   console.log('rivalry: ok');
+})();
+
+// A save from another edition: ids the code no longer knows (a verb, a recipe,
+// a choice) load without a throw, and the game goes on from there.
+(function loadTolerance() {
+  var e = CF.Engine.newGame({ seed: 11, calling: 'master' });
+  var s = JSON.parse(e.save());
+  var orphan = e.create('focus');
+  s = JSON.parse(e.save());
+  s.cards[orphan.uid].loc = { t: 'verb', verb: 'nowhere' };
+  s.verbs.nowhere = { id: 'nowhere', status: 'idle', slots: { main: orphan.uid }, held: [], ctxSlots: {}, out: [], recipe: null, elapsed: 0, duration: 0, story: null, unlocked: true };
+  var vid = CF.VERB_ORDER[0];
+  s.verbs[vid].status = 'running'; s.verbs[vid].recipe = 'no_such_recipe'; s.verbs[vid].recipeLabel = 'Lost'; s.verbs[vid].duration = 3; s.verbs[vid].elapsed = 0;
+  s.choice = { id: 'no_such_choice', title: 'Gone', text: 'A question from an older edition.', options: [{ label: 'Yes', text: '' }] };
+  var e2 = CF.Engine.load(JSON.stringify(s));
+  assert.ok(!e2.s.verbs.nowhere && e2.card(orphan.uid).loc.t === 'table', 'an unknown verb is dropped and its cards come back to the table');
+  assert.strictEqual(e2.choose(0), false, 'an unknown choice cannot be answered');
+  e2.s.choice = null; // the clock waits on a choice: cleared here, the running verb runs out
+  var errors = [], ce = console.error;
+  console.error = function (err) { errors.push(err); };
+  try { for (var i = 0; i < 10; i++) e2.tick(1); } finally { console.error = ce; }
+  assert.strictEqual(e2.s.verbs[vid].status, 'idle', 'a verb whose recipe is gone ends instead of hanging');
+  assert.ok(!e2.s.over, 'and the game goes on');
+  CF.Engine.load(e2.save());
+  console.log('load tolerance: unknown verb, recipe and choice ids ok' + (errors.length ? ' (the lost recipe was reported: ' + errors.length + ')' : ''));
 })();

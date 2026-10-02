@@ -107,6 +107,9 @@ function gangUp(e) {
   var a = e.create('clue', e.clueSpec(r1, link1, []));
   var b = e.create('clue', e.clueSpec(r2, link2, []));
   assert.strictEqual(a.data.link, front.id);
+  assert.ok(!a.life && !a.maxLife, 'a link token has no clock: a chit in a drawer keeps');
+  assert.ok(/A chit in a drawer keeps\.$/.test(a.desc), a.desc);
+  assert.ok(CF.Network.LINK_CHANCE > CF.Network.LINK_CHANCE_KNOWN, 'links are likelier while no front is known');
   var before = byDef(e, 'suspect').length;
   var res = run(e, 'reflect', [a, b]);
   assert.strictEqual(res.id, 'ref_deduce');

@@ -46,6 +46,9 @@ function checkInvariants(e) {
     v.held.forEach(function (u) { assert.ok(s.cards[u], 'dangling held'); });
     v.out.forEach(function (u) { assert.ok(s.cards[u], 'dangling out'); });
   });
+  // Every spawn site honours the rank's desk: at most one case over it (a warned case, an old case opened again).
+  var ordinary = e.openCases().filter(function (r) { return !r.special; }).length;
+  assert.ok(ordinary <= e.maxOpenCases() + 1, ordinary + ' ordinary cases open with a desk for ' + e.maxOpenCases());
 }
 
 // ---- Scripted checks ------------------------------------------------------
@@ -78,8 +81,8 @@ function checkInvariants(e) {
   // Charge assessment: the real culprit with enough key clues is solid.
   var rec = e.caseRec(cs.caseId);
   var sus = e.make('suspect', { caseId: rec.id, data: { key: rec.culprit } });
-  var clues = rec.keyAspects.slice(0, 2).map(function (k) {
-    var a = {}; a[k] = rec.charge[k] + 2; return e.make('clue', { caseId: rec.id, aspects: a });
+  var clues = rec.keyAspects.slice(0, 2).map(function (k, i) {
+    var a = {}; a[k] = rec.charge[k] + 2; return e.make('clue', { caseId: rec.id, aspects: a, data: i === 0 ? { points: rec.culprit } : {} });
   });
   var a = e.assessCharge(sus, clues);
   assert.ok(a.solid && a.tier === 'strong', 'strong charge is solid');

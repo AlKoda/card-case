@@ -15,7 +15,10 @@
   var P = CF.Engine.prototype;
 
   var Net = (CF.Network = {});
-  Net.LINK_CHANCE = 0.25; // ordinary cases that touch a front while one exists
+  // Ordinary cases that touch a front while one exists: likelier while no
+  // front is known yet, so the first thread is there to find.
+  Net.LINK_CHANCE = 0.4;
+  Net.LINK_CHANCE_KNOWN = 0.15;
 
   var FRONT_NAMES = {
     docks: ['the Crane-house at Berth {n}', 'the {last} Bonded Warehouse', 'Berth {n}'],
@@ -26,10 +29,10 @@
     canal: ['the {last} Chantry', 'the {last} Workshop by the Close', 'a barge moored at {last} Wharf'],
   };
   var LINK_ITEMS = [
-    { label: 'A Chit from {front}', text: 'Folded small, in the wrong pocket. A chit from {front}, dated last week.', aspects: { financial: 1, opportunity: 1 } },
-    { label: 'A Tavern Token: {front}', text: 'A lead token from {front}, the kind they give for a drink owed. Rubbed smooth.', aspects: { opportunity: 1, testimony: 1 } },
-    { label: 'A Carrier\'s Docket', text: 'A carrier\'s docket for a load to {front}, and a mark that is not a name.', aspects: { financial: 1, digital: 1 } },
-    { label: 'A Torn Tally', text: 'Half a tally-stick from {front}. Somebody spends their evenings there, and owes.', aspects: { opportunity: 1, testimony: 1 } },
+    { label: 'A Chit from {front}', text: 'Folded small, in the wrong pocket. A chit from {front}, dated last week. A chit in a drawer keeps.', aspects: { financial: 1, opportunity: 1 } },
+    { label: 'A Tavern Token: {front}', text: 'A lead token from {front}, the kind they give for a drink owed. Rubbed smooth. A chit in a drawer keeps.', aspects: { opportunity: 1, testimony: 1 } },
+    { label: 'A Carrier\'s Docket', text: 'A carrier\'s docket for a load to {front}, and a mark that is not a name. A chit in a drawer keeps.', aspects: { financial: 1, digital: 1 } },
+    { label: 'A Torn Tally', text: 'Half a tally-stick from {front}. Somebody spends their evenings there, and owes. A chit in a drawer keeps.', aspects: { opportunity: 1, testimony: 1 } },
   ];
 
   P.fronts = function () { return this.s.network.fronts; };
@@ -59,7 +62,8 @@
       if (mine.length) return mine[0];
       return all[0];
     }
-    return this.rng() < Net.LINK_CHANCE ? U.pick(this.rng, all) : null;
+    var known = all.some(function (f) { return f.known; });
+    return this.rng() < (known ? Net.LINK_CHANCE_KNOWN : Net.LINK_CHANCE) ? U.pick(this.rng, all) : null;
   };
 
   // A scene item that points at a front.

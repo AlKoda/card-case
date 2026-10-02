@@ -43,7 +43,7 @@ Detective.prototype.run = function (verb, cards) {
   return out;
 };
 Detective.prototype.give = function (def) { return this.e.create(def); };
-Detective.prototype.rec = function () { return this.e.caseRec(this.byDef('case')[0].caseId); };
+Detective.prototype.rec = function () { return this.rec0 || this.e.caseRec(this.byDef('case')[0].caseId); };
 Detective.prototype.suspectCard = function (key) {
   return this.cards(function (c) { return c.def === 'suspect' && c.data.key === key; })[0];
 };
@@ -101,10 +101,15 @@ function fresh(seed) {
   var matched = d.run('analyze', [d.byLabel(/Half a Hand/)[0], d.byDef('prints')[0]]);
   assert.ok(/Hand Matched/.test(e.labelOf(matched[0])), 'the hand matches the culprit');
   assert.strictEqual(matched[0].data.points, d.rec().culprit);
-  // The mind palace agrees.
+  // The mind palace reasons from the tokens: the blade alone gives a theory, not a name.
   var th = d.run('reflect', [kase, d.byLabel(/Blade Read/)[0]]);
-  assert.strictEqual(d.rec().identified, d.rec().culprit, 'Hands and Hours names the culprit');
-  void th;
+  assert.ok(!d.rec().identified, 'a token that names nobody names nobody');
+  assert.ok(th.some(function (c) { return /^Theory: Hands and Hours/.test(e.labelOf(c)); }), 'a theory token: ' + th.map(function (c) { return e.labelOf(c); }));
+  var th2 = d.run('reflect', [kase, d.byLabel(/Blade Read/)[0]]);
+  assert.ok(!th2.some(function (c) { return /^Theory/.test(e.labelOf(c)); }), 'the same theory is one token');
+  e.remove(th.filter(function (c) { return /^Theory/.test(e.labelOf(c)); })[0]);
+  d.run('reflect', [kase, d.byLabel(/Blade Read/)[0], d.byLabel(/Hand Matched/)[0]]);
+  assert.strictEqual(d.rec().identified, d.rec().culprit, 'Hands and Hours names the culprit the matched hand points at');
   // Forensics alone pile up on one aspect; the timing gives the charge its second leg.
   // (An Examiner's first case asks little, so the Court is told to want the full weight here.)
   d.rec().charge = { forensic: 3, opportunity: 2, financial: 2 };
@@ -167,8 +172,15 @@ function fresh(seed) {
   d.run('interrogate', [sc, d.byDef('focus')[0]]);
   var motive = d.byLabel(/^Motive/)[0];
   assert.ok(motive, 'a gentle interview gives the motive');
+  // Full proof wants Word behind the coin: the neighbour's deposition.
+  var w = d.byDef('witness')[0];
+  assert.ok(w && w.data.knows, 'the canvass gives the neighbour');
+  d.run('interrogate', [w, d.byDef('focus')[0]]);
+  var dep = d.byLabel(/^Deposition/)[0];
+  assert.ok(dep && dep.data.stake, 'a deposition with a stake');
   d.run('investigate', [kase]);
-  d.charge([pawned, d.byLabel(/Inventory/)[0], motive, d.byLabel(/The Hours/)[0]]);
+  assert.notStrictEqual(e.assessCharge(sc, [pawned, d.byLabel(/Inventory/)[0], motive, d.byLabel(/The Hours/)[0]]).tier, 'strong', 'coin and hours without a witness are half proof');
+  d.charge([pawned, dep, motive, d.byLabel(/The Hours/)[0]]);
   console.log('money route: convicted\n  ' + d.log.join('\n  '));
 })();
 
@@ -183,4 +195,95 @@ function fresh(seed) {
   assert.ok(d.byDef('clue').length + d.byDef('evidence').length > n, 'the generic search still draws from the scene pool');
   assert.strictEqual(e.verb('investigate').recipe, 'inv_search');
   console.log('fallthrough: ok');
+})();
+
+// ---- The poisoning: the Needle, the Book, the Jointure ----------------------------
+// Three threads leave the supper table. Any two convict before a Bailiff.
+function poisoned(seed) {
+  var d = new Detective(seed), e = d.e;
+  e.s.rank = 2; e.s.flags.marketOpen = true;
+  // The burglary leaves the desk; the poisoning takes it.
+  d.byDef('case').forEach(function (c) { e.goCold(c.caseId); });
+  e.s.meters.pressure = 0; e.s.meters.retaliation = 0;
+  d.byDef('atlarge').forEach(function (c) { e.remove(c); });
+  var kase = e.spawnCase('poison', { quiet: true, lifetime: 900 });
+  d.rec0 = e.caseRec(kase.caseId);
+  d.rec0.charge = { forensic: 4, motive: 2, financial: 1 }; // what a Bailiff's Court asks of a poisoning
+  d.kase = kase;
+  d.give('kit'); d.give('labpass');
+  var out = d.run('investigate', [kase]);
+  assert.strictEqual(e.verb('investigate').recipe || 'lead_poison_scene', 'lead_poison_scene');
+  assert.ok(out.some(function (c) { return /Supper Cup/.test(e.labelOf(c)); }), 'the scene gives the cup');
+  assert.ok(out.some(function (c) { return /The Settlement/.test(e.labelOf(c)); }), 'and the settlement');
+  assert.ok(d.byLabel(/Physician's Note/).length, 'and the physician\'s note');
+  assert.ok(d.byDef('suspect').length >= 1, 'a first name on the board');
+  return d;
+}
+function needle(d) {
+  var e = d.e;
+  var cup = d.byLabel(/Supper Cup/)[0];
+  var read = d.run('analyze', [cup, d.byDef('kit')[0]]);
+  var tok = read.filter(function (c) { return /Needle Blackens/.test(e.labelOf(c)); })[0];
+  assert.ok(tok && CF.clueAspects(tok).forensic >= 3, 'the needle blackens: ' + read.map(function (c) { return e.labelOf(c); }));
+  assert.ok(!d.byLabel(/Supper Cup/).length, 'the cup was used up');
+  return tok;
+}
+function book(d) {
+  var e = d.e, rec = d.rec();
+  var district = d.cards(function (c) { return c.def === 'district' && c.data.district === rec.district; })[0];
+  assert.ok(district, 'the scene hands you its quarter');
+  d.run('investigate', [d.kase, district]);
+  var w = d.byDef('witness')[0];
+  assert.ok(w && w.data.knows && /apothecary's boy/.test(w.desc), 'the apothecary\'s boy saw who bought what: ' + (w && w.desc));
+  var bk = d.byLabel(/Poison Book/)[0];
+  assert.ok(bk, 'the canvass turns up the poison book');
+  // Half a name matches nobody until there is somebody to hold it against.
+  rec.suspects.forEach(function (x) { x.revealed = false; });
+  d.byDef('suspect').forEach(function (c) { e.remove(c); });
+  var none = d.run('analyze', [bk, d.byDef('labpass')[0]]);
+  assert.ok(none.indexOf(bk) >= 0 && e.verb('analyze').recipe === 'lead_poison_leaf_nomatch', 'the book comes back unread');
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var leaf = d.run('analyze', [d.byLabel(/Poison Book/)[0], d.byDef('labpass')[0]]);
+  var tok = leaf.filter(function (c) { return /Name on the Leaf/.test(e.labelOf(c)); })[0];
+  assert.ok(tok && tok.data.points === rec.culprit, 'the leaf names the culprit');
+  assert.ok(!d.byLabel(/Poison Book/).length, 'the book was used up');
+  return tok;
+}
+function jointure(d) {
+  var e = d.e;
+  var read = d.run('analyze', [d.byLabel(/The Settlement/)[0]]);
+  var tok = read.filter(function (c) { return /Jointure Read/.test(e.labelOf(c)); })[0];
+  assert.ok(tok && CF.clueAspects(tok).financial >= 2, 'the jointure read');
+  return tok;
+}
+(function needleAndBook() {
+  var d = poisoned(41), e = d.e;
+  var n = needle(d), b = book(d);
+  d.run('investigate', [d.kase]); // the kitchen
+  var dish = d.byLabel(/^The Pears$/)[0];
+  assert.ok(dish && CF.clueAspects(dish).opportunity >= 2, 'the dish nobody else had');
+  d.charge([n, b, dish, d.byLabel(/Physician's Note/)[0]]);
+  console.log('poison, the Needle and the Book: convicted\n  ' + d.log.join('\n  '));
+})();
+(function needleAndJointure() {
+  var d = poisoned(43), e = d.e;
+  var n = needle(d), j = jointure(d);
+  d.run('investigate', [d.kase, d.byDef('focus')[0]]); // the kitchen maid
+  var who = d.byLabel(/^The Table$/)[0];
+  assert.ok(who && who.data.trait === d.rec().suspects.filter(function (x) { return x.guilty; })[0].trait, 'the maid describes the culprit');
+  // The jointure beside the physician's note: who profits. Coin with a reason behind it.
+  d.run('reflect', [j, d.byLabel(/Physician's Note/)[0]]);
+  var theory = d.byLabel(/Who Profits/)[0];
+  assert.ok(theory && theory.data.corroborated, 'the coin and the note make a theory');
+  d.charge([n, theory, who]);
+  console.log('poison, the Needle and the Jointure: convicted\n  ' + d.log.join('\n  '));
+})();
+(function bookAndJointure() {
+  var d = poisoned(47), e = d.e;
+  var b = book(d), j = jointure(d);
+  d.run('investigate', [d.kase, d.byDef('focus')[0]]); // the kitchen maid
+  var who = d.byLabel(/^The Table$/)[0];
+  assert.ok(who, 'the maid talks');
+  d.charge([b, j, who, d.byLabel(/Physician's Note/)[0]]);
+  console.log('poison, the Book and the Jointure: convicted\n  ' + d.log.join('\n  '));
 })();

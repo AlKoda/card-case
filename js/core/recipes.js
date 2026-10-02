@@ -227,7 +227,7 @@
         caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res } } });
     }
     if (g.type === 'witness') {
-      var spec = e.witnessSpec(rec);
+      var spec = e.witnessSpec(rec, g.who ? fill(g.who) : undefined);
       if (g.who) spec.desc = spec.label.replace('Witness: ', '') + ', ' + fill(g.who) + '. Saw something near ' + rec.scene + '. (Witness in: ' + rec.title + ')';
       if (g.knows !== undefined) spec.data.knows = !!g.knows;
       return ctx.give('witness', spec);
@@ -265,7 +265,7 @@
             if (lead.reveal) {
               var key = lead.reveal === 'culprit' ? rec.culprit : lead.reveal === 'any' ? undefined : lead.reveal;
               var sc = e.revealSuspect(rec, ctx, key ? { key: key } : {});
-              if (sc) extra.push('A name for the board: ' + e.labelOf(sc) + '.');
+              if (sc) extra.push('A name for the casebook: ' + e.labelOf(sc) + '.');
             }
             if (lead.district && !e.hasDistrict(rec.district) && e.s.flags.marketOpen) { e.giveDistrict(rec.district, ctx); extra.push('The case takes you to ' + CF.DISTRICTS[rec.district].label + '.'); }
             if (lead.fatigue && ctx.rng() < lead.fatigue) ctx.give('fatigue');

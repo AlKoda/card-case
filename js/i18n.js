@@ -10,7 +10,7 @@
 
   CF.LANGS = {
     en: { name: 'English', dir: 'ltr' },
-    ar: { name: 'العربية', dir: 'rtl' },
+    ar: { name: 'العربية', dir: 'rtl', fonts: 'css/fonts-ar.css' },
   };
 
   var I = (CF.I18N = { lang: 'en', dicts: {}, compiled: {}, lower: {}, cache: {}, cacheN: 0, missing: {}, track: false });
@@ -29,9 +29,20 @@
     if (typeof document !== 'undefined' && document.documentElement) {
       document.documentElement.setAttribute('lang', lang);
       document.documentElement.setAttribute('dir', CF.LANGS[lang].dir);
+      if (CF.LANGS[lang].fonts) CF.loadFonts(CF.LANGS[lang].fonts, 'fonts-' + lang);
       I.applyDOM(document.body);
     }
     return lang;
+  };
+  // A language's own faces are a stylesheet of their own, added to the page the
+  // first time that language is set, so the others never download it.
+  CF.loadFonts = function (href, id) {
+    try {
+      if (!document.head || document.getElementById(id)) return;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet'; link.href = href; link.id = id;
+      document.head.appendChild(link);
+    } catch (err) { /* no page to add it to */ }
   };
   CF.lang = function () { return I.lang; };
   CF.isRTL = function () { return CF.LANGS[I.lang].dir === 'rtl'; };
@@ -72,7 +83,7 @@
   }
 
   var LETTERS = /[A-Za-z]/;
-  var SEPS = [' · ', ' / ', '; ', ', '];
+  var SEPS = [' · ', ' / ', '; ', ', ', ' and '];
 
   function lookup(s, depth) {
     var d = I.dicts[I.lang];
@@ -96,7 +107,7 @@
     var sym = /^([^A-Za-z{(]+)([\s\S]+)$/.exec(t);
     if (sym && LETTERS.test(sym[2])) {
       var body = translate(sym[2], depth + 1);
-      if (body !== sym[2]) return s.replace(t, sym[1] + body);
+      if (body !== sym[2]) return s.replace(t, sym[1].replace(/,/g, '،').replace(/;/g, '؛') + body);
     }
     // 'Label: the text' (the text may have colons of its own).
     var colon = t.indexOf(': ');
@@ -145,14 +156,15 @@
         if (tr === p) all2 = false;
         return tr;
       });
-      if (all2) return s.replace(t, out2.join(SEPS[si] === ', ' ? '، ' : SEPS[si] === '; ' ? '؛ ' : SEPS[si]));
+      if (all2) return s.replace(t, out2.join(SEPS[si] === ', ' ? '، ' : SEPS[si] === '; ' ? '؛ ' : SEPS[si] === ' and ' ? ' و' : SEPS[si]));
     }
     // A run of known words, or two known parts: 'Hans van der Meer',
     // 'Apothecary's Boy Pauw'.
     var words = t.split(' ');
     if (words.length > 1 && words.length <= 6) {
       var all = true;
-      var out3 = words.map(function (w) { if (d[w] === undefined) all = false; return d[w]; });
+      // A number, or a count, stands as it is: 'Body 1', 'Word 2'.
+      var out3 = words.map(function (w) { if (!LETTERS.test(w)) return w; if (d[w] === undefined) all = false; return d[w]; });
       if (all) return s.replace(t, out3.join(' '));
       for (var w = 1; w < words.length; w++) {
         var left = words.slice(0, w).join(' '), right = words.slice(w).join(' ');

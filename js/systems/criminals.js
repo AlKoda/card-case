@@ -96,14 +96,80 @@
   P.atLargeCardFor = function (c) {
     return this.cardsOf('atlarge', true).filter(function (card) { return card.data.criminalId === c.id || card.data.name === c.name; })[0] || null;
   };
+  // What the Abroad card is called: the rank and the name, or the crown.
+  P.atLargeLabel = function (c) {
+    return (c.king ? 'The King of Thunes' : Crim.rankOf(c).label) + ': ' + c.name;
+  };
   P.refreshAtLarge = function (c) {
     var card = this.atLargeCardFor(c);
     if (!card) return;
     card.data.criminalId = c.id;
     card.data.trait = card.data.trait || c.trait;
-    card.label = Crim.rankOf(c).label + ': ' + c.name;
+    card.label = this.atLargeLabel(c);
     card.desc = this.criminalDesc(c);
     this.dirty = true;
+  };
+
+  // The real culprit behind a wrongful conviction keeps their head down for
+  // a few weeks: no Abroad card until the city hears the wrong name hanged.
+  // 'how' is what became of the wrong name: a sentence rung, 'burned' when
+  // the Inquisitor took the case, nothing while the Hole still holds them.
+  P.hideCriminal = function (c, rec, how) {
+    c.hidden = true;
+    c.surfaceWeek = this.s.week + U.randInt(this.rng, 2, 4);
+    c.wrongfulTitle = rec.title;
+    c.wrongfulCase = rec.id;
+    c.wrongfulHow = how || null;
+    c.district = rec.district;
+    return c;
+  };
+  // The sentence passed on the wrong name, kept on the real culprit's record.
+  P.wrongfulSentenced = function (rec, rung) {
+    var s = this.s.criminals;
+    for (var k in s) if (s[k].hidden && (s[k].wrongfulCase === rec.id || (!s[k].wrongfulCase && s[k].wrongfulTitle === rec.title))) s[k].wrongfulHow = rung;
+  };
+  // What the ballad says the wrong name got: hanged, burned, the Ravenstone, or nothing yet.
+  Crim.wrongfulFate = function (c) {
+    var how = c.wrongfulHow;
+    if (how === 'rope') return 'hanged for';
+    if (how === 'burned') return 'burned for';
+    if (how === 'sword' || how === 'wheel') return 'died on the Ravenstone for';
+    return 'answered for';
+  };
+  // The hidden record surfaces: the card, the Crowd, and unless a new crime
+  // tells it first, the ballad.
+  P.surfaceCriminal = function (c, crimeFirst) {
+    delete c.hidden;
+    var title = c.wrongfulTitle || 'an old case';
+    var dl = CF.DISTRICTS[c.district] ? CF.DISTRICTS[c.district].label : 'the Warrens';
+    this.abroadCard(c, 'Someone else ' + Crim.wrongfulFate(c) + ' ' + title + '.');
+    this.meter('pressure', 1);
+    var who = c.wrongfulHow === 'burned' ? 'the one the Inquisitor burned' : 'the one you sent down';
+    if (!crimeFirst) this.story('The Wrong Name', c.name + ' has been seen in ' + dl + ', alive and careful, and a ballad-seller has a new verse about ' + title + ': ' + who + ' was in the Hole for drunkenness that night. The Warrens have known for a week. Now the Market does.', 'danger');
+  };
+
+  // The crime a record keeps coming back to: their trade, when the city
+  // still has it, else whatever the pool gives.
+  P.criminalTrade = function (c) {
+    var pool = this.casePool();
+    if (c.role && pool.indexOf(c.role) >= 0 && this.rng() < 0.7) return c.role;
+    return U.pick(this.rng, pool);
+  };
+
+  // A spared man pays his debt: word of a crime before it happens, in the
+  // shape of an informer's warning, with no informer behind it.
+  P.sparedWarning = function (c) {
+    var tid = this.criminalTrade(c);
+    var T = CF.CASE_TEMPLATES[tid];
+    var district = U.pick(this.rng, T.districts);
+    this.s.nextCase = { template: tid, district: district, extraTime: 0 };
+    this.s.dispatchT = Math.min(this.s.dispatchT, 40 + this.rng() * 30);
+    this.create('intel', {
+      label: 'Warning: ' + T.label,
+      desc: 'A spared man pays his debt: ' + c.name + ' sends word of ' + T.label.toLowerCase() + ' in ' + CF.DISTRICTS[district].label + '. Keep this on the table.',
+      data: { kind: 'warning', template: tid, district: district, informant: null, spared: c.id },
+    });
+    return c.name + ' pays a debt: a warning, not a crime.';
   };
 
   // Every week: the ones who got away keep working.
@@ -113,23 +179,43 @@
       if (c.traits.indexOf('violent') >= 0) self.meter('retaliation', 1);
       if (c.status === 'hunted') return;
       var p = Crim.WEEKLY_CRIME + (c.crimes >= 2 ? 0.1 : 0);
-      if (self.rng() < p && self.openCases().length < 4) {
-        c.crimes++;
-        c.heat++;
-        var card = self.spawnCase(U.pick(self.rng, self.casePool()), {
-          culpritName: c.name, culpritTrait: c.trait, criminalId: c.id,
-          headline: c.name + ' Again', lead: 'The hand is familiar.',
-        });
-        self.refreshAtLarge(c);
+      var fires = self.rng() < p;
+      var room = self.roomForCase();
+      var canAct = fires && (room || !self.s.nextCase);
+      var surfaced = false;
+      if (c.hidden) {
+        if (!canAct && self.s.week < c.surfaceWeek) return;
+        self.surfaceCriminal(c, canAct);
+        if (!canAct) return;
+        surfaced = true;
+      }
+      if (!fires) return;
+      if (!room && self.s.nextCase) return; // the desk is full and something already waits
+      if (c.traits.indexOf('spared') >= 0 && !self.s.nextCase && self.rng() < 0.5) { lines.push(self.sparedWarning(c)); return; }
+      c.crimes++;
+      c.heat++;
+      var spec = { template: self.criminalTrade(c), culpritName: c.name, culpritTrait: c.trait, criminalId: c.id, headline: c.name + ' Again', lead: surfaced ? 'The hand is familiar. It should be: somebody else ' + Crim.wrongfulFate(c) + ' it.' : 'The hand is familiar.' };
+      self.refreshAtLarge(c);
+      if (room) {
+        var card = self.spawnCase(spec.template, spec);
         lines.push(c.name + ' has done it again: ' + self.caseRec(card.caseId).title + '.');
+      } else {
+        // A full desk: the crime waits its turn, and the week says so.
+        self.s.nextCase = spec;
+        lines.push(c.name + ' has done it again. The Watch-house will hear of it when a desk is clear.');
       }
     });
     return lines;
   };
 
-  // The rank of the culprit behind a case, for the court's demands.
+  // The rank of the culprit behind a case, for the court's demands: one
+  // point a rung, at most one for an Examiner's court, none once the
+  // Coquille has fallen.
   P.caseRankBonus = function (criminalId) {
     var c = criminalId && this.criminal(criminalId);
-    return c ? Crim.rankIndex(c) : 0;
+    if (!c) return 0;
+    if (c.organization === 'syndicate' && this.s.flags.syndicateFallen) return 0;
+    var bonus = Crim.rankIndex(c);
+    return this.s.rank === 0 ? Math.min(1, bonus) : bonus;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -28,20 +28,35 @@ function run(e, verb, cards) {
 
 // ---- Endings from the counts ----------------------------------------------------
 (function endings() {
+  // Every count ending is told first: the warning and the ending never share a tick.
   var e = game(1);
-  e.s.counts.mercy = 12; e.s.counts.cruelty = 1;
-  for (var i = 0; i < 4; i++) { var c = e.criminalFor('Citizen ' + i, null); c.status = 'reformed'; }
+  e.s.counts.mercy = 10; e.s.counts.cruelty = 1;
+  for (var i = 0; i < 3; i++) { var c = e.criminalFor('Citizen ' + i, null); c.status = 'reformed'; }
+  e.checkCountEndings();
+  assert.ok(!e.s.over && e.s.flags.mercifulWarned, 'within two pardons: the warning');
+  assert.strictEqual(e.s.journal[0].title, 'The Merciful Judge');
+  e.s.counts.mercy = 12; e.criminalFor('Citizen 3', null).status = 'reformed';
   e.checkCountEndings();
   assert.ok(e.s.over && e.s.over.id === 'merciful' && e.s.over.win, 'the Merciful Judge');
+  var e2 = game(11); e2.s.counts.mercy = 12; e2.s.counts.cruelty = 1;
+  for (var i2 = 0; i2 < 4; i2++) e2.criminalFor('Citizen ' + i2, null).status = 'reformed';
+  e2.checkCountEndings();
+  assert.ok(!e2.s.over && e2.s.flags.mercifulWarned, 'the thresholds met at once: still the warning first');
+  e2.checkCountEndings();
+  assert.strictEqual(e2.s.over.id, 'merciful');
   var f = game(2); f.s.counts.cruelty = 14; f.s.meters.dread = 5; f.checkCountEndings();
+  assert.ok(!f.s.over && f.s.flags.hangmanWarned && f.s.journal[0].title === 'The Executioner\'s Table', 'the executioner\'s table first');
+  f.checkCountEndings();
   assert.strictEqual(f.s.over.id, 'hangmans', 'the Hangman\'s Examiner');
-  var h = game(3, 'master'); h.s.who = 'hangman'; h.s.counts.cruelty = 14; h.s.meters.dread = 5; h.checkCountEndings();
+  var h = game(3, 'master'); h.s.who = 'hangman'; h.s.counts.cruelty = 14; h.s.meters.dread = 5; h.checkCountEndings(); h.checkCountEndings();
   assert.ok(/began outside the walls/.test(h.s.over.text), 'the Hangman\'s own variant');
   var g = game(4); g.favour().bishop = -4; g.s.flags.inquisitor = true; g.s.stats.wrongful = 1;
+  g.checkCountEndings();
+  assert.ok(!g.s.over && g.s.flags.stakeWarned && g.s.journal[0].title === 'The Inquisitor Asks for Your Name', 'the Inquisitor asks first');
   var burned = false;
   for (var j = 0; j < 40 && !burned; j++) { g.checkCountEndings(); burned = !!g.s.over; }
   assert.ok(burned && g.s.over.id === 'stake', 'the Stake');
-  var n = game(5); n.s.counts.mercy = 12; n.checkCountEndings();
+  var n = game(5); n.s.counts.mercy = 12; n.checkCountEndings(); n.checkCountEndings();
   assert.ok(!n.s.over, 'mercy without reformed citizens is not yet the ending');
   console.log('endings: ok');
 })();
@@ -69,7 +84,8 @@ function run(e, verb, cards) {
   var r2 = run(f, 'reflect', [byDef(f, 'dagger')[0]]);
   assert.ok(/Endured|Came Anyway/.test(r2.story.title));
   var struck = 0, dead = 0;
-  for (var m = 0; m < 20; m++) { var g = game(100 + m, 'commissioner'); g.s.rank = 2; var dg = g.create('dagger'); g.expire(dg); if (g.s.over) dead++; else if (g.countOf('wound')) struck++; }
+  // The coin is tossed from spread RNG states: twenty neighbouring seeds at one draw land correlated.
+  for (var m = 0; m < 20; m++) { var g = game(100 + m, 'commissioner'); g.s.rank = 2; g.rng.setState((m + 1) * 7919); var dg = g.create('dagger'); g.expire(dg); if (g.s.over) dead++; else if (g.countOf('wound')) struck++; }
   assert.ok(dead >= 3 && struck >= 3, 'ignored: death or a wound: ' + dead + '/' + struck);
   var q = game(8, 'master'); q.s.rank = 3; q.s.week = 20;
   for (var i3 = 0; i3 < 40; i3++) q.mountainWeek();
@@ -87,11 +103,26 @@ function run(e, verb, cards) {
   var front = e.eumenidesFront();
   assert.ok(torso.items.some(function (it) { return it.link === front.id; }), 'the case points at the hospital door');
   assert.ok(/ring-mark/.test(e.caseCard(torso.id).desc));
-  // Two of them, connected: the thread opens the case against the Brotherhood.
-  var second = e.caseRec(e.spawnCase('harbor', { quiet: true, frontId: front.id }).caseId);
-  second.society = 'eumenides';
+  // A second torso comes by itself once the first is a week old; never a third.
+  var second = null;
+  e.s.rank = 2; // a desk with room for it
+  for (var w = 0; w < 20 && !second; w++) { e.eumenidesWeek(); second = e.openCases().filter(function (r) { return r.society === 'eumenides' && r.id !== torso.id; })[0]; }
+  assert.ok(!second, 'not in the first week');
+  e.s.week++;
+  for (var w2 = 0; w2 < 40 && !second; w2++) { e.eumenidesWeek(); second = e.openCases().filter(function (r) { return r.society === 'eumenides' && r.id !== torso.id; })[0]; }
+  assert.ok(second, 'a second torso');
+  assert.ok(e.s.journal.some(function (j) { return j.title === 'Another Torso'; }));
+  e.s.week++;
+  for (var w3 = 0; w3 < 40; w3++) e.eumenidesWeek();
+  assert.strictEqual(e.openCases().filter(function (r) { return r.society === 'eumenides'; }).length, 2, 'never a third');
+  // A clue that names the hospital door outlives its case.
   var c1 = e.create('clue', { caseId: torso.id, aspects: { testimony: 1 }, data: { link: front.id } });
   var c2 = e.create('clue', { caseId: second.id, aspects: { testimony: 1 }, data: { link: front.id } });
+  var plain = e.create('clue', { caseId: torso.id, aspects: { testimony: 1 }, data: {} });
+  e.clearCaseCards(torso.id);
+  assert.ok(e.card(c1.uid) && c1.data.kept && /^Kept: /.test(c1.label) && c1.life === 400, 'the ring-mark clue is kept');
+  assert.ok(!e.card(plain.uid), 'the rest of the case goes');
+  // Two of them, connected: the thread opens the case against the Brotherhood.
   var r = run(e, 'reflect', [c1, c2]);
   var thread = byDef(e, 'thread')[0];
   assert.ok(thread && thread.data.front === front.id, 'a Thread: ' + (r.story && r.story.title));

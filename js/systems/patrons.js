@@ -5,7 +5,8 @@
 // election, and the Bishop's displeasure brings the Inquisitor.
 //
 //   s.favour = { council, bishop, guild }
-//   rec.commission = { from, wants, ofCouncil?, deadline? }
+//   rec.commission = { from, wants, ofCouncil?, deadline?, days? }
+//   e.commissionDays(rec)  the Council's days still left on it (null when none)
 //     council  wants it quiet: answered quickly, and not against a Council family
 //     bishop   wants mercy for the penitent: Pardon or a Fine
 //     guild    wants a cheat shamed, a brother fined, not hanged: the Pillory or a Fine
@@ -50,9 +51,16 @@
       com.ofCouncil = pick.key;
       com.wants = 'quiet';
       com.deadline = this.s.t + (CF.CASE_TEMPLATES[rec.template].lifetime || 250) * 0.66;
+      com.days = CF.daysLeft(com.deadline - this.s.t);
     } else if (from === 'bishop') com.wants = 'mercy';
     else com.wants = 'square';
     return com;
+  };
+  // How many of the Council's days are left on a commission, for the dossier.
+  P.commissionDays = function (rec) {
+    var c = rec && rec.commission;
+    if (!c || c.from !== 'council' || !c.deadline) return null;
+    return CF.daysLeft(c.deadline - this.s.t);
   };
   Pat.describe = function (rec) {
     var c = rec.commission;
@@ -60,7 +68,8 @@
     var who = CF.PATRONS[c.from].label;
     if (c.from === 'council') {
       var sus = rec.suspects.filter(function (x) { return x.key === c.ofCouncil; })[0];
-      return who + ' wants it answered by ' + 'the end of the week' + ', and would take it kindly if ' + (sus ? sus.name : 'a certain patrician') + ', of a Council family, were not the name.';
+      return U.fill('{who} wants it answered within {days} days, and would take it kindly if {name}, of a Council family, were not the name.',
+        { who: who, days: c.days || CF.daysLeft((CF.CASE_TEMPLATES[rec.template].lifetime || 250) * 0.66), name: sus ? sus.name : 'a certain patrician' });
     }
     if (c.from === 'bishop') return who + ' asks mercy for whoever did this, if they repent: a Pardon or a Fine, not the rope.';
     return who + ' want the culprit shamed in the square or fined, and a brother of the guild not hanged.';
@@ -120,6 +129,10 @@
     if (f.council >= 3 && s.meters.scrutiny > 0) { this.meter('scrutiny', -1); lines.push('A word from your patron on the Council, and a leaf of the clerks\' list is lost.'); }
     if (f.bishop >= 3 && this.countOf('fatigue')) { this.remove(this.cardsOf('fatigue')[0]); lines.push('The Abbey hospital keeps a bed for you. You sleep a night in it.'); }
     if (f.guild >= 3 && this.rng() < 0.5) { this.create('funds'); lines.push('The Market Warden sends the guilds\' fee for a quiet Market.'); }
+    // The letter of office the Council is not writing.
+    if (this.promotionHeld && this.promotionHeld() && s.rank < (this.rankCap ? this.rankCap() : CF.TOP_RANK) && s.meters.reputation >= CF.RANK_REP[s.rank + 1] && !this.cardsWith('promotion').length) {
+      lines.push('You have the Standing for a new office. The letter does not come; the Council is displeased.');
+    }
     // Elections: every twelve weeks the Council may turn, and Favour becomes Suspicion.
     if (s.week % Pat.ELECTION_EVERY === 0 && f.council > 0 && this.rng() < 0.4) {
       this.meter('scrutiny', f.council);
@@ -127,14 +140,25 @@
       f.council = 0;
     }
     // The Inquisitor arrives when the Bishop's Favour is low.
-    if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican in a grey cloak has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
+    if (f.bishop <= -2 && !s.flags.inquisitor) { s.flags.inquisitor = true; lines.push('A Dominican, white habit under a black cloak, has taken rooms at the Abbey and asked for the Rolls. The Bishop sent for him. He is called the Inquisitor, and he does not answer to you.'); }
     if (f.bishop >= 0 && s.flags.inquisitor) { s.flags.inquisitor = false; lines.push('The Inquisitor has been recalled. The Bishop is satisfied, for now.'); }
-    // A case that smells of heresy, left open two weeks, is his.
+    // The week before an election, the seat your patron holds is in play.
+    if (s.week % Pat.ELECTION_EVERY === Pat.ELECTION_EVERY - 1 && f.council > 0) lines.push('The Council elects next week. Your patron\'s seat is contested.');
+    // A case that smells of heresy is asked after at a week, and taken at two:
+    // by the Inquisitor when he is here, else only while the Bishop is cold.
     var self = this;
     this.openCases().forEach(function (rec) {
       var T = CF.CASE_TEMPLATES[rec.template];
-      if (!T.heresy || s.week - (rec.week || 0) < 2) return;
-      if (!s.flags.inquisitor && self.rng() < 0.7) return;
+      if (!T.heresy) return;
+      var age = s.week - (rec.week || 0);
+      if (age === 1 && !rec.dominican) {
+        rec.dominican = true;
+        self.story('A Dominican at the Rolls', 'A Dominican has asked the Rolls for the file on ' + rec.title + '. He has a week\'s start on you.', 'danger');
+        lines.push('A Dominican has asked the Rolls for the file on ' + rec.title + '.');
+        return;
+      }
+      if (age < 2) return;
+      if (!s.flags.inquisitor && (f.bishop > 0 || self.rng() < 0.7)) return;
       self.inquisitorSeizes(rec);
       lines.push('The Inquisitor has taken ' + rec.title + ' out of your hands.');
     });
@@ -151,7 +175,7 @@
     this.clearCaseCards(rec.id);
     var named = U.pick(this.rng, rec.suspects);
     s.stats.inquisitor = (s.stats.inquisitor || 0) + 1;
-    if (!named.guilty) { s.stats.wrongful++; var cul = rec.suspects.filter(function (x) { return x.guilty; })[0]; var c = this.criminalEscapes(rec, cul, 'wrongful'); this.abroadCard(c, 'Somebody else burned for what they did.'); }
+    if (!named.guilty) { s.stats.wrongful++; var cul = rec.suspects.filter(function (x) { return x.guilty; })[0]; var c = this.criminalEscapes(rec, cul, 'wrongful'); if (this.atLargeCardFor(c)) this.refreshAtLarge(c); else this.hideCriminal(c, rec, 'burned'); }
     this.meter('dread', 2);
     this.meter('pressure', -1);
     this.emit('resolved', this.caseRecord(rec, 'inquisitor', named.name));

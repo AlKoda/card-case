@@ -19,6 +19,9 @@
     financial: { label: 'Coin', short: 'CN', color: '#62bd5c', meaning: 'Money moving: debts, dowries, pledges, a man spending beyond his station.' },
   };
   CF.CLUE_ASPECTS = Object.keys(CF.ASPECTS);
+  // Aspects a single token can carry beyond its definition (set on the
+  // instance): the Next Door token from the Pattern.
+  CF.TOKEN_ASPECTS = ['nextdoor'];
 
   // Kinds control colour and which slots a card fits (kind is also an aspect).
   CF.KINDS = {
@@ -83,7 +86,7 @@
     stress: { label: 'Stress', kind: 'threat', tags: ['need'], image: 'icon-obsession', aspects: { stress: 1 }, decay: 110, onExpire: 'need',
       desc: 'The same case behind your eyes every night. In Rest: alone, an evening off; with Coin, a quick one; with Instinct, walk it off (quick, free); with a watchman, a drink with the Watch. Let the clock run out and it takes your Wit: for good, if you had it to spare.' },
     rival: { label: 'The Rival', kind: 'criminal', tags: ['person', 'rival'], aspects: { rival: 1 },
-      desc: 'The Provost\'s Examiner, appointed to show the Council it has a choice. They work your cases from the other side: they close them first, spoil your scenes, pay your witnesses to forget. Question them with Wit to find their weakness (twice, and you can expose them), with Coin to buy a quiet fortnight, with Health to frighten them; shadow them in Explore with Instinct.' },
+      desc: 'The Harbourmaster\'s Examiner, appointed to show the Council it has a choice. They work your cases from the other side: they close them first, spoil your scenes, pay your witnesses to forget. Question them with Wit to find their weakness (twice, and you can expose them), with Coin to buy a quiet fortnight, with Health to frighten them; shadow them in Explore with Instinct.' },
     burnout: { label: 'Fever', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
       desc: 'You cannot face the street. Attend, Walk the Ward, Examine and Question are shut to you. Rest in Rest before this runs out, or they carry you to the pesthouse.' },
     obsession: { label: 'Obsession', kind: 'threat', tags: ['strain'], image: 'icon-obsession', aspects: { obsession: 1 }, stackable: true,
@@ -156,7 +159,7 @@
     atlarge: { label: 'Abroad', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
       desc: 'Someone who walked. Every week they are out there, the Vendetta grows. Three of them will find each other.' },
     gang: { label: 'Band', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
-      desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Go in Disguise to build a case against them.' },
+      desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Post the Watch on them in Attend with a watchman; at Bailiff, go in Disguise to build a case against them.' },
     syndicate: { label: 'The Coquille', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-pyramid', aspects: { syndicate: 1, criminal: 1 },
       desc: 'The bands have sworn to one shell now, and the shell has a king. The Vendetta surges every week. Only a long Disguise reaches the Court of Miracles.' },
 
@@ -204,15 +207,15 @@
     calling_master: { label: 'Calling: The Scholar', kind: 'calling', tags: ['calling'], image: 'icon-mind', aspects: { calling: 1 },
       desc: 'Knowledge. Sound convictions and unanswered cases leave Loose Ends. Bring three to Rest, find the Architect behind them, and convict them.' },
     calling_crusader: { label: 'Calling: The Reformer', kind: 'calling', tags: ['calling'], image: 'icon-scales', aspects: { calling: 1 },
-      desc: 'Justice. Go in Disguise among the bands (you will need to be Bailiff), take leaves from their ledger, drag the Coquille into the square and convict its king. Whatever it costs.' },
+      desc: 'Justice. Post the Watch on the bands, and at Bailiff go in Disguise among them; take leaves from their ledger, drag the Coquille into the square and convict its king. Whatever it costs.' },
   };
 
   // Things the Council's treasury will buy. rank = minimum office to see the petition.
   CF.ORDERS = {
-    camera: { label: 'Sketch-book', cost: 8, give: 'camera', rank: 0 },
+    camera: { label: 'Sketch-book', cost: 5, give: 'camera', rank: 0 },
     prints: { label: 'Vinegar and Umbrella', cost: 3, give: 'prints', rank: 0 },
-    kit: { label: 'Physician\'s Case', cost: 9, give: 'kit', rank: 0 },
-    locker: { label: 'Strongroom', cost: 9, room: 'locker', rank: 0 },
+    kit: { label: 'Physician\'s Case', cost: 5, give: 'kit', rank: 0 },
+    locker: { label: 'Strongroom', cost: 6, room: 'locker', rank: 0 },
     suite: { label: 'The Hole', cost: 8, room: 'suite', rank: 1 },
     labpass: { label: 'The Apothecary\'s Key', cost: 5, give: 'labpass', rank: 1 },
     archive: { label: 'The Rolls', cost: 8, room: 'archive', rank: 1 },
@@ -220,7 +223,7 @@
     intel: { label: 'The Informers\' Bench', cost: 6, room: 'intel', rank: 2 },
     training: { label: 'The Drill Yard', cost: 8, room: 'training', rank: 2 },
     thieftakers: { label: 'The Thief-takers\' Office', cost: 6, room: 'thieftakers', rank: 1 },
-    lab: { label: 'The Apothecary', cost: 14, room: 'lab', rank: 3 },
+    lab: { label: 'The Apothecary', cost: 10, room: 'lab', rank: 3 },
     survroom: { label: 'The Belfry', cost: 8, room: 'survroom', rank: 3 },
   };
 
@@ -232,8 +235,8 @@
     archive: { label: 'The Rolls', order: 'archive', desc: 'The court\'s old books, shelved and indexed. Unanswered cases can be opened again in Study.' },
     intel: { label: 'The Informers\' Bench', order: 'intel', desc: 'A bench by the back door where the city\'s whisperers wait. A token that points at a front names it at once; the Coquille shows itself.' },
     training: { label: 'The Drill Yard', order: 'training', desc: 'Drilling a watchman costs 1 Coin instead of 2, and at the third drill they learn a new trait.' },
-    lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, and no raw proof needs a special instrument.' },
-    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you.' },
+    lab: { label: 'The Apothecary', order: 'lab', desc: 'The apothecary keeps a bench for you. Study is faster, no raw proof needs a special instrument, a token goes back to the bench without the Key, and what the body says reads one point stronger.' },
+    survroom: { label: 'The Belfry', order: 'survroom', desc: 'The sexton lets you up. A Watch takes half the night and never tires you, and every week the belfry sees who uses a known front.' },
     thieftakers: { label: 'The Thief-takers\' Office', order: 'thieftakers', desc: 'A room let to men who know every fence in the city. Put a Case in Attend with 2 Coin and they get the goods back for a cut, without a trial. Some of what they bring back is a frame.' },
   };
   CF.ROOM_ORDER = ['locker', 'suite', 'archive', 'intel', 'training', 'thieftakers', 'lab', 'survroom'];
@@ -268,17 +271,20 @@
   CF.RANK_DEFS = [
     { id: 'detective', label: 'Examiner', rep: 0, salary: 1, maxCases: 2, badge: 1, dispatch: 0,
       text: 'A desk in the Watch-house, a caseload, and the street.' },
-    { id: 'senior', label: 'Sworn Examiner', rep: 4, salary: 2, maxCases: 3, badge: 1, dispatch: 0,
-      text: 'A magistrate will seal a Writ for you (an Accused with cause, in Explore), and the Council sends you more.' },
-    { id: 'inspector', label: 'Bailiff', rep: 9, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
-      text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).' },
-    { id: 'chief', label: 'Magistrate', rep: 15, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
-      text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.' },
+    { id: 'senior', label: 'Sworn Examiner', rep: 3, salary: 2, maxCases: 3, badge: 1, dispatch: 0,
+      text: 'A magistrate will seal a Writ for you (an Accused with cause, in Explore), and the Council sends you more.',
+      scene: 'You swear the oath in the Council chamber with your hand on the Carolina, and the clerk writes your name under the last Examiner\'s, which has a line through it.' },
+    { id: 'inspector', label: 'Bailiff', rep: 7, salary: 3, maxCases: 4, badge: 2, dispatch: 5,
+      text: 'Watch a door and go in Disguise (Explore), and Deputise a watchman with a case (Attend).',
+      scene: 'The Council gives you the white staff and the key to the Hole\'s outer door. The sergeants stand when you come in. Some of them mean it.' },
+    { id: 'chief', label: 'Magistrate', rep: 12, salary: 4, maxCases: 4, badge: 3, dispatch: 10,
+      text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.',
+      scene: 'A red gown, a seat at the end of the bench, and the Burgomaster\'s hand on your shoulder for exactly as long as the chamber is watching. Everything that goes wrong in the city is yours now.' },
   ];
   CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
   CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // standing needed for the Council to write
   CF.TOP_RANK = CF.RANK_DEFS.length - 1;
-  CF.COMMISSIONER_REP = 24;
+  CF.COMMISSIONER_REP = 18;
 
   CF.CALLINGS = {
     commissioner: { card: 'calling_commissioner', label: 'The Burgomaster', theme: 'Power',
