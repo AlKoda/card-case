@@ -251,4 +251,49 @@ function run(e, verb, cards) {
   console.log('tally: ok');
 })();
 
+// ---- Below Bailiff the Coquille is answered from the Watch-house ------------------------
+(function watchedStair() {
+  var e = CF.Engine.newGame({ seed: 61, calling: 'crusader' });
+  e.s.rank = 1;
+  e.spawnSyndicate('test');
+  var coq = byDef(e, 'syndicate')[0];
+  assert.ok(/post the Watch on its stair/.test(e.descOf(coq)), 'the card says what a lower office can do: ' + e.descOf(coq));
+  // No one abroad: below Bailiff the Coquille weighs like a band, and the Vendetta cools.
+  e.cardsOf('atlarge', true).forEach(function (c) { e.remove(c); });
+  e.s.meters.retaliation = 3;
+  e.weekTick();
+  assert.ok(e.s.meters.retaliation <= 3, 'below Bailiff a lone Coquille adds one and lets it cool: ' + e.s.meters.retaliation);
+  // Post the Watch: a watchman on its stair. The Vendetta cools, and now and then a leaf drops.
+  var leaves = 0, tries = 0;
+  for (var i = 0; i < 12; i++) {
+    var g = CF.Engine.load(e.save()); g.rng.setState(i * 17 + 3);
+    g.s.week += i * 2; g.s.meters.retaliation = 4;
+    var guard = g.create('teammate', g.personnelSpec('rookie'));
+    var r = run(g, 'duty', [byDef(g, 'syndicate')[0], guard]);
+    assert.strictEqual(r.recipe, 'duty_post_watch');
+    assert.ok(g.s.meters.retaliation <= 3, 'the Vendetta cools');
+    assert.strictEqual(g.s.flags.coqWatched, g.s.week);
+    tries++;
+    if (byDef(g, 'ledger').length) {
+      leaves++;
+      // Not twice in a fortnight.
+      var guard2 = byDef(g, 'teammate')[0] || g.create('teammate', g.personnelSpec('rookie'));
+      for (var j = 0; j < 5; j++) { g.rng.setState(j + 1); var n0 = byDef(g, 'ledger').length; run(g, 'duty', [byDef(g, 'syndicate')[0], byDef(g, 'teammate')[0] || guard2]); assert.strictEqual(byDef(g, 'ledger').length, n0, 'one leaf a fortnight at most'); }
+    }
+  }
+  assert.ok(leaves > 0 && leaves < tries, 'a leaf sometimes: ' + leaves + ' of ' + tries);
+  // At Bailiff the Court surges, unless the Watch stood on its stair that week.
+  var b = CF.Engine.newGame({ seed: 62, calling: 'crusader' });
+  b.s.rank = 2; b.spawnSyndicate('test');
+  b.cardsOf('atlarge', true).forEach(function (c) { b.remove(c); });
+  b.s.meters.retaliation = 0; b.weekTick();
+  var surged = b.s.meters.retaliation;
+  var bw = CF.Engine.newGame({ seed: 62, calling: 'crusader' });
+  bw.s.rank = 2; bw.spawnSyndicate('test');
+  bw.cardsOf('atlarge', true).forEach(function (c) { bw.remove(c); });
+  bw.s.meters.retaliation = 0; bw.s.flags.coqWatched = bw.s.week; bw.weekTick();
+  assert.ok(surged >= 2 && bw.s.meters.retaliation < surged, 'a watched week keeps the Court off your stair: ' + surged + ' then ' + bw.s.meters.retaliation);
+  console.log('the Watch on the Coquille\'s stair: ok');
+})();
+
 console.log('coquille: king, treaty, rule, eradicate all OK');

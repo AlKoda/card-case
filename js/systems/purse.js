@@ -53,6 +53,7 @@
       this.emit('resolved', this.caseRecord(rec, 'settled', null));
       var c = this.criminalEscapes(rec, culprit, 'settled');
       this.abroadCard(c, 'Named by the thief-takers, never charged. The goods came back; they did not.');
+      if (rec.opening && this.openingLost) this.openingLost(rec, 'settled');
       return { title: 'Settled: ' + rec.title, text: 'Two days later the goods are on your desk, most of them, and a thief-taker\'s man is waiting for his cut. ' + culprit.name + ' is named in a low voice and will not be charged; that was the price. The victim is grateful. The Rolls say the case is answered. They do not say how.', kind: 'minor' };
     }
     if (roll < 0.85) {
@@ -145,13 +146,30 @@
       s.rank >= T.rank && (st.settled || 0) >= T.settled;
   };
 
-  // The two ends of the corrupt road. The Thief-taker General is told a
-  // week before it lands, as every count ending is (societies.js).
+  // Whether the Old Bailey's counts hold now, and whether they are one step
+  // short of it (a purse, a wrong name, a frame or a debt away).
+  P.oldbaileyMet = function () {
+    var s = this.s, cnt = s.counts || {}, st = s.stats || {}, B = Purse.OLDBAILEY;
+    return (cnt.purse || 0) >= B.purse && ((st.wrongful || 0) >= B.wrongful || (st.frames || 0) >= B.frames || (cnt.debt || 0) >= B.debt);
+  };
+  P.oldbaileyNear = function () {
+    var s = this.s, cnt = s.counts || {}, st = s.stats || {}, B = Purse.OLDBAILEY;
+    return (cnt.purse || 0) >= B.purse - 1 && ((st.wrongful || 0) >= B.wrongful - 1 || (st.frames || 0) >= B.frames - 1 || (cnt.debt || 0) >= B.debt - 1);
+  };
+
+  // The two ends of the corrupt road, each told a week before it lands, as
+  // every count ending is (societies.js). The Old Bailey is told a step
+  // early, while another purse, wrong name, frame or debt can still be
+  // refused (the counts never go down).
   P.checkPurseEndings = function () {
-    var s = this.s, cnt = s.counts || {}, st = s.stats;
+    var s = this.s;
     if (s.over) return;
-    var purse = cnt.purse || 0;
-    if (purse >= Purse.OLDBAILEY.purse && (st.wrongful >= Purse.OLDBAILEY.wrongful || (st.frames || 0) >= Purse.OLDBAILEY.frames || (cnt.debt || 0) >= Purse.OLDBAILEY.debt)) {
+    if (this.oldbaileyNear() && !s.flags.oldbaileyWarned) {
+      s.flags.oldbaileyWarned = true;
+      this.story('The Brother\'s Ledger', 'A man in black has been copying the Rolls for every case you closed with the thief-takers. He has a brother on the Ravenstone. Another purse, another wrong name or another debt to the thief-takers, and he will have enough.', 'danger');
+      return;
+    }
+    if (s.flags.oldbaileyWarned && this.oldbaileyMet()) {
       this.gameOver('oldbailey');
       return;
     }

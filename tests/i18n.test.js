@@ -113,4 +113,22 @@ assert.deepStrictEqual(fg.cardFace(fg.create('clue', { label: 'Deposition: Hans 
   assert.strictEqual(bad.length, 0, 'composed lines left English:\n  ' + bad.join('\n  '));
   console.log('i18n: the Fire, the Water, the true alibi and the Rival\'s close read in Arabic');
 })();
+// Lane 1, items 49-56: the Bell's week is kept in parts, and every part reads in Arabic on its own.
+(function weekParts() {
+  var bad = [], n = 0;
+  [0, 1].forEach(function (g) {
+    var e = CF.Engine.newGame({ seed: 960 + g, calling: ['crusader', 'commissioner'][g], who: CF.ORIGIN_ORDER[g + 2], life: true });
+    bot.play(e, 60 * 16, ['corrupt', 'custom'][g]);
+    CF.setLang('ar');
+    e.s.journal.forEach(function (j) {
+      if (!j.parts) return;
+      assert.strictEqual(j.text, j.parts.join(' '), 'the text is its parts joined');
+      j.parts.forEach(function (p) { n++; var a = CF.T(p); if (/[A-Za-z]{3}/.test(a) || a.indexOf('{') >= 0) bad.push(p + '  =>  ' + a); });
+    });
+    CF.setLang('en');
+  });
+  assert.ok(n > 20, 'week parts were read: ' + n);
+  assert.strictEqual(bad.length, 0, 'week parts left English:\n  ' + bad.slice(0, 30).join('\n  '));
+  console.log('i18n: the Bell\'s week reads in Arabic part by part (' + n + ' parts)');
+})();
 console.log('i18n: a bot-played game reads fully in Arabic, token faces too');

@@ -35,6 +35,7 @@ function run(e, verb, cards) {
   e.checkCountEndings();
   assert.ok(!e.s.over && e.s.flags.mercifulWarned, 'within two pardons: the warning');
   assert.strictEqual(e.s.journal[0].title, 'The Merciful Judge');
+  assert.ok(/Two more mercies and one more citizen made, and it will be your name\./.test(e.s.journal[0].text), 'the warning counts honestly: ' + e.s.journal[0].text);
   e.s.counts.mercy = 12; e.criminalFor('Citizen 3', null).status = 'reformed';
   e.checkCountEndings();
   assert.ok(e.s.over && e.s.over.id === 'merciful' && e.s.over.win, 'the Merciful Judge');
@@ -42,6 +43,8 @@ function run(e, verb, cards) {
   for (var i2 = 0; i2 < 4; i2++) e2.criminalFor('Citizen ' + i2, null).status = 'reformed';
   e2.checkCountEndings();
   assert.ok(!e2.s.over && e2.s.flags.mercifulWarned, 'the thresholds met at once: still the warning first');
+  assert.ok(/Hold to it one more week/.test(e2.s.journal[0].text), 'nothing more is wanted, and it says so: ' + e2.s.journal[0].text);
+  assert.ok(/^.*One more mercy, and it will be your name\.$/.test(CF.Societies.mercifulLine(1, 0)) && /One more citizen made/.test(CF.Societies.mercifulLine(0, 1)), 'each count told');
   e2.checkCountEndings();
   assert.strictEqual(e2.s.over.id, 'merciful');
   var f = game(2); f.s.counts.cruelty = 14; f.s.meters.dread = 5; f.checkCountEndings();

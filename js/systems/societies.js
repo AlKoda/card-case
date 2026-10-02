@@ -24,6 +24,18 @@
   Soc.MOUNTAIN = { week: 8, rank: 2, chance: 0.12, grace: 6 };
   Soc.EUMENIDES = { week: 8, chance: 0.2 };
 
+  // The Merciful warning counts honestly what is still wanted: mercies (up
+  // to two) and citizens made (up to one).
+  Soc.MERCIFUL_LINES = {
+    '0,0': 'The Council has begun to call you the merciful judge. Hold to it one more week, and it will be your name.',
+    '1,0': 'The Council has begun to call you the merciful judge. One more mercy, and it will be your name.',
+    '2,0': 'The Council has begun to call you the merciful judge. Two more mercies, and it will be your name.',
+    '0,1': 'The Council has begun to call you the merciful judge. One more citizen made, and it will be your name.',
+    '1,1': 'The Council has begun to call you the merciful judge. One more mercy and one more citizen made, and it will be your name.',
+    '2,1': 'The Council has begun to call you the merciful judge. Two more mercies and one more citizen made, and it will be your name.',
+  };
+  Soc.mercifulLine = function (n, r) { return Soc.MERCIFUL_LINES[Math.min(2, n) + ',' + Math.min(1, r)]; };
+
   P.reformedCount = function () {
     var n = 0, s = this.s.criminals;
     for (var k in s) if (s[k].status === 'reformed') n++;
@@ -40,7 +52,7 @@
     var mercy = cnt.mercy || 0, cruelty = cnt.cruelty || 0, reformed = this.reformedCount();
     if (!s.flags.mercifulWarned && mercy >= M.mercy - 2 && cruelty <= M.cruelty && reformed >= M.reformed - 1) {
       s.flags.mercifulWarned = true;
-      this.story('The Merciful Judge', 'The Council has begun to call you the merciful judge. One more pardon and it will be your name.', 'major');
+      this.story('The Merciful Judge', Soc.mercifulLine(Math.max(0, M.mercy - mercy), Math.max(0, M.reformed - reformed)), 'major');
       return;
     }
     if (s.flags.mercifulWarned && mercy >= M.mercy && cruelty <= M.cruelty && reformed >= M.reformed) { this.gameOver('merciful'); return; }

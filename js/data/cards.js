@@ -161,7 +161,7 @@
     gang: { label: 'Band', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
       desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Post the Watch on them in Attend with a watchman; at Bailiff, go in Disguise to build a case against them.' },
     syndicate: { label: 'The Coquille', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-pyramid', aspects: { syndicate: 1, criminal: 1 },
-      desc: 'The bands have sworn to one shell now, and the shell has a king. The Vendetta surges every week. Only a long Disguise reaches the Court of Miracles.' },
+      desc: 'The bands have sworn to one shell now, and the shell has a king. The Vendetta surges every week. Only a long Disguise reaches the Court of Miracles. Until you carry the Bailiff\'s staff you cannot go among them: post the Watch on its stair.' },
 
     // --- Court and paper -------------------------------------------
     trial: { label: 'The Blood Court', kind: 'court', tags: ['court'], image: 'icon-gavel', aspects: { trial: 1 }, decay: 45, onExpire: 'verdict',
@@ -192,7 +192,7 @@
     promo_chief: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'They want you to hold the Watch-house. Attend on them.' },
     chair: { label: 'The Burgomaster\'s Seat', kind: 'career', tags: ['career'], image: 'icon-court', aspects: { chair: 1 },
-      desc: 'The Council meets to choose a Burgomaster. Bring this to Attend. They will look hard at the Crowd and at Suspicion.' },
+      desc: 'The Council meets to choose a Burgomaster. Bring this to Attend once the Council, the Bishop and the Guilds have each pledged their seal. They will look hard at the Crowd and at Suspicion.' },
 
     // --- Insight (victory paths) ---------------------------------------
     looseend: { label: 'Loose End', kind: 'insight', tags: ['insight'], image: 'icon-hook', aspects: { looseend: 1 }, stackable: true,
@@ -296,6 +296,9 @@
       text: 'Muster the Watch and have cases cried (Attend), and a city that expects everything of you.',
       scene: 'A red gown, a seat at the end of the bench, and the Burgomaster\'s hand on your shoulder for exactly as long as the chamber is watching. Everything that goes wrong in the city is yours now.' },
   ];
+  // The record the Council wants before it writes, as well as the Standing:
+  // cases answered (convictions and settlements, less the wrong names).
+  CF.RANK_RECORD = [0, 1, 3, 6];
   CF.RANKS = CF.RANK_DEFS.map(function (r) { return r.label; });
   CF.RANK_REP = CF.RANK_DEFS.map(function (r) { return r.rep; }); // standing needed for the Council to write
   CF.TOP_RANK = CF.RANK_DEFS.length - 1;

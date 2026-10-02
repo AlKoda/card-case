@@ -59,7 +59,7 @@
   P.informantTip = function (inf) {
     var nick = inf.data.name;
     var open = this.openCases().filter(function (r) { return !r.identified && !r.special; });
-    var al = this.cardsOf('atlarge').filter(function (c) { return c.loc.t === 'table' && !c.data.sighted; });
+    var self0 = this, al = this.cardsOf('atlarge').filter(function (c) { return c.loc.t === 'table' && !c.data.sighted && self0.huntable(c); });
     var roll = this.rng();
     if (open.length && roll < 0.45) {
       var rec = U.pick(this.rng, open);
@@ -105,7 +105,7 @@
   P.informerOffer = function () {
     var e = this;
     var open = this.openCases().filter(function (r) { return !r.identified && !r.special; });
-    var al = this.cardsOf('atlarge').filter(function (c) { return !c.data.hunted || !e.caseRec(c.data.hunted) || e.caseRec(c.data.hunted).status !== 'open'; });
+    var al = this.cardsOf('atlarge').filter(function (c) { return e.huntable(c); });
     var sight = al.length > 0 && this.roomForCase(1);
     var next = this.s.nextCase;
     var kind = open.length ? 'word' : sight ? 'sighting' : !next ? 'warning' : !next.told ? 'quarter' : null;

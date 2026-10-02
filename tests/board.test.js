@@ -690,7 +690,7 @@ console.error = function (err) { throw err; };
   assert.ok(!e.preview('investigate').blocked);
   assert.ok(e.start('investigate')); e.tick(e.verb('investigate').duration + 0.01);
   assert.strictEqual(e.cardsOf('rival', true).length, 0, 'exposed and sent home');
-  assert.strictEqual(e.s.meters.reputation, rep + 2);
+  assert.strictEqual(e.s.meters.reputation, rep + 1, 'the Rival exposed: Standing +1');
   assert.ok(e.s.flags.rivalGone > e.s.week);
   e.collect('investigate');
   // An older save's examiner carries no week or road yet.
@@ -916,4 +916,80 @@ console.error = function (err) { throw err; };
   m.gameOver('merciful');
   assert.ok(m.s.stats.sentHome >= m.s.stats.reformed && m.s.stats.reformed === 3, 'sent ' + m.s.stats.sentHome + ', reformed ' + m.s.stats.reformed);
   console.log('old save question and sent home: ok');
+})();
+
+// ---- Lane 1, items 49-56: the opening never strands you; the Fever is told; a story in parts ----
+(function openingLostAndFever() {
+  function tbl(g, d) { return g.tableCards().filter(function (c) { return c.def === d; }); }
+  function run(g, vid, cards) { cards.forEach(function (c) { g.autoSlot(vid, c.uid); }); assert.ok(g.start(vid), vid + ' starts: ' + JSON.stringify(g.preview(vid))); g.tick(g.verb(vid).duration + 0.01); g.collect(vid); g.tick(0.1); }
+  // To the desk, the opening's case still open.
+  function toDesk(seed) {
+    var e = CF.Engine.newGame({ seed: seed, who: 'clerk', name: 'Lost', opening: true });
+    run(e, 'duty', [tbl(e, 'health')[0]]); e.tick(41);
+    run(e, 'duty', [tbl(e, 'health')[0]]);
+    e.tick(e.verb('investigate').duration + 0.01); e.collect('investigate'); e.tick(0.1);
+    e.tick(e.verb('interrogate').duration + 0.01); e.collect('interrogate'); e.tick(0.1);
+    assert.strictEqual(e.s.flags.stage, 'hired');
+    if (e.s.choice) e.choose(0);
+    return e;
+  }
+  // The opening's case goes cold: the desk, the Bell and a new case within two weeks.
+  var e = toDesk(31);
+  var rec = e.openCases().filter(function (r) { return r.opening; })[0];
+  e.goCold(rec.id);
+  assert.strictEqual(rec.status, 'cold');
+  assert.ok(!e.s.flags.opening && e.s.flags.stage === 'keep' && !e.s.flags.bellSilent && e.verb('time').unlocked, 'the desk and the Bell all the same');
+  assert.strictEqual(e.s.flags.openingLost, 'cold');
+  assert.ok(e.s.journal.some(function (j) { return j.title === 'The Desk All the Same'; }), 'and it is told');
+  var at = null;
+  for (var t = 0; t < 2 * CF.WEEK && at === null; t++) { e.tick(1); if (e.openCases().length) at = t; }
+  assert.ok(at !== null, 'a new case within two weeks of the opening gone cold');
+  // Lost to the Rival or settled by the thief-takers: the same.
+  var r2 = toDesk(32), rr = r2.openCases().filter(function (r) { return r.opening; })[0];
+  r2.rivalCloses(rr, 'Piet Wieland');
+  assert.ok(!r2.s.flags.opening && r2.s.flags.stage === 'keep' && r2.s.flags.openingLost === 'rival', 'closed by the Rival: the desk is kept');
+  var r3 = toDesk(33), sr = r3.openCases().filter(function (r) { return r.opening; })[0], settled = false;
+  for (var k = 0; k < 20 && !settled; k++) { var c3 = CF.Engine.load(r3.save()); c3.rng.setState(k * 7 + 1); c3.thieftakersSettle(c3.caseRec(sr.id)); if (c3.caseRec(sr.id).status === 'settled') { settled = true; assert.ok(!c3.s.flags.opening && c3.s.flags.stage === 'keep', 'settled: the desk is kept'); } }
+  assert.ok(settled, 'a settlement came in twenty tries');
+  // A save already stranded (the case cold, the desk never kept): load gives the desk.
+  var st = toDesk(34), srec = st.openCases().filter(function (r) { return r.opening; })[0];
+  var old = JSON.parse(st.save()); old.cases[srec.id].status = 'cold';
+  Object.keys(old.cards).forEach(function (u) { if (old.cards[u].caseId === srec.id && old.cards[u].def === 'case') delete old.cards[u]; });
+  var lo = CF.Engine.load(old);
+  assert.ok(!lo.s.flags.opening && lo.s.flags.stage === 'keep' && !lo.s.flags.bellSilent, 'a stranded save is given the desk on load');
+  var at2 = null;
+  for (var t2 = 0; t2 < 2 * CF.WEEK && at2 === null; t2++) { lo.tick(1); if (lo.openCases().length) at2 = t2; }
+  assert.ok(at2 !== null, 'and a case comes');
+  // A save mid-opening with its case open is left alone.
+  var ok = CF.Engine.load(toDesk(35).save());
+  assert.ok(ok.s.flags.opening && ok.s.flags.stage === 'hired', 'an opening still under way is not touched');
+
+  // The Fever: told on arrival with its card, and half a minute before it ends the file.
+  var f = CF.Engine.newGame({ seed: 36, calling: 'master' }), events = [];
+  f.on(function (type, p) { if (type === 'strain' || type === 'pressing') events.push({ type: type, p: p }); });
+  for (var i = 0; i < 3; i++) f.create('fatigue');
+  f.checkThresholds();
+  var fever = f.cardsOf('burnout', true)[0];
+  assert.ok(fever, 'three Weariness: the Fever');
+  var told = f.s.journal.filter(function (j) { return j.title === 'Fever'; })[0];
+  assert.strictEqual(told.uid, fever.uid, 'the story carries the card, for the toast to take you there');
+  assert.ok(events.some(function (x) { return x.type === 'strain' && x.p.uid === fever.uid && x.p.ends; }), 'and the interface is told: ' + JSON.stringify(events));
+  f.tick(fever.life - 29);
+  var warn = f.s.journal.filter(function (j) { return j.title === 'The Fever Worsens'; });
+  assert.ok(warn.length === 1 && warn[0].uid === fever.uid && warn[0].kind === 'danger', 'half a minute before: a danger story with the card');
+  assert.ok(events.some(function (x) { return x.type === 'pressing' && x.p.uid === fever.uid && x.p.ends; }), 'and pressing is emitted');
+  f.tick(1);
+  assert.strictEqual(f.s.journal.filter(function (j) { return j.title === 'The Fever Worsens'; }).length, 1, 'told once');
+
+  // A story in parts: each sentence kept whole, the text their join.
+  var p = CF.Engine.newGame({ seed: 37, calling: 'master' });
+  var en = p.story('Week 9', ['Lodging and dues take 2.', '', 'The Council\'s stipend: 1 Coin.'], 'week');
+  assert.deepStrictEqual(en.parts, ['Lodging and dues take 2.', 'The Council\'s stipend: 1 Coin.']);
+  assert.strictEqual(en.text, 'Lodging and dues take 2. The Council\'s stipend: 1 Coin.');
+  assert.strictEqual(p.story('Plain', 'One text.').parts, undefined, 'a plain story has no parts');
+  p.tick(CF.WEEK - p.s.weekT + 0.01);
+  var wk = p.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk && wk.parts && wk.parts.length >= 2 && wk.text === wk.parts.join(' '), 'the Bell tells its week in parts');
+  assert.ok(wk.parts.some(function (x) { return /^The ledger: /.test(x); }), 'the ledger is one part');
+  console.log('opening lost, the Fever told, a story in parts: ok');
 })();

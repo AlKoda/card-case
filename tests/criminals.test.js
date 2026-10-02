@@ -527,3 +527,66 @@ function run(e, verb, cards) {
   CF.Criminals.WEEKLY_CRIME = p0;
   console.log('rival closes: ok');
 })();
+
+// ---- An innocent acquitted is nobody to hunt; one name hangs once ----------------------
+(function innocentAbroad() {
+  var e = game(301), rec = e.openCases()[0];
+  var innocent = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+  rec.status = 'trial';
+  var cc = e.caseCard(rec.id); if (cc) e.remove(cc);
+  var acquitted = false;
+  for (var i = 0; i < 20 && !acquitted; i++) {
+    var g = CF.Engine.load(e.save()); g.rng.setState(i * 13 + 5);
+    g.verdict(g.create('trial', { data: { caseId: rec.id, name: innocent.name, guilty: false, solid: false, tier: 'weak', real: 1, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
+    if (g.caseRec(rec.id).status === 'acquitted') { acquitted = true; e = g; }
+  }
+  assert.ok(acquitted, 'the innocent walked');
+  var al = e.cardsOf('atlarge', true).filter(function (c) { return c.data.name === innocent.name; })[0];
+  assert.ok(al && al.data.innocent && al.life > 0, 'their Abroad card is marked innocent, and leaves in time');
+  assert.ok(!e.huntable(al), 'nobody to hunt');
+  // No informer sees them, and a sighting brought anyway raises no hue and cry.
+  var inf = e.create('informant', e.informantSpec('market'));
+  for (var k = 0; k < 30; k++) e.informantTip(inf);
+  assert.ok(!e.cardsOf('intel', true).some(function (c) { return c.data.kind === 'sighting' && c.data.criminal === innocent.name; }), 'no sighting of an innocent');
+  assert.strictEqual(e.informerOffer().atlarge.indexOf(al), -1, 'a paid informer has no sighting of them');
+  var sight = e.create('intel', { label: 'Sighting: ' + innocent.name, data: { kind: 'sighting', criminal: innocent.name } });
+  e.autoSlot('reflect', sight.uid); e.autoSlot('reflect', al.uid);
+  assert.strictEqual(e.preview('reflect').blocked, CF.INNOCENT_NO_HUNT, 'a sighting of an innocent is blocked: ' + e.preview('reflect').blocked);
+  e.clearSlots('reflect');
+  var before = e.openCases().filter(function (r) { return r.template === 'manhunt'; }).length;
+  for (var w = 0; w < 6; w++) e.weekTick();
+  assert.strictEqual(e.openCases().filter(function (r) { return r.template === 'manhunt' && r.suspects.some(function (x) { return x.guilty && x.name === innocent.name; }); }).length, 0, 'no hue and cry for them');
+  void before;
+  // They leave the city in the end.
+  e.tick(al.life + 1);
+  assert.ok(!e.card(al.uid), 'gone after their weeks');
+  assert.ok(e.s.journal.some(function (j) { return j.title === 'Gone from the City'; }), 'and told');
+
+  // Two hunts for one name: a hunt at trial still counts, and a conviction calls off the other.
+  var h = game(302), cr = h.openCases()[0], cul = cr.suspects.filter(function (x) { return x.guilty; })[0];
+  var crim = h.criminalEscapes(cr, cul, 'cold');
+  var ab = h.create('atlarge', { label: 'Abroad: ' + cul.name, data: { name: cul.name, trait: cul.trait, criminalId: crim.id } });
+  var A = h.spawnCase('manhunt', { culpritName: cul.name, culpritTrait: cul.trait, atLargeUid: ab.uid, criminalId: crim.id, headline: 'Hue and Cry: ' + cul.name });
+  ab.data.hunted = A.caseId;
+  var recA = h.caseRec(A.caseId);
+  recA.status = 'trial';
+  assert.ok(h.huntRunning(ab) && !h.huntable(ab), 'a hunt before the Court is still a hunt');
+  var s2 = h.create('intel', { label: 'Sighting: ' + cul.name, data: { kind: 'sighting', criminal: cul.name } });
+  h.autoSlot('reflect', s2.uid); h.autoSlot('reflect', ab.uid);
+  assert.ok(/already hunting/.test(h.preview('reflect').blocked || ''), 'no second hue and cry while the first is at trial: ' + h.preview('reflect').blocked);
+  h.clearSlots('reflect');
+  // A second hunt raised all the same (an older save): the conviction in the first calls it off.
+  var B = h.spawnCase('manhunt', { culpritName: cul.name, culpritTrait: cul.trait, criminalId: crim.id, headline: 'Sighting: ' + cul.name });
+  var recB = h.caseRec(B.caseId);
+  h.onConviction(recA, { name: cul.name, guilty: true, solid: true }, []);
+  assert.strictEqual(recB.status, 'dropped', 'the other hue and cry is called off');
+  assert.ok(!h.caseCard(recB.id), 'its card goes');
+  assert.ok(h.s.journal.some(function (j) { return /^Called Off: /.test(j.title) && j.text.indexOf(cul.name + ' is already in the Hole') === 0; }), 'and it is told');
+  // An older save's innocent Abroad card is marked on load.
+  var o = game(303);
+  var oc = o.create('atlarge', { label: 'Abroad: Old Name', desc: 'Old Name walked out of the Blood Court smiling. They were innocent, and now they hate you.', data: { name: 'Old Name', careful: true, criminalId: null } });
+  var raw = JSON.parse(o.save()); delete raw.cards[oc.uid].data.innocent;
+  var ol = CF.Engine.load(raw), olc = ol.card(oc.uid);
+  assert.ok(olc.data.innocent === true && olc.life > 0, 'an older save: the innocent is marked, with weeks to leave');
+  console.log('innocent abroad, one hunt per name: ok');
+})();

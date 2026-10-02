@@ -67,8 +67,8 @@ function run(e, verb, cards) {
   var e = game(71);
   assert.strictEqual(e.maxOpenCases(), 2, 'an Examiner gets two cases at once');
   assert.ok(!e.powerOpen('warrant'), 'no Writ for an Examiner');
-  // Reputation convenes a board; attending it promotes.
-  e.s.meters.reputation = CF.RANK_REP[1];
+  // Reputation and a record convene a board; attending it promotes.
+  e.s.meters.reputation = CF.RANK_REP[1]; e.s.stats.convictions = CF.RANK_RECORD[1];
   e.checkThresholds();
   var board = byDef(e, 'promotion')[0];
   assert.ok(board && board.data.rank === 1 && /Sworn Examiner/.test(e.labelOf(board)));
@@ -87,7 +87,7 @@ function run(e, verb, cards) {
   assert.strictEqual(byDef(e, 'funds').length, funds + CF.RANK_DEFS[1].salary - CF.ECONOMY.rent);
   // All the way up.
   while (e.s.rank < CF.TOP_RANK) {
-    e.s.meters.reputation = CF.RANK_REP[e.s.rank + 1];
+    e.s.meters.reputation = CF.RANK_REP[e.s.rank + 1]; e.s.stats.convictions = CF.RANK_RECORD[e.s.rank + 1];
     e.checkThresholds();
     run(e, 'duty', [byDef(e, 'promotion')[0]]);
   }
@@ -106,6 +106,11 @@ function run(e, verb, cards) {
   assert.strictEqual(c.countOf('chair'), 1);
   // A Seat held by the vote is still the one Seat; a failed vote waits six weeks.
   c.s.meters.reputation = 30; c.s.meters.pressure = 6;
+  // No vote without the three seals: the Council, the Bishop and the Guilds.
+  c.autoSlot('duty', byDef(c, 'chair')[0].uid);
+  assert.ok(/No vote without three seals/.test(c.preview('duty').blocked || ''), 'the seals first: ' + c.preview('duty').blocked);
+  c.clearSlots('duty');
+  c.favour().council = c.favour().bishop = c.favour().guild = CF.SEAT_PLEDGE;
   var told = function () { return c.s.journal.filter(function (l) { return l.title === 'The Seat Is Empty'; }).length; };
   var empties = told();
   var vote = run(c, 'duty', [byDef(c, 'chair')[0]]);
@@ -303,6 +308,7 @@ function run(e, verb, cards) {
   var seats = function () { return c.s.journal.filter(function (l) { return l.title === 'The Seat Is Empty'; }); };
   assert.ok(/dead of a stone/.test(seats()[0].text), 'the first Seat: a death');
   c.s.meters.pressure = 6;
+  c.favour().council = c.favour().bishop = c.favour().guild = CF.SEAT_PLEDGE;
   var vote = run(c, 'duty', [byDef(c, 'chair')[0]]);
   var chosen = c.s.flags.burgomaster;
   assert.ok(chosen && vote.story.text.indexOf('chooses ' + chosen + ' of the Hill') > 0, 'the Council\'s choice is named: ' + vote.story.text);
@@ -330,4 +336,78 @@ function run(e, verb, cards) {
   var txt = typeof dp === 'function' ? dp({ caseOf: function () { return null; }, primary: null }) : dp;
   assert.ok(new RegExp('every ' + CF.daysLeft(CF.DELEGATE_EVERY) + ' days').test(txt) && !/minute/.test(txt), txt);
   console.log('seat and cap: ok');
+})();
+
+// ---- Lane 1, items 49-56: rank waits for the record; an office's crimes come a week on; the Seat is a campaign ----
+(function recordAndTiers() {
+  // Standing alone does not bring the letter: the record does too, and the Council says so once.
+  var e = game(401);
+  e.s.stats.convictions = 0; e.s.meters.reputation = CF.RANK_REP[1];
+  assert.strictEqual(e.recordShort(), CF.RANK_RECORD[1], 'the record still wanted');
+  e.checkThresholds(); e.checkThresholds();
+  assert.strictEqual(byDef(e, 'promotion').length, 0, 'no letter without the record');
+  var held = e.s.journal.filter(function (j) { return j.title === 'The Council Knows Your Name'; });
+  assert.strictEqual(held.length, 1, 'told once');
+  assert.ok(/wants one more case answered before it writes for the office of Sworn Examiner\./.test(held[0].text), held[0].text);
+  e.s.stats.convictions = CF.RANK_RECORD[1];
+  e.checkThresholds();
+  assert.strictEqual(byDef(e, 'promotion').length, 1, 'the record met: the letter');
+  // Wrong names count against it; a settlement counts for it.
+  var w = game(402);
+  w.s.rank = 1; w.s.stats.convictions = CF.RANK_RECORD[2]; w.s.stats.wrongful = 1;
+  assert.strictEqual(w.recordShort(), 1, 'a wrong name is not a case answered');
+  w.s.stats.settled = 1;
+  assert.strictEqual(w.recordShort(), 0, 'a settlement is');
+  w.s.meters.reputation = CF.RANK_REP[2]; w.s.stats.settled = 0; w.checkThresholds();
+  assert.ok(/wants one more case answered/.test(w.s.journal[0].text), w.s.journal[0].text);
+
+  // Promoted: the office's harder crimes and charges come from the next week.
+  var p = game(403);
+  p.s.rank = 1; p.s.week = 7; p.promote();
+  assert.strictEqual(p.s.rank, 2);
+  assert.strictEqual(p.s.rankWeek, 7);
+  assert.strictEqual(p.caseRank(), 1, 'the week of the promotion: the old office\'s cases');
+  assert.ok(p.casePool().indexOf('witch') < 0, 'no new tier yet');
+  assert.strictEqual(p.caseClock(), 1.6, 'and the old clock');
+  var c1 = p.spawnCase('burglary', { quiet: true }), r1 = p.caseRec(c1.caseId);
+  p.s.week = 8;
+  assert.strictEqual(p.caseRank(), 2);
+  assert.ok(p.casePool().indexOf('witch') >= 0, 'a week on, the new tier');
+  var c2 = p.spawnCase('burglary', { quiet: true }), r2 = p.caseRec(c2.caseId);
+  var key = CF.CASE_TEMPLATES.burglary.keyAspects[0];
+  if (!r1.highProfile && !r2.highProfile) assert.ok(r2.charge[key] > r1.charge[key], 'the Bailiff\'s charge wants more, from the week after: ' + r1.charge[key] + ' then ' + r2.charge[key]);
+  // An older save starts with no promotion week.
+  var raw = JSON.parse(game(404).save()); delete raw.rankWeek;
+  var lo = CF.Engine.load(raw);
+  assert.strictEqual(lo.s.rankWeek, -1, 'an older save: no promotion week');
+  assert.strictEqual(lo.caseRank(), lo.s.rank);
+
+  // The Seat: four weeks in the red gown first, then the vote wants the three seals.
+  var c = game(405, 'commissioner');
+  c.s.rank = 2; c.s.week = 20; c.s.stats.convictions = 10; c.promote();
+  c.s.meters.reputation = 30;
+  c.checkThresholds();
+  assert.strictEqual(c.countOf('chair'), 0, 'not in the first weeks at Magistrate');
+  c.s.week = 20 + CF.SEAT_WEEKS - 1; c.checkThresholds();
+  assert.strictEqual(c.countOf('chair'), 0);
+  c.s.week = 20 + CF.SEAT_WEEKS; c.checkThresholds();
+  assert.strictEqual(c.countOf('chair'), 1, CF.SEAT_WEEKS + ' weeks on, the Seat');
+  assert.ok(/The vote wants three seals/.test(c.s.journal.filter(function (j) { return j.title === 'The Seat Is Empty'; })[0].text), 'the seals are named');
+  c.favour().council = 1; c.favour().bishop = 1; c.favour().guild = 0;
+  var pl = c.seatPledges();
+  assert.ok(pl.council && pl.bishop && !pl.guild && pl.n === 2 && !pl.all, JSON.stringify(pl));
+  c.autoSlot('duty', byDef(c, 'chair')[0].uid);
+  assert.ok(/Pledged: 2 of 3\./.test(c.preview('duty').blocked || ''), c.preview('duty').blocked);
+  c.clearSlots('duty');
+  // While a seal is wanted, that power's work comes to the desk.
+  var asked = { guild: 0, other: 0 };
+  for (var i = 0; i < 200; i++) { var com = c.commissionFor({ template: 'burglary', suspects: [{ key: 'a' }] }, CF.CASE_TEMPLATES.burglary); if (com) { if (com.from === 'guild') asked.guild++; else asked.other++; } }
+  assert.ok(asked.guild > 0 && asked.other === 0, 'the Guilds send the work their seal waits on: ' + JSON.stringify(asked));
+  c.favour().guild = 1;
+  c.s.meters.pressure = 0; c.s.meters.scrutiny = 0;
+  c.autoSlot('duty', byDef(c, 'chair')[0].uid);
+  assert.ok(!c.preview('duty').blocked && c.start('duty'), 'three seals: the vote is called');
+  c.tick(c.verb('duty').duration + 0.01);
+  assert.ok(c.s.over && c.s.over.id === 'commissioner', 'three seals, a quiet city: the Seat');
+  console.log('record, tiers a week on, the Seat as a campaign: ok');
 })();

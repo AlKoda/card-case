@@ -14,6 +14,8 @@ console.error = function (err) { throw err; };
 
 function game(seed, calling) { return CF.Engine.newGame({ seed: seed, calling: calling }); }
 function byDef(e, d) { return e.tableCards().filter(function (c) { return c.def === d; }); }
+// The work has changed you: the city asks, and the answer takes the new road (1) or keeps the old (0).
+function answerDrift(e, i) { return !!(e.s.choice && e.s.choice.id === 'drift') && e.choose(i); }
 function callingCards(e) { return e.tableCards().filter(function (c) { return CF.CARDS[c.def].kind === 'calling'; }); }
 
 // The chosen calling is a leaning with a head start.
@@ -23,8 +25,13 @@ assert.deepStrictEqual(e.s.paths, { commissioner: 0, master: CF.Callings.SEED, c
 assert.strictEqual(callingCards(e)[0].def, 'calling_master');
 
 // Play the Commissioner's game: the run drifts, and the card follows.
-var flipped = false, journal0 = e.s.journal.length;
-for (var i = 0; i < 10 && !flipped; i++) flipped = e.pathGain('commissioner', 1, 'test');
+var flipped = false, journal0 = e.s.journal.length, asked = null;
+for (var i = 0; i < 10 && !flipped; i++) {
+  assert.strictEqual(e.pathGain('commissioner', 1, 'test'), false, 'the calling never turns by itself');
+  if (e.s.choice && e.s.choice.id === 'drift') { asked = e.s.choice; flipped = answerDrift(e, 1) && e.s.calling === 'commissioner'; }
+}
+assert.ok(asked && asked.title === 'The Work Has Changed You' && asked.options.length === 2, 'the city asks first');
+assert.ok(/^You meant to be the Scholar\. /.test(asked.text), asked.text);
 assert.ok(flipped, 'the calling changed');
 assert.strictEqual(e.s.calling, 'commissioner');
 assert.strictEqual(e.s.origin, 'master', 'where you started is remembered');
@@ -41,6 +48,7 @@ assert.strictEqual(e.countOf('chair'), 1, 'the Commissioner ending is open');
 var c = game(82, 'commissioner');
 assert.strictEqual(e.meterMax('scrutiny'), 10);
 c.pathGain('crusader', 2, 'a gang'); c.pathGain('crusader', 2, 'a gang'); c.pathGain('crusader', 3, 'the syndicate');
+assert.ok(answerDrift(c, 1));
 assert.strictEqual(c.s.calling, 'crusader');
 assert.strictEqual(c.meterMax('scrutiny'), 10, 'the starting bonus belongs to the origin, not the drift');
 var k = byDef(c, 'case')[0], rec = c.caseRec(k.caseId);
@@ -58,6 +66,7 @@ m.autoSlot('reflect', byDef(m, 'looseend')[0].uid);
 assert.ok(/not yours/.test(m.preview('reflect').blocked || ''), 'not yet');
 m.clearSlots('reflect');
 m.pathGain('master', 2, 'a connection'); m.pathGain('master', 2, 'a connection'); m.pathGain('master', 2, 'a connection'); m.pathGain('master', 1, 'an identification');
+assert.ok(answerDrift(m, 1));
 assert.strictEqual(m.s.calling, 'master');
 assert.strictEqual(m.meterMax('scrutiny'), 12, 'still the origin\'s bonus');
 byDef(m, 'looseend').forEach(function (le) { m.autoSlot('reflect', le.uid); });
@@ -66,7 +75,7 @@ m.clearSlots('reflect');
 
 // Play feeds the paths.
 var g = game(84, 'master');
-g.s.meters.reputation = CF.RANK_REP[1]; g.checkThresholds();
+g.s.meters.reputation = CF.RANK_REP[1]; g.s.stats.convictions = CF.RANK_RECORD[1]; g.checkThresholds();
 var board = byDef(g, 'promotion')[0];
 g.autoSlot('duty', board.uid); g.start('duty'); g.tick(46);
 assert.strictEqual(g.s.paths.commissioner, 0, 'a promotion is not Power for a Master Detective');
@@ -117,6 +126,7 @@ assert.strictEqual(pg.s.paths.crusader, p0 + 2, 'and again a month on');
 // A Crusader nudged toward the Chair by promotions still ends as the Crusader when the Syndicate falls.
 var n = game(85, 'crusader');
 n.pathGain('commissioner', 4, 'promotions'); n.pathGain('commissioner', 3, 'calm');
+assert.ok(answerDrift(n, 1));
 assert.strictEqual(n.s.calling, 'commissioner', 'drifted');
 assert.ok(n.pathOpen('crusader'), 'Justice is not clearly behind');
 var nk = byDef(n, 'case')[0], nr = n.caseRec(nk.caseId);
@@ -125,6 +135,7 @@ n.onConviction(nr, { guilty: true, solid: true }, []);
 assert.ok(n.s.over && n.s.over.id === 'crusader', 'the Syndicate\'s fall is still the Crusader\'s ending');
 var far = game(86, 'master');
 far.pathGain('commissioner', 12, 'a career');
+assert.ok(answerDrift(far, 1));
 assert.ok(!far.pathOpen('crusader'), 'but not for someone who never walked that path');
 
 // Saves keep the drift; the bot's summary of the three paths reads.
@@ -142,6 +153,8 @@ console.log('callings: drift, card, endings from any start, origin bonus kept, p
   d.pathGain('commissioner', 1, 'built the Belfry');
   d.pathGain('commissioner', 1, 'promoted');
   d.pathGain('commissioner', 3, 'reopened a cold case');
+  assert.ok(/: a cold case opened again; a letter of office; masons in the Belfry\. Keep to your road/.test(d.s.choice.text), 'the question names the deeds: ' + d.s.choice.text);
+  assert.ok(answerDrift(d, 1));
   assert.strictEqual(d.s.calling, 'commissioner', 'the calling turned');
   var j = d.s.journal.filter(function (x) { return x.title === 'Your Calling Changes'; })[0];
   assert.ok(j, 'told');
@@ -154,7 +167,9 @@ console.log('callings: drift, card, endings from any start, origin bonus kept, p
   assert.strictEqual(CF.Callings.deed('a calm fortnight', true), 'calm fortnight after calm fortnight');
   var q = game(92, 'crusader');
   q.s.paths.master = 20; q.checkDrift();
-  assert.ok(/The work had other ideas\./.test(q.s.journal[0].text), q.s.journal[0].text);
+  assert.ok(answerDrift(q, 1));
+  var qj = q.s.journal.filter(function (x) { return x.title === 'Your Calling Changes'; })[0];
+  assert.ok(qj && /The work had other ideas\./.test(qj.text), qj && qj.text);
   console.log('calling deeds: ok');
 })();
 
@@ -166,4 +181,26 @@ console.log('callings: drift, card, endings from any start, origin bonus kept, p
     assert.ok(/^Your ending: /.test(w) && ends[k].test(w), k + ': ' + w);
   });
   console.log('calling wins: ok');
+})();
+
+// ---- The work has changed you: a question with a visible return, never a silent turn ----
+(function keepRoad() {
+  var k = game(93, 'crusader');
+  for (var i = 0; i < 8 && !k.s.choice; i++) k.pathGain('commissioner', 1, 'a calm fortnight');
+  assert.ok(k.s.choice && k.s.choice.id === 'drift', 'asked');
+  assert.strictEqual(k.s.calling, 'crusader', 'not turned while asked');
+  // The question survives a save.
+  var kl = CF.Engine.load(k.save());
+  assert.ok(kl.s.choice && kl.s.choice.id === 'drift' && kl.s.choice.options.length === 2, 'kept in the save');
+  var rep = kl.s.meters.reputation;
+  assert.ok(kl.choose(0), 'keep to your road');
+  assert.strictEqual(kl.s.calling, 'crusader', 'the calling holds');
+  assert.strictEqual(kl.s.meters.reputation, rep + 1, 'Standing +1');
+  assert.ok(kl.s.paths.commissioner <= kl.s.paths.crusader, 'the other road falls back level');
+  assert.ok(!kl.s.journal.some(function (j) { return j.title === 'Your Calling Changes'; }), 'no turn told');
+  assert.ok(kl.s.journal.some(function (j) { return j.title === 'The Work Has Changed You: Keep to your road'; }), 'the answer is told');
+  // Asked again only after as much again of the other work.
+  kl.pathGain('commissioner', 1, 'a calm fortnight');
+  assert.ok(!kl.s.choice, 'not at the next deed');
+  console.log('keep to your road: ok');
 })();

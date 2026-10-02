@@ -87,7 +87,7 @@ function dur(e, verb, cards) {
   hang.s.rank = 2; hang.s.meters.reputation = 99;
   hang.checkThresholds();
   assert.strictEqual(hang.cardsWith('promotion').length, 0, 'no letter for the Hangman');
-  none.s.rank = 2; none.s.meters.reputation = 99;
+  none.s.rank = 2; none.s.meters.reputation = 99; none.s.stats.convictions = CF.RANK_RECORD[3];
   none.checkThresholds();
   assert.strictEqual(none.cardsWith('promotion').length, 1, 'the letter comes for anyone else');
   // The Advocate reads the file: the first search turns up the culprit's mark.

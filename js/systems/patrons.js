@@ -37,12 +37,16 @@
   };
 
   // Which patron, if any, commissions a freshly spawned case.
+  // While the Seat waits on a power's seal, that power sends work twice as
+  // often, and sends it whenever the crime is of its kind.
   P.commissionFor = function (rec, T) {
-    if (T.special || this.rng() >= Pat.CHANCE) return null;
+    var want = this.cardsOf('chair', true).length && this.seatPledges ? this.seatPledges() : null;
+    if (T.special || this.rng() >= Pat.CHANCE * (want && !want.all ? 2 : 1)) return null;
     var pool = ['council'];
     if (['burglary', 'fraud', 'coining', 'extortion'].indexOf(rec.template) >= 0) pool.push('guild');
     if (['harbor', 'missing', 'poison', 'arson', 'burglary'].indexOf(rec.template) >= 0) pool.push('bishop');
-    var from = U.pick(this.rng, pool);
+    var lacking = want ? pool.filter(function (k) { return !want[k]; }) : [];
+    var from = U.pick(this.rng, lacking.length ? lacking : pool);
     var com = { from: from };
     if (from === 'council') {
       // One of the accused is of a Council family. The Council would rather it were not them.

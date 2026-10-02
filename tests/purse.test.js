@@ -131,14 +131,35 @@ function run(e, verb, cards) {
   e2.s.stats.wrongful = 2;
   e2.checkPurseEndings();
   assert.ok(!e2.s.over, 'the ending waits on the counts still holding');
+  // The Old Bailey is told first too (the Brother's Ledger), and lands on a later Bell.
   var f = game(10);
   f.s.counts.purse = 6; f.s.stats.wrongful = 3;
+  f.checkPurseEndings();
+  assert.ok(!f.s.over && f.s.flags.oldbaileyWarned && f.s.journal[0].title === 'The Brother\'s Ledger', 'the Old Bailey is told before it lands');
   f.checkPurseEndings();
   assert.ok(f.s.over && f.s.over.id === 'oldbailey' && !f.s.over.win, 'lost to greed: the Old Bailey');
   var g = game(11);
   g.s.counts.purse = 6; g.s.counts.debt = 4;
-  g.checkPurseEndings();
+  g.checkPurseEndings(); g.checkPurseEndings();
   assert.strictEqual(g.s.over.id, 'oldbailey', 'or the debt does it');
+  // A step short (a debt away): told while it can still be refused, and the refusal holds.
+  var near = game(15);
+  near.s.counts.purse = 6; near.s.counts.debt = 3;
+  near.checkPurseEndings();
+  assert.ok(!near.s.over && near.s.flags.oldbaileyWarned, 'one step short: the warning');
+  assert.ok(/Another purse, another wrong name or another debt to the thief-takers/.test(near.s.journal[0].text), 'it says what to refuse: ' + near.s.journal[0].text);
+  near.checkPurseEndings(); near.checkPurseEndings();
+  assert.ok(!near.s.over, 'refused, the Old Bailey does not come');
+  near.s.counts.debt = 4;
+  near.checkPurseEndings();
+  assert.strictEqual(near.s.over && near.s.over.id, 'oldbailey', 'one more debt after the warning, and it lands');
+  var far = game(17);
+  far.s.counts.purse = 4; far.s.counts.debt = 3;
+  far.checkPurseEndings();
+  assert.ok(!far.s.flags.oldbaileyWarned, 'two purses short: no warning yet');
+  // An older save starts with no warning given.
+  var ob = JSON.parse(game(16).save()); delete ob.flags.oldbaileyWarned;
+  assert.strictEqual(CF.Engine.load(ob).s.flags.oldbaileyWarned, false, 'an older save: no warning yet');
   var h = game(12);
   h.s.counts.purse = 3; h.s.stats.wrongful = 3;
   h.checkPurseEndings();

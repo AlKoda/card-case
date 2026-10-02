@@ -88,6 +88,12 @@ function step(e, temper) {
     else if (temper === 'brutal') pick = rungs[rungs.length - 1];
     else if (temper === 'corrupt') pick = pleas.some(function (p) { return p.data.purse; }) ? rungs[0] : rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
     else pick = rungs.filter(function (r) { return r.data.rung === cond.data.custom; })[0] || rungs[0];
+    // One who wants the Seat answers the Bishop's and the Guilds' commissions as they wish: their seals vote.
+    var crec = e.caseRec(cond.data.caseId || cond.caseId), com = crec && crec.commission;
+    if (com && s.calling === 'commissioner' && (com.from === 'bishop' || com.from === 'guild')) {
+      var wish = com.from === 'bishop' ? ['fine', 'pardon'] : ['fine', 'pillory'];
+      pick = rungs.filter(function (r) { return wish.indexOf(r.data.rung) >= 0; })[0] || pick;
+    }
     var purse = pleas.filter(function (p) { return p.data.purse; })[0];
     if (pick) tryRun(e, 'sentence', [cond, pick, temper === 'corrupt' && purse ? purse : pleas[0]]);
   }
@@ -107,7 +113,10 @@ function step(e, temper) {
 
   // Duty: career, then money.
   var career = of(e, 'promotion')[0] || of(e, 'promo_inspector')[0] || of(e, 'promo_chief')[0] || of(e, 'chair')[0];
+  // The Coquille on the table and the Vendetta high: the Watch on its stair comes before the fee.
+  var coq = of(e, 'syndicate')[0];
   if (career) tryRun(e, 'duty', [career]);
+  else if (coq && team.length && s.meters.retaliation >= 3 && tryRun(e, 'duty', [coq, team[0]])) { /* posted */ }
   else if (of(e, 'paperwork').length && s.meters.scrutiny > 0) tryRun(e, 'duty', [of(e, 'focus')[0], of(e, 'paperwork')[0]]);
   else if (funds.length < 6 && fatigue === 0 && of(e, 'health')[0]) tryRun(e, 'duty', [of(e, 'health')[0]]);
   else if (funds.length < 4 && of(e, 'focus')[0]) tryRun(e, 'duty', [of(e, 'focus')[0]]);
@@ -173,9 +182,10 @@ function step(e, temper) {
   else if (of(e, 'instinct')[0]) tryRun(e, 'investigate', [of(e, 'instinct')[0]]);
   var ucTarget = of(e, 'syndicate')[0] || of(e, 'gang')[0] || al;
   if (ucTarget && s.rank >= 2 && of(e, 'health').length) tryRun(e, 'investigate', [ucTarget, of(e, 'instinct')[0], team[1] || team[0]]);
-  // Below Bailiff a band is fought from the Watch-house: a watchman on its stair, hired if need be.
-  var band = of(e, 'gang')[0];
-  if (band && s.rank < 2) {
+  // Below Bailiff a band, or the Coquille, is fought from the Watch-house: a watchman on its stair, hired if need be.
+  // Above it, a watchman still cools the Coquille's Vendetta when it runs high.
+  var band = of(e, 'gang')[0] || of(e, 'syndicate')[0];
+  if (band && (s.rank < 2 || (band.def === 'syndicate' && s.meters.retaliation >= 3))) {
     if (team.length) tryRun(e, 'duty', [band, team[0]]);
     else { var letter = of(e, 'personnel')[0]; if (letter && funds.length >= CF.costOf(letter)) tryRun(e, 'duty', [letter].concat(funds.slice(0, CF.costOf(letter)))); }
   }
@@ -195,7 +205,7 @@ var GAMES = +process.argv[2] || 45;
 var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
-var earlyCoquille = 0, drifts = {};
+var earlyCoquille = 0, drifts = {}, attacks = {}, seatWins = [];
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
@@ -215,6 +225,9 @@ for (var g = 0; g < GAMES; g++) {
       !e.s.journal.some(function (j) { return j.title === 'The Coquille' && /^The bands have stopped/.test(j.text); })) early = true;
   }
   if (early) earlyCoquille++;
+  attacks[calling] = attacks[calling] || { runs: 0, n: 0 };
+  attacks[calling].runs++; attacks[calling].n += e.s.stats.attacks || 0;
+  if (e.s.over && e.s.over.id === 'commissioner') seatWins.push(e.s.week);
   // The calling drifts only when the work has really changed: Power no longer grows from promotions and calm
   // weeks for a run that does not want it.
   drifts[calling] = drifts[calling] || { runs: 0, drifted: 0 };
@@ -283,6 +296,7 @@ console.log('counts per game', JSON.stringify(Object.keys(counts).reduce(functio
 console.log('recipes never run:', CF.RECIPES.map(function (r) { return r.id; }).filter(function (id) { return !seen[id]; }).join(', ') || 'none');
 console.log('insights earned', insights, '| bands formed', bands.length, '| Bailiff by week 20 in', rank2By20, 'games');
 console.log('callings drifted', JSON.stringify(drifts));
+console.log('attacks per game by calling', JSON.stringify(Object.keys(attacks).reduce(function (o, k) { o[k] = +(attacks[k].n / attacks[k].runs).toFixed(2); return o; }, {})), '| the Seat won at weeks', JSON.stringify(seatWins.sort(function (a, b) { return a - b; })));
 console.log('per game: needs met', (needsMet / GAMES).toFixed(2), '| abilities lost', (lost / GAMES).toFixed(2), '| choices answered', (choices / GAMES).toFixed(2));
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
 // The city teaches: Insights are earned in play.
@@ -307,6 +321,14 @@ assert.ok(dismissed < GAMES / 2, 'dismissed in ' + dismissed + ' of ' + GAMES);
 // bands build it themselves), and no calling is dismissed by the Crowd in most of its games. The
 // bot never goes in Disguise, so the bound is a loose one.
 assert.strictEqual(earlyCoquille, 0, 'a Crusader met the Coquille below Bailiff in ' + earlyCoquille + ' games');
+// The Reformer's Coquille is answered from the Watch-house too (the Watch on its stair): the calling
+// that is about breaking it is not beaten on the stair more than twice as often as the others.
+var atkPer = function (k) { return attacks[k] ? attacks[k].n / attacks[k].runs : 0; };
+var atkOthers = (atkPer('commissioner') + atkPer('master')) / 2;
+assert.ok(atkPer('crusader') <= 2 * Math.max(1, atkOthers), 'Reformer attacks per game ' + atkPer('crusader').toFixed(2) + ' against ' + atkOthers.toFixed(2));
+// The Seat is a campaign, not a stroll: it is won, and not before week twenty in the middle game.
+assert.ok(seatWins.length >= 1, 'the Burgomaster ending is reached');
+assert.ok(seatWins[Math.floor((seatWins.length - 1) / 2)] > 20, 'the median Seat is won after week 20: ' + JSON.stringify(seatWins));
 // The calling holds: at most one run in eight drifts away from what the player chose.
 Object.keys(drifts).forEach(function (cl) {
   assert.ok(drifts[cl].drifted * 8 <= Math.max(8, drifts[cl].runs), cl + ' drifted in ' + drifts[cl].drifted + ' of ' + drifts[cl].runs);

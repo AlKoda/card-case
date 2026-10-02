@@ -75,7 +75,7 @@
     court.king = { name: best.name, trait: best.trait, criminalId: best.id };
     this.abroadCard(best, 'Crowned King of Thunes under the Warrens.');
     var card = this.cardsOf('syndicate', true)[0];
-    if (card) card.desc = 'The bands have sworn to one shell now, and the shell has a king: ' + best.name + ', the King of Thunes, on a barrel in a cellar under the Warrens. The Vendetta surges every week. Go in Disguise: with the ledger, to break it; with Wit, to parley; with Instinct and Coin, to be tried by its court and stay.';
+    if (card) card.desc = 'The bands have sworn to one shell now, and the shell has a king: ' + best.name + ', the King of Thunes, on a barrel in a cellar under the Warrens. The Vendetta surges every week. Go in Disguise: with the ledger, to break it; with Wit, to parley; with Instinct and Coin, to be tried by its court and stay.' + (this.s.rank < 2 ? ' Until you carry the Bailiff\'s staff you cannot go among them: post the Watch on its stair.' : '');
     return best;
   };
 

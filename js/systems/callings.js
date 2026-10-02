@@ -50,11 +50,56 @@
     return best;
   };
 
-  // Another path has pulled clearly ahead: the run drifts.
+  // Another path has pulled clearly ahead. The run does not drift by itself:
+  // the city asks (The Work Has Changed You), and the answer keeps the road
+  // or takes the new one. Without a way to ask (no questions in this build,
+  // the run over), it drifts as before. Returns true if the calling changed.
   P.checkDrift = function () {
     this.initPaths();
     var s = this.s, lead = this.dominantPath();
     if (lead === s.calling || s.paths[lead] < s.paths[s.calling] + Callings.MARGIN) return false;
+    if (s.over) return false;
+    if (this.offerChoice && Callings.register()) {
+      if (s.choice) return false; // one question at a time; asked when this one is answered
+      var from = s.calling, deeds = Callings.deeds(this, lead);
+      var spec = U.clone(Callings.CHOICE);
+      spec.options = Callings.CHOICE.options;
+      spec.text = deeds
+        ? U.fill('You meant to be {from}. Look at what you have done instead: {deeds}. Keep to your road, or take the one you are on.', { from: Callings.inProse(from), deeds: deeds })
+        : U.fill('You meant to be {from}. The work has had other ideas. Keep to your road, or take the one you are on.', { from: Callings.inProse(from) });
+      this.offerChoice(spec, { path: lead, from: from });
+      return false;
+    }
+    return this.driftTo(lead);
+  };
+  // The question, kept in CF.CHOICES so a save can hold it open (never asked by the clock).
+  Callings.CHOICE = { id: 'drift', when: function () { return false; },
+    title: 'The Work Has Changed You', text: 'The work has changed you.',
+    options: [
+      { label: 'Keep to your road', gain: 'Your calling holds; Standing +1', text: 'You read your own name in the Rolls and remember why you wrote it there. The Council notices an examiner who knows their own mind.',
+        effect: function (e, ctx) { e.keepCalling(ctx && ctx.path); } },
+      { label: 'Take the new road', gain: 'Your calling changes, and your ending with it', text: 'You stop telling yourself otherwise.',
+        effect: function (e, ctx) { e.driftTo(ctx && ctx.path); } },
+    ] };
+  Callings.register = function () {
+    if (!CF.CHOICES) return false;
+    if (!CF.CHOICES.some(function (c) { return c.id === 'drift'; })) CF.CHOICES.push(Callings.CHOICE);
+    return true;
+  };
+  // Kept to the road: the other path falls back level with your own, so the
+  // question waits for as much again of the other work.
+  P.keepCalling = function (path) {
+    this.initPaths();
+    var s = this.s;
+    if (path && path !== s.calling && s.paths[path] > s.paths[s.calling]) s.paths[path] = s.paths[s.calling];
+    this.meter('reputation', 1);
+    this.dirty = true;
+  };
+  // The calling changes: the card on the table, and the journal says why.
+  P.driftTo = function (lead) {
+    this.initPaths();
+    var s = this.s;
+    if (!lead || lead === s.calling || !CF.CALLINGS[lead]) return false;
     var from = s.calling;
     s.calling = lead;
     var card = null;

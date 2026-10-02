@@ -88,7 +88,11 @@
     // The Council hears only an officer with the Standing for the Seat: a vote lost costs Standing, and it must be earned back first.
     blocked: function (ctx) {
       var rep = ctx.e.s.meters.reputation || 0;
-      return rep >= CF.COMMISSIONER_REP ? null : U.fill('The Council hears only an officer of Standing {need}. You have {have}.', { need: CF.COMMISSIONER_REP, have: rep });
+      if (rep < CF.COMMISSIONER_REP) return U.fill('The Council hears only an officer of Standing {need}. You have {have}.', { need: CF.COMMISSIONER_REP, have: rep });
+      // The three seals: the Council, the Bishop and the Guilds each pledge, or there is no vote.
+      var pl = ctx.e.seatPledges();
+      if (!pl.all) return U.fill('No vote without three seals: the Council, the Bishop and the Guilds, each at Favour {need}. Pledged: {n} of 3. Answer their commissions as they wish.', { need: CF.SEAT_PLEDGE, n: pl.n });
+      return null;
     },
     requires: ['chair'],
     run: function (ctx) {
@@ -190,12 +194,26 @@
   });
   R.push({
     id: 'duty_post_watch', verb: 'duty', label: 'Post the Watch', duration: 30,
-    preview: 'A watchman on the cellar stair every night for a week. The band drinks elsewhere, and somebody is seen going home.',
-    requires: { primary: 'gang', aspects: ['teammate'] },
+    preview: function (ctx) {
+      return ctx.primary && ctx.primary.def === 'syndicate' ? 'A watchman on the cellar stair under the Warrens every night for a week. The Court drinks behind a shut door, and now and then a leaf falls on the stair.'
+        : 'A watchman on the cellar stair every night for a week. The band drinks elsewhere, and somebody is seen going home.';
+    },
+    requires: { primary: ['gang', 'syndicate'], aspects: ['teammate'] },
     run: function (ctx) {
       var e = ctx.e, band = ctx.primary, guard = ctx.first('teammate');
       e.meter('retaliation', -1);
-      var sworn = e.cardsOf('atlarge').filter(function (c) { return c.data.band === band.data.name && !(c.data.hunted && e.caseRec(c.data.hunted) && e.caseRec(c.data.hunted).status === 'open'); });
+      // The Coquille: the Vendetta cools, and at most once a fortnight a leaf of its ledger drops on the stair.
+      if (band.def === 'syndicate') {
+        e.s.flags.coqWatched = e.s.week; // this week's surge is a band's, not the Court's
+        var last = e.s.flags.coqWatchWeek;
+        if ((typeof last !== 'number' || e.s.week - last >= 2) && ctx.rng() < 0.4) {
+          e.s.flags.coqWatchWeek = e.s.week;
+          ctx.give('ledger');
+          return { title: 'A Leaf on the Stair', text: U.fill('{name} stands on the cellar stair all week. On the last night a man in a hurry drops a leaf of paper and does not come back for it.', { name: guard.data.name || e.labelOf(guard) }) };
+        }
+        return { title: 'Watched', text: 'The Court drinks behind a shut door this week, and keeps its hands off your stair. The Vendetta cools a little.' };
+      }
+      var sworn = e.cardsOf('atlarge').filter(function (c) { return c.data.band === band.data.name && e.huntable(c); });
       if (sworn.length && ctx.rng() < 0.4 && e.roomForCase(1)) {
         var al = U.pick(ctx.rng, sworn);
         var card = e.spawnCase('manhunt', { ctx: ctx, culpritName: al.data.name, culpritTrait: al.data.trait, atLargeUid: al.uid, criminalId: al.data.criminalId,
@@ -355,7 +373,7 @@
         }
         if (e.revealSuspect(rec, ctx)) return { title: 'A Name', text: 'A tapster in ' + dl + ' gives you a name connected to ' + rec.title + '. Then he asks you to leave.' };
       }
-      var al = e.cardsOf('atlarge').filter(function (c) { return !c.data.hunted || !e.caseRec(c.data.hunted) || e.caseRec(c.data.hunted).status !== 'open'; });
+      var al = e.cardsOf('atlarge').filter(function (c) { return e.huntable(c); });
       var heat = al.reduce(function (h, c) { var r = c.data.criminalId ? e.criminal(c.data.criminalId) : e.criminalByName(c.data.name); return Math.max(h, r ? r.heat || 0 : 0); }, 0);
       if (al.length && ctx.rng() < 0.45 + 0.1 * heat && e.roomForCase(1)) {
         var t = U.pick(ctx.rng, al);
@@ -512,7 +530,7 @@
       return told;
       }
       return { title: first ? 'At the Scene' : 'Back at the Scene',
-        text: (first ? 'You go in past the beadle at ' + rec.scene + '. ' : 'You go back over ' + rec.scene + '. ') + 'You find: ' + found.join(', ') + '. ' + extra.join(' ') + (read ? ' You read the file before you went in, as an advocate does, and knew what to look for.' : '') };
+        text: (first ? 'You go in past the beadle at ' + rec.scene + '. ' : 'You go back over ' + rec.scene + '. ') + 'You find: ' + found.join(' · ') + '. ' + extra.join(' ') + (read ? ' You read the file before you went in, as an advocate does, and knew what to look for.' : '') };
     },
   });
 
@@ -919,7 +937,7 @@
     if (r.data.heat >= 2) {
       e.remove(r);
       e.s.flags.rivalGone = e.s.week + 8;
-      e.meter('reputation', 2);
+      e.meter('reputation', 1);
       e.favour().council += 1;
       return { title: 'The Rival Exposed', text: text + ' The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.', kind: 'major' };
     }
@@ -1135,7 +1153,12 @@
   R.push({
     id: 'ref_cold_atlarge', verb: 'reflect', label: 'Old Ghosts', duration: 30,
     preview: 'The unanswered case and the one who walked. Think about where they would go.',
-    blocked: function (ctx) { return ctx.e.roomForCase(1) ? null : 'The desk is full. Close or let go of a case before you raise the hue and cry.'; },
+    blocked: function (ctx) {
+      var al = ctx.first('atlarge');
+      if (al && al.data.innocent) return CF.INNOCENT_NO_HUNT;
+      if (al && ctx.e.huntRunning(al)) return 'You are already hunting them.';
+      return ctx.e.roomForCase(1) ? null : 'The desk is full. Close or let go of a case before you raise the hue and cry.';
+    },
     requires: ['coldcase', 'atlarge'],
     run: function (ctx) {
       var e = ctx.e;
@@ -1246,7 +1269,8 @@
       var al = ctx.first('atlarge');
       if (!al) return 'Add the Abroad card of the person who was seen.';
       if (al.data.name !== ctx.primary.data.criminal) return 'That is not who was seen.';
-      if (al.data.hunted && ctx.e.caseRec(al.data.hunted) && ctx.e.caseRec(al.data.hunted).status === 'open') return 'You are already hunting them.';
+      if (al.data.innocent) return CF.INNOCENT_NO_HUNT;
+      if (ctx.e.huntRunning(al)) return 'You are already hunting them.';
       if (!ctx.e.roomForCase(1)) return 'The desk is full. Close or let go of a case before you raise the hue and cry.';
       return null;
     },
@@ -1744,6 +1768,8 @@
     danger: function (ctx) { return (ctx.e.blowWouldKill() ? 'You already carry a Wound: another will kill you. ' : '') + 'Dangerous: you may be Wounded' + (ctx.has('teammate') ? ' (a second halves the risk)' : ''); },
     blocked: function (ctx) {
       if (!ctx.has('instinct')) return ctx.has('focus') && (ctx.has('syndicate') || ctx.primary.def === 'front') ? null : 'You need Instinct to hold a cover.';
+      if (ctx.primary.def === 'atlarge' && ctx.primary.data.innocent) return CF.INNOCENT_NO_HUNT;
+      if (ctx.primary.def === 'atlarge' && ctx.e.huntRunning(ctx.primary)) return 'You are already hunting them.';
       if (ctx.primary.def === 'atlarge' && !ctx.e.roomForCase(1)) return 'The desk is full. Close or let go of a case before you raise the hue and cry.';
       var g = ctx.first('gang') || (ctx.primary.def === 'front' ? ctx.e.cardsOf('gang').filter(function (x) { return x.data.name === ctx.primary.data.gang; })[0] : null);
       if (g && g.data.caseId && ctx.e.caseRec(g.data.caseId) && ctx.e.caseRec(g.data.caseId).status === 'open') return 'You already have an operation running against them.';
