@@ -38,6 +38,9 @@
     eumenides: ['coccult-03', 'imyst-07'], pattern: ['coccult-06', 'icrime-05'], threedays: ['csign-06', 'icrime-02'], manhunt: ['ccrime-08', 'ilaw-18'],
     gang: ['ccrime-05', 'icrime-22'], syndicate: ['cherald2-07', 'icrime-19'], architect: ['csign-04', 'icrime-16'] };
   var CASE_DEFAULT = ['csign-01', 'imark-16'];
+  // The Harbourmaster's own case, where the rules open one: a ship at the quay and the harbour's stamp.
+  var HARBOUR_CASE_ART = ['charb2-01', 'icrime-03'];
+  function caseArtOf(tpl) { return CASE_ART[tpl] || (harbourTemplate(tpl) ? HARBOUR_CASE_ART : CASE_DEFAULT); }
   // Tokens about the body: an icon of the case's kind of death.
   var BODY_ART = { harbor: ['icrime-03', 'iev-21'], poison: ['icrime-04', 'iev-07'], contract: ['icrime-01', 'iev-21'], highway: ['icrime-16', 'iev-21'], eumenides: ['icrime-05', 'iev-20'],
     pattern: ['icrime-13', 'iev-21'], threedays: ['icrime-02', 'iev-21'], scriptorium: ['iev-21', 'iev-03'], missing: ['imark-09', 'iev-21'], witch: ['icrime-02', 'iev-20'], manhunt: ['iev-21', 'icrime-13'] };
@@ -164,6 +167,25 @@
   var TRAIT_ART = 'imark-11';
   var PATH_HINTS = { commissioner: 'offices, rooms, calm weeks', master: 'threads, identifications, reopened cases', crusader: 'bands broken, the abroad put away, disguises' };
   var RIVAL_TITLES = /Rival|Scene Spoiled|Paid to Forget/;
+  // The Harbourmaster's arc, where the rules have it: the leaf an exposed Rival leaves (an Insight named for the
+  // Customs House) and the case its leaves open (a template named for the Harbourmaster). Read by name, so the
+  // interface waits for the rules and says nothing of an arc that is not there.
+  var LEAVES_NEED = 2, LOOSE_NEED = 3;
+  function customsLeafDef() {
+    if (UI.leafDef !== undefined) return UI.leafDef;
+    UI.leafDef = null;
+    for (var k in CF.CARDS) if (CF.CARDS[k].kind === 'insight' && /Customs House/.test(CF.CARDS[k].label || '')) { UI.leafDef = k; break; }
+    return UI.leafDef;
+  }
+  function harbourTemplate(tpl) {
+    var t = tpl && CF.CASE_TEMPLATES && CF.CASE_TEMPLATES[tpl];
+    return !!t && /Harbourmaster/.test((t.title || '') + ' ' + (t.label || ''));
+  }
+  function harbourArc() { if (!customsLeafDef()) return false; for (var k in CF.CASE_TEMPLATES || {}) if (harbourTemplate(k)) return true; return !!recipeOf(customsLeafDef()); }
+  // The recipe that takes this kind of card as its first: where a pile of them goes.
+  function recipeOf(def) { return def ? (CF.RECIPES || []).filter(function (r) { return r.requires && r.requires.primary === def; })[0] || null : null; }
+  // Cards of a kind free to use (on the table or in a verb's open slot).
+  function freeOf(def) { var e = UI.e; return def ? e.cardsOf(def, true).filter(function (c) { return c.loc && (c.loc.t === 'table' || c.loc.t === 'slot') && !e.unavailableReason(c); }) : []; }
   // The Rival is hunted a thread a week: careful until the Bell after the last one was found.
   function rivalCareful(card) { var d = card.data || {}; return d.heatWeek !== undefined && d.heatWeek !== null && UI.e.s.week <= d.heatWeek; }
   // The way the next thread must come: the other verb from the first one's, or either.
@@ -202,8 +224,8 @@
   function icon(art, tone, gray) { return { art: art, fam: 'icon', tone: tone || 'gold', gray: !!gray }; }
   function cardPicture(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, tone = PIC_TONE[k] || 'gold';
-    if (k === 'case') { var r = e.caseRec(card.caseId); return full((CASE_ART[r && r.template] || CASE_DEFAULT)[0], r && r.highProfile ? 'gold' : tone); }
-    if (k === 'coldcase') return full((CASE_ART[card.data.template] || CASE_DEFAULT)[0], tone, true);
+    if (k === 'case') { var r = e.caseRec(card.caseId); return full(caseArtOf(r && r.template)[0], r && r.highProfile ? 'gold' : tone); }
+    if (k === 'coldcase') return full(caseArtOf(card.data.template)[0], tone, true);
     if (k === 'clue' || k === 'evidence') {
       var label = e.labelOf(card);
       var a = CF.clueAspects(card), best = null;
@@ -225,6 +247,8 @@
     }
     if (card.def === 'rung') return full(RUNG_ART[card.data.rung] || 'ccourt-01', 'dark');
     if (FULLS[card.def]) return full(FULLS[card.def], tone);
+    // A leaf from the Customs House wears the Customs House's seal: the crown over the anchor.
+    if (card.def === customsLeafDef()) return full('charb2-06', tone);
     if (ICONS[card.def]) return icon(ICONS[card.def], card.def === 'wound' || card.def === 'burnout' || /^spent_/.test(card.def) ? 'red' : tone, /^spent_/.test(card.def));
     return full('csign-01', tone);
   }
@@ -236,8 +260,9 @@
     onGameOver: null, onSave: null,
   });
   UI.personArt = personArt;
+  UI.customsLeafDef = customsLeafDef;
   // A case's own crime card, the picture it wears on the table (the Rolls reuse it).
-  UI.caseArt = function (tpl) { return (CASE_ART[tpl] || CASE_DEFAULT)[0]; };
+  UI.caseArt = function (tpl) { return caseArtOf(tpl)[0]; };
 
   var T = CF.TABLE;
   UI.verbArt = function (v) { return VERB_TOKENS[v] || 'cvtok-investigate'; };
@@ -274,6 +299,7 @@
     UI.seenVerbs = {};
     UI.newVerbs = {};
     UI.lastRank = engine.s.rank;
+    weekScale = -1; // a game opened is not a week turned
     UI.lastMeter = null; // a game just opened shows its meters as they are, without a bump
     UI.journalLen = -1;
     CF.VERB_ORDER.forEach(function (id) { if (engine.verb(id).unlocked) UI.seenVerbs[id] = true; });
@@ -441,6 +467,9 @@
   UI.init = function () {
     $('#hint').addEventListener('click', function () { UI.hintTap(); });
     renderHelpAspects();
+    // The Help tells of the Harbourmaster's Books only where the rules have them.
+    var hh = $('#help-harbour');
+    if (hh) hh.classList.toggle('hidden', !harbourArc());
     $('#controls').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-speed]');
       if (!b) return;
@@ -529,6 +558,7 @@
       // One bad frame must never stop the clock: log it and keep going.
       try {
         if (e) {
+          UI.tickUid = e.s.nextUid; // what this frame's tick makes is newer than this (the Bell's stipend flies out of the Bell)
           if (!e.s.over && !UI.paused && !UI.modal && !UI.upright) {
             e.tick(dt * UI.speed);
             saveT += dt;
@@ -693,8 +723,9 @@
     if (type === 'strain' && payload && payload.uid) strainArrived(payload.uid);
     var strainUid = type === 'story' ? strainOfStory(payload) : null;
     if (strainUid) strainArrived(strainUid);
+    if (type === 'story' && payload.kind === 'week' && !UI.replaying) weekTurns(payload);
     if (type === 'story') {
-      var k = payload.kind, cue = storySound(payload);
+      var k = payload.kind, cue = k === 'week' ? null : storySound(payload);
       if (!UI.modal && cue) CF.Audio.play(cue);
       if (!UI.modal && dangerWeight(payload) === 'harm') { shake(); UI.haptic([30, 60, 30]); }
       if (k === 'case' || k === 'danger' || k === 'harm' || k === 'need' || k === 'major' || k === 'victory' || k === 'week') toast(strainUid ? { title: payload.title, text: payload.text, kind: k, uid: strainUid } : payload);
@@ -739,13 +770,23 @@
       if (cases[0]) UI.notice({ uid: cases[0].uid, label: cardTitle(cases[0]), fresh: true, kind: 'case' });
     }
     if (type === 'story' && CF.OPENING_TEXT && payload.title === CF.OPENING_TEXT.keep) UI.keepWeek = UI.e.s.week;
+    // A leaf from the Customs House left by an examiner sent home is marked like an Insight.
+    if (type === 'story' && customsLeafDef() && typeof UI.tickUid === 'number') {
+      var leaf = UI.e.cardsOf(customsLeafDef()).filter(function (c) { return c.uid >= UI.tickUid && c.loc.t === 'table'; })[0];
+      if (leaf) UI.notice({ uid: leaf.uid, label: cardTitle(leaf), fresh: true, kind: 'insight' });
+    }
     if (type === 'story' && /^An Insight/.test(payload.title)) {
       var ins = UI.e.tableCards().filter(function (c) { return c.def === 'insight'; }).sort(function (a, b) { return b.uid - a.uid; });
       if (ins[0]) UI.notice({ uid: ins[0].uid, label: cardTitle(ins[0]), fresh: true, kind: 'insight' });
     }
     if (type === 'dues') {
       var bell = verbEls.time;
-      payload.uids.forEach(function (u, i) { var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]); if (c && el) setTimeout(function () { flyTo(el, bell, c); }, i * 220); });
+      UI.duesWeek = UI.e.s.week;
+      // Each Coin flies to the Bell and rings as it lands.
+      payload.uids.forEach(function (u, i) {
+        var c = UI.e.card(u); var el = cardEls[u] || (c && cardEls[UI.e.stackOf(c)[0].uid]);
+        if (c && el) setTimeout(function () { flyTo(el, bell, c); setTimeout(function () { CF.Audio.play('coin'); }, 350); }, i * 220);
+      });
     }
     if (type === 'expiring') {
       var fc = UI.e.card(payload.uid), need = fc && CF.NEEDS && CF.NEEDS[fc.def];
@@ -763,6 +804,26 @@
       if (need || (fc && CF.CARDS[fc.def] && CF.CARDS[fc.def].kind === 'threat')) { CF.Audio.play('heartbeat'); UI.haptic([15, 90, 15]); }
     }
     if (type === 'over' && UI.onGameOver) setTimeout(function () { UI.onGameOver(UI.e.s.over); }, 600);
+  }
+
+  // The week turns: the Bell tolls (cracked, when the lodging went unpaid), its tile swings, the hourglass on the
+  // bar turns over and the bar flashes full instead of running back, the music starts again from its first
+  // chord, and the stipend comes out of the Bell. Less motion keeps the sound and drops the swing and the turn.
+  function weekTurns(payload) {
+    var e = UI.e;
+    var paid = payload.paid !== undefined ? payload.paid !== false : UI.duesWeek === e.s.week;
+    CF.Audio.play(paid ? 'week' : 'weekUnpaid');
+    if (CF.Audio.downbeat) CF.Audio.downbeat();
+    UI.haptic([12, 140, 12]);
+    var bell = verbEls.time;
+    if (bell && !calm()) { bell.classList.remove('toll'); void bell.offsetWidth; bell.classList.add('toll'); setTimeout(function () { bell.classList.remove('toll'); }, 1300); }
+    var glass = document.querySelector('#weekbar .wb-glass');
+    if (glass && !calm()) { glass.classList.remove('turn'); void glass.offsetWidth; glass.classList.add('turn'); setTimeout(function () { glass.classList.remove('turn'); }, 800); }
+    var wb = document.querySelector('#weekbar');
+    if (wb) { wb.classList.remove('flash'); void wb.offsetWidth; wb.classList.add('flash'); setTimeout(function () { wb.classList.remove('flash'); }, 700); }
+    // The stipend: the rules' own list where the story carries it, else the Coin this tick made.
+    var salary = payload.salary || (typeof UI.tickUid === 'number' ? e.cardsOf('funds', true).filter(function (c) { return c.uid >= UI.tickUid && c.loc && c.loc.t === 'table'; }).map(function (c) { return c.uid; }) : []);
+    if (bell) salary.forEach(function (u) { markSpawn(u, bell); });
   }
 
   function toast(entry) {
@@ -965,6 +1026,12 @@
       } else if (rnext !== 'investigate' && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
       else if (rnext !== 'interrogate' && inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
     }
+    // Two leaves from the Customs House open the Harbourmaster's Books, where the rules have that case.
+    var leafDef = customsLeafDef(), leafRec = recipeOf(leafDef), leaves = leafRec ? freeOf(leafDef).filter(function (c) { return c.loc.t === 'table'; }) : [];
+    if (leaves.length >= LEAVES_NEED && can(leafRec.verb) && e.verb(leafRec.verb).status === 'idle') {
+      UI.hintGo = { uid: leaves[0].uid };
+      return tr('Two leaves from the Customs House: lay them in {verb} to open the Harbourmaster\'s Books.', { verb: tr(CF.VERBS[leafRec.verb].label) });
+    }
     var insight = table.filter(function (c) { return c.def === 'insight' && c.data && CF.INSIGHTS[c.data.insight] && !e.unavailableReason(c); })[0];
     if (insight && can('reflect')) return tr('An Insight waits: put {label} into Rest alone to learn it, or with your {ability} to keep it as a trick.', { label: e.labelOf(insight), ability: tr(CF.CARDS[CF.INSIGHTS[insight.data.insight].trains].label) });
     if (can('investigate')) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
@@ -1158,8 +1225,8 @@
     METER_KEYS.forEach(function (k, i) {
       var el = box.children[i], st = meterState(k, vals[k].val, vals[k].max);
       if (built) {
-        var keep = BUMP_CLASSES.filter(function (c) { return el.classList.contains(c); });
-        if (el.className.split(/\s+/).filter(function (c) { return BUMP_CLASSES.indexOf(c) < 0; }).join(' ') !== st.cls) {
+        var keep = FX_CLASSES.filter(function (c) { return el.classList.contains(c); });
+        if (el.className.split(/\s+/).filter(function (c) { return FX_CLASSES.indexOf(c) < 0; }).join(' ') !== st.cls) {
           el.className = st.cls;
           keep.forEach(function (c) { el.classList.add(c); });
         }
@@ -1170,8 +1237,27 @@
       var was = last && last[k];
       if (!was) return;
       var moved = k === 'reputation' ? vals[k].val !== was.val : st.level !== was.level;
-      if (moved) bumpMeter(el, k, k === 'reputation' ? vals[k].val > was.val : st.level > was.level);
+      var up = k === 'reputation' ? vals[k].val > was.val : st.level > was.level;
+      if (moved) bumpMeter(el, k, up);
+      // A step inside a word is seen too, smaller: the icon nudges the way it went and a small arrow fades.
+      else if (vals[k].val !== was.val) nudgeMeter(el, k, vals[k].val > was.val);
+      // A new word comes in spaced out and settles, with two soft notes: falling where it hurts, rising where it helps.
+      if (st.level !== was.level && vals[k].val !== was.val) {
+        var wd = el.querySelector('.m-word');
+        if (wd) { wd.classList.remove('word-new'); void wd.offsetWidth; wd.classList.add('word-new'); setTimeout(function () { wd.classList.remove('word-new'); }, 600); }
+        if (!UI.replaying) CF.Audio.play((k === 'reputation' ? up : !up) ? 'meterBetter' : 'meterWorse');
+      }
     });
+  }
+  var NUDGE_CLASSES = ['nudge', 'nudge-up', 'nudge-down', 'nudge-good', 'nudge-bad'];
+  var FX_CLASSES = BUMP_CLASSES.concat(NUDGE_CLASSES);
+  function nudgeMeter(el, key, up) {
+    var good = key === 'reputation' ? up : !up;
+    NUDGE_CLASSES.forEach(function (c) { el.classList.remove(c); });
+    void el.offsetWidth;
+    el.classList.add('nudge', up ? 'nudge-up' : 'nudge-down', good ? 'nudge-good' : 'nudge-bad');
+    var n = (el.cfNudge = (el.cfNudge || 0) + 1);
+    setTimeout(function () { if (el.cfNudge === n) NUDGE_CLASSES.forEach(function (c) { el.classList.remove(c); }); }, 1000);
   }
 
   var METER_INFO = {
@@ -1403,7 +1489,7 @@
     if (def.kind === 'case' || def.kind === 'coldcase') {
       var crec2 = def.kind === 'case' ? e.caseRec(card.caseId) : { template: card.data.template };
       var seal = h('div', 'c-seal');
-      seal.style.backgroundImage = art((CASE_ART[crec2 && crec2.template] || CASE_DEFAULT)[1]);
+      seal.style.backgroundImage = art(caseArtOf(crec2 && crec2.template)[1]);
       face.appendChild(seal);
       // The scene searched out: a stamp of the glass on the other corner, and no word.
       if (searchedOut(card)) {
@@ -1681,6 +1767,9 @@
     setTimeout(function () {
       var el = spec.verb ? verbEls[spec.verb] : spec.uid ? cardEls[spec.uid] : null;
       if (!el) return;
+      // One mark a thing: a verb that unlocks and runs by itself in the same tick is marked once, for longer.
+      var same = UI.notices.filter(function (n) { return spec.verb ? n.verb === spec.verb : n.uid === spec.uid; })[0];
+      if (same) { same.el = el; same.until = Math.max(same.until, performance.now() + 12000); return; }
       el.classList.add('noticed');
       setTimeout(function () { el.classList.remove('noticed'); }, 4000);
       var mark = h('div', 'edge-mark');
@@ -2252,6 +2341,9 @@
     var p = Math.min(1, UI.e.s.weekT / CF.WEEK);
     var sc = Math.round((81 - 62 * p) / 81 * 200) / 200;
     if (Math.abs(sc - weekScale) < 0.005) return;
+    // A new week is not a rewind: the shade is full at once (the bar flashes, see weekTurns); the slide comes back after.
+    var turned = weekScale >= 0 && sc > weekScale + 0.05;
+    weekShade.style.transition = turned ? 'none' : 'transform 0.5s linear';
     weekScale = sc;
     weekShade.style.transform = 'scaleX(' + sc + ')';
   }
@@ -2342,7 +2434,7 @@
     // The finds' face-down state is part of it, so a turned card redraws (with its flip) at once.
     return [v.status, JSON.stringify(v.slots), v.out.map(function (u) { var c = e.card(u); return u + (c && c.hidden ? 'h' : ''); }).join(','), v.held.join(','), v.story ? v.story.title : '', v.ask ? (v.ask.filled || 'open') : '',
       pv ? pv.label + '|' + pv.blocked + '|' + pv.text : '', e.lockReason(vid) || '', v.recipe || '',
-      vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : '', UI.about === vid ? 'about' : ''].join('#');
+      vid === 'time' ? e.s.week : '', UI.pick && UI.pick.verb === vid ? UI.pick.slot + ':' + e.tableCards().length : '', UI.about === vid ? 'about' + e.s.rank : ''].join('#');
   }
 
   function syncWindows() {
@@ -2498,7 +2590,14 @@
     if (v.story) pane.appendChild(storyBox(v.story));
     var primaryCard = v.slots[e.primaryKey(vid)];
     if (UI.about === vid) {
-      pane.appendChild(h('p', 'vw-desc vw-about', def.desc));
+      // What a junior can do here now; each office's power below it, dim, and the ones still to come as one line each.
+      pane.appendChild(h('p', 'vw-desc vw-about', verbBasics(vid)));
+      Object.keys(CF.POWERS || {}).forEach(function (k) {
+        var pw = CF.POWERS[k];
+        if (pw.verb !== vid) return;
+        var open = e.powerOpen ? e.powerOpen(k) : e.s.rank >= pw.rank;
+        pane.appendChild(h('p', 'vw-desc vw-power' + (open ? '' : ' locked'), open ? tr('{label}: {text}', { label: tr(pw.label), text: tr(pw.text) }) : tr('At {rank}: {label}', { rank: tr(CF.RANKS[pw.rank]), label: tr(pw.label) })));
+      });
       var sr = e.s.stats.recipes || {};
       var ways = e.s.stats.ways || {};
       var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && (ways[r.id] || typeof r.label === 'string'); }).map(function (r) { return tr(ways[r.id] || r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
@@ -2591,12 +2690,17 @@
 
     var act2 = h('div', 'actions go-row');
     var go = h('button', 'plate-btn redfill go', pv ? tr('{label} · {n}s', { label: pv.label, n: Math.round(pv.duration) }) : (primaryCard ? 'Nothing comes of it' : 'Put a card in'));
+    // The Charge plate wears the charge it would bring: dark on Indicia, red on Half Proof, gold on Full, and says
+    // which after the verb, with the weight against the need (on a phone, where the name is hidden: Charge, Indicia 1/5).
+    var goTier = charge && pv && charge.tier && TIER_PLATE[charge.tier] ? tr('{tier} · {n}/{need}', { tier: tr(charge.tierLabel || CF.Charge.TIERS[charge.tier].label), n: charge.score, need: charge.need }) : null;
+    if (goTier) go = h('button', 'plate-btn go tier-' + charge.tier + ' ' + TIER_PLATE[charge.tier], pv.label);
     // The Court's Charge plate names the accused in a span a narrow phone hides (the charge panel names them too).
     if (pv && vid === 'arrest' && pcard && pcard.def === 'suspect') {
       var gname = tr(CF.cardFace(pcard, e.labelOf(pcard)).text.replace(/^★ /, '')), glab = go.textContent, gat = gname ? glab.indexOf(gname) : -1;
       var raw = function (s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
       if (gat >= 0) go.innerHTML = raw(glab.slice(0, gat)) + '<span class="go-name">' + raw(gname) + '</span>' + raw(glab.slice(gat + gname.length));
     }
+    if (goTier) go.appendChild(h('span', 'go-tier', goTier));
     go.disabled = !pv || !!pv.blocked;
     go.addEventListener('click', function () { if (e.start(vid)) { CF.Audio.play('start'); e.dirty = true; } });
     // Shut by the Fever: the plate is the way out, to Rest with the Fever laid in it.
@@ -2613,6 +2717,17 @@
     }
     pane.appendChild(act2);
   }
+
+  // The Charge plate's colour by the charge it would bring.
+  var TIER_PLATE = { weak: 'dark', reasonable: 'redfill', strong: 'gold' };
+  // A verb's first words, for the window's info: what anyone can do with it from the first day. The rules' own
+  // `basics` where a verb carries one; the offices' powers are listed under it, so they are left out here.
+  var VERB_BASICS = {
+    duty: 'The Watch-house. Work for Coin: Health walks a hard round, Wit keeps the day-book. Spend Coin on a Petition or a Letter of Service, and attend to what lands on the desk.',
+    investigate: 'Go out. A Case: search its scene; with its Quarter, go door to door. Instinct alone: walk the ward. An Accused: search their lodging.',
+  };
+  function verbBasics(vid) { var d = CF.VERBS[vid]; return d.basics || VERB_BASICS[vid] || d.desc; }
+  UI.verbBasics = verbBasics;
 
   // Whether Post the Watch takes this kind of card as its first (the engine may widen it from the bands to the Coquille).
   function postWatchTakes(def) {
@@ -2926,6 +3041,7 @@
       var wanted = caseWanted(rec);
       if (wanted) lines.push(tr('Still wanted: {list}', { list: wanted }));
       if (rec.rival) lines.push('The Rival works this too: the clock is half');
+      if (harbourTemplate(rec.template)) lines.push('Convict the Harbourmaster himself, and no examiner comes again');
       var ctpl = CF.CASE_TEMPLATES && CF.CASE_TEMPLATES[rec.template];
       if (ctpl && ctpl.heresy) lines.push(tr('Smells of heresy: the Inquisitor\'s after week {n}', { n: (rec.week || 0) + 2 }));
       if (e.s.flags.inquisitor) lines.push('The Inquisitor is in the city');
@@ -3047,6 +3163,7 @@
       } else if (rway === 'investigate') lines.push('The next thread: shadow them in Explore with Instinct');
       else if (rway === 'interrogate') lines.push('The next thread: Question them with Wit');
       else if (!rd.heat) lines.push('Question with Wit, or shadow in Explore with Instinct, to expose');
+      if (harbourArc()) lines.push('Sent home, they leave a leaf from the Customs House');
     } else if (card.def === 'atlarge') {
       var crim = card.data.criminalId && e.criminal(card.data.criminalId);
       if (crim) {
@@ -3069,6 +3186,19 @@
       lines.push('Rest alone: endure it, and they may come anyway');
       if (daggerGuard()) lines.push('Attend with a watchman: Double the Guard');
       lines.push(e.s.flags.mountainIgnored ? 'Ignored once already: next time there is no warning' : 'Let it lie and they come back');
+    } else if (card.def === 'looseend') {
+      // A Loose End remembers the case that left it, where the rules keep it (data.fromTitle), and the stack says
+      // how near the Architect is.
+      var marks = (e.stackOf && e.stackOf(card)) || [];
+      if (!marks.length) marks = [card];
+      marks.forEach(function (m) { if (m.data && m.data.fromTitle) lines.push(tr('From {title}: three strokes cut where the crime began.', { title: tr(m.data.fromTitle) })); });
+      var arch = recipeOf('looseend');
+      if (arch && e.s.calling === 'master' && !e.s.flags.architect) lines.push(tr('{need} in {verb} find the Architect: {n} of {need}', { need: LOOSE_NEED, verb: tr(CF.VERBS[arch.verb].label), n: Math.min(LOOSE_NEED, freeOf('looseend').length) }));
+      else if (e.s.flags.architect) lines.push('You are already hunting the Architect.');
+    } else if (card.def === customsLeafDef()) {
+      // What two leaves open, and how many you hold.
+      var hb = recipeOf(card.def);
+      if (harbourArc()) lines.push(tr('{need} in {verb} open the Harbourmaster\'s Books: {n} of {need}', { need: LEAVES_NEED, verb: tr(CF.VERBS[hb ? hb.verb : 'reflect'].label), n: Math.min(LEAVES_NEED, freeOf(card.def).length) }));
     } else if (card.def === 'wound') {
       lines.push('Another blow before this knits will kill you.');
       lines.push(tr('Knits in {t}', { t: U.fmtTime(card.life) }));
@@ -3111,7 +3241,7 @@
     var def = CF.CARDS[card.def];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
     var dz = ['case', 'suspect', 'witness', 'clue', 'evidence', 'teammate', 'personnel', 'equipment', 'intel', 'place', 'hospital', 'informant', 'district', 'criminal', 'coldcase', 'court', 'calling'].indexOf(def.kind) >= 0 || card.def === 'front' || card.def === 'atlarge' || card.def === 'wound' || card.def === 'dagger' ||
-      card.def === 'condemned' || card.def === 'rung' || card.def === 'plea' ? 'paper' : null;
+      card.def === 'condemned' || card.def === 'rung' || card.def === 'plea' || card.def === 'looseend' || (!!customsLeafDef() && card.def === customsLeafDef()) ? 'paper' : null;
     var html = '<div class="i-card"></div>';
     var notes = dz ? dossierNotes(card) : def.kind === 'ability' ? abilityNotes(card) : [];
     var kindArt = KIND_ART[card.def] || KIND_ART[def.kind];

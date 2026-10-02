@@ -105,6 +105,19 @@
     });
   }
 
+  // A church bell for the week: the hum an octave down, the prime, the minor tierce, the quint, the nominal and
+  // the superquint, each a sine dying on its own, under a lowpass. opts.cents detunes the upper partials apart
+  // (a cracked bell); opts.decay shortens it.
+  var CHURCH = [[0.5, 0.5, 1], [1, 0.35, 0.8], [1.19, 0.25, 0.65], [1.5, 0.15, 0.5], [2, 0.3, 0.4], [3, 0.1, 0.2]];
+  function churchBell(freq, dur, opts) {
+    opts = opts || {};
+    var vol = opts.vol || 0.1, delay = opts.delay || 0, cents = opts.cents || 0, decay = opts.decay || 1;
+    CHURCH.forEach(function (p, i) {
+      var f = freq * p[0] * (cents && i > 1 ? Math.pow(2, (i % 2 ? cents : -cents) / 1200) : 1);
+      tone(f, dur * p[2] * decay, { vol: vol * p[1], delay: delay, attack: 0.004, lp: 2500 });
+    });
+  }
+
   function gavel() {
     [0, 0.22].forEach(function (d) {
       noise(0.05, { filter: 'lowpass', freq: 420, q: 0.7, vol: 0.35, delay: d });
@@ -120,7 +133,15 @@
     complete: function () { tone(880, 0.9, { vol: 0.12 }); tone(1320, 1.1, { vol: 0.07, delay: 0.05 }); },
     case: function () { noise(0.03, { freq: 4000, vol: 0.2 }); noise(0.03, { freq: 4000, vol: 0.2, delay: 0.09 }); tone(1760, 0.7, { vol: 0.1, delay: 0.18 }); },
     danger: function () { tone(110, 0.8, { type: 'sawtooth', vol: 0.16, lp: 600 }); tone(116.5, 0.8, { type: 'sawtooth', vol: 0.14, lp: 600 }); },
-    week: function () { noise(0.04, { freq: 2500, q: 8, vol: 0.25 }); noise(0.04, { freq: 1800, q: 8, vol: 0.2, delay: 0.35 }); },
+    // The Bell tolls the week: short and quiet, since it comes every minute of play.
+    week: function () { churchBell(196, 2.5, { vol: 0.08 }); },
+    // A week you could not pay: the same bell, cracked: its partials pulled apart, half the ring, a dull knock.
+    weekUnpaid: function () { churchBell(196, 2.5, { vol: 0.08, cents: 15, decay: 0.5 }); noise(0.08, { filter: 'lowpass', freq: 500, vol: 0.1 }); },
+    // A Coin taken or paid: a small bright ring.
+    coin: function () { tone(2350, 0.08, { type: 'triangle', vol: 0.05 }); tone(3720, 0.06, { vol: 0.03, delay: 0.01 }); },
+    // A meter crossing into a new word: two soft notes, falling where it hurts, rising where it helps.
+    meterWorse: function () { tone(330, 0.22, { type: 'triangle', vol: 0.05 }); tone(311, 0.3, { type: 'triangle', vol: 0.05, delay: 0.12 }); },
+    meterBetter: function () { tone(294, 0.2, { vol: 0.05 }); tone(392, 0.3, { vol: 0.05, delay: 0.1 }); },
     victory: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.9, { type: 'triangle', vol: 0.12, delay: i * 0.12 }); }); },
     // A leaf turned: a quiet story, without a bell.
     page: function () { noise(0.12, { filter: 'highpass', freq: 2500, vol: 0.06 }); },
@@ -148,8 +169,8 @@
 
   // One cue at a time: the same cue does not repeat inside its gap, and a
   // lesser cue gives way to a greater one started a moment before.
-  var MIN_GAP = { gavel: 1.0, convict: 1.0, acquit: 1.0, complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 4.0, knock: 1.0, page: 0.4, flip: 0.05, discovery: 0.5, seal: 0.2, coin: 0.07, pick: 0.05 };
-  var PRIORITY = { gavel: 5, convict: 5, acquit: 5, victory: 5, defeat: 5, office: 5, week: 4, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, seal: 2, discovery: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
+  var MIN_GAP = { week: 1.0, weekUnpaid: 1.0, meterWorse: 0.8, meterBetter: 0.8, gavel: 1.0, convict: 1.0, acquit: 1.0, complete: 0.7, drop: 0.06, click: 0.05, start: 0.25, case: 1.0, danger: 1.5, omen: 1.5, heartbeat: 4.0, knock: 1.0, page: 0.4, flip: 0.05, discovery: 0.5, seal: 0.2, coin: 0.07, pick: 0.05 };
+  var PRIORITY = { gavel: 5, convict: 5, acquit: 5, victory: 5, defeat: 5, office: 5, week: 4, weekUnpaid: 4, meterWorse: 1, meterBetter: 1, coin: 0, danger: 4, omen: 3, heartbeat: 3, case: 3, complete: 2, knock: 2, seal: 2, discovery: 2, page: 1, start: 1, drop: 1, flip: 1, pick: 0, click: 0 };
   // A quiet cue is heard only alone.
   var QUIET = { page: 1 };
   var lastAt = {}, top = { p: -1, at: -1 };
@@ -208,6 +229,14 @@
     s.connect(f); f.connect(g); g.connect(musicBus);
     s.start();
   }
+  // The week turns: the pad goes back to its first chord, so the tonic lands under the toll.
+  A.downbeat = function () {
+    chordIdx = 0;
+    if (!musicTimer || !A.ready || A.ctx.state !== 'running') return;
+    clearInterval(musicTimer);
+    padChord();
+    musicTimer = setInterval(padChord, 8000);
+  };
   var raining = false;
   function startMusic() {
     if (!A.ready || A.ctx.state !== 'running') return;

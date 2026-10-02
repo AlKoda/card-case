@@ -73,9 +73,11 @@ cframe-06
 charb-04
 charb-05
 charb-06
+charb2-01
 charb2-02
 charb2-03
 charb2-05
+charb2-06
 cherald2-04
 cherald2-07
 cink-01

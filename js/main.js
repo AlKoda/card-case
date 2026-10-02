@@ -96,6 +96,29 @@
   var ENDING_ART = { dismissed: 'cback-04', burnout: 'cback-04', collapse: 'cback-04', consumed: 'cback-02', corruption: 'cback-06',
     death: 'cback-04', riot: 'cback-01', thieftaker: 'cback-06', oldbailey: 'cback-03', kingofthunes: 'cback-06', treatycity: 'cback-05', merciful: 'cback-03', hangmans: 'cback-04', stake: 'cback-01', dagger: 'cback-04', commissioner: 'ctrade-04', master: 'ctrade-06', crusader: 'ctrade-05' };
 
+  // What would have saved you, under a losing ending: one line with the threat's seal. The rules' own lesson
+  // (CF.ENDINGS[id].lesson) where they give one; the cause the engine keeps (s.over.cause) makes it particular.
+  var LESSONS = {
+    burnout: ['imed-10', 'The Fever ends the file when its clock runs out. Lay it alone in Rest; Coin beside it makes it quick.'],
+    collapse: ['imed-13', 'A third Weariness on top of the Fever is the end. Sleep Weariness off in Rest before the third.'],
+    consumed: ['iinv-13', 'A third Obsession on top of a Fixation swallows you. Let Obsession go in Rest; a conviction clears the Fixation.'],
+    dismissed: ['cres-04', 'The Crowd boils over at unanswered cases and names that walk free. Close cases; take the names off the wall.'],
+    corruption: ['cres-03', 'Suspicion rises with searches without a Writ, proof arranged and purses kept. Enter the Rolls, and let time pass.'],
+    riot: ['cres-12', 'Dread rises with cruelty on the ladder and leaning on people. Mercy and fair dealing lower it.'],
+    death: ['imed-09', 'A Wound carried and no Health left: the next blow kills. Dress the Wound in Rest before you go out.'],
+    dagger: ['citem2-07', 'The dagger on the pillow is a warning. Lay it in Rest with two Coin for weeks of peace.'],
+  };
+  function endLesson(over) {
+    if (!over || over.win) return null;
+    var end = CF.ENDINGS[over.id] || {}, row = LESSONS[over.id];
+    var text = over.lesson || end.lesson || (row && row[1]);
+    if (!text) return null;
+    var line = tr(text), cause = over.cause || {};
+    if (cause.restIdle) line += ' ' + tr('Rest stood idle the whole time.');
+    return { art: end.lessonArt || (row && row[0]) || 'imed-10', text: line };
+  }
+  UI.endLesson = endLesson;
+
   // Every save keeps the one before it, so a save that goes wrong is one step back, never gone.
   function save() {
     if (!(inGame && UI.e && !UI.e.s.over)) return;
@@ -129,6 +152,10 @@
     $('end-sub').textContent = tr('{rank} {name}', { rank: CF.RANKS[e.s.rank], name: e.s.detective }) + (e.s.who && CF.ORIGINS[e.s.who] ? tr(', once {origin}', { origin: CF.ORIGINS[e.s.who].label.toLowerCase() }) : '') + tr(', week {n}', { n: over.week }) +
       (over.origin && over.calling && over.origin !== over.calling ? tr(' · set out as {a}, ended as {b}', { a: CF.CALLINGS[over.origin].label, b: CF.CALLINGS[over.calling].label }) : '');
     $('end-text').textContent = tr(over.text);
+    var lesson = endLesson(over);
+    $('end-lesson').classList.toggle('hidden', !lesson);
+    $('end-lesson-icon').style.backgroundImage = lesson ? 'var(--art-' + lesson.art + ')' : '';
+    $('end-lesson-text').textContent = lesson ? lesson.text : '';
     // The tally as painted counters: the crown, the eye, the moon, the fire.
     $('end-stats').innerHTML = [
       ['Convictions', st.convictions, 'cres-09'], ['Acquittals', st.acquittals, 'cres-03'], ['Unanswered', st.cold, 'cres-12'], ['Wrongful', st.wrongful, 'cres-04'],

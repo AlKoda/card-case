@@ -2030,5 +2030,204 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the Rival caught at it, the patron\'s seal, meters that move, chips for an answer, four seals, a staged mark, one memo a render');
 })();
 
+// ---- Round 8, lane 2, items 73-80: the Harbourmaster's leaves and books, Loose Ends that remember, the Charge plate
+// by tier, the lesson under a loss, the Bell's toll, a step inside a meter's word, a junior's verb info, one mark a thing.
+(function round8j() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var audio = fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8');
+  var mainSrc = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+
+  // Item 80: a verb that unlocks and runs by itself in the same tick is marked once.
+  var e = CF.Engine.newGame({ calling: 'master', seed: 51 });
+  UI.attach(e);
+  render(e);
+  UI.notices.slice().forEach(function (n) { n.mark.remove(); });
+  UI.notices = [];
+  UI.notice({ verb: 'investigate', label: 'Explore', fresh: true });
+  UI.notice({ verb: 'investigate', label: 'Explore' });
+  flushTimers();
+  var marks = $('#table').children.filter(function (c) { return c.classList.contains('edge-mark'); });
+  assert.strictEqual(UI.notices.filter(function (n) { return n.verb === 'investigate'; }).length, 1, 'one entry for Explore');
+  assert.strictEqual(marks.filter(function (m) { return /Explore/.test(m.textContent); }).length, 1, 'one mark at the edge for Explore');
+  marks.forEach(function (m) { m.remove(); }); UI.notices = [];
+
+  // Item 79: a junior's Explore info: the basics, and the offices' powers still to come, one line each.
+  e.verb('investigate').unlocked = true;
+  UI.about = 'investigate';
+  UI.openWindow('investigate');
+  render(e);
+  var win = $('#windows').querySelectorAll('.vwin').filter(function (w) { return w.querySelector('.vw-about'); })[0];
+  assert.ok(win, 'the info shows');
+  var about = win.querySelector('.vw-about').textContent;
+  assert.ok(/walk the ward/.test(about) && !/Bailiff|Sworn Examiner|Disguise|Coquille/.test(about), 'the basics name no higher office: ' + about);
+  var pw = win.querySelectorAll('.vw-power');
+  assert.ok(pw.length === 3 && pw.every(function (p) { return p.classList.contains('locked'); }) && /^At Sworn Examiner: Writ$/.test(pw[0].textContent), 'the powers to come, locked, one line each: ' + pw.map(function (p) { return p.textContent; }));
+  e.s.rank = 1;
+  render(e);
+  pw = $('#windows').querySelectorAll('.vw-power');
+  assert.ok(!pw[0].classList.contains('locked') && /^Writ: An Accused/.test(pw[0].textContent), 'an office reached shows its power: ' + pw[0].textContent);
+  e.s.rank = 0; UI.about = null;
+  while (UI.openVerbs.length) UI.back();
+  assert.ok(/vw-power\.locked/.test(css), 'the locked lines are dimmer');
+
+  // Item 75: the Charge plate wears the charge it would bring.
+  e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  assert.ok(e.autoSlot('arrest', sc.uid), 'the accused before the Court');
+  UI.openWindow('arrest');
+  render(e);
+  var lastGo = function () { var gs = $('#windows').querySelectorAll('.go'); return gs[gs.length - 1]; };
+  var go = lastGo();
+  var need = e.assessCharge(sc, []).need;
+  assert.ok(go.classList.contains('tier-weak') && go.classList.contains('dark') && !go.classList.contains('redfill'), 'on Indicia the plate is dark: ' + go.className);
+  assert.ok(go.querySelector('.go-tier') && go.querySelector('.go-tier').textContent === 'Indicia · 0/' + need && go.querySelector('.go-name') && /^Charge /.test(go.textContent), 'and says so after the name, with the weight: ' + go.textContent);
+  var prof = CF.Charge.profileOf(rec), toks = [];
+  Object.keys(prof).forEach(function (k) { var a = {}; a[k] = prof[k]; toks.push(e.create('clue', e.clueSpec(rec, { label: 'Proof of ' + k, text: 'It shows.', aspects: a }))); });
+  toks.forEach(function (t) { e.autoSlot('arrest', t.uid); });
+  render(e);
+  go = lastGo();
+  var tier = e.assessCharge(sc, toks.filter(function (t) { return t.loc.t === 'slot'; })).tier;
+  assert.ok(go.classList.contains('tier-' + tier) && go.classList.contains({ weak: 'dark', reasonable: 'redfill', strong: 'gold' }[tier]), 'the plate follows the tier (' + tier + '): ' + go.className);
+  e.clearSlots('arrest');
+  while (UI.openVerbs.length) UI.back();
+  toks.forEach(function (t) { e.remove(t); });
+
+  // Item 78: a step inside a word nudges the icon; a new word comes in with two soft notes.
+  render(e);
+  var pEl = $('#meters').querySelector('.meter[data-meter=pressure]');
+  var lvl = function (v) { return Math.min(4, Math.floor((v / Math.max(1, e.meterMax('pressure'))) * 4.999)); };
+  e.s.meters.pressure = 0; render(e); flushTimers();
+  var step = 1; while (lvl(step) === lvl(0)) step++;
+  // a value inside the first word, above zero
+  if (step > 1) {
+    played.length = 0;
+    e.s.meters.pressure = 1;
+    render(e);
+    assert.ok(pEl.classList.contains('nudge') && pEl.classList.contains('nudge-up') && pEl.classList.contains('nudge-bad') && !pEl.classList.contains('bump'), 'a step inside a word nudges, red for the Crowd: ' + pEl.className);
+    assert.ok(played.indexOf('meterWorse') < 0, 'and is not heard');
+    render(e);
+    assert.ok(pEl.classList.contains('nudge'), 'a render while it shows keeps the nudge');
+    flushTimers();
+    assert.ok(!pEl.classList.contains('nudge'), 'and it passes');
+  }
+  played.length = 0;
+  e.s.meters.pressure = step;
+  render(e);
+  assert.ok(pEl.classList.contains('bump') && pEl.querySelector('.m-word').classList.contains('word-new') && played.indexOf('meterWorse') >= 0, 'a new word bumps, comes in and is heard');
+  flushTimers();
+  played.length = 0;
+  e.s.meters.pressure = 0;
+  render(e);
+  assert.ok(played.indexOf('meterBetter') >= 0, 'easing is heard rising');
+  flushTimers();
+  assert.ok(/translateY\(-4px\) scale\(1\.18\)/.test(css) && /@keyframes wordIn \{ from \{ opacity: 0; letter-spacing: 0\.18em; \} \}/.test(css) && /html\[data-calm\] \.meter\.nudge \.m-icon/.test(css), 'the nudge, the word, and less motion');
+  assert.ok(/meterWorse: function/.test(audio) && /meterBetter: function/.test(audio) && /meterWorse: 0\.8/.test(audio), 'the notes are rate-limited');
+
+  // Item 77: the Bell tolls: the coins ring as they land, the stipend flies out of the Bell, an unpaid week is cracked.
+  render(e);
+  var bellEl = $('#board').querySelector('.verb[data-verb=time]') || $('#board').all().filter(function (n) { return n.classList.contains('time') && n.classList.contains('verb'); })[0];
+  while (e.cardsOf('funds').filter(function (c) { return c.loc.t === 'table'; }).length < e.dues() + 1) e.create('funds');
+  render(e);
+  played.length = 0; timers = [];
+  UI.tickUid = e.s.nextUid;
+  UI.spawn = {};
+  e.s.weekT = CF.WEEK - 0.01;
+  e.tick(0.05);
+  assert.ok(played.indexOf('week') >= 0 && played.indexOf('weekUnpaid') < 0, 'a paid week tolls: ' + played);
+  var fresh = e.cardsOf('funds', true).filter(function (c) { return c.uid >= UI.tickUid; });
+  assert.ok(fresh.length >= 1 && fresh.every(function (c) { return UI.spawn[c.uid]; }), 'the stipend comes out of the Bell');
+  assert.ok(bellEl && bellEl.classList.contains('toll'), 'the Bell swings');
+  flushTimers(); flushTimers();
+  assert.ok(played.indexOf('coin') >= 0, 'the Coin rings as it lands');
+  e.cardsOf('funds', true).forEach(function (c) { e.remove(c); });
+  played.length = 0;
+  e.s.weekT = CF.WEEK - 0.01;
+  e.tick(0.05);
+  assert.ok(played.indexOf('weekUnpaid') >= 0 && played.indexOf('week') < 0, 'an unpaid week is cracked: ' + played);
+  flushTimers(); flushTimers();
+  assert.ok(/week: function \(\) \{ churchBell\(196, 2\.5, \{ vol: 0\.08 \}\); \}/.test(audio) && /cents: 15, decay: 0\.5/.test(audio), 'a church bell, short and quiet; the cracked one detuned and shorter');
+  assert.ok(/class="wb-glass"/.test(html) && /var\(--art-ctimer-01\)/.test(rule('#weekbar .wb-glass')) && !/ctimer/.test(rule('#weekbar')) && /hourTurn/.test(rule('#weekbar .wb-glass.turn')), 'the hourglass is its own element and turns');
+  assert.ok(/transform-origin: 50% 0; animation: toll 1\.2s ease-out/.test(rule('.verb.time.toll .v-token')) && /wbFlash/.test(rule('#weekbar.flash::after')), 'the toll and the flash');
+  // The bar does not run back: the turn is written with no transition.
+  var wb = new El('div'); wb.id = 'weekbar'; var sh = new El('div'); sh.className = 'wb-shade'; wb.appendChild(sh); body.appendChild(wb);
+  e.s.weekT = CF.WEEK * 0.9; UI.updateLive();
+  var shade = $('#weekbar').querySelector('.wb-shade');
+  e.s.weekT = 0; UI.updateLive();
+  assert.ok(shade.style.transition === 'none' && shade.style.transform === 'scaleX(1)', 'a new week: full at once, no rewind: ' + shade.style.transition);
+  e.s.weekT = CF.WEEK * 0.2; UI.updateLive();
+  assert.ok(/0\.5s linear/.test(shade.style.transition), 'then it slides again');
+
+  // Item 76: the lesson under a loss, the rules' own first, the cause made particular.
+  var lessonSrc = mainSrc.slice(mainSrc.indexOf('  var LESSONS = {'), mainSrc.indexOf('  UI.endLesson = endLesson;'));
+  var endLesson = new Function('CF', 'tr', lessonSrc + '\nreturn endLesson;')(CF, CF.T);
+  ['burnout', 'collapse', 'consumed', 'dismissed', 'corruption', 'death'].forEach(function (id) {
+    var l = endLesson({ id: id, win: false });
+    assert.ok(l && l.text && l.art, 'a lesson for ' + id);
+  });
+  assert.ok(/Rest/.test(endLesson({ id: 'burnout', win: false }).text), 'the Fever\'s lesson sends you to Rest');
+  assert.strictEqual(endLesson({ id: 'master', win: true }), null, 'no lesson under a win');
+  assert.ok(/idle the whole time/.test(endLesson({ id: 'burnout', win: false, cause: { fever: 120, restIdle: true } }).text), 'the cause, where the rules keep it');
+  CF.ENDINGS.burnout.lesson = 'The rules say so.';
+  assert.strictEqual(endLesson({ id: 'burnout', win: false }).text, 'The rules say so.', 'the rules\' own lesson first');
+  delete CF.ENDINGS.burnout.lesson;
+  assert.ok(/id="end-lesson"/.test(html) && /end-lesson i/.test(css), 'the line has its place on the end paper');
+
+  // Item 74: a Loose End remembers the case that left it.
+  e = CF.Engine.newGame({ calling: 'master', seed: 52 });
+  UI.attach(e);
+  var le = e.create('looseend');
+  le.data = { fromTitle: 'The Tanner\'s Daughter', aspect: 'motive', week: 2 };
+  UI.selected = le.uid;
+  render(e);
+  var pk = $('#peek').textContent;
+  assert.ok(/From The Tanner's Daughter: three strokes cut where the crime began\./.test(pk) && /3 in Rest find the Architect: 1 of 3/.test(pk), 'the mark says where it was cut, and how near the Architect is: ' + pk.slice(0, 300));
+  e.remove(le); UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+
+  // Item 73: the Harbourmaster's leaves, where the rules have them; nothing where they do not.
+  assert.strictEqual(UI.customsLeafDef(), null, 'no leaf in these rules yet, or the test below stands in for one');
+  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 0, stalled: 0 } });
+  UI.selected = rv.uid; render(e);
+  assert.ok(!/Customs House/.test($('#peek').textContent), 'without the rules, no word of the leaves');
+  UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  CF.CARDS.customsleaf = { label: 'A Leaf from the Customs House', kind: 'insight', tags: ['insight'], aspects: { customsleaf: 1 }, stackable: true, desc: 'What the Harbourmaster paid his examiner, and for what.' };
+  CF.CASE_TEMPLATES.harbourbooks = { label: 'The Harbourmaster\'s Books', title: 'The Harbourmaster\'s Books', special: true };
+  var fakeRec = { id: 'ref_customs_test', verb: 'reflect', requires: { primary: 'customsleaf' } };
+  CF.RECIPES.push(fakeRec);
+  UI.leafDef = undefined;
+  try {
+    UI.init();
+    assert.ok(!$('#help-harbour') || !$('#help-harbour').classList.contains('hidden'), 'the Help tells of the books');
+    var l1 = e.create('customsleaf'), l2 = e.create('customsleaf');
+    render(e);
+    var lEl = $('#board').querySelector('.card[data-uid=' + e.stackOf(l1)[0].uid + ']');
+    assert.ok(lEl && lEl.querySelector('.c-face') && /charb2-06/.test(lEl.querySelector('.c-face').style['--pic']), 'the leaf wears the Customs House seal');
+    UI.selected = l1.uid; render(e);
+    assert.ok(/2 in Rest open the Harbourmaster's Books: 2 of 2/.test($('#peek').textContent), 'the leaf says what two open: ' + $('#peek').textContent.slice(0, 300));
+    UI.selected = rv.uid; render(e);
+    assert.ok(/Sent home, they leave a leaf from the Customs House/.test($('#peek').textContent), 'the Rival says what they leave');
+    UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+    e.remove(rv);
+    e.s.choice = null;
+    var say = UI.advice() || '';
+    assert.ok(/Two leaves from the Customs House: lay them in Rest/.test(say) && UI.hintGo && (UI.hintGo.uid === l1.uid || UI.hintGo.uid === l2.uid), 'the advisor sends them to Rest: ' + say);
+    var hr = e.openCases()[0];
+    hr.template = 'harbourbooks';
+    UI.selected = e.caseCard(hr.id).uid; render(e);
+    assert.ok(/Convict the Harbourmaster himself/.test($('#peek').textContent), 'the books say what convicting him does');
+    assert.strictEqual(UI.caseArt('harbourbooks'), 'charb2-01', 'the books wear a ship at the quay');
+  } finally {
+    UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+    delete CF.CARDS.customsleaf; delete CF.CASE_TEMPLATES.harbourbooks;
+    CF.RECIPES.splice(CF.RECIPES.indexOf(fakeRec), 1);
+    UI.leafDef = undefined;
+  }
+  assert.ok(/id="help-harbour" class="hidden"/.test(html), 'the Help\'s line waits hidden for the rules');
+  console.log('ui: the Harbourmaster\'s leaves, Loose Ends that remember, the plate by tier, the lesson, the Bell\'s toll, a step in a word, a junior\'s info, one mark a thing');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

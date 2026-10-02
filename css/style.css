@@ -75,6 +75,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .meter.bump-up .m-icon::before { top: 14px; animation: meterArrowUp 1.6s ease-out forwards; }
 .meter.bump-down .m-icon::before { top: 0; animation: meterArrowDown 1.6s ease-out forwards; }
 @keyframes meterBump { 50% { transform: scale(1.35); } }
+/* A step inside a word: the icon nudges the way it went, and a small arrow, red where it hurts and green where it
+   helps, fades beside it. */
+.meter.nudge { position: relative; overflow: visible; z-index: 1; }
+.meter.nudge-up .m-icon { animation: mNudgeUp 0.7s ease-out; }
+.meter.nudge-down .m-icon { animation: mNudgeDown 0.7s ease-out; }
+.meter.nudge .m-icon::before { content: ''; position: absolute; inset-inline-end: -4px; width: 11px; height: 11px; background: var(--art-carrow2-02) center / contain no-repeat; opacity: 0; pointer-events: none; }
+.meter.nudge-bad .m-icon::before { filter: drop-shadow(0 0 3px rgba(208, 86, 74, 0.9)); }
+.meter.nudge-good .m-icon::before { filter: drop-shadow(0 0 3px rgba(109, 187, 106, 0.9)); }
+.meter.nudge-up .m-icon::before { top: 15px; animation: nudgeArrowUp 0.9s ease-out forwards; }
+.meter.nudge-down .m-icon::before { top: 2px; animation: nudgeArrowDown 0.9s ease-out forwards; }
+@keyframes mNudgeUp { 30% { transform: translateY(-4px) scale(1.18); } }
+@keyframes mNudgeDown { 30% { transform: translateY(4px) scale(1.18); } }
+@keyframes nudgeArrowUp { 0% { opacity: 0.95; transform: translateY(0) rotate(-90deg); } 100% { opacity: 0; transform: translateY(-6px) rotate(-90deg); } }
+@keyframes nudgeArrowDown { 0% { opacity: 0.95; transform: translateY(0) rotate(90deg); } 100% { opacity: 0; transform: translateY(6px) rotate(90deg); } }
+/* A new word comes in spaced out and settles. */
+.meter .m-word.word-new { animation: wordIn 0.5s ease-out; }
+@keyframes wordIn { from { opacity: 0; letter-spacing: 0.18em; } }
 @keyframes meterGlow { 50% { opacity: 1; } }
 @keyframes meterArrowUp { 0% { opacity: 0; transform: translateY(0) rotate(-90deg); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px) rotate(-90deg); } }
 @keyframes meterArrowDown { 0% { opacity: 0; transform: translateY(0) rotate(90deg); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(10px) rotate(90deg); } }
@@ -522,6 +539,9 @@ html[data-flat] #table { perspective: none; }
 .divider { height: 2px; margin: 4px 8px 10px; background: linear-gradient(90deg, transparent, var(--accent) 20%, var(--accent) 80%, transparent); opacity: 0.7; }
 .vw-desc { color: var(--ink-dim); font-size: 14px; line-height: 1.45; margin: 0 0 12px; }
 .vwin .vw-desc { color: #5a4f3a; }
+/* Under a verb's first words: the offices' powers, one short dim line each; the ones still to come dimmer. */
+.vwin .vw-desc.vw-power { font-size: 12.5px; margin: -6px 0 6px; padding-inline-start: 10px; border-inline-start: 2px solid rgba(90, 79, 58, 0.35); opacity: 0.85; }
+.vwin .vw-desc.vw-power.locked { opacity: 0.55; }
 /* The story reads on the panel's own paper, with a rule under it. */
 .story { color: var(--paper-ink); padding: 2px 0 10px; margin: 0 0 12px; border-bottom: 1px solid rgba(60, 40, 10, 0.25); }
 .story h5 { margin: 0 0 6px; font-family: var(--display); letter-spacing: 0.04em; font-size: 13px; }
@@ -605,6 +625,8 @@ html[data-flat] #table { perspective: none; }
 /* A narrow window (a phone's sheet, the desk's side window) drops the accused's name from the Charge plate, so
    Charge and Clear share a row; the accused's card and the charge panel still name them. */
 .vw-body { container-type: inline-size; }
+/* The tier on the Charge plate, after the verb and the name: smaller, plain, so a phone still reads it whole. */
+.plate-btn.go .go-tier { margin-inline-start: 0.45em; font-size: 0.86em; letter-spacing: 0; text-transform: none; }
 @media (max-width: 480px) { .go-name { display: none; } }
 @container (max-width: 480px) { .go-name { display: none; } }
 .btn { background: var(--accent); color: #1a1508; border: none; border-radius: 7px; padding: 9px 16px; font-weight: 700; font-size: 14px; }
@@ -705,6 +727,9 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 .end-box .end-paper .lead { margin: 0 0 8px; max-width: none; text-align: start; text-shadow: none; color: #1f1b15; font-size: 15px; line-height: 1.55; }
 /* The end card: a wide frame (gold on a win, dark on a loss) with the ending's picture in its arch,
    the rank's wax in the circle and the name in the band. */
+/* Under a loss: what would have saved you, beside the threat's seal. */
+.end-paper .end-lesson { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 6px 10px; border-inline-start: 3px solid rgba(160, 50, 40, 0.7); background: rgba(120, 90, 50, 0.1); color: #3a3127; font-size: 14px; line-height: 1.4; }
+.end-paper .end-lesson i { flex: none; width: 34px; height: 34px; background: center / contain no-repeat; }
 .end-card { position: relative; width: 100%; aspect-ratio: 320 / 236; background: var(--frame, var(--art-cwide-04)) center / 100% 100% no-repeat; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); }
 .end-win .end-card { --frame: var(--art-cwide-03); }
 .end-lose .end-card { --frame: var(--art-cwide-04); }
@@ -901,7 +926,18 @@ body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
 
 /* Top bar: rank badge and the sun-to-moon week bar. */
 #rank-badge { width: 38px; height: 38px; flex: none; background: center / contain no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
-#weekbar { position: relative; width: 150px; height: 30px; flex: none; background: var(--art-ctimer-01) left center / 30px 30px no-repeat; }
+#weekbar { position: relative; width: 150px; height: 30px; flex: none; }
+/* The hourglass is its own element, so it can turn over when the Bell tolls. */
+#weekbar .wb-glass { position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--art-ctimer-01) center / contain no-repeat; z-index: 1; }
+#weekbar .wb-glass.turn { animation: hourTurn 0.7s ease-in-out; }
+@keyframes hourTurn { to { transform: rotate(180deg); } }
+/* A new week: the bar flashes gold over the full shade instead of running back. */
+#weekbar::after { content: ''; position: absolute; left: 26px; right: 0; top: 8px; bottom: 8px; border-radius: 0 7px 7px 0; background: rgba(240, 200, 110, 0.9); opacity: 0; pointer-events: none; }
+#weekbar.flash::after { animation: wbFlash 0.6s ease-out; }
+@keyframes wbFlash { 35% { opacity: 0.7; } }
+/* The Bell's tile swings once on its top edge as it tolls. */
+.verb.time.toll .v-token { transform-origin: 50% 0; animation: toll 1.2s ease-out; }
+@keyframes toll { 15% { transform: rotate(-4deg); } 35% { transform: rotate(3deg); } 55% { transform: rotate(-2deg); } 75% { transform: rotate(1deg); } }
 #weekbar::before { content: ''; position: absolute; left: 26px; right: 0; top: 8px; bottom: 8px; border-radius: 0 7px 7px 0; background: linear-gradient(#efe3c6, #d9c9a3); box-shadow: inset 0 0 0 1px rgba(60, 40, 10, 0.6), 0 2px 3px rgba(0, 0, 0, 0.5); }
 /* The shade is anchored at the moon and scaled back from the sun (js/ui.js writes the scaleX). */
 #weekbar .wb-shade { position: absolute; top: 9px; bottom: 9px; left: 19%; right: 1px; background: rgba(12, 14, 16, 0.78); border-radius: 0 6px 6px 0; transform-origin: right center; transition: transform 0.5s linear; }
@@ -974,6 +1010,13 @@ html[data-calm] .meter.bump .m-icon, html[data-calm] .meter.bump::before, html[d
 html[data-calm] .meter.bump::before, html[data-calm] .meter.bump .m-icon::before { opacity: 0.9; }
 html[data-calm] .meter.bump-up .m-icon::before { transform: rotate(-90deg); }
 html[data-calm] .meter.bump-down .m-icon::before { transform: rotate(90deg); }
+/* Less motion: a step inside a word is the coloured arrow alone, held still; the Bell does not swing, the glass
+   does not turn, a new word fades in without spreading. */
+html[data-calm] .meter.nudge .m-icon, html[data-calm] .meter.nudge .m-icon::before, html[data-calm] .verb.time.toll .v-token, html[data-calm] #weekbar .wb-glass.turn { animation: none; }
+html[data-calm] .meter.nudge .m-icon::before { opacity: 0.9; }
+html[data-calm] .meter.nudge-up .m-icon::before { transform: rotate(-90deg); }
+html[data-calm] .meter.nudge-down .m-icon::before { transform: rotate(90deg); }
+html[data-calm] .meter .m-word.word-new { animation-name: fadeIn; }
 html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none; }
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes fadeOut { to { opacity: 0; } }
