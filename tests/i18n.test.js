@@ -161,6 +161,19 @@ assert.strictEqual(CF.T('Wit'), 'Wit', 'English is the identity');
   CF.setLang('ar');
   function whole(s) { var r = CF.T(s); assert.ok(!/[A-Za-z]{3}/.test(r), 'read whole: ' + s + '\n  => ' + r); return r; }
   whole('Lodging and dues take 6. The Council\'s stipend: 3 Coin. 2 who walked from you are still inside the walls. The Abbey hospital keeps a bed for you. You sleep a night in it. Another girl in the Warrens. The fifth. There is a purse on your desk. Nobody saw who left it. The ledger: no case closed; 4 open; 3 Coin in hand.');
+  // The Bell's ledger with all three kinds in one week, and the Council's count after it: each count with its own plural.
+  (function () {
+    var g = CF.Engine.newGame({ seed: 77, calling: 'master' });
+    g.s.rank = CF.COUNCIL_COUNT.rank; g.s.week = 10; g.s.councilCount = { from: 10 - CF.COUNCIL_COUNT.weeks, record: g.rankRecord() };
+    g.s.weekSnap = { convictions: 0, acquittals: 0, cold: 0 };
+    g.s.stats.convictions = 1; g.s.stats.acquittals = 2; g.s.stats.cold = 3;
+    CF.setLang('en'); g.weekTick(); CF.setLang('ar');
+    var bell = g.s.journal.filter(function (j) { return j.kind === 'week'; })[0].text;
+    assert.ok(/The ledger: 1 conviction, 2 acquittals, 3 cases gone cold;/.test(bell) && /The Council counts what you closed/.test(bell), bell);
+    var ar = whole(bell);
+    assert.ok(ar.indexOf('إدانة واحدة، تبرئتان، 3 قضايا بردت؛ المفتوحة:') >= 0, 'the ledger in Arabic, each count in its form: ' + ar);
+    assert.ok(whole('The ledger: 3 convictions, 2 acquittals; 4 open; 3 Coin in hand.').indexOf('3 إدانات، تبرئتان') >= 0, 'two kinds, one style');
+  })();
   whole('"A gold ring. Big, on the little finger. It caught the lantern." (Loves the accused.)');
   whole('You find: The Carrier\'s Chit, The Bad Coin, A ledger in weights, not sums.');
   whole('The blackmailer\'s own hand, on the thing they were most careful about. It is Hal Kramer\'s.');
@@ -358,7 +371,7 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
 // in: counts told in words ('Seven', 'four'), the King of Thunes and the Architect by name.
 (function endingsInArabic() {
   CF.setLang('ar');
-  var vars = { sentHome: 'Seven', reformed: 'four', king: 'Hans Schmidt', architect: 'Hans Schmidt', architectRole: 'the great benefactor' };
+  var vars = { sentHome: 'Seven', reformed: 'four', wrongful: 3, king: 'Hans Schmidt', architect: 'Hans Schmidt', architectRole: 'the great benefactor' };
   var bad = [];
   Object.keys(CF.ENDING_VARIANTS).forEach(function (id) {
     CF.ENDING_VARIANTS[id].forEach(function (v) {
@@ -483,6 +496,9 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
     if (!ph) bad.push(k + ': a plural entry with no count');
   });
   assert.strictEqual(bad.length, 0, 'plural entries:\n  ' + bad.join('\n  '));
+  // A count the English tells in words (the epilogue's 'Three examiners') chooses the Arabic form, and stands as a digit.
+  assert.strictEqual(CF.T(CF.EPILOGUE.rival.many, { n: 'Three' }), '3 محقّقين أُعيدوا إلى دار الجمارك.');
+  assert.ok(CF.T(CF.EPILOGUE.abroad.many, { name: 'Hans Bader', k: 'three', where: 'the Warrens' }).indexOf('أفلت منك 3 مرات') >= 0, 'three times: the form for three');
   assert.ok(Object.keys(d).filter(function (k) { return typeof d[k] !== 'string'; }).length >= 40, 'the count keys are plural entries');
   CF.setLang('en');
   console.log('i18n: counts agree with their number in Arabic');

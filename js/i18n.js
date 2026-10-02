@@ -403,11 +403,23 @@
     });
   };
 
+  var NUM_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
   // Translate a string (and fill {vars}, translating each value too).
   CF.T = function (s, vars) {
     if (s === undefined || s === null) return s;
     s = String(s);
     var d = I.lang !== 'en' && I.dicts[I.lang], out;
+    // A count the English tells in words ('Three examiners', story.js Story.words) is a number to every other
+    // language: it chooses the form, and stands as a digit (the word, translated alone, would not agree).
+    if (vars && d) {
+      var nv = null;
+      for (var vk in vars) {
+        if (typeof vars[vk] !== 'string' || !NUM_WORDS[vars[vk].toLowerCase()]) continue;
+        if (!nv) { nv = {}; for (var ck in vars) nv[ck] = vars[ck]; }
+        nv[vk] = NUM_WORDS[vars[vk].toLowerCase()];
+      }
+      if (nv) vars = nv;
+    }
     // A key asked with its values: the values choose its form (a count, a woman).
     if (vars && d && d[s] !== undefined && (typeof d[s] === 'object' || d[s + '#f'] !== undefined)) out = valueFor(s, keysOf(s), function (key) { return vars[key]; });
     else out = translate(s, 0);

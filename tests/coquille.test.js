@@ -69,6 +69,16 @@ function run(e, verb, cards) {
   var k3 = e3.criminal(e3.court().king.criminalId), told3 = e3.s.journal.filter(function (j) { return j.title === 'The Coquille'; })[0];
   assert.ok(k3 && e3.atLargeCardFor(k3), 'a new King still gets a card');
   assert.ok(/The name is .*\. It is not in your Rolls\. It will be\./.test(told3.text), told3.text);
+  assert.notStrictEqual(e3.sexOfName(k3.name), 'f', 'a new King is a man: ' + k3.name);
+  // A woman with more crimes is passed over: the King of Thunes is a man (the epilogue says 'his barrel').
+  var e5 = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  e5.s.rank = 2;
+  var she = e5.criminalEscapes({ title: 'The Mint Robbery', template: 'coining' }, { name: CF.NAMES.f[0] + ' Bakker', trait: 'scar' }, 'cold');
+  she.crimes = 9;
+  var he = e5.criminalEscapes({ title: 'The Fire at the Tannery', template: 'arson' }, { name: CF.NAMES.m[0] + ' Pfister', trait: 'limp' }, 'cold');
+  he.crimes = 2;
+  e5.spawnSyndicate('test');
+  assert.strictEqual(e5.court().king.name, he.name, 'the man is crowned, not the woman');
   // The King is not sworn into a band: three more abroad, and he keeps his crown and his shell.
   var e4 = CF.Engine.newGame({ seed: 3, calling: 'master' });
   e4.s.rank = 2;
@@ -165,6 +175,19 @@ function run(e, verb, cards) {
     if (e.court().inside) inside = e;
   }
   assert.ok(inside, 'the Court\'s trial can be passed');
+  // Failed with a Wound and no Health left, the beating kills: the last blow is not told as luck.
+  var dead = null;
+  for (var di = 0; di < 30 && !dead; di++) {
+    var de = game(60 + di);
+    de.cardsOf('health', true).concat(de.cardsOf('spent_health', true)).forEach(function (c) { de.remove(c); });
+    de.create('wound'); de.create('funds'); de.create('funds');
+    run(de, 'investigate', [byDef(de, 'syndicate')[0], byDef(de, 'instinct')[0], byDef(de, 'funds')[0], byDef(de, 'funds')[1]]);
+    if (de.s.over && de.s.stats.killedBy === 'court') dead = de;
+  }
+  assert.ok(dead && dead.s.over.id === 'death' && dead.s.stats.killedBy === 'court', 'the Court can kill');
+  var last = dead.s.journal.filter(function (j) { return j.title === 'The Last Blow'; })[0];
+  assert.ok(last && !/lucky/.test(last.text), 'the killing blow: ' + (last && last.text));
+  assert.ok(/this time you did not climb out/.test(dead.s.over.text) && !/once and let you climb out/.test(dead.s.over.text), dead.s.over.text);
   var e2 = inside;
   assert.ok(!e2.canTakeThrone());
   assert.ok(/does not crown the honest|weeks/.test(e2.throneReason()));

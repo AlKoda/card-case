@@ -686,7 +686,7 @@
       keyAspects: ['financial', 'digital', 'forensic'], districts: ['uptown'],
       charge: { financial: 3, digital: 2, forensic: 2 },
       scenes: ['the Mint', 'the Assay Office', 'the {last} Counting-house'],
-      brief: 'At the Trial of the Pyx the Mint\'s own coins were weighed against the city\'s standard before the Council, and every one was light. Not clipped, not worn: struck light, under the city\'s eagle. The Mint\'s warden, {victim}, has asked for the Watch, which is brave of a warden. The Council wants it answered quietly, before the Emperor hears.',
+      brief: 'At the Trial of the Pyx the Mint\'s own coins were weighed against the city\'s standard before the Council, and every one was light. Not clipped, not worn: struck light, under the city\'s eagle. The Mint\'s warden, {victim}, has asked for the Watch, which is brave of a warden. It must be answered before the Emperor hears it from somebody else.',
       roles: [
         { role: 'the Mint\'s assayer', motive: 'Weighs every melt alone, and signs for it.' },
         { role: 'the die-cutter', sex: 'm', motive: 'Cuts the dies, and keeps the old ones he was told to break.' },

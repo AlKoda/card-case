@@ -50,11 +50,12 @@
 
   // When the Coquille forms, the man abroad with the most crimes is King:
   // never one in the Hole, on the road, or in the ground. He gets a card.
+  // A king is a man (the epilogue and the Court's words say 'his'): a woman is passed over.
   P.crownKing = function () {
-    var s = this.s, court = this.court(), best = null;
+    var s = this.s, court = this.court(), best = null, self = this;
     var most = function (list) {
       var top = null;
-      list.forEach(function (c) { if (!c.hidden && (!top || c.crimes > top.crimes)) top = c; });
+      list.forEach(function (c) { if (!c.hidden && self.sexOfName(c.name) !== 'f' && (!top || c.crimes > top.crimes)) top = c; });
       return top;
     };
     best = most(this.criminalsAtLarge());
@@ -68,7 +69,7 @@
       best = most(loose);
     }
     if (!best) {
-      best = { id: 'k' + s.nextUid++, name: this.newName(), trait: U.pick(this.rng, CF.TRAITS).id, crimes: 5, heat: 0, organization: 'syndicate', traits: [], status: 'at_large', history: [] };
+      best = { id: 'k' + s.nextUid++, name: this.newName('m'), trait: U.pick(this.rng, CF.TRAITS).id, crimes: 5, heat: 0, organization: 'syndicate', traits: [], status: 'at_large', history: [] };
       s.criminals[best.id] = best;
     }
     best.organization = 'syndicate';

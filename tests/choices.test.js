@@ -526,7 +526,7 @@ console.log('choices: all OK');
 // ---- Endings say what happened: who struck the last blow, a list without purses, the names -----
 (function endingsName() {
   function over(seed, id, set) { var g = game(seed); if (set) set(g); g.gameOver(id); return g.s.over.text; }
-  var bys = { order: /Order of the Mountain warned you once/, court: /Court of Miracles threw you in the ditch/, cover: /borrowed name slipped/ };
+  var bys = { order: /Order of the Mountain warned you once/, court: /Court of Miracles threw you in the Warrens ditch, and this time you did not climb out/, cover: /borrowed name slipped/ };
   Object.keys(bys).forEach(function (by, i) {
     var t = over(40 + i, 'death', function (g) { g.s.stats.killedBy = by; g.s.stats.attacks = 3; });
     assert.ok(bys[by].test(t) && !/cellar by the Harbour/.test(t), by + ': ' + t);
@@ -995,6 +995,8 @@ console.log('choices: all OK');
   assert.strictEqual(e.longServiceDue(), 53, 'the hangman is at his cap');
   e.s.week = 53; e.s.stats.wrongful = 1; e.longServiceWeek();
   assert.ok(/One name in your casebook/.test(e.s.over.text), 'a wrong name goes to the Close with you');
+  e = ready(158); e.s.rank = CF.TOP_RANK; e.s.week = 48; e.longServiceWeek(); e.s.week = 60; e.s.stats.wrongful = 3; e.longServiceWeek();
+  assert.ok(/There are 3 names in your casebook/.test(e.s.over.text) && !/One name/.test(e.s.over.text) && /^A year under the stair/.test(e.s.over.text), 'three wrong names are counted, and the year is not counted in weeks: ' + e.s.over.text);
 
   // Every word of it in Arabic.
   fs.readdirSync(path.join(__dirname, '..', 'js/lang/ar')).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js/lang/ar', f), 'utf8'), { filename: f }); });
@@ -1002,7 +1004,7 @@ console.log('choices: all OK');
   var texts = [told({ cases: 1 }), told({ cases: 9, convictions: 5, wrongful: 3 }), told({ cases: 12, convictions: 2, cold: 5 }), told({ cases: 20, convictions: 9, sentHome: 4 }), told({ cases: 7, convictions: 4, attacks: 3 }), told({ cases: 7, convictions: 4, attacks: 2 }), CF.LONG_SERVICE.warnText, CF.LONG_SERVICE.title, CF.LONG_SERVICE.warnTitle, CF.ASSIZE.title];
   CF.SEASONS.forEach(function (sw) { texts.push(sw.name, sw.line); if (sw.effect) texts.push(sw.effect); });
   bells.forEach(function (bw) { texts.push(S.seasonBell(bw)); });
-  CF.ENDING_VARIANTS.longservice.forEach(function (v) { texts.push(v.text); });
+  CF.ENDING_VARIANTS.longservice.forEach(function (v) { [2, 3, 11].forEach(function (n) { texts.push(CF.util.fill(v.text, { wrongful: n })); }); });
   as.options.forEach(function (o) { texts.push(o.label, o.gain, o.text); });
   texts.forEach(function (t) { assert.ok(!/[A-Za-z]{2}/.test(CF.T(t)), 'Arabic for: ' + t + ' => ' + CF.T(t)); });
   CF.setLang('en');

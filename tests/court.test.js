@@ -342,7 +342,20 @@ function setup(seed) {
     r.opening = true; r.status = 'trial';
     o.verdict(o.create('trial', { data: { caseId: r.id, name: 'X', guilty: true, solid: true, tier: 'strong', real: 6, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
     assert.strictEqual(r.status, 'closed', 'seed ' + (3000 + i) + ': full proof in the opening holds');
+    // The first case is a death: the dead do not wait at the court door with a coin.
+    assert.ok(!o.s.journal.some(function (j0) { return /presses a coin into your hand/.test(j0.text); }), 'seed ' + (3000 + i) + ': no coin from the dead');
   }
+  // Nor in a case that leaves a body; a theft's victim may still say thanks.
+  var thanked = { harbor: 0, burglary: 0 };
+  for (var di = 0; di < 40; di++) {
+    ['harbor', 'burglary'].forEach(function (tp) {
+      var dg = CF.Engine.newGame({ seed: 3400 + di, calling: 'master' }), dr = dg.caseRec(dg.spawnCase(tp, { quiet: true }).caseId);
+      dr.status = 'trial';
+      dg.verdict(dg.create('trial', { data: { caseId: dr.id, name: 'X', guilty: true, solid: true, tier: 'strong', real: 6, need: 6, coerced: 0, planted: 0, contradictions: 0 } }));
+      if (dg.s.journal.some(function (j0) { return /presses a coin into your hand/.test(j0.text); })) thanked[tp]++;
+    });
+  }
+  assert.ok(thanked.harbor === 0 && thanked.burglary > 0, 'thanks at the court door from the living only: ' + JSON.stringify(thanked));
   var lost = null;
   for (var j = 0; j < 20 && !lost; j++) {
     var g = CF.Engine.newGame({ seed: 3200 + j, who: 'clerk', name: 'Lost', opening: true, guided: true });

@@ -484,9 +484,9 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   }
   var a = assize(903);
   assert.ok(a.s.flags.assize && a.s.flags.assize.week === 26 && a.s.flags.assize.record.convictions === 8, 'the record kept');
-  var read = a.s.journal.filter(function (j) { return j.title === 'The Assize' && /Cases sent to your desk: 14\./.test(j.text); })[0];
-  assert.ok(read && /Convicted: 8\. Acquitted: 2\. Gone cold: 3\./.test(read.text) && /Wrong names, by the ballads' count: 1\./.test(read.text), 'the half-year, read from the record');
-  assert.ok(/applause/.test(read.text), 'a good record is applauded');
+  var read = a.s.journal.filter(function (j) { return j.title === 'The Assize' && /He reads out 14 cases/.test(j.text); });
+  assert.ok(read.length === 1 && /Of these, 8 ended in a conviction\./.test(read[0].text) && /One name was the wrong one/.test(read[0].text), 'the half-year, read once from the record');
+  assert.ok(/benches murmur/.test(read[0].text) && !/applause/.test(read[0].text), 'a year with a wrong name is not applauded, and the benches give one verdict');
   assert.ok(a.s.choice && a.s.choice.id === 'assize' && a.s.choice.options.length === 3, 'the Council asks what you want');
   assert.ok([0, 1, 2].every(function (i) { return a.canChoose(i); }) && a.s.choice.options.every(function (o) { return o.gain; }), 'every answer is free and says its return');
   var g0 = CF.Engine.load(a.save()), sal0 = (CF.RANK_DEFS[0] || {}).salary || CF.ECONOMY.salary[0] || 1;

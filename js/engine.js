@@ -1882,7 +1882,8 @@
     var faded = (s.weekFaded || []).filter(function (x, i, a) { return a.indexOf(x) === i; });
     if (faded.length) lines.push(U.fill('Gone stale this week: {what}.', { what: faded.join(' · ') }));
     s.weekFaded = [];
-    lines.push(U.fill('The ledger: {what}; {open} open; {coin} Coin in hand.', { what: ledger.length ? ledger.join(', ') : 'no case closed', open: this.openCases().length, coin: this.countOf('funds') }));
+    // One pattern per number of kinds, so each count is a piece of its own that a translation reads with its plural.
+    lines.push(U.fill(CF.LEDGER_LINE[Math.max(0, ledger.length - 1)], { a: ledger[0] || 'no case closed', b: ledger[1], c: ledger[2], open: this.openCases().length, coin: this.countOf('funds') }));
     // The patrons' favour moved this week, a line each.
     if (this.favourMoved) lines = lines.concat(this.favourMoved(snap.favour || { council: 0, bishop: 0, guild: 0 }));
     // From Bailiff, the Council counts what you closed this fortnight.
@@ -1894,6 +1895,11 @@
     this.story('Week ' + s.week, lines, 'week', { paid: paid, uids: stipend, season: this.season().id });
     if (this.checkPurseEndings) this.checkPurseEndings();
   };
+
+  // The crimes whose victim is dead (no thanks at the court door from them).
+  CF.DEATH_CASES = { harbor: 1, poison: 1, searchers: 1, scriptorium: 1, witch: 1, contract: 1, pattern: 1, threedays: 1, eumenides: 1 };
+  CF.LEDGER_LINE = ['The ledger: {a}; {open} open; {coin} Coin in hand.', 'The ledger: {a}, {b}; {open} open; {coin} Coin in hand.',
+    'The ledger: {a}, {b}, {c}; {open} open; {coin} Coin in hand.'];
 
   // The Belfry: every week it looks down on each known front, and one open
   // case that goes through it gets a token and a name. Once per case.
@@ -2399,25 +2405,13 @@
     return { cases: st.cases || 0, convictions: st.convictions || 0, acquittals: st.acquittals || 0, cold: st.cold || 0,
       wrongful: st.wrongful || 0, sentHome: st.sentHome || 0, attacks: st.attacks || 0 };
   };
-  // The reading, as lines (the journal keeps them; the interface may show them again).
-  P.assizeLines = function (r) {
-    var lines = [U.fill('Cases sent to your desk: {n}.', { n: r.cases }),
-      U.fill('Convicted: {c}. Acquitted: {a}. Gone cold: {k}.', { c: r.convictions, a: r.acquittals, k: r.cold })];
-    if (r.wrongful) lines.push(U.fill('Wrong names, by the ballads\' count: {n}.', { n: r.wrongful }));
-    if (r.sentHome) lines.push(U.fill('Sent home from the Court: {n}.', { n: r.sentHome }));
-    if (r.attacks) lines.push(U.fill('Blows taken in the city\'s service: {n}.', { n: r.attacks }));
-    lines.push(r.convictions > r.acquittals + r.cold + r.wrongful
-      ? 'The councillors knock on the benches. In this chamber, that is applause.'
-      : 'The councillors say nothing. In this chamber, that is a verdict.');
-    return lines;
-  };
   P.assizeWeek = function () {
     var s = this.s, wy = this.weekOfYear(), year = Math.floor((Math.max(1, s.week) - 1) / CF.YEAR_WEEKS) + 1;
     if ((s.flags.assize && (s.flags.assize.year || 1) >= year) || s.over || wy < CF.ASSIZE.week || wy > CF.ASSIZE.last) return [];
     if (s.choice || !this.offerLate) return []; // a question waits: the Assize sits at the next Bell
     var rec = this.assizeRecord();
     s.flags.assize = { week: s.week, record: rec, year: year };
-    this.story('The Assize', ['Twenty-six weeks. The Council\'s clerk reads your half-year aloud in the chamber.'].concat(this.assizeLines(rec)), 'major');
+    // One reading: the question's own text reads the record (Story.assize), and the journal keeps it.
     this.offerLate('assize');
     return ['The Assize sits. The Council has read your half-year.'];
   };
@@ -2462,7 +2456,7 @@
     consumed: { win: false, title: 'Lost in the Case', text: 'You stop going to your lodging. You stop shaving. You stop answering to your name. When they finally break the door of your study, every wall is covered, and none of it makes sense to anyone but you.',
       threat: 'obsession', lesson: 'Three Obsessions make a Fixation, and three more while it lasts are the end. Let them go in Rest before the third.' },
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.',
-      threat: 'scrutiny', lesson: 'Suspicion rises with searches without a Writ, proof arranged, purses pocketed and questions put with Health. The Rolls entered, and time, let it fall.' },
+      threat: 'scrutiny', lesson: 'Suspicion rises with searches without a Writ, proof arranged, purses pocketed and questions put with Health. It falls when you enter the Rolls in Attend, and with a friend on the Council.' },
     merciful: { win: true, title: 'The Merciful Judge', text: 'Twelve times you sent a poor sinner home instead of to the Ravenstone, and four of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
     hangmans: { win: false, title: 'The Hangman\'s Examiner', text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
     stake: { win: false, title: 'The Stake', text: 'The Inquisitor\'s charge lands on you: heresy, from a patron you crossed, sworn to by two men you sent to the Hole. The proof against you is the proof you taught the city to want. The Bishop does not answer your letter. The Fire on Friday.' },
@@ -2479,7 +2473,7 @@
     commissioner: { win: true, title: 'The Burgomaster', text: 'The Council votes, and it is not close. You take the Seat, the chamber with the window and the city\'s Watch, and you begin, slowly, to remake it in your own image. Somewhere a new examiner sits under the stair. You make sure they have what you did not.' },
     master: { win: true, title: 'The Scholar', text: 'The Architect is sentenced on a grey Tuesday. Every crime you ever worked had their hand on it, if you knew where to look. You did. The scriveners are copying your casebook for the law faculties. You find the same three strokes cut into your own lintel, and you rub them out with your thumb.' },
     crusader: { win: true, title: 'The Reformer', text: 'The Court of Miracles is a wet cellar with nobody in it. The King of Thunes hangs on the Ravenstone. It cost you more than you will ever say, and the city will grow new thieves like weeds through cobbles. But for one bright season, nobody is above the law.' },
-    longservice: { win: true, title: 'The Long Service', text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. You never caught them all. Nobody does.' },
+    longservice: { win: true, title: 'The Long Service', text: 'A year under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. You never caught them all. Nobody does.' },
   };
   // Every ending has its words in CF.ENDING_VARIANTS (js/data/story.js); the
   // Long Service brings its own until the story gives it more.
@@ -2586,7 +2580,6 @@
   // The opening case's own Quarter, at the hire: door to door is learnt in the
   // first case. Only that one district comes out of the stash; the rest wait
   // for the first conviction. Returns the card, or null.
-  CF.OPENING_QUARTER = 'Go door to door: the case with its Quarter in Explore finds the people who saw.';
   P.openingQuarter = function () {
     var s = this.s;
     if (s.flags.stage !== 'hired') return null;
@@ -3813,7 +3806,8 @@
       // A Council family convicted against the Council's wish: no thanks, only the fee.
       var spurned = rec.commission && rec.commission.from === 'council' && rec.commission.delivered === 'truth';
       if (pay) notes.push(tier !== 'strong' ? 'The case closes, and a small fee comes with it.' : spurned ? 'The Watch-house fee is paid to the coin, and not a penny over.' : 'The Council\'s thanks, with a purse attached.');
-      if (d.guilty && !rec.special && rng() < 0.35) { this.create('funds'); notes.push('At the court door ' + rec.victim + ' presses a coin into your hand and will not take it back. An honest fee.'); }
+      // The victim's own thanks: not from the dead (the first case, and the crimes that leave a body).
+      if (d.guilty && !rec.special && rng() < 0.35 && !rec.opening && !CF.DEATH_CASES[rec.template]) { this.create('funds'); notes.push('At the court door ' + rec.victim + ' presses a coin into your hand and will not take it back. An honest fee.'); }
       if (d.framed) {
         for (var fi = 0; fi < 3; fi++) this.create('funds');
         this.count('purse', 2);

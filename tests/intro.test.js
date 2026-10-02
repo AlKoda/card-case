@@ -241,6 +241,10 @@ console.log('intro: ok');
   assert.ok(/Your Wit is doing the talking/.test(e.introHint()), 'and the hint says so');
   e.tick(e.verb('interrogate').duration + 0.01); e.tick(0.1);
   assert.strictEqual(e.s.flags.stage, 'hired');
+  // The hire is told once: the sergeant's words and the Quarter's line are not read twice in a row.
+  var hiredWords = e.openingScene().hired;
+  assert.strictEqual(e.s.journal.filter(function (j) { return j.text.indexOf(hiredWords) >= 0; }).length, 1, 'the hire is told once');
+  assert.ok(e.s.journal.filter(function (j) { return /Go door to door/.test(j.text); }).length <= 1, 'door to door is said once');
   // The calling waits until the sergeant's answer is taken out of Question (on a phone its sheet covers the box).
   e.tick(12);
   assert.ok(!e.s.choice, 'no choice while the result waits in Question');
@@ -294,6 +298,11 @@ console.log('intro: ok');
   var k = CF.Engine.newGame({ seed: 42, who: 'watchman', opening: true, legacy: { predecessor: 'Vos', ending: 'Something Else', syndicate: true } });
   k.s.flags.stage = 'questioned'; k.openingHired(); k.legacyStory();
   assert.ok(/until they left it\..*Rhenish/.test(k.s.journal[0].text), k.s.journal[0].text);
+  // Every way the desk is left keeps its words (one map, all loaded): the pension, the Fire.
+  var ls = CF.Engine.newGame({ seed: 45, who: 'watchman', opening: true, legacy: { predecessor: 'Vos', ending: 'The Long Service' } });
+  ls.s.flags.stage = 'questioned'; ls.openingHired(); ls.legacyStory();
+  assert.ok(ls.s.journal.some(function (j) { return /until they took the Council's pension\./.test(j.text); }), 'the pension is named');
+  assert.strictEqual(CF.LEGACY_HOW['The Stake'], 'the Fire');
   var n = CF.Engine.newGame({ seed: 43, calling: 'master', legacy: L });
   assert.ok(n.s.journal.some(function (j) { return j.title === 'Inherited'; }) && n.s.flags.legacy.told, 'no opening: told at once');
   // Saved mid-opening and loaded: still told at the hire.

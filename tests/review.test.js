@@ -219,5 +219,10 @@ function run(e, verb, cards) {
   assert.ok(/never answered/.test(lines[0]), lines[0]);
   assert.strictEqual(lines[1], 'The Court of Miracles is scattered, and Klaus Rott hangs on the Ravenstone.');
   assert.strictEqual(lines[3], t.data.name + ' is sergeant of the Watch now.', 'the watchman, once there is room');
+  // A Clerk drilled harder is still not made sergeant of the Watch; with no Watchman, no line.
+  var clerk = e.create('teammate', e.teammateSpec('analyst')); clerk.data.level = 5;
+  assert.strictEqual(CF.Story.epilogue(e).map(function (l) { return l.text; })[3], t.data.name + ' is sergeant of the Watch now.', 'the Watch\'s own man');
+  e.remove(t);
+  assert.ok(!CF.Story.epilogue(e).some(function (l) { return l.id === 'watch'; }), 'a Clerk alone keeps no Watch');
   console.log('epilogue: ok');
 })();

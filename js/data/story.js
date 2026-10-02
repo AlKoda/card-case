@@ -69,7 +69,7 @@
     // Miracles, a borrowed name that slipped; the cudgel on the stair is the plain story.
     death: [
       { when: function (st) { return st.killedBy === 'order'; }, text: 'The Order of the Mountain warned you once, with a dagger on the pillow. The second time it sent a man in a servant\'s coat. They give you a bell, a Mass and a line in the Rolls, and nobody in the city will say they saw him.' },
-      { when: function (st) { return st.killedBy === 'court'; }, text: 'The Court of Miracles threw you in the ditch once and let you climb out. The King does not make the same mistake twice. They give you a bell, a Mass and a line in the Rolls. Under the Warrens they drink your health, the wrong way.' },
+      { when: function (st) { return st.killedBy === 'court'; }, text: 'The Court of Miracles threw you in the Warrens ditch, and this time you did not climb out. They give you a bell, a Mass and a line in the Rolls. Under the Warrens they drink your health, the wrong way.' },
       { when: function (st) { return st.killedBy === 'cover'; }, text: 'Your borrowed name slipped one night too many. They find you in the Harbour with it still in your coat. They give you a bell, a Mass and a line in the Rolls.' },
       { when: function (st) { return st.attacks >= 2; }, text: 'They came for you twice and warned you both times. The third time there was no warning. They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
@@ -312,12 +312,15 @@
     var key = bestK === 1 ? E.once : bestK === 2 ? E.twice : E.many;
     return epiLine('abroad', E.icon, key, bestK > 2 ? { name: best.name, k: Story.words(bestK), where: where } : { name: best.name, where: where });
   }
-  // The watchman drilled the most (the first sworn, on a tie) keeps the Watch after you.
+  // The watchman drilled the most (the first sworn, on a tie) keeps the Watch after you: a Beadle or a
+  // Sergeant, the Watch's own men (a Clerk, a Confessor or the boy is not made sergeant).
+  var WATCH_POSTS = { rookie: 1, veteran: 1 }, WATCH_ROLES = { Beadle: 1, Sergeant: 1 };
   function epiWatch(s) {
     var best = null;
     for (var uid in s.cards || {}) {
       var c = s.cards[uid];
       if (!c || c.def !== 'teammate' || !c.loc || !c.data || !c.data.name) continue;
+      if (!(c.data.personnel ? WATCH_POSTS[c.data.personnel] : WATCH_ROLES[c.data.role])) continue;
       var lv = c.data.level || 1, bl = best ? best.data.level || 1 : 0;
       if (!best || lv > bl || (lv === bl && Number(c.uid) < Number(best.uid))) best = c;
     }
@@ -391,9 +394,11 @@
     warnTitle: 'Your Pension',
     warnText: 'The Council is drawing up your pension. Four more weeks.',
   };
+  // A year at least: the pension can fall due later than week 52 (longServiceDue), so the ending says a year, not the weeks.
   CF.ENDING_VARIANTS.longservice = [
-    { when: function (st) { return st.wrongful > 0; }, text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. One name in your casebook should not be there, and you go to the Close with it. You never caught them all. Nobody does.' },
-    { when: function (st) { return st.convictions >= 12 && !st.wrongful; }, text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. The scriveners copy your casebook for the next one under the stair. You never caught them all. Nobody does.' },
-    { text: 'Fifty-two weeks under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. You never caught them all. Nobody does.' },
+    { when: function (st) { return st.wrongful === 1; }, text: 'A year under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. One name in your casebook should not be there, and you go to the Close with it. You never caught them all. Nobody does.' },
+    { when: function (st) { return st.wrongful >= 2; }, text: 'A year under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. There are {wrongful} names in your casebook that should not be there, and you go to the Close with them. You never caught them all. Nobody does.' },
+    { when: function (st) { return st.convictions >= 12 && !st.wrongful; }, text: 'A year under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. The scriveners copy your casebook for the next one under the stair. You never caught them all. Nobody does.' },
+    { text: 'A year under the stair and in the chamber, and the city is still standing. The Council gives you a pension, a house by the Abbey Close and a line in the Rolls in red ink. You never caught them all. Nobody does.' },
   ];
 })(typeof window !== 'undefined' ? window : globalThis);

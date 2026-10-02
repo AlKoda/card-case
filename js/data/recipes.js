@@ -1081,11 +1081,10 @@
     blocked: function (ctx) { return ctx.has('focus') ? null : 'He is not asking for your fists or your hunches. Put Wit beside him.'; },
     run: function (ctx) {
       ctx.consume(ctx.primary);
+      // The hire is told once, by openingHired (the sergeant's words, the case, the Quarter that comes with the desk).
       ctx.e.openingHired();
       if (ctx.e.legacyStory) ctx.e.legacyStory();
-      // The case's own Quarter comes with the desk, so door to door is learnt in the first case.
-      var quarter = ctx.e.openingQuarter();
-      return { title: 'The Sergeant Listens', text: ctx.e.openingScene().hired + (quarter ? ' ' + CF.OPENING_QUARTER : '') };
+      return { title: 'The Sergeant Listens', text: 'The sergeant hears you out to the end.' };
     },
   });
 
@@ -1213,9 +1212,9 @@
       var e = ctx.e;
       ctx.with('customsleaf').slice(0, 2).forEach(ctx.consume);
       var guilty = ctx.rng() < 0.5 ? 'the Harbourmaster' : 'the Harbourmaster\'s clerk';
-      var card = e.spawnCase('harbourmaster', { ctx: ctx, guiltyRole: guilty, headline: 'The Harbourmaster\'s Books', lead: 'Two leaves, one hand.' });
+      var card = e.spawnCase('harbourmaster', { ctx: ctx, guiltyRole: guilty, headline: 'The Harbourmaster\'s Books' });
       e.harbourOpened(card.caseId);
-      return { title: 'The Harbourmaster\'s Books', kind: 'major', text: 'You lay the two leaves side by side: the same hand, the same purse, the same cargo that never landed. The Harbourmaster has sent his examiners against you for a year. Now you have his books.' };
+      return { title: 'His Books', kind: 'major', text: 'You lay the two leaves side by side: the same hand, the same purse, the same cargo that never landed. The Harbourmaster has sent his examiners against you all season. Now you have his books.' };
     },
   });
   R.push({
@@ -1858,7 +1857,9 @@
         e.count('cruelty', 0);
         return { title: 'Of the Coquille', kind: 'major', text: 'The dummy hangs from the beam with a hundred little bells sewn on. You lift the purse and not one of them speaks. The Court roars. You are one of them now, and you may stay as long as you like. Nobody asks what you do in the daytime.' };
       }
-      e.hurtYou('A bell rings. Then all of them. They beat you at the foot of the King\'s barrel and throw you into the Warrens ditch, and you are lucky it is only that.', 'court');
+      // A blow that kills is not told as luck.
+      e.hurtYou(e.blowWouldKill() ? 'A bell rings. Then all of them. They beat you at the foot of the King\'s barrel and throw you into the Warrens ditch.'
+        : 'A bell rings. Then all of them. They beat you at the foot of the King\'s barrel and throw you into the Warrens ditch, and you are lucky it is only that.', 'court');
       return { title: 'A Bell Rings', text: 'One bell, then all of them. The Court has its fun with you before it throws you out.' };
     },
   });

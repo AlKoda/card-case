@@ -111,14 +111,7 @@
     quarter: 'You have the run of {quarter}. Go door to door: the case with its Quarter in Explore finds the people who saw.',
     doorHint: 'Nobody named yet. Go door to door: the case with its Quarter in Explore finds the people who saw.',
   };
-  // How the predecessor left the desk, by the ending they came to.
-  CF.LEGACY_HOW = {
-    'Dismissed': 'the Council took the letter back',
-    'The Fever': 'one morning they did not come in',
-    'Killed in the Council\'s Service': 'the burial',
-    'The Council\'s Sergeants': 'the sergeants came at first light',
-    'Lost in the Case': 'they broke the study door',
-  };
+  // How the predecessor left the desk: CF.LEGACY_HOW (engine.js), by the ending they came to.
   P.openingScene = function () { return CF.OPENING_SCENES[this.s.who] || CF.OPENING_SCENES.none; };
   // Whose death began the casebook: kept at the first keep. A save from before
   // the flag that went through the opening still knows it from its origin.
@@ -854,7 +847,7 @@
     { id: 'inquisitorlist', when: function (e) { return !!e.s.flags.inquisitor; },
       title: 'The Inquisitor\'s Question', text: 'The Inquisitor asks, very courteously, for the Examiner\'s list of the city\'s heretics. He is sure you keep one.',
       options: [
-        { label: 'Give him a name from the Rolls', cost: 'coldcase', gain: 'The Bishop\'s favour +2; Cruelty; an Unanswered case goes', text: 'You give him a name from an unanswered case, a name nobody will miss but the one who wears it. The Fire is lit on Saturday.',
+        { label: 'Give him a name from the Rolls', cost: 'coldcase', gain: 'The Bishop\'s favour +2; Cruelty; a wrong name in the Rolls; an Unanswered case goes', text: 'You give him a name from an unanswered case, a name nobody will miss but the one who wears it. The Fire is lit on Saturday.',
           effect: function (e) { favourUp(e, 'bishop', 2); e.count('cruelty'); e.s.stats.wrongful = (e.s.stats.wrongful || 0) + 1; } },
         { label: 'Give him nothing', cost: 'health', gain: 'Mercy; the Bishop frowns', text: 'You tell him the Examiner keeps no such list. He asks again, more courteously, for an hour.', effect: function (e) { e.count('mercy'); favourUp(e, 'bishop', -1); } },
         { label: 'Plead the Council\'s business', gain: 'Suspicion rises', text: 'You plead the Council\'s business and leave him in the passage. He writes your name in a small book.',
