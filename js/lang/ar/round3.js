@@ -954,5 +954,9 @@
     "Once {origin}; set out as {calling}": "كنت يوماً {origin}؛ وبدأت بصفة {calling}",
     "Their new crime: lay this beside it in Rest": "جريمته الجديدة: ضع هذه بجانبها في الراحة",
     "About {name}": "بشأن {name}",
+    "Fear fades, but not below what you have done: every three cruelties keep it one step higher.": "يخبو الخوف، لكن لا دون ما صنعت: كل ثلاث قسوات تُبقي الرهبة درجةً أعلى.",
+    "Cruelties: {n}. Dread stays at {f} of {max} or above.": "القسوات: {n}. تبقى الرهبة عند {f} من {max} أو فوقها.",
+    "Turn the phone on its side": "أدِر الهاتف على جانبه",
+    "Play upright": "العب والهاتف قائم",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

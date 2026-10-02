@@ -348,7 +348,7 @@
     } catch (err) { wakeAsking = false; /* no wake lock here */ }
   }
   UI.wake = function () {
-    var want = !!(UI.e && !UI.e.s.over && !UI.paused && !UI.modal);
+    var want = !!(UI.e && !UI.e.s.over && !UI.paused && !UI.modal && !UI.upright);
     if (want === UI.wakeWant) return;
     UI.wakeWant = want;
     applyWake(want);
@@ -361,6 +361,31 @@
   };
   UI.onForeground = function () { UI.wake(); };
   UI.onBackground = function () { if (UI.e && !UI.e.s.over && CF.Settings.get('pauseOnBlur')) UI.setPaused(true); if (UI.onSave) UI.onSave(); };
+  // A phone held upright (portrait, narrow): the turn card covers the felt and the clock waits, until the phone
+  // is turned or the player chooses to play upright (remembered on this device).
+  function portraitPhone() {
+    try { return typeof matchMedia === 'function' && !!matchMedia('(orientation:portrait)').matches && !!matchMedia('(max-width:600px)').matches; } catch (err) { return false; }
+  }
+  function uprightChosen() {
+    try { return localStorage.getItem('casefile.upright') === '1'; } catch (err) { return !!UI.uprightOk; }
+  }
+  function checkUpright() {
+    var on = portraitPhone() && !UI.uprightOk && !uprightChosen();
+    if (on === !!UI.upright) return;
+    UI.upright = on;
+    var t = $('#table');
+    if (t) t.classList.toggle('upright', on);
+    UI.wake();
+    // Turned on its side: the table is fitted afresh to the new shape.
+    if (!on && UI.e && portraitPhone() === false) UI.fitView();
+  }
+  UI.checkUpright = checkUpright;
+  UI.playUpright = function () {
+    UI.uprightOk = true;
+    try { localStorage.setItem('casefile.upright', '1'); } catch (err) { /* this visit only */ }
+    checkUpright();
+    if (UI.e) UI.fitView();
+  };
   UI.setSpeed = function (sp) { UI.speed = sp; UI.paused = false; renderControls(); };
 
   UI.init = function () {
@@ -427,11 +452,15 @@
     $('#journal-close').addEventListener('click', function () { UI.toggleJournal(false); });
     window.addEventListener('resize', function () {
       tiltChanged();
+      checkUpright();
       // Keep open windows inside the (possibly smaller) table.
       Object.keys(winEls).forEach(function (vid) { positionWindow(vid, winEls[vid]); });
       checkHint();
       if (UI.e) UI.e.dirty = true;
     });
+    var turnOk = $('#turn-ok');
+    if (turnOk) turnOk.addEventListener('click', function () { UI.playUpright(); });
+    checkUpright();
     // A hidden hint (narrow screens) gets no advisor at all; looked at again on resize.
     function checkHint() { UI.hintHidden = $('#hint').offsetParent === null; }
     checkHint();
@@ -450,7 +479,7 @@
       // One bad frame must never stop the clock: log it and keep going.
       try {
         if (e) {
-          if (!e.s.over && !UI.paused && !UI.modal) {
+          if (!e.s.over && !UI.paused && !UI.modal && !UI.upright) {
             e.tick(dt * UI.speed);
             saveT += dt;
             if (saveT > 8 && UI.onSave) { saveT = 0; UI.onSave(); }
@@ -623,6 +652,9 @@
       if (entry.verb) openWindow(entry.verb);
       else if (entry.uid) { if (!UI.panTo(entry.uid) && entry.verb) openWindow(entry.verb); }
       else if (entry.kind === 'minor') { /* nothing to show */ }
+      // On a phone the toasts sit over the lowest cards: a thumb going for a card puts the toast away and no more.
+      // The Journal keeps the story (the menu opens it).
+      else if (narrow()) { /* dismissed */ }
       else { UI.toggleJournal(true); $('#journal').scrollTop = 0; }
       t.remove();
     });
@@ -635,7 +667,7 @@
 
   // ---------------------------------------------------------------- Render
   function render() {
-    UI.adviceAt = undefined; // the table changed: the advisor reads it afresh
+    UI.adviceAt = undefined; UI.urgentAt = undefined; // the table changed: the advisor reads it afresh
     boundsCache = null;
     renderTop();
     syncBoard();
@@ -675,6 +707,31 @@
     var done = verbs.filter(function (v) { return e.verb(v).status === 'done'; });
     if (done.length) return tr('{verb} has finished: tap its tile, turn the cards over, then double-tap or Take all.', { verb: CF.VERBS[done[0]].label });
     return null;
+  }
+  // What costs dearly within the minute, and speaks even while verbs run (it outranks a finished verb in the hint):
+  // the fever, the Bell with the purse short, a need about to take its due. Null when none applies.
+  function urgentLine() {
+    var e = UI.e, s = e.s;
+    if (s.over) return null;
+    // Only while the verb that answers it is free to take it: a Rest already at work is the answer in hand.
+    var can = function (v) { return e.verb(v).unlocked && !e.lockReason(v) && e.verb(v).status === 'idle'; };
+    var table = e.tableCards();
+    // The fever locks the street: Rest comes before anything the locked verbs would do.
+    if (e.countOf('burnout') && can('reflect')) return tr('The fever has you: put Fever into Rest before anything else.');
+    // The Bell is near and the purse is short.
+    var money = table.filter(function (c) { return c.def === 'funds'; }).length, bellIn = CF.WEEK - s.weekT;
+    if (e.verb('time').unlocked && !s.flags.bellSilent && money < e.dues() && bellIn < 60 && can('duty')) return tr('The Bell rings in {t} and wants {n} Coin; you have {m}. Attend with Health or Wit, now.', { t: U.fmtTime(bellIn), n: e.dues(), m: money });
+    // A need about to take its due.
+    var need = can('reflect') && table.filter(function (c) { return CF.NEEDS && CF.NEEDS[c.def] && c.maxLife && c.life < 60; }).sort(function (a, b) { return a.life - b.life; })[0];
+    if (need) { UI.hintGo = { uid: need.uid }; return tr('{need} is on the table with {t} left: into Rest with a Coin, or a watchman, a Quarter, an informer.', { need: e.labelOf(need), t: U.fmtTime(need.life) }); }
+    return null;
+  }
+  // Read twice a second at most (render() forgets it), with the place it names.
+  function cachedUrgent() {
+    var now = performance.now();
+    if (UI.urgentAt === undefined || now - UI.urgentAt >= 500) { UI.hintGo = null; UI.urgentCache = urgentLine(); UI.urgentGo = UI.hintGo; UI.urgentAt = now; }
+    UI.hintGo = UI.urgentCache ? UI.urgentGo || null : null;
+    return UI.urgentCache;
   }
   // Every row met and still half proof: full proof wants word behind it (a witness, a confession, a token that
   // names them), and nothing on the table says they did it.
@@ -726,6 +783,10 @@
     var verbs = CF.VERB_ORDER.filter(function (v) { return e.verb(v).unlocked; });
     var can = function (v) { return e.verb(v).unlocked && !e.lockReason(v); };
     var running = verbs.filter(function (v) { return e.verb(v).status === 'running'; });
+    // What will cost the player dearly in a minute outranks a verb that has finished or asks.
+    var urgent = urgentLine();
+    if (urgent) return urgent;
+    UI.hintGo = null;
     var pressing = pressingLine();
     if (pressing) return pressing;
     if (running.length) return null;
@@ -733,11 +794,6 @@
     var cases = table.filter(function (c) { return c.def === 'case'; });
     var open = cases.map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
     var wit = has('focus')[0], hp = has('health')[0];
-    // The fever locks the street: Rest comes before anything the locked verbs would do.
-    if (e.countOf('burnout') && can('reflect')) return tr('The fever has you: put Fever into Rest before anything else.');
-    // The Bell is near and the purse is short.
-    var money = table.filter(function (c) { return c.def === 'funds'; }).length, bellIn = CF.WEEK - s.weekT;
-    if (e.verb('time').unlocked && !s.flags.bellSilent && money < e.dues() && bellIn < 60 && can('duty')) return tr('The Bell rings in {t} and wants {n} Coin; you have {m}. Attend with Health or Wit, now.', { t: U.fmtTime(bellIn), n: e.dues(), m: money });
     // A case about to go cold with somebody to charge.
     if (e.verb('arrest').unlocked) for (var ci = 0; ci < open.length; ci++) {
       if (open[ci].card.life >= 120) continue;
@@ -752,9 +808,6 @@
         if (ch) { UI.hintGo = { uid: fading[fi].uid }; return tr('The proof against {name} fades in {t}. Charge now, or lose it.', { name: e.labelOf(ch.card), t: U.fmtTime(fading[fi].life) }); }
       }
     }
-    // A need about to take its due.
-    var need =table.filter(function (c) { return CF.NEEDS && CF.NEEDS[c.def] && c.maxLife && c.life < 60; }).sort(function (a, b) { return a.life - b.life; })[0];
-    if (need) { UI.hintGo = { uid: need.uid }; return tr('{need} is on the table with {t} left: into Rest with a Coin, or a watchman, a Quarter, an informer.', { need: e.labelOf(need), t: U.fmtTime(need.life) }); }
     // The Order's dagger: Rest answers it, and Attend with a watchman where the rules allow it.
     var dagger = has('dagger')[0];
     if (dagger) {
@@ -872,7 +925,10 @@
   function renderHint() {
     var e = UI.e, hint = $('#hint');
     if (UI.hintHidden) return;
-    // A finished verb or an unanswered ask comes before any lesson: the guided start waits until it clears.
+    // The fever, the Bell short or a need about to take its due, then a finished verb or an unanswered ask, come
+    // before any lesson: the guided start waits until they clear.
+    var urgent = e.s.over ? null : cachedUrgent();
+    if (urgent) { showAdvice(hint, urgent); return; }
     var pressing = e.s.over ? null : pressingLine();
     if (pressing) { UI.hintGo = null; showAdvice(hint, pressing); return; }
     var text = (e.introHint ? e.introHint() : null) || bellLesson(e);
@@ -955,6 +1011,13 @@
       var ue = UI.e, abroad = ue.cardsOf('atlarge').filter(function (c) { return !c.data.band; }).length + ue.countOf('gang') * 2 + ue.countOf('syndicate') * 3;
       box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + esc(tr('Thieves abroad: {n}. At four the Market sings them, and the Crowd rises every other week (every week from Bailiff). A band counts two, the Coquille three.', { n: abroad })) + '</p>' +
         '<p>' + esc('A hue and cry takes a name off the wall: Work the Quarter in Explore, or Old Ghosts in Rest.') + '</p>');
+    }
+    // The city remembers (engine dreadFloor, where the rules keep one): Dread fades at the Bell, but not below a
+    // step for every three Cruelties.
+    if (key === 'dread' && UI.e && typeof UI.e.dreadFloor === 'function') {
+      var floor = UI.e.dreadFloor(), cru = (UI.e.s.counts && UI.e.s.counts.cruelty) || 0;
+      box.insertAdjacentHTML('beforeend', '<p class="i-tally">' + esc('Fear fades, but not below what you have done: every three cruelties keep it one step higher.') + '</p>' +
+        (floor > 0 ? '<p>' + esc(tr('Cruelties: {n}. Dread stays at {f} of {max} or above.', { n: cru, f: floor, max: UI.e.meterMax ? UI.e.meterMax('dread') : 10 })) + '</p>' : ''));
     }
     if (key === 'reputation') {
       // Where the ladder ends for you, and what holds the next letter back.
@@ -1168,10 +1231,17 @@
   }
 
   // ---------------------------------------------------------------- Board
+  // The clocks' counter-scale (css --zk, used on a phone): one step per tenth of zoom between 0.6 and 1, so it
+  // is written, and the cards restyled, only when a step is crossed, never on every frame of a pinch.
+  var zkShown = null;
   function applyView() {
-    var v = UI.view;
+    var v = UI.view, board = $('#board');
     // Only the board moves: a custom property set on #table would restyle every card under it on each zoom step.
-    $('#board').style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')';
+    board.style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.z + ')';
+    var zk = Math.round(100 / U.clamp(Math.round(v.z * 10) / 10, 0.6, 1)) / 100;
+    if (zk !== zkShown) { zkShown = zk; board.style.setProperty('--zk', String(zk)); }
+    // The edge marks follow the camera here; their targets moving is caught by the frame's cheap check.
+    if (UI.notices.length) updateNotices();
   }
 
   // Measured once per render; a pinch asks for it on every move.
@@ -1182,29 +1252,37 @@
     var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     cards.forEach(function (c) { x0 = Math.min(x0, c.loc.x); y0 = Math.min(y0, c.loc.y); x1 = Math.max(x1, c.loc.x + T.CW); y1 = Math.max(y1, c.loc.y + T.CH); });
     CF.VERB_ORDER.forEach(function (id) { var v = e.verb(id); if (!v.unlocked || v.x === undefined) return; x0 = Math.min(x0, v.x); y0 = Math.min(y0, v.y); x1 = Math.max(x1, v.x + T.VW); y1 = Math.max(y1, v.y + T.VH); });
-    var pile = e.pile();
-    x0 = Math.min(x0, pile.x); y0 = Math.min(y0, pile.y); x1 = Math.max(x1, pile.x + T.PILE_COLS * T.PX); y1 = Math.max(y1, pile.y + T.CH);
+    // The pile's strip counts only as far as cards lie in it (with its label above): its empty cells would hold a
+    // phone's opening, two cards in the strip, at the farthest zoom.
+    var pile = e.pile(), pw = T.PILE_COLS * T.PX, pileEnd = -Infinity;
+    cards.forEach(function (c) { if (c.loc.x >= pile.x && c.loc.x < pile.x + pw && c.loc.y >= pile.y && c.loc.y < pile.y + T.CH) pileEnd = Math.max(pileEnd, c.loc.x + T.CW); });
+    if (pileEnd > -Infinity) { x0 = Math.min(x0, pile.x); y0 = Math.min(y0, pile.y - 30); x1 = Math.max(x1, pileEnd); y1 = Math.max(y1, pile.y + T.CH); }
     if (!cards.length) { x0 = 0; y0 = T.TOP; x1 = 4 * (T.CW + T.GAP); y1 = T.TOP + T.CH; }
     return (boundsCache = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
   }
 
   // On a phone or a short window the tool row sits on the felt's top edge: the camera keeps the band under it free,
   // so no tile is ever under the buttons (a tap there would hit them).
+  // Measured once per table rect (a pan or pinch asks on every move); forgotten with it (tiltChanged).
+  var bandCache = null;
   function toolBand(r) {
-    var short = false;
+    if (bandCache && bandCache.top === r.top) return bandCache.h;
+    var short = false, h = 0;
     try { short = typeof matchMedia === 'function' && !!matchMedia('(max-height:520px)').matches; } catch (err) { short = false; }
-    if (!narrow() && !short) return 0;
-    var z = $('#zoom');
-    return z ? Math.max(0, z.getBoundingClientRect().bottom - r.top + 6) : 0;
+    if (narrow() || short) { var z = $('#zoom'); h = z ? Math.max(0, z.getBoundingClientRect().bottom - r.top + 6) : 0; }
+    bandCache = { top: r.top, h: h };
+    return h;
   }
   // Fit the whole board into the table area.
   UI.fitView = function () {
     if (!UI.e) return;
     var r = $('#table').getBoundingClientRect();
     var b = boardBounds();
+    bandCache = null;
     var dockH = toolBand(r);
     // Fit what is on the table, and lean in when there is little of it.
-    var z = U.clamp(Math.min((r.width - 60) / b.w, (r.height - dockH - 60) / b.h), 0.5, 1.25);
+    // Upright on a phone the fit may go as far as a pinch can (0.4), so more of each row is in sight.
+    var z = U.clamp(Math.min((r.width - 60) / b.w, (r.height - dockH - 60) / b.h), portraitPhone() ? 0.4 : 0.5, 1.25);
     UI.view = { x: (r.width - b.w * z) / 2 - b.x * z, y: dockH + Math.max(20, (r.height - dockH - b.h * z) / 2) - b.y * z, z: z };
     applyView();
   };
@@ -1288,21 +1366,21 @@
     if (v.status === 'idle' && e.start(vid)) { CF.Audio.play('start'); e.dirty = true; }
   }
 
-  function zoomAt(cx, cy, factor) {
-    var r = $('#table').getBoundingClientRect();
+  function zoomAt(cx, cy, factor, rect) {
+    var r = rect || $('#table').getBoundingClientRect();
     var v = UI.view, z = U.clamp(v.z * factor, 0.4, 1.6);
     var pp = toPlane(cx - r.left, cy - r.top), px = pp.x, py = pp.y;
     v.x = px - (px - v.x) * (z / v.z);
     v.y = py - (py - v.y) * (z / v.z);
     v.z = z;
-    clampView();
+    clampView(r);
     applyView();
   }
 
   // Never let the whole board leave the table area: some of it stays in view.
-  function clampView() {
+  function clampView(rect) {
     if (!UI.e) return;
-    var r = $('#table').getBoundingClientRect(), v = UI.view, b = boardBounds();
+    var r = rect || $('#table').getBoundingClientRect(), v = UI.view, b = boardBounds();
     var margin = 80, dockH = toolBand(r);
     v.x = U.clamp(v.x, margin - (b.x + b.w) * v.z, r.width - margin - b.x * v.z);
     v.y = U.clamp(v.y, dockH + margin - (b.y + b.h) * v.z, r.height - margin - b.y * v.z);
@@ -1314,7 +1392,7 @@
   var tiltM = null, tiltDirty = true;
   // The stylesheet is read again only when something could have moved the
   // plane: a resize, a change of scale, the start of a gesture.
-  function tiltChanged() { tiltDirty = true; }
+  function tiltChanged() { tiltDirty = true; tableRectCache = null; bandCache = null; }
   function mat4mul(a, b) {
     var o = [];
     for (var i = 0; i < 4; i++) for (var j = 0; j < 4; j++) { var v = 0; for (var k = 0; k < 4; k++) v += a[i * 4 + k] * b[k * 4 + j]; o[i * 4 + j] = v; }
@@ -1398,22 +1476,43 @@
         removeMark(mark);
       });
       $('#table').appendChild(mark);
-      var entry = { el: el, mark: mark, until: performance.now() + 12000 };
+      var entry = { el: el, mark: mark, uid: spec.uid, verb: spec.verb, until: performance.now() + 12000 };
       UI.notices.push(entry);
       placeMark(entry);
     }, spec.fresh ? 450 : 50);
   };
   function removeMark(mark) { mark.remove(); UI.notices = UI.notices.filter(function (n) { return n.mark !== mark; }); }
-  function placeMark(n) {
-    var tr2 = $('#table').getBoundingClientRect(), r = n.el.getBoundingClientRect();
-    var cx = r.left + r.width / 2 - tr2.left, cy = r.top + r.height / 2 - tr2.top;
-    var inside = cx > 0 && cx < tr2.width && cy > 0 && cy < tr2.height;
-    n.mark.classList.toggle('hidden', inside);
-    if (inside) return;
-    var mx = Math.max(24, Math.min(tr2.width - 24, cx)), my = Math.max(80, Math.min(tr2.height - 90, cy));
-    n.mark.style.left = mx + 'px'; n.mark.style.top = my + 'px';
-    n.mark.style.setProperty('--ang', (Math.atan2(cy - my, cx - mx) * 180 / Math.PI) + 'deg');
+  // The table's size, read once and kept until a resize, a change of scale or a new gesture (tiltChanged).
+  var tableRectCache = null;
+  function tableRect() { return tableRectCache || (tableRectCache = $('#table').getBoundingClientRect()); }
+  // Where a notice's target sits on the board: a verb's tile or a card on the table, read off the state, so no
+  // element is measured. Null when it is not on the table (in a window, held): then it is in sight anyway.
+  function markTarget(n) {
+    var e = UI.e;
+    if (!e) return null;
+    if (n.verb) { var v = e.s.verbs[n.verb]; return v && v.x !== undefined ? { x: v.x + T.VW / 2, y: v.y + T.VH / 2 } : null; }
+    var c = n.uid ? e.card(n.uid) : null;
+    return c && c.loc && c.loc.t === 'table' ? { x: c.loc.x + T.CW / 2, y: c.loc.y + T.CH / 2 } : null;
   }
+  // The mark is placed from the camera and the state alone, and written only when something it shows has moved.
+  function placeMark(n) {
+    var b = markTarget(n), v = UI.view;
+    if (!b) { if (n.key !== 'off') { n.key = 'off'; n.mark.classList.add('hidden'); } return; }
+    var tr2 = tableRect();
+    var key = v.x + ',' + v.y + ',' + v.z + ',' + b.x + ',' + b.y + ',' + tr2.width + ',' + tr2.height;
+    if (n.key === key) return;
+    n.key = key;
+    var sp = fromPlane(v.x + b.x * v.z, v.y + b.y * v.z), cx = sp.x, cy = sp.y;
+    var inside = cx > 0 && cx < tr2.width && cy > 0 && cy < tr2.height;
+    if (n.inside !== inside) { n.inside = inside; n.mark.classList.toggle('hidden', inside); }
+    if (inside) return;
+    var mx = Math.round(Math.max(24, Math.min(tr2.width - 24, cx))), my = Math.round(Math.max(80, Math.min(tr2.height - 90, cy)));
+    var ang = Math.round(Math.atan2(cy - my, cx - mx) * 180 / Math.PI);
+    if (n.mx !== mx) { n.mx = mx; n.mark.style.left = mx + 'px'; }
+    if (n.my !== my) { n.my = my; n.mark.style.top = my + 'px'; }
+    if (n.ang !== ang) { n.ang = ang; n.mark.style.setProperty('--ang', ang + 'deg'); }
+  }
+  // Each frame: retire the old marks; the rest move only when the camera or their target has.
   function updateNotices() {
     var now = performance.now();
     UI.notices.slice().forEach(function (n) {
@@ -2794,7 +2893,7 @@
       ev.preventDefault();
       return;
     }
-    if (t.closest && t.closest('#table') && !win && !t.closest('#zoom') && !t.closest('#peek')) {
+    if (t.closest && t.closest('#table') && !win && !t.closest('#zoom') && !t.closest('#peek') && !t.closest('#turn')) {
       // Touching the felt puts away the windows and the pinned dossier.
       if (UI.openVerbs.length) closeAllWindows();
       UI.drag = { kind: 'pan', x0: ev.clientX, y0: ev.clientY, vx: UI.view.x, vy: UI.view.y, started: false };
@@ -2818,13 +2917,40 @@
     return d;
   }
 
+  // A gesture's drawing, once a frame: the board under a pan, the tile or the pile under a drag, the zoom
+  // under a pinch. The numbers are kept at every move; the page is written here. flushDraw runs a pending
+  // frame at once (the gesture ended before it came).
+  function drawGesture(d) {
+    if (d.kind === 'pan') applyView();
+    else if (d.kind === 'pinch') applyPinch(d);
+    else if ((d.kind === 'verb' || d.kind === 'pile') && d.at) {
+      place(d.el, d.kind === 'pile' ? d.at.x - 9 : d.at.x, d.kind === 'pile' ? d.at.y - 8 : d.at.y);
+      if (d.kind === 'verb') syncLinksHeld(['v:' + d.verb]);
+    }
+  }
+  function frameDraw(d) {
+    if (!d.raf) d.raf = requestAnimationFrame(function () { d.raf = 0; if (UI.drag === d) drawGesture(d); });
+  }
+  function flushDraw(d) {
+    if (!d || !d.raf) return;
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(d.raf);
+    d.raf = 0;
+    if (d.kind !== 'card') drawGesture(d); // a card's drop reads the pointer itself
+  }
+  function applyPinch(d) {
+    var pinch = pinchState();
+    if (!pinch) return;
+    var want = U.clamp(d.z0 * (pinch.d / d.d0), 0.4, 1.6);
+    zoomAt(pinch.cx, pinch.cy, want / UI.view.z, d.rect);
+  }
+
   function onPointerMove(ev) {
     if (pointers[ev.pointerId]) pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
     if (UI.drag && UI.drag.kind === 'pinch') {
-      var pinch = pinchState();
-      if (!pinch) return;
-      var want = U.clamp(UI.drag.z0 * (pinch.d / UI.drag.d0), 0.4, 1.6);
-      zoomAt(pinch.cx, pinch.cy, want / UI.view.z);
+      var pd = UI.drag;
+      if (!pinchState()) return;
+      if (!pd.rect) pd.rect = $('#table').getBoundingClientRect();
+      if (!pd.raf) pd.raf = requestAnimationFrame(function () { pd.raf = 0; applyPinch(pd); });
       return;
     }
     var d = UI.drag;
@@ -2846,15 +2972,16 @@
       return;
     }
     if (d.kind === 'pan') {
-      d.started = true;
+      if (!d.started) { d.started = true; d.rect = $('#table').getBoundingClientRect(); $('#table').classList.add('panning'); }
       if (d.holdT) { clearTimeout(d.holdT); d.holdT = 0; }
-      var tr0 = $('#table').getBoundingClientRect();
+      // The camera follows at once (the numbers are cheap, read off the rect taken when the pan began); the board
+      // is moved once a frame, however many moves the finger sends.
+      var tr0 = d.rect;
       var p0 = toPlane(d.x0 - tr0.left, d.y0 - tr0.top), p1 = toPlane(ev.clientX - tr0.left, ev.clientY - tr0.top);
       UI.view.x = d.vx + (p1.x - p0.x);
       UI.view.y = d.vy + (p1.y - p0.y);
-      clampView();
-      $('#table').classList.add('panning');
-      applyView();
+      clampView(tr0);
+      frameDraw(d);
       return;
     }
     if (d.kind !== 'pan' && !d.started && Math.abs(ev.clientX - d.x0) + Math.abs(ev.clientY - d.y0) < 7) return; // a tap, not a drag
@@ -2868,8 +2995,8 @@
       }
       var q0 = toBoard(d.x0, d.y0, d.rect), q1 = toBoard(ev.clientX, ev.clientY, d.rect);
       d.at = { x: d.b0.x + (q1.x - q0.x), y: d.b0.y + (q1.y - q0.y) };
-      place(d.el, d.kind === 'pile' ? d.at.x - 9 : d.at.x, d.kind === 'pile' ? d.at.y - 8 : d.at.y);
-      if (d.kind === 'verb') { var mv = UI.e.s.verbs[d.verb]; if (mv) { mv.x = d.at.x; mv.y = d.at.y; syncLinksHeld(['v:' + d.verb]); } }
+      if (d.kind === 'verb') { var mv = UI.e.s.verbs[d.verb]; if (mv) { mv.x = d.at.x; mv.y = d.at.y; } }
+      frameDraw(d);
       return;
     }
     if (!d.started) { liftCard(d, ev); moveLifted(d, ev); return; }
@@ -2910,6 +3037,10 @@
     d.el.classList.remove('arrive', 'leaving', 'flying', 'fits', 'fits-strong');
     d.el.classList.add('lifted');
     d.el.style.transformOrigin = d.gx + 'px ' + d.gy + 'px';
+    // Where the browser has the translate property, the card sits at the layer's corner and moves by it alone:
+    // no layout on a move, and the tilt's eased transform stays its own.
+    d.tr = liftTranslate();
+    if (d.tr) { d.el.style.left = '0px'; d.el.style.top = '0px'; }
     $('#drag-layer').appendChild(d.el);
     d.rot = 0;
     d.lastX = ev.clientX;
@@ -2918,13 +3049,30 @@
     markDropTargets(card);
   }
 
+  var canTranslate;
+  function liftTranslate() {
+    if (canTranslate === undefined) { try { canTranslate = !!(document.body && document.body.style && 'translate' in document.body.style); } catch (err) { canTranslate = false; } }
+    return canTranslate;
+  }
+  // The lifted card's place: by translate where it can, else by left and top.
+  function liftAt(d, x, y) {
+    if (d.tr) d.el.style.translate = Math.round(x) + 'px ' + Math.round(y) + 'px';
+    else { d.el.style.left = x + 'px'; d.el.style.top = y + 'px'; }
+  }
+  // Before the card glides by left and top (back to its slot, into a verb), it is put there exactly where it is.
+  function liftToLeftTop(d) {
+    if (!d.tr || !d.lastEv) return;
+    d.tr = false;
+    d.el.style.translate = '';
+    d.el.style.left = (d.lastEv.clientX - d.gx) + 'px'; d.el.style.top = (d.lastEv.clientY - d.gy) + 'px';
+    void d.el.offsetWidth;
+  }
   function moveLifted(d, ev) {
     d.lastEv = { clientX: ev.clientX, clientY: ev.clientY };
     var vx = ev.clientX - d.lastX;
     d.lastX = ev.clientX;
     d.rot = U.clamp(d.rot * 0.7 + vx * 0.9, -14, 14);
-    d.el.style.left = (ev.clientX - d.gx) + 'px';
-    d.el.style.top = (ev.clientY - d.gy) + 'px';
+    liftAt(d, ev.clientX - d.gx, ev.clientY - d.gy);
     d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(' + d.rot.toFixed(1) + 'deg)';
     syncLinksHeld(d.uids.map(String));
     var t = dropTarget(ev), over = t && t.node ? t.node : null;
@@ -2933,8 +3081,15 @@
       if (over) over.classList.add('drop-hover');
       d.hoverNode = over;
     }
-    clearTimeout(d.settleT);
-    d.settleT = setTimeout(function () { if (UI.drag === d) { d.rot = 0; d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(0deg)'; } }, 90);
+    // The tilt straightens 90ms after the last move: one timer at a time, which looks at when the card last moved.
+    d.movedAt = performance.now();
+    if (!d.settleT) d.settleT = setTimeout(function settle() {
+      d.settleT = 0;
+      if (UI.drag !== d) return;
+      var wait = 90 - (performance.now() - d.movedAt);
+      if (wait > 1) { d.settleT = setTimeout(settle, wait); return; }
+      d.rot = 0; d.el.style.transform = 'scale(' + (d.z * 1.07) + ') rotate(0deg)';
+    }, 90);
   }
 
   function dropTarget(ev) {
@@ -2975,6 +3130,7 @@
     var p = toBoard(ev ? ev.clientX : d.origin.left, ev ? ev.clientY : d.origin.top, d.rect);
     el.classList.remove('lifted');
     el.style.left = el.style.top = '';
+    el.style.translate = '';
     el.style.transformOrigin = '';
     el.classList.add('no-anim');
     place(el, ev ? p.x - d.gx : x, ev ? p.y - d.gy : y);
@@ -2995,6 +3151,7 @@
       else d.el.remove();
     } else {
       var el = d.el;
+      liftToLeftTop(d);
       el.classList.add('returning');
       el.style.left = d.origin.left + 'px';
       el.style.top = d.origin.top + 'px';
@@ -3033,6 +3190,7 @@
   }
   function cancelDrag() {
     var d = UI.drag;
+    flushDraw(d);
     UI.drag = null;
     clearMarks();
     resumeAfterDrag();
@@ -3053,6 +3211,7 @@
     delete pointers[ev.pointerId];
     var d = UI.drag;
     if (!d) return;
+    flushDraw(d);
     if (d.kind === 'pinch') { if (!pinchState()) UI.drag = null; return; }
     var e = UI.e;
     UI.drag = null;
@@ -3152,6 +3311,7 @@
     UI.lifted = null;
     if (d.from === 'table') delete cardEls[d.uid];
     var r = t.node.getBoundingClientRect();
+    liftToLeftTop(d);
     el.classList.add('absorbing');
     el.style.left = (r.left + r.width / 2 - T.CW / 2) + 'px';
     el.style.top = (r.top + r.height / 2 - T.CH / 2) + 'px';

@@ -157,7 +157,19 @@
     UI.speed = 1;
     save();
     only(null);
+    lockLandscape();
     UI.fitView();
+  }
+
+  // Installed or full screen, the page asks to be held on its side like the app; a browser that will not is
+  // answered by the turn card (js/ui.js) instead.
+  function lockLandscape() {
+    try {
+      var standalone = typeof matchMedia === 'function' && (matchMedia('(display-mode:standalone)').matches || matchMedia('(display-mode:fullscreen)').matches);
+      if (!(document.fullscreenElement || standalone) || !screen.orientation || !screen.orientation.lock) return;
+      var p = screen.orientation.lock('landscape');
+      if (p && p.catch) p.catch(function () { /* not allowed here */ });
+    } catch (err) { /* no orientation lock */ }
   }
 
   // Continue: the saved letter. One that cannot be read is never thrown away:
@@ -172,6 +184,7 @@
       UI.setSpeed && UI.setSpeed(1);
       inGame = true;
       only(null);
+      lockLandscape();
       UI.fitView();
       return true;
     } catch (err) {

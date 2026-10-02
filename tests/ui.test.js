@@ -1395,5 +1395,161 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the Rolls by case, the short screen, an old choice answered, the save on pause, the portrait of whom, Back');
 })();
 
+// ---- Round 8, lane 2 (41-48): the edge marks read no element, the phone's turn card, the drag by translate and the
+// pan once a frame, the bar's empty badge and hit-slop, the urgent before the finished, the city's memory of fear,
+// the clocks readable far out, and a phone's tap on a story toast.
+(function round8c6() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var ui = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var e = CF.Engine.newGame({ calling: 'master', seed: 23 });
+  UI.attach(e);
+  render(e);
+  Object.defineProperty(El.prototype, 'isConnected', { configurable: true, get: function () { return body.contains(this); } });
+  var reads = 0, realRect = El.prototype.getBoundingClientRect;
+  El.prototype.getBoundingClientRect = function () { reads++; return realRect.call(this); };
+
+  // An edge mark is placed from the camera and the state: no element measured once it stands, and written only on change.
+  UI.view = { x: -6000, y: 0, z: 1 };
+  timers = [];
+  UI.notice({ verb: 'duty', label: 'Attend' });
+  flushTimers();
+  var mark = $('#table').querySelectorAll('.edge-mark')[0];
+  assert.ok(mark && !mark.classList.contains('hidden'), 'the off-screen tile gets a mark');
+  assert.strictEqual(mark.style.left, '24px', 'at the left edge, toward it');
+  reads = 0;
+  var writes = 0, st = mark.style, left = st.left;
+  Object.defineProperty(st, 'left', { configurable: true, get: function () { return left; }, set: function (v) { writes++; left = v; } });
+  UI.updateLive(); UI.updateLive(); UI.updateLive();
+  assert.strictEqual(writes, 0, 'nothing moved: nothing written');
+  UI.view.y = -40;
+  UI.updateLive();
+  assert.ok(reads === 0, 'and no element is measured for it: ' + reads);
+  UI.view = { x: 0, y: 0, z: 1 };
+  UI.updateLive();
+  assert.ok(mark.classList.contains('hidden'), 'in sight, the mark goes');
+  assert.ok(/body\.has-window \.edge-mark, #peek\.open ~ \.edge-mark \{ display: none; \}/.test(css), 'on a phone the marks keep off the sheet and the dossier');
+  UI.notices.slice().forEach(function (n) { n.mark.remove(); });
+  UI.notices.length = 0;
+
+  // The clocks' counter-scale steps with the zoom, written only when a step is crossed.
+  UI.view = { x: 0, y: 0, z: 0.5 };
+  UI.fitView();
+  var board = $('#board');
+  UI.view.z = 0.5; UI.panTo(-1); // nothing to pan to: the view is not applied
+  var zk0 = board.style['--zk'];
+  assert.ok(zk0, 'the board carries --zk');
+  assert.ok(/\.card \.c-time \{ font-size: calc\(12px \* var\(--zk, 1\)\); \}/.test(css) && /\.verb \.v-status \{ font-size: calc\(13px \* var\(--zk, 1\)\); \}/.test(css) && /\.card \.c-ringsvg rect \{ stroke-width: calc\(4px \* var\(--zk, 1\)\); \}/.test(css), 'the time, the count and the ring grow as the board shrinks');
+  assert.ok(/var zk = Math\.round\(100 \/ U\.clamp\(Math\.round\(v\.z \* 10\) \/ 10, 0\.6, 1\)\) \/ 100;/.test(ui) && /if \(zk !== zkShown\)/.test(ui), 'in tenths, written on a change');
+  // The empty pile does not widen the fit: the opening's few cards are seen close.
+  var pile = e.pile();
+  e.tableCards().forEach(function (c) { if (c.loc.x >= pile.x && c.loc.x < pile.x + 6 * CF.TABLE.PX && c.loc.y >= pile.y && c.loc.y < pile.y + CF.TABLE.CH) c.loc = { t: 'table', x: pile.x + 7 * CF.TABLE.PX, y: pile.y + 2 * CF.TABLE.PY }; });
+  render(e);
+  UI.fitView();
+  var zEmpty = UI.view.z;
+  var inPile = e.tableCards()[0];
+  inPile.loc = { t: 'table', x: pile.x + 5 * CF.TABLE.PX, y: pile.y };
+  render(e);
+  UI.fitView();
+  assert.ok(UI.view.z <= zEmpty, 'a card in the pile brings its strip into the fit (' + UI.view.z + ' vs ' + zEmpty + ')');
+
+  // A pan writes the board once a frame; the camera's numbers follow every move.
+  var raf = [], realRaf = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = function (fn) { raf.push(fn); return raf.length; };
+  var felt = new El('div');
+  felt.closest = function (sel) { return sel === '#table' ? $('#table') : null; };
+  UI.view = { x: 0, y: 0, z: 1 };
+  UI.pointer.down({ pointerId: 3, pointerType: 'touch', button: 0, clientX: 400, clientY: 400, target: felt, preventDefault: function () {} });
+  var t0 = board.style.transform;
+  UI.pointer.move({ pointerId: 3, clientX: 430, clientY: 410, target: felt });
+  UI.pointer.move({ pointerId: 3, clientX: 460, clientY: 420, target: felt });
+  UI.pointer.move({ pointerId: 3, clientX: 490, clientY: 430, target: felt });
+  assert.strictEqual(raf.length, 1, 'three moves, one frame asked for');
+  assert.strictEqual(board.style.transform, t0, 'the board waits for it');
+  assert.ok(UI.view.x !== 0, 'while the camera keeps up');
+  UI.pointer.up({ pointerId: 3, clientX: 490, clientY: 430, target: felt });
+  assert.ok(board.style.transform !== t0 && /translate\(/.test(board.style.transform), 'the release draws the last of it');
+  assert.ok(/clampView\(tr0\)/.test(ui) && /zoomAt\(pinch\.cx, pinch\.cy, want \/ UI\.view\.z, d\.rect\)/.test(ui), 'the rect is measured once per gesture');
+  // A lifted card moves by translate, where the browser has it; it glides home by left and top.
+  assert.ok(/d\.el\.style\.translate = Math\.round\(x\) \+ 'px ' \+ Math\.round\(y\) \+ 'px'/.test(ui) && /function liftToLeftTop\(d\)/.test(ui), 'the lift moves by translate');
+  assert.ok(!/d\.settleT = setTimeout\(function \(\) \{ if \(UI\.drag === d\)/.test(ui) && /if \(!d\.settleT\) d\.settleT = setTimeout/.test(ui), 'one settle timer at a time');
+  globalThis.requestAnimationFrame = realRaf;
+
+  // The bar: no empty gold disc on the play button; 44px under a finger on a phone without growing the art.
+  assert.ok(/\.ctl\.dbi small:empty \{ display: none; \}/.test(css), 'an empty badge is not drawn');
+  var coarse = css.slice(css.indexOf('@media (pointer: coarse) and (max-width: 980px)'));
+  assert.ok(/\.meter \{ position: relative; overflow: visible; \}/.test(coarse) && /\.ctl\.dbi::after \{ content: ''; position: absolute; inset: -4px -1px; \}/.test(coarse) && /\.meter::after \{ content: ''; position: absolute; inset: -7px -2px; \}/.test(coarse), 'the hit-slop reaches 44px');
+
+  // The urgent comes before the finished: a need about to take its due outranks a verb waiting to be emptied.
+  var hint = $('#hint');
+  UI.hintHidden = false;
+  e.verb('duty').status = 'done';
+  render(e);
+  UI.updateLive();
+  assert.ok(/has finished/.test(hint.textContent), 'a finished verb is named: ' + hint.textContent);
+  var needDef = CF.NEEDS && Object.keys(CF.NEEDS)[0];
+  assert.ok(needDef && e.verb('reflect').unlocked, 'a need and Rest to answer it');
+  {
+    var need = e.create(needDef);
+    need.maxLife = need.maxLife || 120; need.life = 30;
+    render(e);
+    UI.updateLive();
+    assert.ok(/left: into Rest/.test(hint.textContent), 'a need about to take its due comes first: ' + hint.textContent);
+    e.remove(need);
+  }
+  e.verb('duty').status = 'idle';
+  render(e);
+
+  // The city remembers its fear: the Dread page says so where the rules keep a floor.
+  UI.showMeterInfo('dread');
+  var hadFloor = typeof e.dreadFloor === 'function';
+  assert.strictEqual(/not below what you have done/.test($('#peek').innerHTML), hadFloor, 'the floor is told only where the rules keep one');
+  e.dreadFloor = function () { return 2; };
+  e.s.counts = e.s.counts || {}; e.s.counts.cruelty = 6;
+  UI.showMeterInfo('dread');
+  assert.ok(/not below what you have done/.test($('#peek').innerHTML) && /Cruelties: 6\. Dread stays at 2 of 10 or above\./.test($('#peek').textContent), 'with the count and the floor: ' + $('#peek').textContent);
+  delete e.dreadFloor;
+  $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+
+  // A phone held upright: the turn card, and the clock and the screen wait; playing upright is a choice kept.
+  assert.ok(/id="turn"/.test(html) && /id="turn-ok"/.test(html) && /#table\.upright #turn \{ display: flex; \}/.test(css) && /var\(--art-cback-01\)/.test(css.slice(css.indexOf('#turn .turn-card'))), 'the turn card is art over the felt');
+  assert.ok(/!UI\.paused && !UI\.modal && !UI\.upright\) \{\n\s*e\.tick/.test(ui), 'the clock waits under it');
+  var mm = globalThis.matchMedia, store = {};
+  var realLS = globalThis.localStorage;
+  globalThis.localStorage = { getItem: function (k) { return store[k] || null; }, setItem: function (k, v) { store[k] = String(v); } };
+  globalThis.matchMedia = function (q) { return { matches: q === '(orientation:portrait)' || q === '(max-width:600px)' || q === '(max-width:980px)', addEventListener: function () {}, addListener: function () {} }; };
+  UI.paused = false; UI.modal = false; UI.wakeWant = undefined;
+  UI.checkUpright();
+  assert.ok(UI.upright && $('#table').classList.contains('upright'), 'upright on a phone, the card shows');
+  assert.strictEqual(UI.wakeWant, false, 'and the screen may sleep');
+  UI.view = { x: 0, y: 0, z: 1 };
+  UI.playUpright();
+  assert.ok(!UI.upright && !$('#table').classList.contains('upright') && store['casefile.upright'] === '1', 'play upright: the card goes, remembered');
+  assert.ok(UI.view.z >= 0.4, 'the fit may go as far as 0.4 upright');
+  UI.checkUpright();
+  assert.ok(!UI.upright, 'and it does not come back');
+  assert.ok(/screen\.orientation\.lock\('landscape'\)/.test(main), 'installed, the page asks to lie on its side');
+
+  // A phone's tap on a story toast puts it away; the Journal stays shut. On a desk it opens the Journal.
+  UI.toggleJournal(false);
+  e.emit('story', { title: 'Before the Office', text: 'The long night.', kind: 'major' });
+  var toastEl = $('#toasts').children[$('#toasts').children.length - 1];
+  toastEl.click();
+  assert.ok(!$('#journal-drawer').classList.contains('open'), 'a phone tap does not open the Journal');
+  assert.ok($('#toasts').children.indexOf(toastEl) < 0, 'it dismisses the toast');
+  globalThis.matchMedia = mm;
+  globalThis.localStorage = realLS;
+  e.emit('story', { title: 'Before the Office', text: 'The long night.', kind: 'major' });
+  toastEl = $('#toasts').children[$('#toasts').children.length - 1];
+  toastEl.click();
+  assert.ok($('#journal-drawer').classList.contains('open'), 'a desk click opens the Journal');
+  UI.toggleJournal(false);
+
+  El.prototype.getBoundingClientRect = realRect;
+  delete El.prototype.isConnected;
+  console.log('ui: marks off the DOM, the turn card, the drag by translate, the bar\'s badge and reach, the urgent first, the city remembers, clocks far out, the phone\'s toast');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');
