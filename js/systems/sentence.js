@@ -20,10 +20,10 @@
 
   CF.RUNGS = {
     pardon: { label: 'Pardon', short: 'Pardon', icon: 'ilaw-13',
-      desc: 'Let them walk, for a reason: youth, penitence, a plea. Mercy. Without a reason the Council frowns, and on a case the crier sang, the crowd mutters.',
+      desc: 'Let them walk, for a reason: youth, penitence, a plea. Mercy. Without a reason the Council frowns, and on a case the crier sang, the crowd mutters. The city remembers who sent them home.',
       cost: 'Mercy +2 · Suspicion +1 without a reason' },
     fine: { label: 'Fine and Restitution', short: 'A Fine', icon: 'itrade-20',
-      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter and, as far as the city learns, honest.',
+      desc: 'Coin back to the victim, a fee to the Watch-house, and the poor sinner goes home lighter and, as far as the city learns, honest. The city remembers who sent them home.',
       cost: 'Mercy +1 · 1 Coin' },
     pillory: { label: 'The Pillory', short: 'Pillory', icon: 'ilaw-07',
       desc: 'A day in the square in the iron collar. The crowd is fed, and it learns the face: they walk, marked, and the quarter names them next time.',
@@ -69,6 +69,7 @@
     gang: { rungs: ['pardon', 'banish', 'rope', 'wheel'], custom: 'rope' },
     syndicate: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'wheel', capital: true },
     architect: { rungs: ['pardon', 'sword', 'rope', 'wheel'], custom: 'rope' },
+    harbourmaster: { rungs: ['pardon', 'fine', 'banish', 'sword', 'rope'], custom: 'banish' },
   };
   Sen.ladderOf = function (tid) { return CF.LADDERS[tid] || CF.LADDERS.burglary; };
   Sen.rungLabel = function (tid, rung) {

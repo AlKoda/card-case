@@ -696,6 +696,29 @@
       witnesses: ['a frightened reckoner', 'a ferryman'],
       hints: [{ text: 'The King never raises his voice. He doesn\'t have to.' }, { text: 'I rowed them. All of them. I know where they went.' }],
     },
+    // The Harbourmaster's own case: two leaves from the Customs House, read
+    // in Rest (js/data/recipes.js ref_customs). The guilty is the Harbourmaster
+    // or his clerk (the recipe says which); convicting the Harbourmaster
+    // himself ends his examiners for good.
+    harbourmaster: {
+      label: 'The Harbourmaster', title: 'The Harbourmaster\'s Books', lesser: 'false entry, not theft from the city', lifetime: 360, difficulty: 10, special: true, highProfile: true, council: true, councilRole: 'the Harbourmaster',
+      keyAspects: ['financial', 'digital', 'testimony', 'opportunity'], districts: ['docks'],
+      charge: { financial: 3, digital: 2, testimony: 2, opportunity: 1 },
+      scenes: ['the Customs House on the Harbour'],
+      brief: 'Two leaves from the Customs House, in one hand: what the Harbourmaster paid his examiners, and for what. The cargo on his books never landed. Prove where it went.',
+      roles: [
+        { role: 'the Harbourmaster', motive: 'Wants the Council to need him, and the Watch to answer to the Customs House.' },
+        { role: 'the Harbourmaster\'s clerk', motive: 'Keeps both sets of books, and is paid for one.' },
+        { role: 'the customs searcher', motive: 'Searches the ships he is told to search, and not the others.' },
+      ],
+      items: [
+        { type: 'clue', label: 'Cargo Never Landed', text: 'Forty bales of English cloth on the books, cleared and taxed. No crane on the quay lifted them.', aspects: { digital: 2, opportunity: 1 } },
+        { type: 'clue', label: 'The Examiner\'s Purse', text: 'The purse the Customs House paid its examiners from, and the false entries that filled it.', aspects: { financial: 3, motive: 1 } },
+        { type: 'clue', label: 'The Crane-Master\'s Deposition', text: 'He lifted nothing that night, and was paid for it all the same.', aspects: { testimony: 3, opportunity: 1 } },
+      ],
+      witnesses: ['a tally-man', 'a customs boatman', 'a quay porter'],
+      hints: [{ text: 'The clerk takes the books home at night. Both sets.' }, { text: 'The Harbourmaster dines with half the Council, and pays for the wine.' }, { text: 'Nothing was lifted that night. I was on the crane.' }],
+    },
     architect: {
       label: 'The Architect', title: 'The Architect', lifetime: 400, difficulty: 11, special: true, highProfile: true,
       keyAspects: ['forensic', 'testimony', 'motive', 'opportunity', 'digital', 'financial'], districts: ['uptown', 'market'],
@@ -708,7 +731,7 @@
         { role: 'the great benefactor', motive: 'Endows the orphanage, the hospital, and everything else.' },
       ],
       items: [
-        { type: 'clue', label: 'The Signature', text: 'The same small mark cut at every scene you ever worked: three strokes, a mason\'s mark, where the crime began.', aspects: { forensic: 2, opportunity: 1 } },
+        { type: 'clue', label: 'The Signature', text: 'The same small mark cut at every scene you ever worked: three strokes, a mason\'s mark, where the crime began.', aspects: { forensic: 2, opportunity: 2 } },
         { type: 'evidence', label: 'The Correspondence', text: 'Letters to a dozen thieves, unsigned.', needs: 'lab',
           result: { label: 'The Letters Read', text: 'Plans. Detailed plans. For crimes you have examined.', aspects: { digital: 2, motive: 2 } } },
         { type: 'clue', label: 'The Payments', text: 'Every one of them was paid, in the same way, from the same purse.', aspects: { financial: 3 } },

@@ -70,6 +70,8 @@ function step(e, temper) {
   var spent = of(e, 'spent_focus')[0] || of(e, 'spent_health')[0] || of(e, 'spent_instinct')[0];
   if (spent && !of(e, spent.def === 'spent_focus' ? 'focus' : spent.def === 'spent_health' ? 'health' : 'instinct').length) tryRun(e, 'reflect', [spent]);
   if (of(e, 'looseend').length >= 3) tryRun(e, 'reflect', of(e, 'looseend').slice(0, 3));
+  // Two leaves from the Customs House: open the Harbourmaster's books.
+  if (of(e, 'customsleaf').length >= 2) tryRun(e, 'reflect', of(e, 'customsleaf').slice(0, 2));
   // The Harbourmaster's Examiner: a thread with Wit, then caught at it with their own work (a spoiled token,
   // a paid witness, the case they took) in Question, and the Council sends them home.
   var rival = of(e, 'rival')[0];
@@ -147,6 +149,11 @@ function step(e, temper) {
     var alibi = clues.filter(function (c) { return c.data.alibi; })[0];
     var hours = clues.filter(function (c) { return !c.data.alibi && CF.clueAspects(c).opportunity; })[0];
     if (alibi && hours) tryRun(e, 'reflect', [alibi, hours]);
+    // Two marks of two people, laid side by side in Rest once: one may have been put there.
+    var marks = clues.filter(function (c) { return c.data.trait && !c.data.alibi; });
+    var otherMark = marks.filter(function (c) { return c.data.trait !== marks[0].data.trait; })[0];
+    var accounts = e._botAccounts || (e._botAccounts = {});
+    if (otherMark && !accounts[rec.id] && tryRun(e, 'reflect', [marks[0], otherMark])) accounts[rec.id] = true;
     // Theory once there are a few clues (a story to check is not a reason); the tokens that name someone first.
     var reasons = clues.filter(function (c) { return !c.data.alibi; }).sort(function (a, b) { return namesOne(b) - namesOne(a); });
     if (!rec.identified && reasons.length >= 2) tryRun(e, 'reflect', [cc].concat(reasons.slice(0, 3)));
@@ -209,7 +216,7 @@ var TEMPERS = ['custom', 'merciful', 'brutal', 'corrupt'];
 var endings = {}, weeks = [], ranks = [0, 0, 0, 0], convictions = 0, acquittals = 0, wrongful = 0, seen = {}, byTemper = {}, byWho = {}, counts = { cruelty: 0, mercy: 0, purse: 0, debt: 0 };
 var insights = 0, bands = [], rank2By20 = 0, needsMet = 0, lost = 0, choices = 0;
 var earlyCoquille = 0, drifts = {}, attacks = {}, seatWins = [];
-var rivalCame = 0, rivalExposed = 0, rivalClosed = 0, rivalCaught = 0;
+var rivalCame = 0, rivalExposed = 0, rivalClosed = 0, rivalCaught = 0, stagedRead = 0, harbour = { opened: 0, fell: 0, friends: 0 };
 for (var g = 0; g < GAMES; g++) {
   var calling = ['commissioner', 'master', 'crusader'][g % 3];
   var who = CF.ORIGIN_ORDER[g % 5];
@@ -222,6 +229,10 @@ for (var g = 0; g < GAMES; g++) {
     if (type === 'story' && (p.title === 'The Harbourmaster\'s Examiner' || p.title === 'Another Examiner')) rivalCame++;
     if (type === 'story' && p.title === 'Answered by the Rival') rivalClosed++;
     if (type === 'story' && p.title === 'Quicker than the Customs House') rivalCaught++;
+    if (type === 'story' && p.title === 'A Mark Left to Be Found') stagedRead++;
+    if (type === 'story' && p.title === 'The Harbourmaster\'s Books') harbour.opened++;
+    if (type === 'story' && p.title === 'The Harbourmaster Falls') harbour.fell++;
+    if (type === 'story' && p.title === 'He Has Friends') harbour.friends++;
   });
   var band = null, reached2 = false, below = 0, early = false;
   for (var t = 0; t < 60 * 40 && !e.s.over; t++) {
@@ -309,6 +320,7 @@ console.log('insights earned', insights, '| bands formed', bands.length, '| Bail
 console.log('callings drifted', JSON.stringify(drifts));
 console.log('attacks per game by calling', JSON.stringify(Object.keys(attacks).reduce(function (o, k) { o[k] = +(attacks[k].n / attacks[k].runs).toFixed(2); return o; }, {})), '| the Seat won at weeks', JSON.stringify(seatWins.sort(function (a, b) { return a - b; })));
 console.log('per game: needs met', (needsMet / GAMES).toFixed(2), '| abilities lost', (lost / GAMES).toFixed(2), '| choices answered', (choices / GAMES).toFixed(2));
+console.log('a mark left to be found, read in Rest:', stagedRead, '| the Harbourmaster\'s books', JSON.stringify(harbour));
 console.log('the Rival: came', rivalCame, '| exposed', rivalExposed, '| closed a case', rivalClosed, '| beaten on their case', rivalCaught);
 assert.ok(convictions > 0, 'the bot should be able to convict someone');
 // The Rival is a race, not a Standing faucet: caught only at their own work, so in a run of games they win one.

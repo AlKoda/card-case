@@ -105,7 +105,7 @@ var half = CF.Charge.describe(assess([clue({ forensic: 2 }), clue({ opportunity:
 assert.strictEqual(half.tier, 'reasonable');
 assert.ok(half.notes.some(function (n) { return n.kind === 'bad' && /Half proof: the Court would convict of theft, not burglary, and the ladder stops at banishment\./.test(n.text); }), 'the lesser crime is named');
 // Every row is met here (Coin 1 of 1): what is wanted is a word behind the rows, and the way to it.
-assert.ok(half.notes.some(function (n) { return n.kind === 'dim' && /^To full proof: /.test(n.text) && /or a confession freely given\. Confront them in Question with a token of the case\.$/.test(n.text); }), 'what full proof wants');
+assert.ok(half.notes.some(function (n) { return n.kind === 'dim' && /^Word behind it: a witness's Deposition, two tokens bound in Rest, a hand matched to them, or a free confession\. Confront them in Question with a token of the case\.$/.test(n.text); }), 'what full proof wants: ' + JSON.stringify(half.notes));
 var gap = CF.Charge.describe(assess([clue({ forensic: 1 }), clue({ testimony: 2 }, { stake: 'reward' })]));
 assert.strictEqual(gap.tier, 'weak');
 var want = gap.notes.filter(function (n) { return /^To full proof/.test(n.text); })[0];
@@ -168,7 +168,20 @@ assert.ok(rowsOnly.rowsMet && rowsOnly.wordWanted, 'every row met, a word wanted
 assert.ok(!assess([clue({ forensic: 2 }), clue({ opportunity: 2 })]).wordWanted, 'a row short is not a word wanted');
 assert.ok(!spread.wordWanted, 'full proof wants nothing');
 var dRows = CF.Charge.describe(rowsOnly);
-assert.ok(dRows.wordWanted && dRows.notes.some(function (n) { return n.kind === 'dim' && /^To full proof: a witness, a token that names them, or a confession freely given\. Confront them in Question with a token of the case\.$/.test(n.text); }), 'the way to full proof is named');
+assert.ok(dRows.wordWanted && dRows.notes.some(function (n) { return n.kind === 'dim' && /^Word behind it: .*Confront them in Question with a token of the case\.$/.test(n.text); }), 'the way to full proof is named');
+// The four seals: here three are lit and only the word is dark.
+assert.deepStrictEqual(dRows.gates.map(function (g) { return g.id + ':' + g.ok; }), ['enough:true', 'kinds:true', 'word:false', 'clean:true'], 'the seals show the hidden fourth rule');
+assert.deepStrictEqual(dRows.gates.map(function (g) { return g.label; }), ['Enough', 'Two kinds', 'Word behind it', 'Nothing against them']);
+assert.strictEqual(dRows.fullBy, null, 'half proof is reached by nothing');
+assert.ok(spread.gates.every(function (g) { return g.ok; }) && spread.fullBy === 'seals', 'full proof by the seals lights all four');
+Object.keys(rowsOnly.standing).forEach(function (u) { assert.strictEqual(rowsOnly.standing[u].id, 'proof', 'plain proof is captioned so'); });
+// Each laid token's standing toward the accused.
+var stOther = clue({ forensic: 2 }, { trait: other.trait }), stMine = clue({ opportunity: 2 }, { points: culprit.key }), stOff = clue({ digital: 1 });
+var stand = assess([stOther, stMine, stOff]).standing;
+assert.strictEqual(stand[stOther.uid].id, 'else', 'a mark of someone else');
+assert.strictEqual(stand[stMine.uid].label, 'Names them', 'a token that names the accused');
+assert.strictEqual(stand[stOff.uid].label, 'Off the case', 'proof the case does not turn on');
+assert.strictEqual(stand[stOther.uid].label, 'Someone else');
 var cg = CF.Engine.newGame({ seed: 3, calling: 'master' });
 var ck = cg.tableCards().filter(function (c) { return c.def === 'case'; })[0], crec = cg.caseRec(ck.caseId);
 var ccul = crec.suspects.filter(function (x) { return x.guilty; })[0];

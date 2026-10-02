@@ -759,7 +759,8 @@
       var aspects = { testimony: 2 };
       if (w.data.knows) aspects.opportunity = 1;
       var spec = { label: 'Deposition: ' + name, text: '"' + hint + '"' + (w.data.stake ? ' (' + CF.STAKES[w.data.stake].label + '.)' : ''), aspects: aspects, trait: w.data.knows ? cul.trait : null };
-      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against), points: points };
+      // One you once sent home speaks against their own interest: a pardoned thief at the Watch-house door risks everything.
+      var stakeFlags = { stake: w.data.stake || 'none', witness: name, againstInterest: !!(w.data.reformed || (w.data.knows && w.data.stake && CF.STAKES[w.data.stake].against)), points: points };
       if (ctx.has('instinct')) {
         if (!e.teamHas(ctx, 'empathetic') && ctx.rng() < 0.4) {
           w.life = Math.max(20, (w.life || 60) - 60);
@@ -1148,11 +1149,33 @@
     run: function (ctx) {
       var e = ctx.e;
       ctx.consume(ctx.primary);
-      if (e.s.calling === 'master') { ctx.give('looseend'); e.pathGain('master', 1, 'a loose end'); }
+      if (e.s.calling === 'master') { ctx.give('looseend', e.looseEndSpec('the last Examiner\'s casebook', 'testimony')); e.pathGain('master', 1, 'a loose end'); }
       else ctx.give('informant', e.informantSpec(U.pick(ctx.rng, Object.keys(CF.DISTRICTS))));
       ctx.give('funds');
       return { title: 'Their Casebook', text: 'Between the wine-rings and the crossings-out: a name, a street, a few coins tucked in the back board. ' +
         (e.s.calling === 'master' ? 'And a mason\'s mark drawn in the margin, circled three times.' : 'A contact your predecessor trusted.') };
+    },
+  });
+  // Two leaves from the Customs House: the Harbourmaster's own books.
+  R.push({
+    id: 'ref_customs', verb: 'reflect', label: 'Open His Books', duration: 40,
+    preview: 'Two leaves from the Customs House, in one hand. Open the case against the Harbourmaster.',
+    blocked: function (ctx) {
+      var e = ctx.e, f = e.s.flags;
+      if (ctx.count('customsleaf') < 2) return 'You need two leaves from the Customs House.';
+      if (f.harbourFallen) return 'The Customs House is sealed.';
+      var hc = f.harbourCase && e.caseRec(f.harbourCase);
+      if (hc && hc.status === 'open') return 'The case against the Harbourmaster is already open.';
+      return e.roomForCase(1) ? null : 'The desk is full. Close or let go of a case before you open another.';
+    },
+    requires: { primary: 'customsleaf' },
+    run: function (ctx) {
+      var e = ctx.e;
+      ctx.with('customsleaf').slice(0, 2).forEach(ctx.consume);
+      var guilty = ctx.rng() < 0.5 ? 'the Harbourmaster' : 'the Harbourmaster\'s clerk';
+      var card = e.spawnCase('harbourmaster', { ctx: ctx, guiltyRole: guilty, headline: 'The Harbourmaster\'s Books', lead: 'Two leaves, one hand.' });
+      e.harbourOpened(card.caseId);
+      return { title: 'The Harbourmaster\'s Books', kind: 'major', text: 'You lay the two leaves side by side: the same hand, the same purse, the same cargo that never landed. The Harbourmaster has sent his examiners against you for a year. Now you have his books.' };
     },
   });
   R.push({
@@ -1167,9 +1190,11 @@
     requires: { primary: 'looseend' },
     run: function (ctx) {
       var e = ctx.e;
-      ctx.with('looseend').forEach(ctx.consume);
+      var ends = ctx.with('looseend');
+      ends.forEach(ctx.consume);
       e.s.flags.architect = true;
-      e.spawnCase('architect', { ctx: ctx, headline: 'The Architect', lead: 'The loose ends tie together.' });
+      var card = e.spawnCase('architect', { ctx: ctx, headline: 'The Architect', lead: 'The loose ends tie together.' });
+      e.architectMarks(e.caseRec(card.caseId), ends, ctx);
       return { title: 'The Architect', kind: 'major', text: 'You lay the three details side by side on your table at matins, and for the first time you see the shape of the hand that drew them. Someone has been planning the city\'s crimes. You know where they live.' };
     },
   });
@@ -1191,7 +1216,7 @@
         headline: 'Hue and Cry: ' + al.data.name, lead: 'You think you know where ' + al.data.name + ' went.' });
       al.data.hunted = card.caseId;
       e.pathGain('master', 1, 'reopened a cold trail');
-      if (e.s.calling === 'master') ctx.give('looseend');
+      if (e.s.calling === 'master') ctx.give('looseend', e.looseEndSpec(ctx.first('coldcase').data.title || null, (CF.CASE_TEMPLATES[ctx.first('coldcase').data.template] || { keyAspects: ['opportunity'] }).keyAspects[0]));
       return { title: 'Old Ghosts', text: 'You read the old book again, and think like ' + al.data.name + '. Where would you go? Who would you trust? By first light, you have a guess.' +
         (e.s.calling === 'master' ? ' And in the margin of the old book, a doodle you never noticed: three strokes, a mason\'s mark.' : '') };
     },
@@ -1258,7 +1283,7 @@
       ctx.consume(th);
       e.meter('reputation', 1);
       e.pathGain('master', 1, 'closed in on the network');
-      if (e.s.calling === 'master') ctx.give('looseend');
+      if (e.s.calling === 'master') ctx.give('looseend', e.looseEndSpec(front ? front.name : null, 'financial'));
       return { title: 'The Shape of It', kind: 'major', text: 'You draw the map on the wall of your study: the cases, the place, ' + e.labelOf(target) + '. A Disguise through ' + (front ? front.name : 'the front') + ' will be safer now that you know the doors.' +
         (e.s.calling === 'master' ? ' And in the corner of the map, something that is not a band at all: a mason\'s mark.' : '') };
     },
@@ -1534,6 +1559,8 @@
       var a = ctx.e.assessCharge(ctx.primary, slotClues(ctx, ['c1', 'c2', 'c3', 'c4']));
       return { charge: CF.Charge.describe(a) };
     },
+    // The Carolina does not hear a name alone: at least one token of proof.
+    blocked: function (ctx) { return slotClues(ctx, ['c1', 'c2', 'c3', 'c4']).length ? null : 'The Court will not hear a name alone: one token at least.'; },
     requires: ['suspect'],
     run: function (ctx) {
       var e = ctx.e;
@@ -1553,7 +1580,9 @@
         label: 'Blood Court: ' + sus.name,
         desc: sus.name + ' stands before the Blood Court for ' + rec.title + '. The charge looked like ' + CF.Charge.TIERS[a.tier].label.toLowerCase() + '.',
         data: { caseId: rec.id, name: sus.name, guilty: sus.guilty, solid: a.solid, tier: a.realTier, real: a.real, need: a.need,
-          coerced: a.coerced, planted: a.planted, illegal: a.unwarranted, contradictions: a.contradictions, confession: a.confession, checked: a.checked, framed: a.framed },
+          coerced: a.coerced, planted: a.planted, illegal: a.unwarranted, contradictions: a.contradictions, confession: a.confession, checked: a.checked, framed: a.framed,
+          // What the case asked and what was brought, row by row, for the verdict to say what was missing.
+          rows: CF.Charge.describe(a).rows, have: U.clone(a.have) },
       });
       ctx.give('paperwork');
       return { title: 'Taken: ' + sus.name, text: 'The sergeants take them at ' + U.pick(ctx.rng, ['first light, on their doorstep', 'their shop, in front of everyone', 'the Red Ox, mid-sentence', 'the city gate, one foot on the carrier\'s wagon']) +

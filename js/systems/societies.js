@@ -73,21 +73,48 @@
   };
 
   // ---- The Order of the Mountain ---------------------------------------------------
+  // Three beats: a dagger; ignored, a blade and two daggers; ignored again, the
+  // coin is tossed. And the Order wants something: under the dagger, a slip
+  // with one of your open cases and a line through one name in it. Close the
+  // case on somebody else and the Order leaves for good; charge that name and
+  // it is at war with you.
   P.mountainWeek = function () {
     var s = this.s, lines = [];
-    if (s.calling !== 'commissioner' || s.rank < Soc.MOUNTAIN.rank || s.week < Soc.MOUNTAIN.week) return lines;
+    if (s.calling !== 'commissioner' || s.rank < Soc.MOUNTAIN.rank || s.week < Soc.MOUNTAIN.week || s.flags.mountainDone) return lines;
     if (s.flags.mountainPaidUntil && s.week <= s.flags.mountainPaidUntil) return lines;
     if (this.cardsOf('dagger', true).length || this.rng() >= Soc.MOUNTAIN.chance) return lines;
-    this.create('dagger', {
-      label: 'A Dagger on the Pillow',
-      desc: 'You wake and it is there, on the pillow beside your head, and the door is still barred. The Order of the Mountain does not ask for anything. It warns once. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.',
-      data: { week: s.week },
-    });
+    var want = this.mountainWant();
+    var desc = 'You wake and it is there, on the pillow beside your head, and the door is still barred. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.';
+    var data = { week: s.week };
+    if (want) {
+      desc = U.fill('Under the dagger, a slip: the name of {title}, and a line through the name of {suspect}.', { title: want.rec.title, suspect: want.sus.name }) + ' ' + desc;
+      data.caseId = want.rec.id;
+      data.struck = want.sus.name;
+    }
+    if (s.flags.mountainWar) desc = 'You charged the name they struck out. The Order does not warn you any more. ' + desc;
+    this.create('dagger', { label: 'A Dagger on the Pillow', desc: desc, data: data });
     lines.push('There was a dagger on your pillow this morning. The door was barred. Somebody wants you to know what they can do.');
     return lines;
   };
+  // The case the Order wants left alone, and the name in it struck out: the
+  // one already named, or a new one from an open case. Null when none fits.
+  P.mountainWant = function () {
+    var s = this.s;
+    if (s.flags.mountainWar) return null;
+    var open = this.openCases().filter(function (r) { return !r.special && !r.opening && r.status === 'open'; });
+    var named = open.filter(function (r) { return r.mountain; })[0];
+    if (named) return { rec: named, sus: named.suspects.filter(function (x) { return x.key === named.mountainKey; })[0] };
+    open = open.filter(function (r) { return r.suspects.filter(function (x) { return !x.cleared; }).length >= 2; });
+    if (!open.length) return null;
+    var rec = U.pick(this.rng, open);
+    var sus = U.pick(this.rng, rec.suspects.filter(function (x) { return !x.cleared; }));
+    rec.mountain = true;
+    rec.mountainKey = sus.key;
+    rec.mountainName = sus.name;
+    return { rec: rec, sus: sus };
+  };
   // The warning ignored. The first time they come for blood, not a life, and
-  // say so; only a dagger ignored after that may be the end (warned, then ended).
+  // leave two daggers; only a warning ignored after that may be the end.
   P.mountainStrikes = function () {
     var s = this.s;
     if (s.flags.mountainIgnored && this.rng() < 0.5) { this.gameOver('dagger'); return; }
@@ -95,7 +122,35 @@
     s.flags.mountainIgnored = true;
     this.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts. The Order of the Mountain keeps its word.', 'order');
     this.meter('dread', 1);
-    if (first && !s.over) this.story('They Came Anyway', 'The Order of the Mountain kept its word, and let you live to hear it. The next time they will not leave a dagger.', 'danger');
+    if (first && !s.over) {
+      this.create('dagger', {
+        label: 'Two Daggers on the Pillow',
+        desc: 'They came back, and this time there were two. The Order does not warn three times. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard.',
+        data: { week: s.week, second: true },
+      });
+      this.story('Two Daggers on the Pillow', 'They came back, and this time there were two. The Order does not warn three times.', 'danger');
+    }
+  };
+  // A verdict in the case the Order named. The struck-out name charged: war,
+  // and the next warning ignored is the toss. The case closed on anyone else:
+  // the Order is satisfied and leaves for good.
+  P.mountainVerdict = function (rec, d, convicted) {
+    var s = this.s;
+    if (!rec || !rec.mountain || s.flags.mountainDone || s.flags.mountainWar) return;
+    if (d.name === rec.mountainName) {
+      s.flags.mountainWar = true;
+      s.flags.mountainIgnored = true;
+      s.flags.mountainPaidUntil = 0;
+      rec.mountain = false;
+      this.story('The Mountain at War', U.fill('You charged {name}, the name under the line. The Order does not leave slips any more.', { name: d.name }), 'danger');
+      return;
+    }
+    if (!convicted) return;
+    s.flags.mountainDone = true;
+    rec.mountain = false;
+    var self = this;
+    this.cardsOf('dagger').forEach(function (c) { if (c.loc.t === 'table') self.remove(c); });
+    this.story('The Mountain Is Satisfied', 'The slip comes back with the line through it inked over. Nobody in the house saw who brought it.', 'major');
   };
 
   // ---- The Eumenides --------------------------------------------------------------

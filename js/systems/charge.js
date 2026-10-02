@@ -18,6 +18,10 @@
     strong: { label: 'Full Proof', gloss: '', text: 'Several independent kinds of proof, all pointing one way. The Carolina, the Emperor\'s law the Court sits under, is satisfied. It should hold.' },
   };
 
+  // The four seals of full proof, and the caption under each laid token.
+  Charge.GATES = { enough: 'Enough', kinds: 'Two kinds', word: 'Word behind it', clean: 'Nothing against them' };
+  Charge.STANDING = { names: 'Names them', 'else': 'Someone else', off: 'Off the case', proof: 'Proof' };
+
   // The charge profile of a case: {aspect: points needed}. Generated cases
   // carry their own (rec.charge); older saves fall back to the template.
   Charge.profileOf = function (rec) {
@@ -169,6 +173,39 @@
     res.prime = prime ? prime.name : null;
     res.primeKey = prime ? prime.key : null;
     res.falseFree = !!sus && own.some(function (c) { return c.data.confession === 'free' && c.data.falseConfession && (!c.data.about || c.data.about === sus.key); });
+    // The four things full proof asks, as the Court's seals: enough proof
+    // for the need, two kinds of it the case turns on, a word behind it (a
+    // witness, a confession, or corroboration), and nothing against them.
+    res.gates = [
+      { id: 'enough', ok: apparent.score >= need },
+      { id: 'kinds', ok: apparent.covered >= 2 },
+      { id: 'word', ok: apparent.witnesses >= 1 || !!apparent.confession || apparent.corroboration >= 1 },
+      { id: 'clean', ok: apparent.contradictions === 0 },
+    ];
+    res.gates.forEach(function (g) { g.label = Charge.GATES[g.id]; });
+    // How full proof was reached, when it was: by the four seals, or by one
+    // of the Carolina's own roads (a free confession, two witnesses who
+    // agree for different reasons, a confession checked against Body or Writ).
+    res.fullBy = null;
+    if (res.tier === 'strong') {
+      var allLit = res.gates.every(function (g) { return g.ok; });
+      res.fullBy = allLit ? 'seals' : apparent.confession === 'free' ? 'confession' : apparent.fingerpost ? 'fingerpost' : apparent.checked ? 'checked' : 'seals';
+    }
+    // Each laid token's standing toward this accused, for the caption under
+    // it: names them, describes someone else, off the case, or plain proof.
+    res.standing = {};
+    clues.forEach(function (c) {
+      var id = 'proof';
+      if (c.caseId !== rec.id) id = 'off';
+      else if (res.contradicting.indexOf(c) >= 0 || res.elsewhere.indexOf(c) >= 0) id = 'else';
+      else if (sus && ((c.data.points && c.data.points === sus.key) || (c.data.about && c.data.about === sus.key) || (c.data.trait && c.data.trait === sus.trait))) id = 'names';
+      else {
+        var asp = CF.clueAspects(c), onCase = false;
+        for (var k in asp) if (asp[k] && profile[k]) onCase = true;
+        if (!onCase) id = 'off';
+      }
+      res.standing[c.uid] = { id: id, label: Charge.STANDING[id] };
+    });
     return res;
   };
 
@@ -247,10 +284,12 @@
     if (a.tier !== 'strong') {
       var gaps = rows.filter(function (r) { return r.have < r.need; }).map(function (r) { return CF.ASPECTS[r.aspect].label + ' ' + (r.need - r.have); });
       // Every row met: full proof wants a word behind the rows, and confronting the accused is the honest road to one.
-      if (!gaps.length) notes.push({ kind: 'dim', text: 'To full proof: a witness, a token that names them, or a confession freely given. Confront them in Question with a token of the case.' });
+      var dark = (a.gates || []).filter(function (g) { return !g.ok; }).map(function (g) { return g.id; });
+      if (dark.length === 1 && dark[0] === 'word') notes.push({ kind: 'dim', text: 'Word behind it: a witness\'s Deposition, two tokens bound in Rest, a hand matched to them, or a free confession. Confront them in Question with a token of the case.' });
+      else if (!gaps.length) notes.push({ kind: 'dim', text: 'To full proof: a witness, a token that names them, or a confession freely given. Confront them in Question with a token of the case.' });
       else notes.push({ kind: 'dim', text: 'To full proof: ' + gaps.join(', ') + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
     }
-    return { rows: rows, notes: notes, bad: bad, wordWanted: !!a.wordWanted, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text,
+    return { rows: rows, notes: notes, bad: bad, wordWanted: !!a.wordWanted, gates: a.gates || [], fullBy: a.fullBy || null, standing: a.standing || {}, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text,
       tierGloss: Charge.TIERS[a.tier].gloss, tierTitle: Charge.tierTitle(a.tier) };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

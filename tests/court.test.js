@@ -365,3 +365,36 @@ function setup(seed) {
 })();
 
 console.log('court: stakes, fingerpost, scene only, alibi, names, the question, verdicts, dread all OK');
+
+// ---- Not on a name alone; and an acquittal says what was missing (round 8) ----------
+(function nameAlone() {
+  var g = setup(31), e = g.e;
+  assert.ok(e.autoSlot('arrest', g.scG.uid));
+  var pv = e.preview('arrest');
+  assert.strictEqual(pv.blocked, 'The Court will not hear a name alone: one token at least.', 'a name alone is not a charge');
+  assert.ok(!e.start('arrest'), 'and cannot be started');
+  e.clearSlots('arrest');
+  // One token: the charge goes, and the trial card carries the rows.
+  var tok = e.create('clue', { caseId: g.rec.id, aspects: { forensic: 1 }, data: {} });
+  var r = run(e, 'arrest', [g.scI, tok]);
+  var trial = r.out.filter(function (c) { return c.def === 'trial'; })[0];
+  assert.ok(trial && trial.data.rows && trial.data.rows.length === Object.keys(g.rec.charge).length, 'the trial knows what the case asked');
+  assert.deepStrictEqual(trial.data.have, { forensic: 1 });
+  var line = e.acquittalLine(trial.data);
+  var want = trial.data.rows.filter(function (x) { return x.have < x.need; }).map(function (x) { return CF.ASPECTS[x.aspect].label + ' ' + x.need; }).join(', ');
+  assert.strictEqual(line, 'The sworn men wanted ' + want + '; you brought Body 1.');
+  assert.strictEqual(e.acquittalLine({ rows: trial.data.rows, have: {} }), 'The sworn men wanted ' + want + '; you brought nothing.');
+  assert.strictEqual(e.acquittalLine({ rows: [{ aspect: 'forensic', need: 1, have: 2 }], have: { forensic: 2 } }), null, 'every row met: nothing to say');
+  assert.strictEqual(e.acquittalLine({ tier: 'weak', real: 1, need: 5 }), null, 'an older trial card says nothing');
+  // At the verdict an acquittal tells it.
+  var said = false;
+  for (var i = 0; i < 12 && !said; i++) {
+    var h = setup(60 + i), he = h.e;
+    h.rec.status = 'trial';
+    he.verdict(he.create('trial', { data: { caseId: h.rec.id, name: h.innocent.name, guilty: false, solid: false, tier: 'weak', real: 1, need: 5, coerced: 0, planted: 0, contradictions: 0,
+      rows: [{ aspect: 'financial', need: 2, have: 0 }], have: { forensic: 1 } } }));
+    if (h.rec.status === 'acquitted') said = he.s.journal.some(function (j) { return /^Not Guilty: /.test(j.title) && j.text.indexOf('The sworn men wanted Coin 2; you brought Body 1.') >= 0; });
+  }
+  assert.ok(said, 'the Not Guilty story says what the sworn men wanted');
+  console.log('not on a name alone; the acquittal says what was missing: ok');
+})();

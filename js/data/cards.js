@@ -179,7 +179,7 @@
     tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
       desc: 'The Court of Miracles pays its Examiner while the Treaty stands. Put it in Attend to take it; every week taken is Purse +1. Let it lie and the King notes that too.' },
     dagger: { label: 'A Dagger on the Pillow', kind: 'threat', tags: ['warning'], aspects: { dagger: 1 }, decay: 100, onExpire: 'mountain',
-      desc: 'The Order of the Mountain warns once. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.' },
+      desc: 'The Order of the Mountain warns, and wants a name left alone. Bring it to Rest with two Coin to buy six weeks, or alone to endure it; or Attend it with a watchman to double the guard. Let it lie and they come back.' },
     bribe: { label: 'A Purse', kind: 'temptation', tags: ['money', 'corrupt'], image: 'icon-handshake', aspects: { bribe: 1 }, decay: 50, onExpire: 'vanish',
       desc: 'Heavy, unmarked, left on your desk. Put it in Attend to pocket it. Or let it sit until someone comes back for it.' },
 
@@ -199,6 +199,8 @@
       desc: 'A detail that belongs to no case. The same shape keeps turning up. Three of these, together in Rest, might show you the hand that draws it.' },
     ledger: { label: 'A Leaf of the Ledger', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { ledger: 1 }, stackable: true,
       desc: 'A page from the Coquille\'s book: payments, names, dates. Enough of these and the King of Thunes cannot hide.' },
+    customsleaf: { label: 'A Leaf from the Customs House', kind: 'insight', tags: ['insight', 'money'], image: 'icon-scales', aspects: { customsleaf: 1 }, stackable: true,
+      desc: 'What the Harbourmaster paid his examiner, and for what. Two of these, together in Rest, open his books.' },
     notes: { label: 'The Last Examiner\'s Casebook', kind: 'insight', tags: ['insight'], image: 'icon-folder', aspects: { notes: 1 },
       desc: 'Your predecessor\'s casebook. Half of it is water-stained. Read it in Rest.' },
 

@@ -856,6 +856,7 @@ console.error = function (err) { throw err; };
   assert.deepStrictEqual(e.busyOnCase(rec.id), ['investigate']);
   var sus = e.revealSuspect(rec, null, { key: rec.culprit });
   e.autoSlot('arrest', sus.uid);
+  e.autoSlot('arrest', e.create('clue', { caseId: rec.id, aspects: { forensic: 1 }, data: {} }).uid); // never a name alone
   var pv = e.preview('arrest');
   assert.ok(/Still at work on this case: Explore\. A charge now ends that work\./.test(pv.text), 'the Court warns: ' + pv.text);
   assert.ok(e.start('arrest'));
@@ -1170,4 +1171,29 @@ console.error = function (err) { throw err; };
   assert.strictEqual(ol.s.stats.killedBy, null);
   assert.ok(ol.s.weekSnap.favour && ol.s.weekSnap.favour.council === 0);
   console.log('round 8 late: the verdict\'s seat, the last blow, the scene\'s own door, faded trails, open ways, the Rival caught: ok');
+})();
+
+// ---- A render pass's memo (round 8): slot reach and verb locks asked once per pass --------------
+(function renderMemo() {
+  var bot = require('./bot.test.js');
+  var g = CF.Engine.newGame({ seed: 2, calling: 'master' });
+  bot.play(g, 60 * 12);
+  var cards = g.tableCards();
+  var plain = cards.map(function (c) { return g.unavailableReason(c); });
+  var calls = 0, orig = g.slotReachableNow;
+  g.slotReachableNow = function (vid, sl) { calls++; return orig.call(this, vid, sl); };
+  var memoed = g.withMemo(function () { return cards.map(function (c) { return g.unavailableReason(c); }); });
+  assert.deepStrictEqual(memoed, plain, 'the memo gives the same answers');
+  var keys = {};
+  CF.VERB_ORDER.forEach(function (vid) { CF.VERBS[vid].slots.forEach(function (sl) { keys[vid + '|' + sl.key] = true; }); });
+  assert.ok(calls <= Object.keys(keys).length, 'each slot reached once a pass: ' + calls);
+  assert.strictEqual(g._memo, null, 'cleared after the pass');
+  calls = 0;
+  cards.forEach(function (c) { g.unavailableReason(c); });
+  assert.ok(calls > 0, 'without a pass, nothing is remembered');
+  // Cleared even when the pass throws.
+  try { g.withMemo(function () { throw new Error('x'); }); } catch (err) { /* expected */ }
+  assert.strictEqual(g._memo, null, 'cleared after a throw');
+  assert.ok(g.save().indexOf('_memo') < 0, 'never saved');
+  console.log('render memo: ok (' + cards.length + ' cards)');
 })();

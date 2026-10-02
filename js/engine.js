@@ -94,6 +94,7 @@
     this.rng.setState(state.rng);
     this.listeners = [];
     this.dirty = true;
+    this._memo = null; // a render pass's memo (see withMemo); never saved
   }
   CF.Engine = Engine;
   var P = Engine.prototype;
@@ -123,7 +124,7 @@
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
       version: 2, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 170, nextUid: 1,
-      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: {}, journal: [], criminals: {}, network: { fronts: {} }, askSeen: {},
+      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: { oldDebt: {} }, journal: [], criminals: {}, network: { fronts: {} }, askSeen: {},
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
       rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', who: opts.who || null, detective: opts.name || 'Examiner',
@@ -194,6 +195,9 @@
     // The Thief-taker General and the Mountain warn before they end a run (round 8): an older save has had neither warning.
     if (s.flags.thieftakerWarned === undefined) s.flags.thieftakerWarned = false;
     if (s.flags.mountainIgnored === undefined) s.flags.mountainIgnored = false;
+    // The Order wants a case left alone (round 8): an older save has neither its peace nor its war.
+    if (s.flags.mountainDone === undefined) s.flags.mountainDone = false;
+    if (s.flags.mountainWar === undefined) s.flags.mountainWar = false;
     // Round 8: the opening case may be lost and the desk kept; a failed vote waits six weeks.
     if (s.flags.openingAcquitted === undefined) s.flags.openingAcquitted = false;
     if (typeof s.flags.chairCooldown !== 'number') s.flags.chairCooldown = 0;
@@ -231,6 +235,20 @@
     });
     // The Merciful Judge counts the ones sent home (round 7): an older save counts its pardons, fines and reformed from the records.
     s.stats.sentHome = Math.max(s.stats.sentHome || 0, Engine.sentHomeOf(s));
+    // The Harbourmaster's own case (round 8): an older save has neither opened it nor seen him fall.
+    if (s.flags.harbourFallen === undefined) s.flags.harbourFallen = false;
+    if (s.flags.harbourCase === undefined) s.flags.harbourCase = null;
+    // A Loose End remembers its case (round 8): an older one remembers only a kind of proof.
+    Object.keys(s.cards).forEach(function (u, i) {
+      var lc = s.cards[u];
+      if (lc.def !== 'looseend') return;
+      lc.data = lc.data || {};
+      if (lc.data.aspect === undefined) lc.data.aspect = CF.LOOSE_END_ASPECTS[i % CF.LOOSE_END_ASPECTS.length];
+      if (lc.data.fromTitle === undefined) lc.data.fromTitle = null;
+      if (lc.data.week === undefined) lc.data.week = -1;
+    });
+    // A citizen sent home may come back as a witness (round 8): an older save has had none come.
+    if (!s.flags.oldDebt || typeof s.flags.oldDebt !== 'object') s.flags.oldDebt = {};
     // Mid-work asks are rationed per verb and week (round 8): an older save has asked nothing yet.
     if (!s.askSeen || typeof s.askSeen !== 'object') s.askSeen = {};
     if (!s.flags.hadInformer && Object.keys(s.cards).some(function (u) { return s.cards[u].def === 'informant'; })) s.flags.hadInformer = true;
@@ -433,8 +451,23 @@
   // takes it. A card that fits nowhere is shown as unavailable on the board.
   // Could this slot open at all: it is the primary, or something that could
   // be the verb's primary (in it now, or on the table) would open it.
+  // A render pass may set `this._memo = {}` (or run inside withMemo) while
+  // nothing changes the state: slot reach and verb locks are then asked once
+  // per pass, not once per card. Unset, nothing is remembered.
+  P.withMemo = function (fn) {
+    if (this._memo) return fn.call(this);
+    this._memo = {};
+    try { return fn.call(this); } finally { this._memo = null; }
+  };
   P.slotReachable = function (vid, sl) {
     if (sl.primary || !sl.when) return true;
+    var memo = this._memo;
+    if (!memo) return this.slotReachableNow(vid, sl);
+    var key = 'r|' + vid + '|' + sl.key;
+    if (!(key in memo)) memo[key] = this.slotReachableNow(vid, sl);
+    return memo[key];
+  };
+  P.slotReachableNow = function (vid, sl) {
     var v = this.verb(vid), def = CF.VERBS[vid], pk = this.primaryKey(vid);
     var held = v.slots[pk] ? this.card(v.slots[pk]) : null;
     if (held) return !!sl.when(held);
@@ -489,6 +522,7 @@
     [/^Word from /, 'A Word'], [/^Rumour from /, 'A Rumour'], [/^Sighting: |^Seen at /, 'A Sighting'], [/^Found at .*Lodging$/, 'The Lodging'],
     [/^Found at .*House$/, 'The House'], [/^Thread: /, 'A Thread'], [/^Blood Court: /, 'The Blood Court'],
     [/^Confession Under the Question: /, 'The Question'], [/^Unanswered: /, 'Unanswered'], [/^The Hand Matched: /, 'The Hand Matched'],
+    [/^The Mark at /, 'The Mark'],
   ];
   CF.FACE_SEALS = ['Kept', 'Matched', 'Partial', 'Corroborated'];
   var FACE_PERSONS = { witness: 1, suspect: 1, informant: 1, atlarge: 1, condemned: 1, teammate: 1, hospital: 1, injured: 1, personnel: 1 };
@@ -853,6 +887,13 @@
   };
 
   P.lockReason = function (verbId) {
+    var memo = this._memo;
+    if (!memo) return this.lockReasonNow(verbId);
+    var key = 'l|' + verbId;
+    if (!(key in memo)) memo[key] = this.lockReasonNow(verbId);
+    return memo[key];
+  };
+  P.lockReasonNow = function (verbId) {
     verbId = CF.VERB_ALIAS && CF.VERB_ALIAS[verbId] || verbId;
     var def = CF.VERBS[verbId];
     if (def.lockedBy === 'burnout' && this.countOf('burnout') > 0) return 'The fever has you. Sleep it off in Rest first.';
@@ -2464,6 +2505,15 @@
   };
   // How long a case keeps, as a share of its template's clock: a young office is given more time.
   P.caseClock = function () { var r = this.caseRank(); return r === 0 ? 1.8 : r === 1 ? 1.6 : 1.5; };
+  // A mark left to be found (see spawnCase and the Rest's Two Accounts).
+  CF.STAGED_MARK = {
+    chance: 0.35,
+    tells: [
+      'It lies exactly where the beadle\'s lantern falls first.',
+      'Nothing else in the room was touched. This was put.',
+      'Too neat. Whoever left it wanted it read.',
+    ],
+  };
   P.spawnCase = function (templateId, opts) {
     opts = opts || {};
     var s = this.s;
@@ -2579,6 +2629,9 @@
       if (key1) rest.push(key1);
       rest.push(generic);
       while (items.length < 4 && rest.length) items.push(rest.shift());
+    } else if (T.special) {
+      // A great case's scene holds everything its template has: the charge asks for every kind.
+      items = [traitItem].concat(front ? [this.linkItem(front)] : [], tItems);
     } else {
       var picked = U.sample(rng, tItems, Math.min(2, tItems.length));
       if (front) picked = [this.linkItem(front)].concat(picked.slice(0, 1));
@@ -2587,7 +2640,7 @@
     // On the culprit, the words are a mark: the token says whose.
     items.forEach(function (it) { if (it.echoes && it.echoes === trait.id && !it.trait) it.trait = it.echoes; });
     items = U.shuffle(rng, items);
-    if (items.length > 4) items.length = 4; // a scene gives four things at most: what matters, not everything
+    if (items.length > 4 && !T.special) items.length = 4; // a scene gives four things at most: what matters, not everything
     if (from) {
       // What was never found, topped up to two from a fresh look at the scene.
       var had = (from.items || []).map(function (it) { return U.clone(it); });
@@ -2601,6 +2654,18 @@
       var drop = Math.min(2, items.length - 2);
       items = items.filter(function (it) { if (drop > 0 && !it.own) { drop--; return false; } return true; });
     }
+    // A mark left to be found: from the Bailiff's office on (or whenever a
+    // Careful criminal is at work), some scenes also hold an innocent's mark,
+    // put there to be read. It looks real; a tell in its words gives it away.
+    if (!from && !T.special && !opts.first && !opts.quiet && (this.caseRank() >= 2 || (known && known.traits.indexOf('careful') >= 0)) && rng() < CF.STAGED_MARK.chance) {
+      var marked = suspects.filter(function (x) { return !x.guilty && x.trait !== culprit.trait; });
+      var mark = marked.length ? U.pick(rng, marked) : null;
+      var mt = mark && CF.TRAITS.filter(function (t) { return t.id === mark.trait; })[0];
+      if (mt && mt.clue) {
+        var stagedItem = { type: 'clue', label: mt.clue.label, text: mt.clue.text + ' ' + U.pick(rng, CF.STAGED_MARK.tells), aspects: U.clone(mt.clue.aspects), trait: mt.id, staged: true, own: true };
+        items.splice(U.randInt(rng, 0, items.length), 0, stagedItem);
+      }
+    }
 
     var rec = {
       id: id, template: tid, title: from && from.title ? from.title : U.fill(opts.title || T.title, vars), short: T.label, district: district, scene: scene,
@@ -2613,7 +2678,9 @@
     };
     rec.week = s.week;
     if (this.commissionFor) rec.commission = this.commissionFor(rec, T);
-    if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: null, deadline: s.t + (T.lifetime || 250) * 0.66, days: CF.daysLeft((T.lifetime || 250) * 0.66) };
+    // A template may name the role the Council would rather not see in the dock (the Harbourmaster).
+    var councilSus = T.councilRole ? suspects.filter(function (x) { return x.role === T.councilRole; })[0] : null;
+    if (T.council && this.commissionFor) rec.commission = { from: 'council', wants: 'quiet', ofCouncil: councilSus ? councilSus.key : null, deadline: s.t + (T.lifetime || 250) * 0.66, days: CF.daysLeft((T.lifetime || 250) * 0.66) };
     s.cases[id] = rec;
     s.stats.cases++;
     // A leaf read from the old book in Rest belongs to the case again.
@@ -2647,13 +2714,44 @@
     }
     if (warning) this.revealSuspect(rec, null);
     if (known && known.traits.indexOf('pilloried') >= 0 && !warning) { this.revealSuspect(rec, null, { key: rec.culprit }); }
+    // An old debt: somebody you once sent home instead of to the Ravenstone
+    // saw something, and comes to say so. A pardoned thief at the Watch-house
+    // door risks everything: their word is against their own interest.
+    var debtor = !T.special && !opts.quiet && !opts.first && !from ? this.oldDebtor(opts.criminalId) : null;
+    if (debtor && rng() >= 0.25) debtor = null;
+    if (debtor) {
+      s.flags.oldDebt[debtor.id] = s.week;
+      var dspec = {
+        label: 'Witness: ' + debtor.name,
+        desc: U.fill('{name}, who keeps a stall in the Abbey Close now. You sent them home once instead of to the Ravenstone. They have not forgotten, and they were at their casement the night of {title}.', { name: debtor.name, title: rec.title }),
+        caseId: rec.id,
+        data: { knows: true, stake: 'none', who: 'a citizen you once sent home', reformed: debtor.id },
+      };
+      if (opts.ctx) opts.ctx.give('witness', dspec); else this.create('witness', dspec);
+    }
     if (!opts.quiet) {
       // A headline that ends in a colon is a heading for the case's own name ('The Pattern: ' + the title).
       var head = opts.headline ? (/:\s*$/.test(opts.headline) ? opts.headline + rec.title : opts.headline)
         : (rec.commission ? 'A Commission from ' + CF.PATRONS[rec.commission.from].label + ': ' : 'New Case: ') + rec.title;
       this.story(head, (lead ? lead + ' ' : '') + brief + (rec.commission && CF.Patrons ? ' ' + CF.Patrons.describe(rec) : ''), 'case');
     }
+    if (debtor) {
+      this.story('An Old Debt', U.fill('{name} is waiting on the Watch-house step with their cap in their hands. "You sent me home once," they say. "I saw something."', { name: debtor.name }), 'major');
+    }
     return card;
+  };
+  // A citizen you once sent home who may come back as a witness: reformed,
+  // not the case's own criminal, and nobody come that way in six weeks.
+  P.oldDebtor = function (exceptId) {
+    var s = this.s;
+    if (!s.flags.oldDebt) s.flags.oldDebt = {};
+    for (var od in s.flags.oldDebt) if (s.week - s.flags.oldDebt[od] < 6) return null;
+    var pool = [];
+    for (var k in s.criminals) {
+      var c = s.criminals[k];
+      if (c.status === 'reformed' && c.id !== exceptId && c.name) pool.push(c);
+    }
+    return pool.length ? U.pick(this.rng, pool) : null;
   };
 
   // Record that the detective spent effort on a case (feeds Obsession).
@@ -2725,6 +2823,7 @@
     // Whose words these are: a confession, a motive or a story belongs to the one who gave it.
     if (item.about || flags.about) data.about = item.about || flags.about;
     if (item.names) data.names = true;
+    if (item.staged) data.staged = true;
     if (flags.confession) { data.confession = flags.confession; data.falseConfession = !!flags.falseConfession; }
     if (this.countOf('tunnel') && !flags.noMisread && this.rng() < 0.35) data.misread = true;
     var spec = {
@@ -2846,9 +2945,14 @@
     }
     if (rec.template === 'architect') {
       this.s.flags.architect = false;
-      this.story('The Architect Vanishes', 'By the time you get a writ the house on the Hill is empty, except for three strokes cut into the mantel. You will have to find the thread again.', 'danger');
+      // The marks that found him come back, but one of the three has been plastered over.
+      var marks = (rec.marks || []).slice(0, 2), self = this;
+      marks.forEach(function (m) { self.create('looseend', self.looseEndSpec(m.fromTitle, m.aspect, m.week)); });
+      if (marks.length) this.story('The Architect Vanishes', 'By the time you get a writ the house on the Hill is empty, except for three strokes cut into the mantel. One of the three marks has been plastered over. You still have two of the marks.', 'danger');
+      else this.story('The Architect Vanishes', 'By the time you get a writ the house on the Hill is empty, except for three strokes cut into the mantel. You will have to find the thread again.', 'danger');
       return;
     }
+    if (rec.template === 'harbourmaster') { this.harbourLost(rec); return; }
     if (rec.template === 'manhunt') {
       this.story('Gone Again', culprit.name + ' has slipped away again. The sighting leads nowhere.', 'danger');
       return;
@@ -2901,6 +3005,7 @@
     this.clearCaseCards(rec.id);
     this.meter('reputation', -1);
     if (rec.template === 'architect') s.flags.architect = false;
+    if (rec.template === 'harbourmaster') this.harbourLost(rec);
     var text = rivalName + ' has closed ' + rec.title + ' with a confession the Harbourmaster is pleased with. The Council notes who was quicker.';
     if (right) {
       var c = this.criminalByName(culprit.name);
@@ -2953,11 +3058,13 @@
     var caught = how === 'caught' || how === 'case';
     if ((r.data.heat || 0) >= 1 && caught) {
       this.remove(r);
-      s.flags.rivalGone = s.week + CF.RIVAL_GONE_WEEKS;
+      s.flags.rivalGone = Math.max(s.flags.rivalGone || 0, s.week + CF.RIVAL_GONE_WEEKS); // never shortens the Harbourmaster's hold
       this.meter('reputation', 1);
       if (this.favourGain) this.favourGain('council', 1, 'the Rival exposed');
       s.stats.rivalExposed = (s.stats.rivalExposed || 0) + 1;
-      return { exposed: true, text: 'The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.' };
+      if (!s.flags.harbourFallen) this.create('customsleaf');
+      return { exposed: true, text: 'The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.' +
+        (s.flags.harbourFallen ? '' : ' In the examiner\'s desk, a leaf from the Customs House: what the Harbourmaster paid, and for what.') };
     }
     r.data.heat = 1;
     r.data.heatWeek = s.week;
@@ -3063,6 +3170,8 @@
     if (unlucky) notes.push(U.pick(rng, CF.FULL_PROOF_FAILS), 'The Market saw your proof, and blames the bench, not you.');
     rec.status = convicted ? 'closed' : 'acquitted';
     if (this.commissionVerdict) this.commissionVerdict(rec, d, convicted, notes);
+    if (this.mountainVerdict) this.mountainVerdict(rec, d, convicted);
+    if (rec.template === 'harbourmaster' && !convicted) this.harbourLost(rec);
     this.emit('resolved', this.caseRecord(rec, convicted ? (d.guilty ? 'convicted' : 'wrongful') : 'acquitted', d.name, seat));
     var hp = rec.highProfile;
     if (convicted) this.openTheCity();
@@ -3105,7 +3214,7 @@
       if (this.openingKeep) this.openingKeep();
       if (d.solid && d.guilty) {
         if (s.calling === 'master' && rng() < 0.55) {
-          this.create('looseend');
+          this.create('looseend', this.looseEndSpec(rec.title, rec.keyAspects[0]));
           this.pathGain('master', 1, 'a loose end');
           notes.push('But one detail belongs to no one in the case: a small mason\'s mark, three strokes, cut where the crime began. You have seen it before.');
         }
@@ -3152,6 +3261,9 @@
         }
       }
       if (rec.template === 'architect') s.flags.architect = false;
+      // What the sworn men wanted and did not get, so the loss teaches something.
+      var missing = this.acquittalLine(d);
+      if (missing) notes.push(missing);
       // The opening case lost: the Council has seen you work all the same. The desk,
       // the Bell and the city's clock are yours, and a case comes soon (openingKeep).
       var keepAnyway = !!(s.flags.opening && this.openingKeep);
@@ -3164,6 +3276,22 @@
         if (!this.openCases().length) s.dispatchT = Math.min(s.dispatchT, 20);
       }
     }
+  };
+
+  // One line for an acquittal: the rows of the charge that were short, and
+  // what the tokens laid did bring. Null when every row was met (the loss was
+  // the word, a contradiction, or the bench) or the trial is from an older save.
+  P.acquittalLine = function (d) {
+    var rows = d && d.rows;
+    if (!rows || !rows.length) return null;
+    var lab = function (k) { return CF.ASPECTS[k] ? CF.ASPECTS[k].label : k; };
+    var short = rows.filter(function (r) { return r.have < r.need; });
+    if (!short.length) return null;
+    var want = short.map(function (r) { return lab(r.aspect) + ' ' + r.need; }).join(', ');
+    var have = d.have || {};
+    var brought = Object.keys(have).filter(function (k) { return have[k] > 0 && CF.ASPECTS[k]; }).map(function (k) { return lab(k) + ' ' + have[k]; }).join(', ');
+    return brought ? U.fill('The sworn men wanted {want}; you brought {brought}.', { want: want, brought: brought })
+      : U.fill('The sworn men wanted {want}; you brought nothing.', { want: want });
   };
 
   P.onConviction = function (rec, d, notes) {
@@ -3225,6 +3353,81 @@
       if (d.guilty && this.pathOpen('master')) { this.gameOver('master'); return; }
       s.flags.architect = false;
     }
+    if (rec.template === 'harbourmaster') this.harbourFalls(rec, d);
+  };
+
+  // ---- Loose Ends and the Architect ------------------------------------------------
+  // A Loose End remembers the case it came from: its title, the kind of
+  // proof that case turned on, and the week. In the Architect's case each
+  // becomes a token worth two of that kind.
+  P.looseEndSpec = function (fromTitle, aspect, week) {
+    var def = CF.CARDS.looseend;
+    var spec = { data: { fromTitle: fromTitle || null, aspect: aspect || 'opportunity', week: typeof week === 'number' ? week : this.s.week } };
+    if (fromTitle) spec.desc = U.fill('From {fromTitle}: three strokes cut where the crime began.', { fromTitle: fromTitle }) + ' ' + def.desc;
+    return spec;
+  };
+  // The three Loose Ends laid in Rest become the Architect's first tokens, and
+  // the case keeps them, to give two back if it goes cold.
+  CF.LOOSE_END_ASPECTS = ['motive', 'digital', 'financial'];
+  P.architectMarks = function (rec, ends, ctx) {
+    if (!rec) return [];
+    var self = this;
+    rec.marks = ends.map(function (c, i) {
+      var d = c.data || {};
+      return { fromTitle: d.fromTitle || null, aspect: CF.ASPECTS[d.aspect] ? d.aspect : CF.LOOSE_END_ASPECTS[i % CF.LOOSE_END_ASPECTS.length], week: typeof d.week === 'number' ? d.week : -1 };
+    });
+    return rec.marks.map(function (m) {
+      var aspects = {};
+      aspects[m.aspect] = 2;
+      var spec = self.clueSpec(rec, {
+        label: m.fromTitle ? U.fill('The Mark at {fromTitle}', { fromTitle: m.fromTitle }) : 'An Old Mark',
+        text: 'You were there. You saw the three strokes and did not know what they were. Now you do.',
+        aspects: aspects,
+      }, [], { noMisread: true });
+      return ctx ? ctx.give('clue', spec) : self.create('clue', spec);
+    });
+  };
+
+  // ---- The Harbourmaster ------------------------------------------------------------
+  // Each examiner exposed leaves a leaf from the Customs House; two, in Rest,
+  // open the Harbourmaster's own books. While that case is open he sends
+  // nobody; if it fails, he has friends and another examiner has the desk;
+  // the Harbourmaster himself convicted ends his examiners for good.
+  CF.RIVAL_HELD = 1e6; // a week that never comes: no examiner is sent
+  P.harbourOpened = function (caseId) {
+    var f = this.s.flags;
+    f.harbourCase = caseId;
+    f.rivalGone = CF.RIVAL_HELD;
+  };
+  P.harbourFalls = function (rec, d) {
+    var s = this.s, self = this;
+    var sus = rec.suspects.filter(function (x) { return x.name === d.name; })[0];
+    if (sus && sus.role === 'the Harbourmaster') {
+      s.flags.harbourFallen = true;
+      s.flags.rivalGone = CF.RIVAL_HELD;
+      this.cardsOf('rival', true).forEach(function (c) { if (c.loc && c.loc.t === 'table') self.remove(c); });
+      // With the Council's own word on a Council family in the dock (commissionVerdict: Standing −1,
+      // favour −1), the fall comes to Standing +3 and the Council's favour −2 in all.
+      var councilsMan = rec.commission && rec.commission.ofCouncil === sus.key && rec.commission.delivered === 'truth';
+      this.meter('reputation', councilsMan ? 4 : 3);
+      if (this.favourGain) this.favourGain('council', councilsMan ? -1 : -2);
+      this.story('The Harbourmaster Falls', 'The Customs House is sealed. Nobody will send another examiner against you, because nobody is left who wants to.', 'major');
+      return;
+    }
+    // His clerk goes down for it: the Harbourmaster keeps his chain, and in time another examiner.
+    s.flags.rivalGone = s.week + CF.RIVAL_GONE_WEEKS;
+  };
+  P.harbourLost = function (rec) {
+    var s = this.s;
+    if (s.flags.harbourFallen) return;
+    s.flags.rivalGone = s.week;
+    if (this.cardsOf('rival', true).length) return;
+    var last = s.flags.rivalName, names = (CF.RIVAL_NAMES || ['Anselm Vogt']).filter(function (n) { return n !== last; });
+    var name = U.pick(this.rng, names.length ? names : CF.RIVAL_NAMES);
+    s.flags.rivalSeen = true;
+    s.flags.rivalName = name;
+    this.create('rival', { label: 'The Rival: ' + name, data: { name: name, heat: 0, stalled: 0 } });
+    this.story('He Has Friends', 'The Harbourmaster\'s books are back on their shelf, and another examiner has his desk.', 'danger');
   };
 
   // A band is broken: its sworn scatter, smaller men. Records lose the band

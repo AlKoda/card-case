@@ -18,6 +18,7 @@
   Deduce.fits = function (d, clues, tunnel) {
     var n = d.needs || {};
     if (tunnel && n.distinctTraits) return false;
+    if (n.never) return false;
     if (clues.length < (n.min || 2)) return false;
     if (n.aspects) {
       var agg = {};
@@ -59,6 +60,7 @@
     var e = ctx.e;
     if (d.id === 'connect') return Deduce.connect(ctx, clues);
     if (d.id === 'alibi') return Deduce.alibi(ctx, d, rec, clues);
+    if (d.id === 'conflict') { var staged = Deduce.staged(ctx, rec, clues); if (staged) return staged; }
     var traits = traitsOf(clues);
     var shared = Object.keys(traits).filter(function (t) { return traits[t] >= 2; })[0] || null;
     var trait = shared || (Object.keys(traits).length === 1 ? Object.keys(traits)[0] : null);
@@ -117,6 +119,31 @@
     var text2 = U.fill(st.text || '', vars);
     if (d.id === 'identify') text2 += fits ? ' It is ' + fits.name + '.' : ' Whoever it is, you have not met them yet.';
     return { title: U.fill(st.title || d.label, vars), text: text2, kind: st.kind || (fits ? 'major' : undefined), made: made };
+  };
+  // Two Accounts, when one of them was put there: a staged mark beside the
+  // culprit's own. Somebody who knew whose mark it was wanted it read. The
+  // staged token loses its mark (it is plain Presence now) and a token
+  // naming the culprit comes of it. Null when the tokens are not that pair.
+  Deduce.staged = function (ctx, rec, clues) {
+    var e = ctx.e;
+    var cul = rec && rec.suspects.filter(function (x) { return x.guilty; })[0];
+    if (!cul) return null;
+    var put = clues.filter(function (c) { return c.data.staged && c.data.trait && c.data.trait !== cul.trait; })[0];
+    var real = clues.filter(function (c) { return !c.data.staged && c.data.trait === cul.trait; })[0];
+    if (!put || !real) return null;
+    var d = CF.DEDUCTIONS.filter(function (x) { return x.id === 'staged'; })[0] || {};
+    var g = d.gives || {};
+    put.label = 'Staged: ' + e.labelOf(put).replace(/^Staged: /, '');
+    put.data.trait = null;
+    put.data.stagedRead = true;
+    var asp = CF.clueAspects(put);
+    put.aspects = { opportunity: Math.max(1, asp.opportunity || 0) };
+    put.fresh = true;
+    e.dirty = true;
+    var made = ctx.give('clue', { label: g.label, desc: g.text, aspects: U.clone(g.aspects), caseId: rec.id,
+      data: { misread: false, coerced: false, planted: false, corroborated: true, trait: null, points: cul.key, deduction: 'staged' } });
+    var st = d.story || {};
+    return { title: st.title, text: st.text, kind: st.kind || 'major', made: made };
   };
   // Two confessions laid side by side: both stay, and both are false now.
   Deduce.falseConfessions = function (e, clues) {

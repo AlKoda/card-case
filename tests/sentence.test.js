@@ -208,3 +208,42 @@ function rung(e, id) { return byDef(e, 'rung').filter(function (c) { return c.da
 })();
 
 console.log('sentence: ladder, prices, capital, council all OK');
+
+// ---- An old debt: one you sent home comes back as a witness ---------------------------------
+(function oldDebt() {
+  assert.ok(/The city remembers who sent them home\.$/.test(CF.RUNGS.pardon.desc) && /The city remembers who sent them home\.$/.test(CF.RUNGS.fine.desc), 'the merciful rungs say mercy is remembered');
+  var e = game(77);
+  assert.deepStrictEqual(e.s.flags.oldDebt, {}, 'a new game has had no old debt');
+  // Nobody reformed: nobody comes.
+  for (var i = 0; i < 20; i++) e.spawnCase('burglary', {});
+  assert.ok(!byDef(e, 'witness').some(function (w) { return w.data.reformed; }), 'no citizen, no old debt');
+  e.s.criminals.k1 = { id: 'k1', name: 'Hanne Vogt', trait: 'lefty', crimes: 1, heat: 0, organization: 'none', traits: [], status: 'reformed', history: [] };
+  var told = 0;
+  e.on(function (type, p) { if (type === 'story' && p.title === 'An Old Debt') told++; });
+  var w = null, tries = 0;
+  for (; tries < 60 && !w; tries++) {
+    e.spawnCase('burglary', {});
+    w = byDef(e, 'witness').filter(function (x) { return x.data.reformed === 'k1'; })[0] || null;
+  }
+  assert.ok(w, 'the citizen comes back as a witness');
+  assert.strictEqual(e.labelOf(w), 'Witness: Hanne Vogt');
+  var rec = e.caseRec(w.caseId);
+  assert.strictEqual(e.descOf(w), 'Hanne Vogt, who keeps a stall in the Abbey Close now. You sent them home once instead of to the Ravenstone. They have not forgotten, and they were at their casement the night of ' + rec.title + '.');
+  assert.ok(w.data.knows && w.data.stake === 'none' && w.data.who === 'a citizen you once sent home');
+  assert.strictEqual(told, 1, 'the city says so: An Old Debt');
+  assert.ok(/^Hanne Vogt is waiting on the Watch-house step with their cap in their hands\. "You sent me home once," they say\. "I saw something\."$/.test(e.s.journal.filter(function (j) { return j.title === 'An Old Debt'; })[0].text));
+  assert.strictEqual(e.s.flags.oldDebt.k1, e.s.week, 'the week is remembered');
+  // Six weeks pass before anyone comes that way again.
+  for (var j = 0; j < 30; j++) e.spawnCase('burglary', {});
+  assert.strictEqual(byDef(e, 'witness').filter(function (x) { return x.data.reformed; }).length, 1, 'once in six weeks');
+  // Heard: a word against their own interest, which the Fingerpost rule weighs.
+  var heard = run(e, 'interrogate', [w, byDef(e, 'focus')[0] || e.create('focus')]);
+  var dep = heard.out.filter(function (c) { return c.def === 'clue'; })[0];
+  assert.ok(dep && dep.data.againstInterest, 'a pardoned thief at the Watch-house door speaks against their interest');
+  // An older save, from before: no old-debt book, and it loads with one.
+  var old = JSON.parse(e.save());
+  delete old.flags.oldDebt;
+  var back = CF.Engine.load(JSON.stringify(old));
+  assert.deepStrictEqual(back.s.flags.oldDebt, {}, 'an older save loads with no old debt');
+  console.log('an old debt: ok (' + tries + ' cases)');
+})();
