@@ -2832,5 +2832,9 @@
     "{verb} asks for {what}, not this.": "المطلوب في {verb}: {what}، لا هذه.",
     "{verb} is at work. Wait for its clock to run out.": "{verb} قيد العمل. انتظر حتى ينفد الوقت.",
     "This place takes {what}.": "هذا الموضع يأخذ: {what}.",
+    // Verbs check-up: the Bell refuses with a word; a door left shut leaves a find behind it.
+    "The Bell takes no cards. It rings by itself at the week's end.": "لا يأخذ الجرسُ بطاقات. إنه يرنّ من تلقاء نفسه في نهاية الأسبوع.",
+    "Nothing you can carry away this time.": "لا شيء تستطيع حمله معك هذه المرة.",
+    "You knock your way around {scene} and come away with nothing new.": "تطرق الأبواب حول {scene} وتخرج بلا جديد.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

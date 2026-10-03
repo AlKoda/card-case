@@ -1289,6 +1289,9 @@
     var seen = this.s.askSeen || (this.s.askSeen = {}), seenKey = (spec.base || spec.label) + '|' + vid;
     if (seen[seenKey] === this.s.week) { v.askSkipped = true; return; }
     seen[seenKey] = this.s.week;
+    // The week's door, on work it cannot thin (a search that would find one thing at most): not put, since ignoring it
+    // could cost nothing and the box would promise a loss that never comes.
+    if (spec.worth && !spec.worth(this, v)) { v.askSkipped = true; return; }
     v.ask = { label: spec.label, text: spec.text, accepts: spec.accepts, filled: null };
     this.dirty = true;
     this.emit('ask', { verb: vid, label: spec.label, text: spec.text });
@@ -1326,8 +1329,10 @@
       if (result && spec.thanks) result.text = (result.text ? result.text + ' ' : '') + spec.thanks;
     } else if (v.ask && spec && spec.penalty) {
       // The ask was put and ignored: the work still finishes, but thinner.
-      if (spec.penalty === 'thin') {
-        // What the case turns on (the culprit's trait, the front's link) is never the thing left behind.
+      // A 'thin' ask is paid by the work itself: it reads ctx.askThin and leaves one find where it was (the search
+      // one token fewer, the round one house fewer), to be found another day; the case is never short of its proof.
+      // Work that does not read it (none today) loses the last token it found, if it found two or more.
+      if (spec.penalty === 'thin' && !ctx.thinDone) {
         var finds = ctx.out.filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && !(c.data && (c.data.trait || c.data.link)); });
         if (finds.length >= 1 && ctx.out.filter(function (c) { return c.def === 'clue' || c.def === 'evidence'; }).length >= 2) { var lost = finds[finds.length - 1]; this.remove(lost); ctx.out.splice(ctx.out.indexOf(lost), 1); }
       }
@@ -1367,6 +1372,11 @@
     var result;
     try {
       // The main card can vanish mid-recipe (burned informant, expired case...).
+      // How the ask went, for the work to read: answered (ctx.askAnswered), or put and ignored where ignoring finds
+      // less (ctx.askThin: the work leaves a find where it was, for another day, and sets ctx.thinDone).
+      var aspec = v.ask ? this.askSpec(v) : null;
+      ctx.askAnswered = !!(v.ask && v.ask.filled && this.card(v.ask.filled));
+      ctx.askThin = !!(v.ask && !ctx.askAnswered && aspec && aspec.penalty === 'thin');
       if (!rec || !ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: this.interruptedText(v), interrupted: true };
       else result = rec.run(ctx) || { title: rec.label, text: '' };
     } catch (err) {
@@ -3587,7 +3597,8 @@
   };
   // A thread pulled on the Rival `r` (how: question, shadow, caught, case).
   // Returns { exposed } with the story's tail, for the recipe or the verdict.
-  P.rivalThread = function (r, how) {
+  // With the work's ctx, what the exposure turns up is one of its finds (face down in the window); else on the table.
+  P.rivalThread = function (r, how, ctx) {
     var s = this.s;
     if (!r || r.def !== 'rival' || !r.loc) return null;
     r.data = r.data || {};
@@ -3598,7 +3609,7 @@
       this.meter('reputation', 1);
       if (this.favourGain) this.favourGain('council', 1, 'the Rival exposed');
       s.stats.rivalExposed = (s.stats.rivalExposed || 0) + 1;
-      if (!s.flags.harbourFallen) this.create('customsleaf');
+      if (!s.flags.harbourFallen) { if (ctx && ctx.give) ctx.give('customsleaf'); else this.create('customsleaf'); }
       return { exposed: true, text: 'The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.' +
         (s.flags.harbourFallen ? '' : ' In the examiner\'s desk, a leaf from the Customs House: what the Harbourmaster paid, and for what.') };
     }

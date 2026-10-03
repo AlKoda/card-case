@@ -890,7 +890,8 @@ console.error = function (err) { throw err; };
   assert.ok(v.ask && v.ask.label === 'A locked door', 'the first search asks');
   assert.strictEqual(e.s.askSeen['A locked door|investigate'], e.s.week);
   e.tick(v.duration); e.collect('investigate');
-  e.autoSlot('investigate', e.caseCard(kase.caseId).uid);
+  // Wit in the Manner: a search that would find two, so the door is worth asking (a one-find search never is).
+  e.autoSlot('investigate', e.caseCard(kase.caseId).uid); e.autoSlot('investigate', e.create('focus').uid);
   assert.ok(e.start('investigate'));
   e.tick(v.duration * 0.4);
   assert.ok(!v.ask && v.askSkipped, 'not twice in one week');
@@ -898,7 +899,7 @@ console.error = function (err) { throw err; };
   assert.ok(!/stayed locked|wore you out/.test(v.story ? v.story.text : ''), 'and no miss for a question not put');
   // A new week asks again.
   e.s.week++;
-  e.autoSlot('investigate', e.caseCard(kase.caseId).uid);
+  e.autoSlot('investigate', e.caseCard(kase.caseId).uid); e.autoSlot('investigate', e.create('focus').uid);
   assert.ok(e.start('investigate'));
   e.tick(v.duration * 0.4);
   assert.ok(v.ask, 'a week on, the door is locked again');
@@ -1485,4 +1486,111 @@ console.error = function (err) { throw err; };
   assert.ok(next && next.act, 'a move foreseen: ' + JSON.stringify(next));
   assert.ok(/ at the next Bell/.test(found.text), 'and told: ' + found.text);
   console.log('handoffs: ok');
+})();
+
+// ---- The verbs check-up: what an ask's words promise, the work keeps; what the Rival's desk gives is a find.
+(function verbsCheckup() {
+  function leadsDone(rec) { (CF.CASE_TEMPLATES[rec.template].leads || []).forEach(function (l) { rec.leads = rec.leads || {}; rec.leads[l.id] = true; }); }
+  function outOf(e, v, defs) { return v.out.map(function (u) { return e.card(u); }).filter(function (c) { return c && defs.indexOf(c.def) >= 0; }); }
+  // A door left shut on a search: the last find stays behind it (not lost: the next search finds it), and the story
+  // does not name it. Answered, the search keeps it.
+  function search(seed, answer) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0], rec = e.caseRec(kase.caseId);
+    leadsDone(rec);
+    var f0 = rec.found;
+    assert.ok(e.autoSlot('investigate', kase.uid) && e.start('investigate'));
+    var v = e.verb('investigate');
+    assert.strictEqual(v.recipe, 'inv_search');
+    e.tick(v.duration * 0.35);
+    assert.ok(v.ask && e.askSpec(v).penalty === 'thin', 'the search asks at the door');
+    if (answer) assert.ok(e.answerAsk('investigate', e.askCandidates('investigate')[0].uid));
+    e.tick(v.duration);
+    return { e: e, rec: rec, v: v, finds: outOf(e, v, ['clue', 'evidence']), drawn: rec.found - f0 };
+  }
+  var kept = search(41, true), left = search(41, false);
+  assert.ok(kept.finds.length >= 2, 'the first search finds two or more');
+  assert.strictEqual(left.finds.length, kept.finds.length - 1, 'ignored, one find fewer');
+  assert.strictEqual(left.drawn, kept.drawn - 1, 'and it stays where it was');
+  var behind = left.rec.items[left.rec.found];
+  assert.ok(behind && kept.v.story.text.indexOf(behind.label) >= 0 && left.v.story.text.indexOf(behind.label) < 0, 'the story names only what came away: ' + left.v.story.text);
+  assert.ok(/stayed locked|stayed battened|stayed barred|kept its own|books with it/.test(left.v.story.text), 'and says the door stayed shut');
+  left.e.collect('investigate');
+  var k2 = left.e.caseCard(left.rec.id);
+  assert.ok(left.e.autoSlot('investigate', k2.uid) && left.e.start('investigate'));
+  left.e.tick(left.e.verb('investigate').duration * 0.35);
+  var ask2 = left.e.verb('investigate').ask;
+  if (ask2 && !ask2.filled) { var cand = left.e.askCandidates('investigate')[0]; if (cand) left.e.answerAsk('investigate', cand.uid); }
+  left.e.tick(left.e.verb('investigate').duration);
+  assert.ok(outOf(left.e, left.e.verb('investigate'), ['clue', 'evidence']).some(function (c) { return c.label === behind.label || (c.data && c.data.item && c.data.item.label === behind.label) || left.e.verb('investigate').story.text.indexOf(behind.label) >= 0; }), 'the next search finds what was left behind the door');
+
+  // A search that would find one thing at most is not asked about the door: ignoring it could cost nothing.
+  var one = CF.Engine.newGame({ seed: 41, calling: 'master' });
+  var ok1 = one.tableCards().filter(function (c) { return c.def === 'case'; })[0], or1 = one.caseRec(ok1.caseId);
+  leadsDone(or1); or1.searches = 1;
+  assert.ok(one.autoSlot('investigate', ok1.uid) && one.start('investigate'));
+  one.tick(one.verb('investigate').duration * 0.5);
+  assert.ok(!one.verb('investigate').ask && one.verb('investigate').askSkipped, 'a one-find search: no door');
+  // A shut door on the round: the house's witness is not met (they stay for another round); a Coin opens it.
+  function canvass(seed, answer) {
+    var e = CF.Engine.newGame({ seed: seed, calling: 'master' });
+    e.s.flags.marketOpen = true;
+    var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0], rec = e.caseRec(kase.caseId);
+    leadsDone(rec); rec.searches = 1;
+    e.giveDistrict(rec.district);
+    var q0 = rec.witnesses.length, coins = e.cardsOf('funds').length;
+    var d = e.tableCards().filter(function (c) { return c.def === 'district'; })[0];
+    assert.ok(e.autoSlot('investigate', kase.uid) && e.autoSlot('investigate', d.uid) && e.start('investigate'));
+    var v = e.verb('investigate');
+    assert.strictEqual(v.recipe, 'inv_canvass');
+    e.tick(v.duration * 0.35);
+    assert.ok(v.ask && v.ask.label === 'A shut door', 'the round asks for a Coin at a door');
+    if (answer) assert.ok(e.answerAsk('investigate', e.askCandidates('investigate')[0].uid));
+    e.tick(v.duration);
+    return { e: e, rec: rec, v: v, met: outOf(e, v, ['witness']).length, queued: rec.witnesses.length, q0: q0, coinsSpent: coins - e.cardsOf('funds').length };
+  }
+  var paid = canvass(43, true), shut = canvass(43, false);
+  assert.ok(paid.q0 >= 1 && paid.met >= 1, 'the paid round meets a witness');
+  assert.strictEqual(shut.met, paid.met - 1, 'the shut door: one witness fewer');
+  assert.strictEqual(shut.queued, paid.queued + 1, 'and they are still there to be met');
+  assert.strictEqual(paid.coinsSpent, 1, 'the Coin is spent');
+  assert.strictEqual(shut.coinsSpent, 0, 'unpaid, none');
+  assert.ok(/talked less/.test(shut.v.story.text) && /whole street talked/.test(paid.v.story.text), 'each says so');
+
+  // A brawl with a watchman at your side does not wear you out; alone, it does.
+  for (var s = 50; s < 62; s++) {
+    [true, false].forEach(function (answer) {
+      var g = CF.Engine.newGame({ seed: s, calling: 'master' });
+      g.create('teammate');
+      var hp = g.tableCards().filter(function (c) { return c.def === 'health'; })[0];
+      assert.ok(g.autoSlot('duty', hp.uid) && g.start('duty'));
+      var dv = g.verb('duty');
+      assert.strictEqual(dv.recipe, 'duty_beat');
+      g.tick(dv.duration * 0.35);
+      assert.ok(dv.ask && dv.ask.label === 'A brawl', 'the round asks for a watchman');
+      if (answer) assert.ok(g.answerAsk('duty', g.askCandidates('duty')[0].uid));
+      g.tick(dv.duration);
+      var tired = outOf(g, dv, ['fatigue']).length;
+      if (answer) assert.ok(!tired && !/feet ache/.test(dv.story.text) && /Two of you/.test(dv.story.text), 'two of you, and not worn out: ' + dv.story.text);
+      else assert.ok(tired >= 1 && /wore you out/.test(dv.story.text), 'alone, worn out');
+    });
+  }
+
+  // The Rival exposed: the leaf from their desk is one of Question's finds, face down in the window.
+  var x = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  var xr = x.openCases()[0];
+  var rv = x.create('rival', { label: 'The Rival: Anselm Vogt', data: { name: 'Anselm Vogt', heat: 1, stalled: 0 } });
+  var tok = x.create('clue', { label: 'A Spoiled Token', caseId: xr.id, aspects: { forensic: 1 }, data: { tampered: true } });
+  var wit = x.tableCards().filter(function (c) { return c.def === 'focus'; })[0];
+  [rv, wit, tok].forEach(function (c) { assert.ok(x.autoSlot('interrogate', c.uid), 'slotted ' + c.def); });
+  assert.strictEqual(x.currentRecipe('interrogate').recipe.id, 'int_rival_expose');
+  assert.ok(x.start('interrogate')); x.tick(x.verb('interrogate').duration + 0.01);
+  var leaf = outOf(x, x.verb('interrogate'), ['customsleaf'])[0];
+  assert.ok(leaf && leaf.hidden && leaf.loc.t === 'out', 'the leaf is a find, face down: ' + JSON.stringify(leaf && leaf.loc));
+  assert.ok(!x.tableCards().some(function (c) { return c.def === 'customsleaf'; }), 'not dropped on the table');
+  // Without the work (the Rival answered in the Court), it still comes to the table.
+  var y = CF.Engine.newGame({ seed: 3, calling: 'master' });
+  var yr = y.create('rival', { label: 'The Rival', data: { name: 'Anselm Vogt', heat: 1 } });
+  assert.ok(y.rivalThread(yr, 'case').exposed && y.cardsOf('customsleaf', true).length === 1, 'a thread closed in the Court gives the leaf to the table');
+  console.log('verbs check-up: ok');
 })();

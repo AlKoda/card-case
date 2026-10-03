@@ -655,14 +655,17 @@
     app.classList.add('shake');
   }
 
-  // What ignoring an ask costs: the spec's penalty, found by the ask's label when the verb does not carry it.
+  // What ignoring an ask costs: the spec's penalty, as the engine reads the ask (a case's own door, 'A battened
+  // hatch', is the plain 'A locked door' under its scene's words: e.askSpec puts them together).
   function askPenalty(vid) {
-    var v = UI.e.verb(vid);
+    var e = UI.e, v = e.verb(vid);
     if (!v || !v.ask) return null;
     if (v.ask.penalty !== undefined) return v.ask.penalty || null;
-    var spec = (CF.ASKS || []).filter(function (a) { return a.label === v.ask.label && (!a.when || a.when(v.recipe, vid)); })[0];
+    var spec = e.askSpec ? e.askSpec(v) : null;
+    if (!spec) spec = (CF.ASKS || []).filter(function (a) { return a.label === v.ask.label && (!a.when || a.when(v.recipe, vid)); })[0];
     return spec && spec.penalty ? spec.penalty : null;
   }
+  UI.askPenalty = askPenalty;
 
   // The verdict has its moment where the player was watching: on the Blood Court card whose clock ran out (for a case
   // gone cold, on the case card), kept a moment as a ghost after the engine has taken it. The stamp is a wax unlike the
@@ -2731,8 +2734,9 @@
       if (!w) {
         w = h('div', 'vwin');
         w.dataset.win = vid;
-        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-info" title="' + esc('What this verb does') + '">i</button><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
-        w.querySelector('.vw-info').addEventListener('click', function (ev) { ev.stopPropagation(); UI.about = UI.about === vid ? null : vid; UI.e.dirty = true; });
+        // The Bell's window is its own description: it has no info to open.
+        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3>' + (CF.VERBS[vid].auto ? '' : '<button class="vw-info" title="' + esc('What this verb does') + '">i</button>') + '<button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
+        if (!CF.VERBS[vid].auto) w.querySelector('.vw-info').addEventListener('click', function (ev) { ev.stopPropagation(); UI.about = UI.about === vid ? null : vid; UI.e.dirty = true; });
         w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'cvtok-investigate');
         w.querySelector('h3').textContent = tr(CF.VERBS[vid].label);
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
@@ -2747,12 +2751,27 @@
         var body = w.querySelector('.vw-body');
         body.innerHTML = '';
         buildWindowBody(body, vid);
+        keepClearOfBar(body);
+        // A slot just tapped: the cards that fit come into view (on a short screen they open below the slots).
+        if (UI.pickReveal && UI.pickReveal === vid) {
+          UI.pickReveal = null;
+          var pk = body.querySelector('.picker');
+          if (pk && pk.scrollIntoView) pk.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
       }
     });
   }
 
   // The window stands at the side of the table, fitted to it.
   function positionWindow(vid, w) { void vid; w.classList.add('docked'); }
+  // The body scrolls under its sticky bar (Start, Clear; Take all): whatever is scrolled into view stops below it.
+  function keepClearOfBar(body) {
+    var bar = null;
+    for (var i = 0; i < body.children.length; i++) if (body.children[i].classList.contains('actions')) { bar = body.children[i]; break; }
+    var hgt = bar && bar.offsetHeight ? bar.offsetHeight + 6 : 0;
+    body.style.scrollPaddingTop = hgt ? hgt + 'px' : '';
+  }
+  UI.keepClearOfBar = keepClearOfBar;
 
   function miniCard(card) {
     var mc = miniCard0(card);
@@ -2833,6 +2852,7 @@
       return;
     }
 
+    if (v.status !== 'idle' && UI.about === vid) aboutBlock(pane, vid);
     if (v.status === 'running') {
       var rec = CF.RECIPES_BY_ID[v.recipe];
       var ctx = e.makeCtx(vid, v.ctxSlots);
@@ -2886,26 +2906,7 @@
     // Idle.
     if (v.story) pane.appendChild(storyBox(v.story));
     var primaryCard = v.slots[e.primaryKey(vid)];
-    if (UI.about === vid) {
-      // What a junior can do here now; each office's power below it, dim, and the ones still to come as one line each.
-      var info = e.verbInfo(vid);
-      pane.appendChild(h('p', 'vw-desc vw-about', info.basics));
-      info.powers.forEach(function (pw) {
-        pane.appendChild(h('p', 'vw-desc vw-power' + (pw.open ? '' : ' locked'), pw.open ? tr('{label}: {text}', { label: tr(pw.label), text: tr(pw.text) }) : tr('At {rank}: {label}', { rank: tr(pw.rankLabel), label: tr(pw.label) })));
-      });
-      var sr = e.s.stats.recipes || {};
-      var ways = e.s.stats.ways || {};
-      var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && (ways[r.id] || typeof r.label === 'string'); }).map(function (r) { return tr(ways[r.id] || r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
-      pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: joinList(known) }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
-      // The verb's own part of the Help, one tap away: the book, no words.
-      if (HELP_AT[vid] && CF.openHelp) {
-        var hb = h('button', 'vw-help');
-        hb.title = tr('How to Play');
-        hb.style.backgroundImage = art('bround-22');
-        hb.addEventListener('click', function (ev) { ev.stopPropagation(); CF.Audio.play('click'); CF.openHelp(HELP_AT[vid]); });
-        pane.appendChild(hb);
-      }
-    }
+    if (UI.about === vid) aboutBlock(pane, vid);
     var lock = e.lockReason(vid);
     var pv = e.preview(vid);
     // The Court reads the charge first: what the case needs against what the
@@ -2944,6 +2945,7 @@
         box.addEventListener('click', function () {
           var same = UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key;
           UI.pick = same ? null : { verb: vid, slot: sl.key };
+          UI.pickReveal = same ? null : vid;
           e.dirty = true;
         });
         if (UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key) s.classList.add('picking');
@@ -3021,6 +3023,28 @@
     pane.appendChild(act2);
   }
 
+  // The info pane: what a junior can do here now, the offices' powers, the ways found; open in any state of the verb.
+  function aboutBlock(pane, vid) {
+    var e = UI.e;
+    // What a junior can do here now; each office's power below it, dim, and the ones still to come as one line each.
+    var info = e.verbInfo(vid);
+    pane.appendChild(h('p', 'vw-desc vw-about', info.basics));
+    info.powers.forEach(function (pw) {
+      pane.appendChild(h('p', 'vw-desc vw-power' + (pw.open ? '' : ' locked'), pw.open ? tr('{label}: {text}', { label: tr(pw.label), text: tr(pw.text) }) : tr('At {rank}: {label}', { rank: tr(pw.rankLabel), label: tr(pw.label) })));
+    });
+    var sr = e.s.stats.recipes || {};
+    var ways = e.s.stats.ways || {};
+    var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && (ways[r.id] || typeof r.label === 'string'); }).map(function (r) { return tr(ways[r.id] || r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
+    pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: joinList(known) }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
+    // The verb's own part of the Help, one tap away: the book, no words.
+    if (HELP_AT[vid] && CF.openHelp) {
+      var hb = h('button', 'vw-help');
+      hb.title = tr('How to Play');
+      hb.style.backgroundImage = art('bround-22');
+      hb.addEventListener('click', function (ev) { ev.stopPropagation(); CF.Audio.play('click'); CF.openHelp(HELP_AT[vid]); });
+      pane.appendChild(hb);
+    }
+  }
   // The Charge plate's colour by the charge it would bring.
   var TIER_PLATE = { weak: 'dark', reasonable: 'redfill', strong: 'gold' };
   // A verb's first words, for the window's info: what anyone can do with it from the first day (e.verbInfo).
@@ -4377,6 +4401,7 @@
     interrogate: 'Question takes a Witness, an Accused, or the Rival.',
     reflect: 'Rest takes a Case or its tokens, Weariness, Fever, Hunger, Sickness, Stress, a Wound, or an Insight.',
     arrest: 'The Court takes an Accused, or the Condemned.',
+    time: 'The Bell takes no cards. It rings by itself at the week\'s end.',
   };
   UI.VERB_TAKES = VERB_TAKES;
   function refusalReason(vid, slotKey, card) {

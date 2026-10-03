@@ -3030,5 +3030,62 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the table check-up (hover, refusals, pile, fit, finds, toasts, dossier clock, story band)');
 })();
 
+// ---- The verbs check-up: what a player's hand found at the verbs, held to here.
+(function verbsCheckup() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var e = CF.Engine.newGame({ calling: 'master', seed: 3, name: 'Hodge Ebner' });
+  e.s.flags.marketOpen = true;
+  UI.attach(e); UI.paused = true;
+  function closeAll() { var n = 0; while ((UI.openVerbs.length || UI.pick) && n++ < 9) UI.back(); render(e); }
+  closeAll();
+  function win(vid) { return $('#windows').querySelectorAll('.vwin').filter(function (w) { return w.dataset.win === vid; })[0]; }
+  // A case's own door ('A battened hatch' at the quay) says what ignoring costs, as the plain door does.
+  e.tableCards().filter(function (c) { return c.def === 'case'; }).forEach(function (c) { e.remove(c); });
+  var hc = e.spawnCase('harbor', { quiet: true }), hrec = e.caseRec(hc.caseId);
+  (CF.CASE_TEMPLATES[hrec.template].leads || []).forEach(function (l) { hrec.leads = hrec.leads || {}; hrec.leads[l.id] = true; });
+  assert.ok(e.autoSlot('investigate', hc.uid) && e.start('investigate'), 'the quay searched');
+  var v = e.verb('investigate');
+  e.tick(v.duration * 0.35);
+  assert.ok(v.ask && v.ask.label === 'A battened hatch', 'the hatch is asked: ' + JSON.stringify(v.ask));
+  assert.strictEqual(UI.askPenalty('investigate'), 'thin', 'its cost is the door\'s: it finds less');
+  UI.openWindow('investigate'); render(e);
+  var wt = win('investigate').textContent;
+  assert.ok(/finds less/.test(wt) && !/as it would have/.test(wt), 'the box says so: ' + wt);
+  // The info opens on a verb at work too.
+  UI.about = 'investigate'; render(e);
+  assert.ok(win('investigate').querySelector('.vw-about'), 'the info shows while the verb is at work');
+  UI.about = null; closeAll();
+
+  // The Bell's window is its description: no dead info button; a card dropped on it is told why it went back.
+  UI.openWindow('time'); render(e);
+  assert.ok(win('time') && !win('time').querySelector('.vw-info'), 'the Bell has no info button');
+  assert.ok(win('investigate') === undefined || win('investigate').querySelector('.vw-info'), 'the other verbs keep theirs');
+  UI.refused({ verb: 'time', node: new El('div') }, e.tableCards().filter(function (c) { return c.def === 'focus'; })[0]);
+  assert.strictEqual(UI.hintFlash && UI.hintFlash.text, UI.VERB_TAKES.time, 'Wit on the Bell: the Bell takes no cards');
+  UI.hintFlash = null; closeAll();
+
+  // An empty slot tapped: the cards that fit are scrolled into view, below the sticky Start bar (whose height is the
+  // body's scroll padding), for a finger as for the mouse: the tap is the slot's click either way.
+  var scrolled = [];
+  El.prototype.scrollIntoView = function (o) { scrolled.push({ el: this, o: o }); };
+  UI.openWindow('duty'); render(e);
+  var body = win('duty').querySelector('.vw-body');
+  assert.strictEqual(body.style.scrollPaddingTop, '106px', 'the body keeps what it scrolls to clear of the bar: ' + body.style.scrollPaddingTop);
+  var box = win('duty').querySelectorAll('.slot').filter(function (sl) { return sl.dataset.slot === 'main'; })[0].querySelector('.s-box');
+  box.click(); render(e);
+  var pk = win('duty').querySelector('.picker');
+  assert.ok(UI.pick && pk, 'the picker opens');
+  assert.ok(scrolled.some(function (x) { return x.el === pk && x.o && x.o.block === 'nearest'; }), 'and is brought into view');
+  scrolled.length = 0; render(e);
+  assert.ok(!scrolled.length, 'once: the window does not jump back to it on every redraw');
+  box = win('duty').querySelectorAll('.slot').filter(function (sl) { return sl.dataset.slot === 'main'; })[0].querySelector('.s-box');
+  box.click(); render(e);
+  assert.ok(!UI.pick && !scrolled.length, 'a second tap closes it, and nothing scrolls');
+  delete El.prototype.scrollIntoView;
+  closeAll();
+  assert.ok(/\.vw-body \.actions \{ order: -1; position: sticky; top: 0;/.test(css), 'the Start bar is still sticky (the padding is what keeps a slot clear of it)');
+  console.log('ui: the verbs check-up (a case\'s door, the info at work, the Bell, the picker in view)');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

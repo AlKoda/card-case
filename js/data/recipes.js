@@ -41,6 +41,21 @@
     return { label: item.label, desc: item.text + ' Take it to Study.' + needs + ' (Raw proof in: ' + rec.title + ')', caseId: rec.id, data: { item: item } };
   }
   // Draw the next unfound item from a case's scene pool into the verb output.
+  // How many things a search of the scene turns up: one, and one more for a watchman, Wit, the first look, a
+  // thorough hand on the staff.
+  function searchCount(ctx, first) {
+    return 1 + (ctx.has('teammate') ? 1 : 0) + (ctx.has('focus') ? 1 : 0) + (first ? 1 : 0) + (ctx.e.teamHas(ctx, 'thorough') ? 1 : 0);
+  }
+  // A 'thin' ask is put only to work that has something to leave behind (CF.ASKS worth): a search that would come
+  // away with two finds or more, a round with a witness still to meet or a name still to give.
+  function searchWorth(e, v) {
+    var ctx = e.makeCtx(v.id, v.ctxSlots || {}), rec = ctx.primary && ctx.caseOf(ctx.primary);
+    return !!rec && Math.min(searchCount(ctx, rec.searches === 0), rec.items.length - rec.found) >= 2;
+  }
+  function canvassWorth(e, v) {
+    var ctx = e.makeCtx(v.id, v.ctxSlots || {}), rec = ctx.primary && ctx.caseOf(ctx.primary);
+    return !!rec && (rec.witnesses.length > 0 || rec.suspects.some(function (x) { return !x.revealed && !x.cleared; }));
+  }
   function drawItem(ctx, rec, helpers) {
     var item = rec.items[rec.found];
     if (!item) return null;
@@ -312,7 +327,8 @@
       { story: { title: 'The Round', text: ['Two drunks, a stolen goose and a lost dog. The dog was the most reasonable of them.',
         'You spend six hours on your feet in the rain outside the bear-garden.',
         'A stallholder shakes your hand. A boy spits at your boots. An ordinary round.'] } },
-      { chance: 0.55, then: [{ give: 'fatigue' }, { call: function (ctx) { ctx.result.text += ' Your feet ache all the way up to your skull.'; } }] },
+      // A watchman at your side for the brawl (the ask answered): the round does not wear you out.
+      { chance: function (ctx) { return ctx.askAnswered ? 0 : 0.55; }, then: [{ give: 'fatigue' }, { call: function (ctx) { ctx.result.text += ' Your feet ache all the way up to your skull.'; } }] },
     ],
   });
 
@@ -492,13 +508,22 @@
       var n = (ctx.has('teammate') ? 2 : 1) + (e.teamHas(ctx, 'streetwise') ? 1 : 0);
       var afraid = 0;
       var quiet = rec.district === 'market' && e.s.flags.marketQuietUntil && e.s.week <= e.s.flags.marketQuietUntil;
+      // The shut door (the ask ignored) is the round's last house: its witness stays in it, for another round; with
+      // no witness left to meet, the name it knew does.
+      var shut = ctx.askThin;
       for (var i = 0; i < n; i++) {
         if (rec.witnesses.length && (quiet || (e.s.meters.dread >= 5 && ctx.rng() < e.s.meters.dread * 0.08))) { rec.witnesses.shift(); afraid++; continue; }
-        if (rec.witnesses.length) got.push(ctx.give('witness', e.witnessSpec(rec)).label);
+        var shutHere = shut && i === n - 1;
+        if (rec.witnesses.length) {
+          var ws = e.witnessSpec(rec);
+          // Behind the shut door: the witness stays in the street's tally, to be met another round.
+          if (shutHere) { rec.witnesses.unshift(ws.data.who); ctx.thinDone = true; shutHere = false; } else got.push(ctx.give('witness', ws).label);
+        } else if (shutHere && rec.suspects.some(function (x) { return !x.revealed && !x.cleared; })) { ctx.thinDone = true; continue; }
         var sc = e.revealSuspect(rec, ctx);
         if (sc) got.push(sc.label + ' (accused)');
       }
       maybe(ctx, 0.25, 'fatigue');
+      if (!got.length && ctx.thinDone) return { title: 'Door to Door', text: 'You knock your way around ' + rec.scene + ' and come away with nothing new.' };
       if (!got.length) {
         ctx.give('obsession');
         return { title: afraid ? 'Doors Shut' : 'Every Door Knocked', text: afraid ? 'A shutter closes as you come up the lane. Nobody near ' + rec.scene + ' saw anything, and nobody will, while they are more afraid of you than of the thief.' : U.pick(ctx.rng, ['The quarter has told you everything it is going to. You go round again anyway.',
@@ -530,7 +555,7 @@
       rec.searches++;
       e.caseWork(rec, ctx);
       var read = e.readFile && e.readFile(rec);
-      var n = 1 + (ctx.has('teammate') ? 1 : 0) + (ctx.has('focus') ? 1 : 0) + (first ? 1 : 0) + (e.teamHas(ctx, 'thorough') ? 1 : 0);
+      var n = searchCount(ctx, first);
       var found = [];
       for (var i = 0; i < n; i++) {
         var it = drawItem(ctx, rec, helpers);
@@ -541,6 +566,9 @@
       if (e.gearWith(ctx, 'extraEvidence').length && rec.items[rec.found] && rec.items[rec.found].type === 'evidence') {
         found.push(drawItem(ctx, rec, helpers).label);
       }
+      // The door left shut (the ask ignored): the last find stays behind it, where the next search finds it again.
+      // (The door is only asked of a search that would find two or more: see searchWorth.)
+      if (ctx.askThin && found.length >= 2) { e.remove(ctx.out.pop(), 'none'); rec.found--; found.pop(); ctx.thinDone = true; }
       var extra = [];
       if (first) {
         var sc = e.revealSuspect(rec, ctx);
@@ -556,6 +584,10 @@
         if (sc3) extra.push(U.fill('A neighbour, leaning on the gate, offers a name: {name}.', { name: sc3.label }));
       }
       maybe(ctx, 0.25, 'fatigue');
+      if (!found.length && ctx.thinDone) {
+        // Not searched out: what there was to find is behind the door.
+        return { title: first ? 'At the Scene' : 'Back at the Scene', text: (first ? 'You go in past the beadle at ' + rec.scene + '. ' : 'You go back over ' + rec.scene + '. ') + 'Nothing you can carry away this time. ' + extra.join(' ') };
+      }
       if (!found.length) {
         ctx.give('obsession');
         var told = { title: 'Nothing Left', text: rec.scene + ' has given up everything it is going to. You stand in the middle of it anyway, staring, for a long time. ' + extra.join(' ') };
@@ -969,7 +1001,7 @@
   }
   function rivalHeat(ctx, how, text) {
     var e = ctx.e, r = ctx.primary;
-    e.rivalThread(r, how);
+    e.rivalThread(r, how, ctx);
     var rec = rivalTarget(e);
     r.data.eyes = rec ? rec.id : null;
     // The weakness also shows their next move, the one the Bell will see them make (life.js
@@ -987,7 +1019,7 @@
     requires: { primary: 'rival', aspects: ['focus'], when: function (ctx) { return (ctx.primary.data.heat || 0) >= 1 && !!theirWork(ctx); } },
     run: function (ctx) {
       var e = ctx.e, work = theirWork(ctx);
-      var th = work ? e.rivalThread(ctx.primary, 'caught') : null;
+      var th = work ? e.rivalThread(ctx.primary, 'caught', ctx) : null;
       // Their work gone from your hand while you talked (a case closed, a token faded): the thread holds, no more.
       if (!th) return { title: 'The Weather', text: 'They agree it has been wet. They ask after your health. They leave.' };
       // The thread went slack at the Bell while you worked: this is a new one.
@@ -2043,7 +2075,7 @@
   CF.ASKS = [
     { when: function (id) { return id === 'inv_search'; },
       at: 0.3, label: 'A locked door', text: 'The back room is locked. Instinct finds the key under the sill; a watchman puts a shoulder to it. Left locked, whatever is behind it stays there.',
-      accepts: ['instinct', 'teammate'], penalty: 'thin', thanks: 'The door gave, and the back room had something to say.', miss: 'The back room stayed locked, and whatever it held stays there.',
+      accepts: ['instinct', 'teammate'], penalty: 'thin', worth: searchWorth, thanks: 'The door gave, and the back room had something to say.', miss: 'The back room stayed locked, and whatever it held stays there.',
       // The door is the scene's own: a hatch at the quay, a stable on the road, a press in the Abbey.
       byTemplate: {
         harbor: { label: 'A battened hatch', text: 'The hold under the quay is battened down. Instinct finds the loose board; a watchman takes a bar to it. Left shut, whatever is below stays there.',
@@ -2064,7 +2096,7 @@
       accepts: ['instinct', 'teammate'], penalty: 'fatigue', thanks: 'The door gave, and the back room had something to say.', miss: 'The back room stayed locked, and the hard way in wore you out.' },
     { when: function (id) { return id === 'inv_canvass'; },
       at: 0.3, label: 'A shut door', text: 'One house will not open to the Watch. It opens to Coin. Shut, it keeps what it knows.',
-      accepts: ['funds'], consume: true, penalty: 'thin', thanks: 'A Coin under the door, and the whole street talked.', miss: 'One door stayed shut, and the street talked less for it.' },
+      accepts: ['funds'], consume: true, penalty: 'thin', worth: canvassWorth, thanks: 'A Coin under the door, and the whole street talked.', miss: 'One door stayed shut, and the street talked less for it.' },
     { when: function (id) { return id === 'patrol_walk' || id === 'patrol_district'; },
       at: 0.3, label: 'A shortcut', text: 'A boy offers to show you the short way through the yards, for a Coin. The long way is on your legs.',
       accepts: ['funds'], consume: true, penalty: 'fatigue', thanks: 'The boy knew the yards.', miss: 'The long way round, and your legs know it.' },
@@ -2079,6 +2111,6 @@
       accepts: ['focus'], penalty: 'fatigue', thanks: 'The right question, and the rest came out in a rush.', miss: 'The silence held, and it wore you down to break it.' },
     { when: function (id) { return id === 'duty_beat'; },
       at: 0.3, label: 'A brawl', text: 'The bear-garden empties into the lane. A watchman at your side, and it is over quickly. Alone, it is on you.',
-      accepts: ['teammate'], penalty: 'fatigue', thanks: 'Two of you, and the brawl came apart before it wore you out.', miss: 'Alone in the lane, and it wore you out.' },
+      accepts: ['teammate'], penalty: 'fatigue', reward: 'nofatigue', thanks: 'Two of you, and the brawl came apart before it wore you out.', miss: 'Alone in the lane, and it wore you out.' },
   ];
 })(typeof window !== 'undefined' ? window : globalThis);
