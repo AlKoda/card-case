@@ -232,6 +232,12 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   render(e);
   var cp = $('#peek').innerHTML;
   assert.ok(/The Rival works this too/.test(cp) && /The Inquisitor is in the city/.test(cp), 'the case dossier reads the systems');
+  // 'Accused met' gives the whole surname: 'de Groot', never 'de' (check-up).
+  var met0 = rec.suspects.filter(function (x) { return x.revealed; })[0], name0 = met0.name;
+  met0.name = 'Wouter de Groot';
+  render(e);
+  assert.ok(/Accused met: de Groot/.test($('#peek').innerHTML.replace(/<[^>]+>/g, '')), 'the whole surname: ' + $('#peek').innerHTML.replace(/<[^>]+>/g, ' ').slice(0, 300));
+  met0.name = name0;
   // The kind line names what the card is: the Rival and a thief Abroad are no band of the Coquille (cases check-up).
   var kindOf = function (c) { UI.selected = c.uid; render(e); var k = $('#peek').querySelector('.i-kind'); return k ? k.textContent : ''; };
   var rv = e.create('rival', { data: {} });
@@ -1280,13 +1286,14 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   render(e);
   ccEl = $('#board').querySelector('.card[data-uid=' + cc.uid + ']');
   assert.ok(!ccEl.querySelector('.c-searched'), 'a scene with more to give has none');
-  // The Rival: careful for the week a thread was found; the second thread is the other way. (Under the rules
-  // that want the Rival caught at it, item 65 below, Question has a slot for their work: read here without it.)
+  // The Rival: careful for the week a thread was found. (Under the rules that want the Rival caught at it, item 65
+  // below, Question has a slot for their work: read here without it, the next thread is Wit again. This test once
+  // read data.heatBy, 'the other way', which the engine never writes (round 8 review): it now reads what is kept.)
   var islots0 = CF.VERBS.interrogate.slots;
   CF.VERBS.interrogate.slots = islots0.filter(function (sl) { return sl.key !== 'theirs'; });
   if (!e.verb('interrogate').unlocked) e.verb('interrogate').unlocked = true;
   if (!e.verb('investigate').unlocked) e.verb('investigate').unlocked = true;
-  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week, heatBy: 'interrogate', stalled: 0 } });
+  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week, heatHow: 'question', stalled: 0 } });
   e.s.journal.unshift({ t: 1, week: 1, title: 'The Rival Takes a Case', text: '', kind: 'danger' }, { t: 2, week: 1, title: 'A Scene Spoiled', text: '', kind: 'danger' });
   var wit = e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('focus');
   var ins = e.cardsOf('instinct').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('instinct');
@@ -1294,15 +1301,12 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(!/Rival/.test(UI.advice() || ''), 'careful this week: no Rival line');
   rv.data.heatWeek = e.s.week - 1;
   var say = UI.advice() || '';
-  assert.ok(/shadow Anselm Brecht in Explore with Instinct/.test(say), 'after a Wit thread, the next is shadowing: ' + say);
-  rv.data.heatBy = 'investigate';
-  say = UI.advice() || '';
-  assert.ok(/Question Anselm Brecht with Wit/.test(say), 'after a shadow, the next is a question: ' + say);
+  assert.ok(/One thread on the Rival\. Pull it: Question Anselm Brecht with Wit\./.test(say), 'the week after, the next thread: ' + say);
   UI.selected = rv.uid;
   rv.data.heatWeek = e.s.week;
   render(e);
   var peek = $('#peek').innerHTML;
-  assert.ok(/Careful this week/.test(peek) && /The next thread: Question them with Wit/.test(peek), 'the dossier says when and how: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 300));
+  assert.ok(/Careful this week/.test(peek) && /Weakness found: 1 of 2/.test(peek), 'the dossier says when: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 300));
   UI.selected = null;
   $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
   CF.VERBS.interrogate.slots = islots0;
@@ -1847,7 +1851,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var marks0 = UI.notices.length;
   var f = e.create('burnout');
   var box = $('#toasts'), n0 = box.children.length;
-  e.story('Fever', 'Your hands will not stop shaking.', 'danger');
+  // As the engine tells it (engine.js: the Fever's story names its card, entry.uid; the title match is gone, round 8 review).
+  e.story('Fever', 'Your hands will not stop shaking.', 'danger', { uid: f.uid });
   render(e);
   assert.strictEqual(UI.strainSeen, f.uid, 'the Fever\'s arrival is caught from its story');
   var t = box.children[box.children.length - 1];
@@ -2074,7 +2079,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
 
   // Item 65: when the rules want the Rival caught at it, the advisor and the dossier point to their own dirty work.
   e.verb('interrogate').unlocked = true;
-  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week - 1, heatBy: 'interrogate', stalled: 0 } });
+  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week - 1, heatHow: 'question', stalled: 0 } });
   e.s.journal.unshift({ t: 1, week: 1, title: 'The Rival Takes a Case', text: '', kind: 'danger' }, { t: 2, week: 1, title: 'A Scene Spoiled', text: '', kind: 'danger' });
   if (!e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; }).length) e.create('focus');
   var slots0 = CF.VERBS.interrogate.slots;
@@ -2663,14 +2668,15 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/if \(UI\.hushSync\) UI\.hushSync\(\);/.test(main), 'menus hush it');
 
   // Item 107: Standing at the last office aims at the next favour where the rules grant them, and says so.
-  var cap = e.rankCap ? e.rankCap() : CF.TOP_RANK, oldEvery = CF.FAVOUR_EVERY;
+  // (The step is the engine's own CF.FAVOUR_STEP: the UI once read a CF.FAVOUR_EVERY nobody defined, round 8 review.)
+  var cap = e.rankCap ? e.rankCap() : CF.TOP_RANK, oldEvery = CF.FAVOUR_STEP;
   e.s.rank = cap; e.s.calling = 'master'; e.s.meters.reputation = CF.RANK_REP[cap] + 5;
-  delete CF.FAVOUR_EVERY;
+  delete CF.FAVOUR_STEP;
   var fn1 = e.favourNext;
   e.favourNext = undefined;
   var t0 = UI.repTarget(e);
   assert.ok(t0.max === e.s.meters.reputation && t0.line === 'You hold the last office open to you.', 'without favours: full, and no promise of a letter');
-  CF.FAVOUR_EVERY = 4; e.s.flags.favourStep = 1;
+  CF.FAVOUR_STEP = 4; e.s.flags.favourStep = 1;
   var t1 = UI.repTarget(e);
   e.favourNext = fn1;
   // The rules' own writ (engine favourNext) is what the meter aims at, where they keep one.
@@ -2681,7 +2687,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/grants you a favour/.test($('#peek').innerHTML) && !/At each threshold/.test($('#peek').innerHTML), 'the popover says what comes next, not a threshold that never will');
   e.s.calling = 'commissioner'; e.s.rank = CF.TOP_RANK; e.s.meters.reputation = 10;
   assert.strictEqual(UI.repTarget(e).max, CF.COMMISSIONER_REP, 'a Commissioner aims at the Seat first');
-  if (oldEvery === undefined) delete CF.FAVOUR_EVERY; else CF.FAVOUR_EVERY = oldEvery;
+  if (oldEvery === undefined) delete CF.FAVOUR_STEP; else CF.FAVOUR_STEP = oldEvery;
   delete e.s.flags.favourStep; e.s.calling = 'master'; e.s.rank = 0; e.s.meters.reputation = 0;
   $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
 
@@ -2838,8 +2844,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(UI.journalRoads(e).every(function (r) { return typeof r.text === 'string' && r.text; }), 'the rules\' own roads all have words');
   // A heresy case says what the rules say of it (patrons.js heresyWatch: their week, their gate).
   var rec = e.openCases()[0], hw0 = e.heresyWatch, cc = e.caseCard(rec.id);
-  e.heresyWatch = function (r) { return r.id === rec.id ? { kept: false, week: 9, line: 'Smells of heresy: the Inquisitor\'s after week {n}', vars: { n: 9 } } : null; };
-  assert.ok(UI.dossierLines(cc).some(function (l) { return l === 'Smells of heresy: the Inquisitor\'s after week 9'; }), 'the Inquisitor\'s week is the rules\' own');
+  e.heresyWatch = function (r) { return r.id === rec.id ? { kept: false, week: 9, line: 'Smells of heresy: from week {n} the Inquisitor may take it', vars: { n: 9 } } : null; };
+  assert.ok(UI.dossierLines(cc).some(function (l) { return l === 'Smells of heresy: from week 9 the Inquisitor may take it'; }), 'the Inquisitor\'s week is the rules\' own');
   e.heresyWatch = function () { return null; };
   assert.ok(!UI.dossierLines(cc).some(function (l) { return /heresy|Dominicans/.test(l); }), 'nothing where the rules see no heresy');
   e.heresyWatch = hw0;

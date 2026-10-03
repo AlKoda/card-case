@@ -175,7 +175,6 @@
   // The Rival is hunted a thread a week: careful until the Bell after the last one was found.
   function rivalCareful(card) { var d = card.data || {}; return d.heatWeek !== undefined && d.heatWeek !== null && UI.e.s.week <= d.heatWeek; }
   // The way the next thread must come: the other verb from the first one's, or either.
-  function rivalNextWay(card) { var d = card.data || {}; return !d.heat ? null : d.heatBy === 'interrogate' ? 'investigate' : d.heatBy === 'investigate' ? 'interrogate' : null; }
   // Whether the rules want the Rival caught at it for the second thread: Question then has a slot, beside the
   // Rival, for their own dirty work (a token, a witness or a case). Read off the verb, so the interface follows
   // the rules whether or not they carry it.
@@ -745,17 +744,12 @@
     if (trial) { CF.Audio.play(outcome === 'acquitted' ? 'acquit' : 'convict'); UI.haptic('heavy'); }
   }
 
-  // A strain card (the Fever, a Fixation) that a story just announced: the newest of its kind on the table.
+  // A strain card (the Fever, a Fixation) that a story just announced: the card the story names (entry.uid).
   var STRAIN_DEFS = ['burnout', 'tunnel'];
   function strainOfStory(entry) {
-    if (!entry || entry.kind !== 'danger' || !UI.e) return null;
-    for (var i = 0; i < STRAIN_DEFS.length; i++) {
-      var def = CF.CARDS[STRAIN_DEFS[i]];
-      if (!def || entry.title !== def.label) continue;
-      var c = UI.e.cardsOf(STRAIN_DEFS[i]).sort(function (a, b) { return b.uid - a.uid; })[0];
-      return c ? c.uid : null;
-    }
-    return null;
+    if (!entry || entry.kind !== 'danger' || !entry.uid || !UI.e) return null;
+    var c = UI.e.card(entry.uid);
+    return c && STRAIN_DEFS.indexOf(c.def) >= 0 ? c.uid : null;
   }
   function strainArrived(uid) {
     var e = UI.e, c = e && e.card(uid);
@@ -1104,19 +1098,19 @@
     // The underworld's grudge, and nothing to meet it with.
     if (meterLevel('retaliation') >= 3 && !hp && idle('reflect')) return tr('The Vendetta is high and you are Winded: an attack now would find you without Health. Rest before the Bell.');
     // The Rival has acted twice and still has their desk.
-    // One thread a week (data.heatWeek), and the second found the other way (data.heatBy: the verb of the
-    // first), where the engine keeps them; without them, the Wit line alone.
+    // One thread a week (data.heatWeek); the second is the Rival caught at their own work (rivalCatch), where the
+    // rules want it; without that, Wit or Instinct again.
     var rival = table.filter(function (c) { return c.def === 'rival'; })[0];
     if (rival && (rival.data.heat || 0) < 2 && !rivalCareful(rival) && s.journal.filter(function (j) { return RIVAL_TITLES.test(j.title); }).length >= 2) {
-      var rname = rival.data.name || e.labelOf(rival), rnext = rivalNextWay(rival), inst = has('instinct')[0];
+      var rname = rival.data.name || e.labelOf(rival), inst = has('instinct')[0];
       // Caught at it: the second thread is their own dirty work, put before them in Question.
       if (rival.data.heat && rivalCatch(rival)) {
         var dirt = rivalDirt(e)[0];
         if (dirt && can('interrogate')) { UI.hintGo = { uid: dirt.uid }; return tr('One thread on the Rival. Now catch them at it: Question {name} with {label}.', { name: rname, label: e.labelOf(dirt) }); }
-      } else if (rnext !== 'investigate' && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
-      else if (rnext !== 'interrogate' && inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
-      else if (rnext !== 'investigate' && !wit && spentOf('focus') && CF.VERBS.interrogate && e.verb('interrogate').unlocked) return spentLine('focus', spentOf('focus'));
-      else if (rnext !== 'interrogate' && !inst && spentOf('instinct') && e.verb('investigate').unlocked) return spentLine('instinct', spentOf('instinct'));
+      } else if (wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
+      else if (inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
+      else if (!wit && spentOf('focus') && CF.VERBS.interrogate && e.verb('interrogate').unlocked) return spentLine('focus', spentOf('focus'));
+      else if (!inst && spentOf('instinct') && e.verb('investigate').unlocked) return spentLine('instinct', spentOf('instinct'));
     }
     // Two leaves from the Customs House open the Harbourmaster's Books, where the rules have that case.
     var leafDef = customsLeafDef(), leafRec = recipeOf(leafDef), leaves = leafRec ? freeOf(leafDef).filter(function (c) { return c.loc.t === 'table'; }) : [];
@@ -1451,17 +1445,17 @@
   // The highest office open to you: the origins system caps a hangman at Bailiff.
   function rankCap(e) { return e.rankCap ? e.rankCap() : CF.TOP_RANK; }
   // What Standing is climbing toward: the next office up to the cap (a hangman's ends at Bailiff); at the top, the
-  // Seat for a Commissioner; past that, the Council's next favour where the rules grant them (CF.FAVOUR_EVERY
+  // Seat for a Commissioner; past that, the Council's next favour where the rules grant them (CF.FAVOUR_STEP
   // Standing past the last office, s.flags.favourStep given so far); else nothing further. Its line says which.
   function repTarget(e) {
-    var s = e.s, m = s.meters, cap = rankCap(e), every = CF.FAVOUR_EVERY;
+    var s = e.s, m = s.meters, cap = rankCap(e), every = CF.FAVOUR_STEP;
     if (s.rank < cap) return { max: CF.RANK_REP[s.rank + 1], line: 'At each threshold the Council writes: a new office, more cases, a bigger stipend, and the powers that come with the rank.' };
     if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && m.reputation < CF.COMMISSIONER_REP) return { max: CF.COMMISSIONER_REP, line: tr('At {n} Standing the Council offers you the Seat.', { n: CF.COMMISSIONER_REP }) };
     // The rules' own next writ (engine favourNext(): the Standing of the next Writ of the Council).
     var fav = null;
     try { fav = typeof e.favourNext === 'function' ? e.favourNext() : null; } catch (err) { fav = null; }
-    if (fav && typeof fav.at === 'number') return { max: fav.at, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: CF.FAVOUR_STEP || every || 4 }) };
-    if (typeof every === 'number' && every > 0) {
+    if (fav && typeof fav.at === 'number') return { max: fav.at, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: every || 4 }) };
+    if (typeof e.favourNext !== 'function' && typeof every === 'number' && every > 0) {
       var step = (s.flags && typeof s.flags.favourStep === 'number' ? s.flags.favourStep : 0) + 1;
       return { max: CF.RANK_REP[cap] + every * step, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: every }) };
     }
@@ -3434,9 +3428,6 @@
     return r !== null && CF.RANKS && CF.RANKS[r] ? r : null;
   }
   UI.wayRank = wayRank;
-  function sameDoor(e, card) {
-    return e.tableCards().some(function (c) { return c !== card && !c.hidden && c.def === 'clue' && c.data && c.data.link === card.data.link && c.caseId !== card.caseId; });
-  }
   function dossierNotes(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, lines = [];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
@@ -3445,7 +3436,7 @@
     if (k === 'case' && rec) {
       var met = rec.suspects.filter(function (x) { return x.revealed; });
       lines.push(tr('{scene}, {district}', { scene: tr(rec.scene), district: tr(CF.DISTRICTS[rec.district].label) }));
-      lines.push(met.length ? tr('Accused met: {list}', { list: joinList(met.map(function (x) { return tr(x.name.split(' ')[1] || x.name) + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); })) }) : tr('Accused met: none'));
+      lines.push(met.length ? tr('Accused met: {list}', { list: joinList(met.map(function (x) { return tr(CF.nameParts(x.name)[1] || x.name) + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); })) }) : tr('Accused met: none'));
       lines.push([tr(rec.found >= rec.items.length ? 'Scene: searched out' : rec.searches ? 'Scene: partly searched' : 'Scene: not searched')]
         .concat(rec.delegate ? [tr('{name} on it', { name: rec.delegate.card.label })] : []).concat(rec.major ? [tr('cried')] : []).join(' · '));
       // The clock itself is the live line under the notes (Time left).
@@ -3465,7 +3456,7 @@
       var hw = typeof e.heresyWatch === 'function' ? e.heresyWatch(rec) : undefined;
       if (hw) lines.push(hw.vars ? tr(hw.line, hw.vars) : hw.line);
       else if (hw === undefined && ctpl && ctpl.heresy) {
-        if (e.s.flags.inquisitor || !((e.s.favour || {}).bishop > 0)) lines.push(tr('Smells of heresy: the Inquisitor\'s after week {n}', { n: (rec.week || 0) + 2 }));
+        if (e.s.flags.inquisitor || !((e.s.favour || {}).bishop > 0)) lines.push(tr('Smells of heresy: from week {n} the Inquisitor may take it', { n: (rec.week || 0) + 2 }));
         else lines.push('The Bishop has kept the Dominicans off this one.');
       }
       if (e.s.flags.inquisitor) lines.push('The Inquisitor is in the city');
@@ -3491,7 +3482,8 @@
       if (card.data.confession) lines.push(card.data.confession === 'free' ? 'Confessed freely' : 'Under the question');
       else if (card.data.falseConfession) lines.push('A false confession');
       // A chit that names the same door as another case's token on the table: a quiet cue, not which door or why.
-      if (card.data.link && sameDoor(e, card)) lines.push('Another token on the table names the same door');
+      // The rules' own cue (network.js linkTwin, Net.TWIN_LINE).
+      if (card.data.link && e.linkTwin && e.linkTwin(card)) lines.push(CF.Network.TWIN_LINE);
       if (card.data.tampered) lines.push('Spoiled by the Rival');
       if (card.data.bribed) lines.push('Paid to forget');
       if (card.data.frame) lines.push('The thief-takers\' men');
@@ -3574,7 +3566,7 @@
         lines.push(fr.watched ? 'Watched: a safer way in' : 'Not yet watched');
       }
     } else if (card.def === 'rival') {
-      var rd = card.data || {}, rway = rivalNextWay(card);
+      var rd = card.data || {};
       if (rd.heat) lines.push(tr('Weakness found: {n} of 2', { n: rd.heat }));
       else if (rd.stalled && rd.stalled >= e.s.week) lines.push(tr('Lying low until week {n}', { n: rd.stalled + 1 }));
       if (rivalCareful(card)) lines.push('Careful this week: the next thread after the Bell');
@@ -3586,8 +3578,7 @@
           if (rdirt) lines.push(tr('On your table: {label}', { label: e.labelOf(rdirt) }));
           if (typeof rd.heatWeek === 'number') lines.push(tr('The thread goes cold after week {n}', { n: rd.heatWeek + (CF.RIVAL_THREAD_WEEKS || 3) }));
         } else lines.push('Question with Wit, or shadow in Explore with Instinct, for a first thread');
-      } else if (rway === 'investigate') lines.push('The next thread: shadow them in Explore with Instinct');
-      else if (rway === 'interrogate') lines.push('The next thread: Question them with Wit');
+      }
       else if (!rd.heat) lines.push('Question with Wit, or shadow in Explore with Instinct, to expose');
       if (harbourArc()) lines.push('Sent home, they leave a leaf from the Customs House');
     } else if (card.def === 'atlarge') {

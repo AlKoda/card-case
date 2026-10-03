@@ -158,6 +158,23 @@ function run(e, verb, cards) {
   assert.ok(ol.s.flags.mountainDone === false && ol.s.flags.mountainWar === false, 'an older save loads at peace and not at war');
   ol.s.rank = 2; ol.expire(ol.create('dagger'));
   assert.ok(!ol.s.over && byDef(ol, 'dagger').some(function (c) { return c.data.second; }), 'an old dagger ignored brings the second warning');
+  // Endured alone with a Wound and no Health: the blade on the stair is the last blow, and the
+  // ending is the last word (check-up: 'They Came Anyway' was told after 'Killed in the Council's Service').
+  var killed = 0;
+  for (var q = 0; q < 40; q++) {
+    var kg = game(300 + q, 'commissioner'); kg.s.rank = 2; kg.s.week = 8;
+    kg.cardsOf('health', true).concat(kg.cardsOf('spent_health', true)).forEach(function (c) { kg.remove(c); });
+    kg.create('wound');
+    var kd = kg.create('dagger');
+    kg.rng.setState((q + 1) * 104729);
+    var kr = run(kg, 'reflect', [kd]);
+    if (!kg.s.over) { assert.ok(/Endured/.test(kr.story.title), 'endured: ' + kr.story.title); continue; }
+    killed++;
+    assert.strictEqual(kg.s.over.id, 'death', 'the blade kills');
+    assert.strictEqual(kg.s.journal[0].title, CF.ENDINGS.death.title, 'the ending is the last story: ' + kg.s.journal[0].title);
+    assert.ok(!kg.s.journal.some(function (j) { return j.title === 'They Came Anyway'; }), 'no story after the death that implies you lived');
+  }
+  assert.ok(killed > 0, 'some blade landed');
   console.log('mountain: ok');
 })();
 

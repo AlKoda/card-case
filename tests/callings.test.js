@@ -176,9 +176,13 @@ console.log('callings: drift, card, endings from any start, origin bonus kept, p
 // ---- Each calling names the ending it is for -------------------------------------
 (function callingWins() {
   var ends = { commissioner: /Council's Seat/, master: /Architect sentenced/, crusader: /Coquille broken/ };
+  // The words the player reads: the calling question's own gains ('What You Want'). The copy kept in
+  // CF.CALLINGS[k].win was never shown, and is gone (round 8 review).
+  var q = CF.CHOICES.filter(function (c) { return c.id === 'calling'; })[0];
   Object.keys(ends).forEach(function (k) {
-    var w = CF.CALLINGS[k].win;
-    assert.ok(/^Your ending: /.test(w) && ends[k].test(w), k + ': ' + w);
+    var o = q.options.filter(function (x) { return x.label === CF.CALLINGS[k].label; })[0];
+    assert.ok(o && /^Your end: /.test(o.gain) && ends[k].test(o.gain), k + ': ' + (o && o.gain));
+    assert.strictEqual(CF.CALLINGS[k].win, undefined, k + ': one copy of the words');
   });
   console.log('calling wins: ok');
 })();

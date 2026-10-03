@@ -453,6 +453,16 @@ console.log('intro: ok');
   assert.ok(e.openCases().length >= 1, 'a new case within two minutes of the acquittal: ' + t + 's');
   tick(e, 60);
   assert.strictEqual(e.introHint(), null, 'the Bell lesson goes in time');
+  // Convicted: the verdict is told first, then the ladder, then the keep it earned (round 8 review: 'Your First
+  // Keep' and its stipend came before the sworn men had spoken).
+  var cv = atCourt(72, 'clerk'), ce = cv.e;
+  ce.rng = function () { return 0.001; }; ce.verdict(cv.trial); ce.rng = rng;
+  if (cv.rec.status === 'closed') {
+    var ts = titles(ce), gi = -1, ci = -1;
+    ts.forEach(function (x, k) { if (/^Guilty: /.test(x)) gi = k; if (/^Condemned: /.test(x)) ci = k; });
+    var ki = ts.indexOf(CF.OPENING_TEXT.keep);
+    assert.ok(gi >= 0 && ci > gi && ki > ci, 'the verdict, the ladder, then the keep: ' + ts.slice(-5).join(' | '));
+  } else assert.fail('the dice held low should convict: ' + cv.rec.status);
   // A save stuck in the old limbo (acquitted, no keep) recovers on its first tick.
   var b = atCourt(71, 'monk'), old;
   b.e.rng = function () { return 0.995; }; b.e.verdict(b.trial); b.e.rng = rng;

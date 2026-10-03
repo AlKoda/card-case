@@ -264,7 +264,8 @@ function setup(seed) {
     var g = setup(400 + j), e = g.e;
     var t = e.create('trial', { data: { caseId: g.rec.id, name: g.culprit.name, guilty: true, solid: false, tier: 'reasonable', real: 4, need: 6, coerced: 0, planted: 0, illegal: 0, contradictions: 0 } });
     e.verdict(t);
-    if (g.rec.status === 'closed') lesser = e.s.journal[0];
+    // The verdict's own story (the ladder is told after it now: round 8 review).
+    if (g.rec.status === 'closed') lesser = e.s.journal.filter(function (x) { return /^Guilty: /.test(x.title); })[0];
   }
   assert.ok(lesser && /theft, not burglary/.test(lesser.text), 'convicted of the lesser crime: ' + (lesser && lesser.text));
   console.log('court: ok');

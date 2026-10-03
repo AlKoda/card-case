@@ -216,7 +216,7 @@
           if (c.traits.indexOf('spared') < 0) c.traits.push('spared');
           if (this.rng() < 0.35) {
             var inf = this.create('informant', this.informantSpec(rec.district || U.pick(this.rng, Object.keys(CF.DISTRICTS))));
-            inf.label = 'Informer: ' + name.split(' ')[1];
+            inf.label = 'Informer: ' + CF.nameParts(name)[1];
             inf.data.name = name;
             inf.data.trust = 1;
             text = name + ' knows what a pardon costs and what it is worth. A week later they are waiting on the Informers\' Bench with something to sell. They owe you, and they know it.';

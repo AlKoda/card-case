@@ -87,21 +87,20 @@
     this.s.flags.uprightBroken = false;
     return this.s.flags.uprightPaid;
   };
-  // The boy's weekly visit, or the week he does not come.
+  // The boy's weekly visit, or the week he does not come: the words are CF.UPRIGHT_WEEK (life.js).
   P.uprightWeek = function () {
-    var s = this.s, name = s.flags.uprightPaid;
+    var s = this.s, name = s.flags.uprightPaid, W = CF.UPRIGHT_WEEK;
     if (!name) return [];
     var stands = this.cardsOf('gang', true).some(function (c) { return c.data && c.data.name === name; });
     if (stands) {
       this.create('funds');
       if (s.week % 2 === 0) this.count('purse');
-      return ['The upright man\'s boy brings the week\'s Coin. The band keeps clear of your stair.'];
+      return [W.paid];
     }
     var broken = !!s.flags.uprightBroken;
     s.flags.uprightPaid = null;
     s.flags.uprightBroken = false;
-    return [broken ? 'The boy does not come this week. His upright man is in the Hole, and so, in a manner of speaking, is your Coin.'
-      : 'The boy does not come this week. His band answers to the Coquille now, and the Coquille pays nobody.'];
+    return [broken ? W.broken : W.sworn];
   };
 
   // The purse left on the desk with a note (life.js 'purse'): the note names
@@ -165,15 +164,24 @@
   // every count ending is (societies.js). The Old Bailey is told a step
   // early, while another purse, wrong name, frame or debt can still be
   // refused (the counts never go down).
+  // The warning keeps the steps taken when it was told (flags.oldbaileySteps): the ending
+  // lands only on a step after it, so a run already past the counts when it is told
+  // (or an older save) can still refuse the next one, as the warning says.
+  P.oldbaileySteps = function () {
+    var cnt = this.s.counts || {}, st = this.s.stats || {};
+    return (cnt.purse || 0) + (st.wrongful || 0) + (st.frames || 0) + (cnt.debt || 0);
+  };
   P.checkPurseEndings = function () {
     var s = this.s;
     if (s.over) return;
     if (this.oldbaileyNear() && !s.flags.oldbaileyWarned) {
       s.flags.oldbaileyWarned = true;
+      s.flags.oldbaileySteps = this.oldbaileySteps();
       this.story('The Brother\'s Ledger', 'A man in black has been copying the Rolls for every case you closed with the thief-takers. He has a brother on the Ravenstone. Another purse, another wrong name or another debt to the thief-takers, and he will have enough.', 'danger');
       return;
     }
-    if (s.flags.oldbaileyWarned && this.oldbaileyMet()) {
+    if (s.flags.oldbaileyWarned && typeof s.flags.oldbaileySteps !== 'number') s.flags.oldbaileySteps = this.oldbaileySteps();
+    if (s.flags.oldbaileyWarned && this.oldbaileyMet() && this.oldbaileySteps() > s.flags.oldbaileySteps) {
       this.gameOver('oldbailey');
       return;
     }

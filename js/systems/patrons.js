@@ -480,7 +480,7 @@
     var s = this.s, f = this.favour();
     if (!s.flags.inquisitor && f.bishop > 0) return { kept: true, line: 'The Bishop has kept the Dominicans off this one.' };
     var from = (rec.week || 0) + 2, n = Math.max(from, s.week + (rec.dominican ? 1 : 2));
-    return { kept: false, week: n, asked: !!rec.dominican, line: 'Smells of heresy: the Inquisitor\'s after week {n}', vars: { n: n } };
+    return { kept: false, week: n, asked: !!rec.dominican, line: 'Smells of heresy: from week {n} the Inquisitor may take it', vars: { n: n } };
   };
 
   // The Inquisitor takes a heresy case: somebody burns, and it is rarely the right one.

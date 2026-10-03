@@ -335,7 +335,8 @@ assert.deepStrictEqual(CF.cardFace({ def: 'clue' }, 'Kept: Matched: Warning: X')
     texts.push(cul.name + ' walks out of the Hole into the Market and does not look back. A year from now they keep ' + pl + ', and a family, and they cross the street when they see you.');
   });
   texts.push(CF.RUNGS.fine.desc, CF.RUNGS.pillory.desc, CF.Charge.TIERS.weak.gloss, CF.Charge.TIERS.reasonable.gloss);
-  Object.keys(CF.CALLINGS).forEach(function (k) { texts.push(CF.CALLINGS[k].win); });
+  // Each calling's end, as the question 'What You Want' says it (the CALLINGS copy was never shown, and is gone).
+  CF.CHOICES.filter(function (c) { return c.id === 'calling'; })[0].options.forEach(function (o) { texts.push(o.gain); });
   CF.setLang('ar');
   var bad = texts.filter(function (t) { var a = CF.T(t); return /[A-Za-z]{3}/.test(a) || a.indexOf('{') >= 0; }).map(function (t) { return t + '  =>  ' + CF.T(t); });
   CF.setLang('en');
@@ -555,4 +556,20 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   assert.ok(!/[a-z]{3}/.test(rival), 'the old Rival line reads: ' + rival);
   CF.setLang('en');
   console.log('i18n: ' + n + ' journal lines from older saves read, the slowest in ' + worst + ' ms');
+})();
+
+// ---- No Arabic key is written twice in one file (round 8 review: '{text} You are more than you were.' twice in
+// round3.js). A later file may still correct an earlier one; within one file the second copy only misleads.
+(function noDuplicateKeys() {
+  var dir = path.join(__dirname, '..', 'js/lang/ar'), twice = [];
+  fs.readdirSync(dir).filter(function (f) { return /\.js$/.test(f); }).forEach(function (f) {
+    var src = fs.readFileSync(path.join(dir, f), 'utf8'), re = /^\s*("(?:[^"\\]|\\.)*")\s*:/mg, m, seen = {};
+    while ((m = re.exec(src))) {
+      var k = JSON.parse(m[1]);
+      if (seen[k]) twice.push(f + ': ' + k.slice(0, 80));
+      seen[k] = true;
+    }
+  });
+  assert.deepStrictEqual(twice, [], 'each key once per file');
+  console.log('i18n: no key twice in one file');
 })();

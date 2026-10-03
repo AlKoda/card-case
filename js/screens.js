@@ -116,22 +116,12 @@
   };
   // The Clerk's origin takes a Coin off every petition, the board's too.
   function orderDiscount(e) { return e.s.who === 'clerk' ? 1 : 0; }
-  // The petition card for an order: the engine's own builder when it has
-  // one (so the board and the Council's forms cannot differ), else the same
-  // shape built here.
-  function orderSpec(e, key) {
-    var spec = typeof e.orderSpec === 'function' ? e.orderSpec(key) : null;
-    if (spec && spec.data && spec.data.order === key) return spec;
-    var o = CF.ORDERS[key], disc = orderDiscount(e);
-    var what = o.room ? CF.ROOMS[o.room].desc : CF.CARDS[o.give].desc;
-    return { label: 'Petition: ' + o.label, desc: what + ' Costs ' + Math.max(1, o.cost - disc) + ' Coin.', data: { order: key, discount: disc } };
-  }
-  // Put the requisition form on the table, unless it is already there.
+  // Put the requisition form on the table, unless it is already there: through the engine's own Petition (e.petition,
+  // which keeps one form at a time and never one already granted), as the instruments below are.
   Precinct.order = function (e, key) {
     var room = CF.ROOMS[key], order = CF.ORDERS[room.order];
     if (e.s.rooms[key] || e.s.rank < order.rank) return false;
-    if (e.cardsOf('order', true).some(function (c) { return c.data.order === room.order; })) return false;
-    e.create('order', orderSpec(e, room.order));
+    if (!e.petition(room.order)) return false;
     e.dirty = true;
     return true;
   };

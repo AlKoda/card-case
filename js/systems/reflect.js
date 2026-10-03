@@ -178,21 +178,48 @@
   };
   // Two cases, one front: a Thread, the Front on the table, and (for the
   // Master Detective) a name in each connected case.
-  Deduce.connect = function (ctx, clues) {
-    var e = ctx.e;
+  // What a connection would join: the door the chits share, the cases that lead there, the Thread already
+  // made for it, and which of the cases are news. Cases already joined at this door find nothing new (no
+  // second Thread, no second gain): the front keeps the cases joined (front.joined); a front from an older
+  // save counts the cases its Thread names.
+  Deduce.joining = function (e, clues) {
     var links = {};
     clues.forEach(function (c) { if (c.data.link) links[c.data.link] = (links[c.data.link] || 0) + 1; });
     var fid = Object.keys(links).sort(function (a, b) { return links[b] - links[a]; })[0];
     var front = e.fronts()[fid];
-    if (!front) return { title: 'Nothing There', text: 'The door leads to a house that was pulled down last year.' };
-    var titles = [];
-    clues.forEach(function (c) { var r = e.caseRec(c.caseId); if (r && titles.indexOf(r.title) < 0) titles.push(r.title); });
-    ctx.give('thread', {
-      label: 'Thread: ' + front.name,
-      desc: front.fence ? U.fill('{cases} both lead to {front}. A receiver of stolen goods keeps it. Bring the Thread to Rest alone to open a case against him.', { cases: titles.join(' and '), front: front.name })
-        : titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Rest with a Band or Coquille card to close in.',
-      data: { front: front.id, cases: titles, fence: !!front.fence },
+    if (!front) return null;
+    var titles = [], ids = [];
+    clues.forEach(function (c) {
+      if (c.data.link !== fid) return;
+      var r = e.caseRec(c.caseId);
+      if (r && ids.indexOf(r.id) < 0) { ids.push(r.id); titles.push(r.title); }
     });
+    var thread = e.cardsOf('thread', true).filter(function (c) { return c.data.front === front.id; })[0];
+    var joined = front.joined || [], named = !front.joined && thread ? thread.data.cases || [] : [];
+    var fresh = ids.filter(function (id, i) { return joined.indexOf(id) < 0 && named.indexOf(titles[i]) < 0; });
+    return { front: front, titles: titles, ids: ids, thread: thread || null, fresh: fresh, joined: joined };
+  };
+  Deduce.NOTHING_NEW = 'You have followed this thread to {front} before. These tokens add nothing to it.';
+  Deduce.connect = function (ctx, clues) {
+    var e = ctx.e;
+    var j = Deduce.joining(e, clues);
+    if (!j) return { title: 'Nothing There', text: 'The door leads to a house that was pulled down last year.' };
+    var front = j.front, titles = j.titles, thread = j.thread;
+    if (!j.fresh.length) return { title: 'Nothing New', text: U.fill(Deduce.NOTHING_NEW, { front: front.name }) };
+    front.joined = j.joined.concat(j.fresh);
+    if (thread) {
+      // A new case at a door already found: the Thread already made takes it in, and no second one is made.
+      var known = thread.data.cases = thread.data.cases || [];
+      titles.forEach(function (t) { if (known.indexOf(t) < 0) known.push(t); });
+      thread.fresh = true; e.dirty = true;
+    } else {
+      ctx.give('thread', {
+        label: 'Thread: ' + front.name,
+        desc: front.fence ? U.fill('{cases} both lead to {front}. A receiver of stolen goods keeps it. Bring the Thread to Rest alone to open a case against him.', { cases: titles.join(' and '), front: front.name })
+          : titles.join(' and ') + ' both lead to ' + front.name + '. ' + front.gang.replace(/^the /, 'The ') + ' works through it. Bring it to Rest with a Band or Coquille card to close in.',
+        data: { front: front.id, cases: titles, fence: !!front.fence },
+      });
+    }
     e.revealFront(front);
     e.pathGain('master', 2, 'found a connection');
     var extra = [];

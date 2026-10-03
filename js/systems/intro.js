@@ -189,7 +189,6 @@
     }
     return false;
   }
-  P.introAsides = function () { return ASIDES; };
 
   P.introSteps = function () { return STEPS; };
   P.introTick = function () {

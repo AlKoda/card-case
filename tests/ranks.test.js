@@ -221,6 +221,13 @@ function run(e, verb, cards) {
   assert.strictEqual(byKey.intel.state, 'open');
   assert.ok(CF.Precinct.order(e, 'intel'));
   assert.ok(!CF.Precinct.order(e, 'intel'), 'only one form at a time');
+  // The board's form is the engine's own Petition (e.petition), word for word (round 8 review: a copy of its own).
+  var intelForm = e.cardsOf('order', true).filter(function (c) { return c.data.order === CF.ROOMS.intel.order; })[0];
+  var intelSpec = e.orderSpec(CF.ROOMS.intel.order);
+  assert.ok(intelForm && intelForm.label === intelSpec.label && intelForm.desc === intelSpec.desc, 'the engine\'s own form');
+  e.s.flags.bought = e.s.flags.bought || {}; e.remove(intelForm); e.s.flags.bought[CF.ROOMS.intel.order] = true;
+  assert.ok(!CF.Precinct.order(e, 'intel'), 'a Petition granted is not asked again');
+  delete e.s.flags.bought[CF.ROOMS.intel.order]; assert.ok(CF.Precinct.order(e, 'intel'));
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'ordered');
   e.s.rooms.intel = true;
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'owned');
@@ -513,6 +520,8 @@ function run(e, verb, cards) {
   // With a Witness: held for the Court.
   var w4 = e.create('councilwrit'), wit = e.create('witness', e.witnessSpec(raced));
   var life = wit.life;
+  // It promises what it gives: two weeks more, not 'until the Court sits' (round 8 review).
+  assert.strictEqual(e.councilFavourGives(wit), 'Held for the Court: they stay ' + (CF.FAVOUR_HOLD / CF.WEEK) + ' weeks longer.');
   run(e, 'duty', [w4, wit]);
   assert.ok(e.card(wit.uid) && e.card(wit.uid).life >= life + CF.FAVOUR_HOLD - 15 && e.card(wit.uid).data.held, 'the witness held for the Court');
   // An older save: no writ written yet, and one comes at the next step.
@@ -557,7 +566,11 @@ function run(e, verb, cards) {
   assert.strictEqual(e.councilExpects().n, 1, 'an answered case counts');
   e.s.week += 2;
   var met = e.councilCountWeek();
-  assert.ok(/1 of 1 this fortnight, and is content/.test(met[0]) && e.s.meters.pressure === 0, 'met: the Crowd eases');
+  assert.ok(/1 of 1 this fortnight, and is content/.test(met[0]) && e.s.meters.pressure === 0 && met[1] === 'The Crowd eases.', 'met: the Crowd eases');
+  // More than asked is said as more, and a quiet Crowd is not said to ease (round 8 review: '2 of 1 ... The Crowd eases' at 0).
+  e.s.stats.convictions += 2; e.s.week += 2;
+  var more = e.councilCountWeek();
+  assert.deepStrictEqual(more, ['The Council counts 2 closed this fortnight, more than it asked, and is content.'], 'more than asked, the Crowd already quiet: ' + more);
   // Never a road to dismissal: from Restless up, falling short adds nothing.
   e.s.week += 2; e.s.meters.pressure = 5;
   e.councilCountWeek();

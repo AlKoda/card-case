@@ -198,3 +198,28 @@ function officer(e, key, traits) {
   });
   console.log('team names: ok');
 })();
+
+// A watchman's card says the whole surname: 'Sergeant de Witt', never 'Sergeant de' (check-up: about 7% of them).
+(function wholeSurname() {
+  var e = CF.Engine.newGame({ seed: 41, calling: 'commissioner' });
+  var many = 0;
+  for (var i = 0; i < 400; i++) {
+    var sp = e.teammateSpec(['rookie', 'tech', 'interviewer', 'analyst', 'veteran'][i % 5]);
+    var sur = CF.nameParts(sp.data.name)[1];
+    assert.strictEqual(sp.label, sp.data.role + ' ' + sur, 'the whole surname: ' + sp.label + ' for ' + sp.data.name);
+    if (sur.indexOf(' ') >= 0) many++;
+  }
+  assert.ok(many > 0, 'some surnames have more than one word');
+  // An older save's cut card is mended on load; a whole one is left as it is.
+  var t = e.create('teammate', e.teammateSpec('veteran'));
+  t.data.name = 'Kunz de Witt'; t.label = 'Sergeant de';
+  var ok = e.create('teammate', e.teammateSpec('rookie'));
+  ok.data.name = 'Hans van der Meer'; ok.label = 'Beadle van der Meer';
+  var inf = e.create('informant', e.informantSpec('market'));
+  inf.data.name = 'Aeltje de Groot'; inf.label = 'Informer: de';
+  var ld = CF.Engine.load(e.save());
+  assert.strictEqual(ld.card(t.uid).label, 'Sergeant de Witt', 'mended: ' + ld.card(t.uid).label);
+  assert.strictEqual(ld.card(ok.uid).label, 'Beadle van der Meer', 'left whole');
+  assert.strictEqual(ld.card(inf.uid).label, 'Informer: de Groot', 'the informer too');
+  console.log('whole surnames: ok');
+})();

@@ -213,7 +213,7 @@
       a[best]++;
       t.data.level = (t.data.level || 1) + 1;
       var titles = ['', '', 'Senior ', 'Lead ', 'Chief '];
-      t.label = (titles[Math.min(4, t.data.level)] || 'Chief ') + t.data.role + ' ' + t.data.name.split(' ')[1];
+      t.label = (titles[Math.min(4, t.data.level)] || 'Chief ') + t.data.role + ' ' + CF.nameParts(t.data.name)[1];
       var learned = null;
       if (e.s.rooms.training && t.data.level >= 3) {
         var pool = Object.keys(CF.OFFICER_TRAITS).filter(function (k) { return (t.data.traits || []).indexOf(k) < 0; });
@@ -1319,7 +1319,11 @@
       }
       e.meter('dread', 1);
       e.meter('retaliation', 2);
-      if (ctx.rng() < 0.3) { e.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts.', 'order'); return { title: 'They Came Anyway', text: 'The Order keeps its word. Not all of it, this time.' }; }
+      if (ctx.rng() < 0.3) {
+        e.hurtYou('A man in a servant\'s coat on the Watch-house stair, a blade under the ribs, and gone before anyone shouts.', 'order');
+        // The blade on the stair can be the last blow: then the ending is the last word (P.complete tells nothing after it).
+        return { title: 'They Came Anyway', text: 'The Order keeps its word. Not all of it, this time.' };
+      }
       return { title: 'Endured', text: 'You bar the door and change the servant and sleep, when you sleep, with a blade. Nothing comes. For now.' };
     },
   });
@@ -1466,10 +1470,15 @@
     preview: function (ctx) {
       var d = deduction(ctx);
       if (d.id === 'identify') return 'These fit together: one name, and everything they carried.';
-      return d.gives ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
+      // Two cases at one door make a Thread (Deduce.connect), though the pattern names no `gives` of its own.
+      return d.gives || d.id === 'connect' ? 'These fit together. Something new comes of it.' : 'These do not fit together. It is worth knowing why.';
     },
     blocked: function (ctx) {
-      if (CF.Deduce.crossCase(deduction(ctx))) return null;
+      if (CF.Deduce.crossCase(deduction(ctx))) {
+        // Two cases already joined at this door: said before the work, not after it.
+        var jn = CF.Deduce.joining(ctx.e, ctx.with('clue'));
+        return jn && !jn.fresh.length ? U.fill(CF.Deduce.NOTHING_NEW, { front: jn.front.name }) : null;
+      }
       var cl = ctx.with('clue'), id = cl[0].caseId;
       return cl.every(function (c) { return c.caseId === id; }) ? null : 'These tokens belong to different cases.';
     },

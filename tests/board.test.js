@@ -249,6 +249,30 @@ console.error = function (err) { throw err; };
   console.log('dues from a slot: ok');
 })();
 
+// The dues unpaid: the stipend still comes, after the landlord, and the week says so, so the Coin in the
+// ledger reads right (check-up: 'You cannot pay' beside '4 Coin in hand', with no word of the stipend).
+(function duesUnpaid() {
+  var e = CF.Engine.newGame({ seed: 4, calling: 'master', name: 'Bench' });
+  e.s.rank = 1; e.s.flags.firstCase = true;
+  e.cardsOf('funds', true).forEach(function (c) { e.remove(c); });
+  e.create('teammate', e.teammateSpec('rookie')); e.create('teammate', e.teammateSpec('rookie'));
+  var dues = e.dues(), salary = CF.RANK_DEFS[1].salary;
+  for (var i = 0; i < dues - 1; i++) e.create('funds');
+  e.weekTick();
+  var wk = e.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(wk && wk.paid === false, 'the dues were not met');
+  assert.strictEqual(e.countOf('funds'), dues - 1 + salary, 'the Coin left, and the stipend');
+  assert.ok(wk.text.indexOf('You cannot pay your lodging.') === 0, 'the bench first: ' + wk.text);
+  assert.ok(wk.text.indexOf('The Council\'s stipend comes after the landlord: ' + salary + ' Coin.') > 0, 'and the stipend that came after: ' + wk.text);
+  assert.ok(wk.text.indexOf((dues - 1 + salary) + ' Coin in hand') > 0, 'the ledger counts both');
+  // Paid, the week reads as before.
+  var p = CF.Engine.newGame({ seed: 4, calling: 'master', name: 'Paid' });
+  p.s.flags.firstCase = true; p.weekTick();
+  var pw = p.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
+  assert.ok(pw.paid && /Lodging and dues take \d+\. The Council's stipend: \d+ Coin\./.test(pw.text) && !/after the landlord/.test(pw.text), 'paid: ' + pw.text);
+  console.log('dues unpaid: the stipend is told');
+})();
+
 // Catch Your Breath brings back every spent faculty on the table at once.
 (function spentAll() {
   var e = CF.Engine.newGame({ seed: 5, calling: 'crusader', name: 'Breath' });
@@ -312,7 +336,8 @@ console.error = function (err) { throw err; };
   e.create('gang', { label: 'Band: the Lanternless', data: { name: 'the Lanternless', members: [] } });
   e.s.meters.retaliation = 0;
   e.weekTick();
-  assert.ok(e.s.journal.slice(0, 3).some(function (j) { return /the Lanternless keep a cellar now, and a tally\./.test(j.text); }), 'the band is named');
+  // The band's line opens its sentence, so it opens with a capital (check-up: '... 4 Coin. the Lanternless keep ...').
+  assert.ok(e.s.journal.slice(0, 3).some(function (j) { return /(^|\. )The Lanternless keep a cellar now, and a tally\./.test(j.text); }), 'the band is named, capitalised');
   console.log('week story: ok');
 })();
 
@@ -1593,4 +1618,18 @@ console.error = function (err) { throw err; };
   var yr = y.create('rival', { label: 'The Rival', data: { name: 'Anselm Vogt', heat: 1 } });
   assert.ok(y.rivalThread(yr, 'case').exposed && y.cardsOf('customsleaf', true).length === 1, 'a thread closed in the Court gives the leaf to the table');
   console.log('verbs check-up: ok');
+})();
+
+// A fresh game starts with the flags Engine.load backfills, as load would leave them, so its save round-trips and
+// load's guess for older saves (the Coquille's word told past week 6) never touches a save of this build (round 8 review).
+(function freshFlags() {
+  var e = CF.Engine.newGame({ seed: 12, calling: 'crusader', name: 'Fresh' });
+  var keys = ['coquilleWord', 'thieftakerWarned', 'mountainIgnored', 'mountainDone', 'mountainWar', 'pension', 'assize', 'longService', 'oldbaileyWarned'];
+  keys.forEach(function (k) { assert.ok(e.s.flags[k] !== undefined, 'a new game sets ' + k); });
+  assert.strictEqual(e.s.rankWeek, -1, 'and the office week');
+  e.s.week = 9;
+  var ld = CF.Engine.load(e.save());
+  keys.forEach(function (k) { assert.deepStrictEqual(ld.s.flags[k], e.s.flags[k], k + ' round-trips'); });
+  assert.strictEqual(ld.s.flags.coquilleWord, false, 'a Reformer past week 6 in this build has not been told the Coquille\'s word');
+  console.log('fresh flags round-trip: ok');
 })();

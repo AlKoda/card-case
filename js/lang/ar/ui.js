@@ -130,8 +130,6 @@
     "{who} on it": "{who} يتولاه",
     "cried": "أُذيعت",
     "the city watches": "المدينة تراقب",
-    "{n} days left ({t})": { one: "بقي يوم واحد ({t})", two: "بقي يومان ({t})", few: "بقيت {n} أيام ({t})", many: "بقي {n} يومًا ({t})", other: "بقي {n} يوم ({t})" },
-    "{n} days left ({t}) · the city watches": { one: "بقي يوم واحد ({t}) · المدينة تراقب", two: "بقي يومان ({t}) · المدينة تراقب", few: "بقيت {n} أيام ({t}) · المدينة تراقب", many: "بقي {n} يومًا ({t}) · المدينة تراقب", other: "بقي {n} يوم ({t}) · المدينة تراقب" },
     "Commission: {patron} wants {what}": "التكليف: {patron} يريد {what}",
     "it quiet": "كتمانها",
     "mercy": "الرحمة",

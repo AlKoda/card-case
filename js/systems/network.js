@@ -26,8 +26,8 @@
   //   front.fence: true; front.fallen: true once the receiver is convicted
   Net.FENCE_KINDS = ['burglary', 'fraud', 'coining', 'extortion'];
   Net.FENCE_NAMES = ['{last}\'s Pawnshop', 'the {last} Lane Lock-up'];
-  // The dossier's quiet cue on a link token whose door another token on the table names too.
-  Net.TWIN_LINE = 'Another token on the table names the same door.';
+  // The dossier's quiet cue on a link token whose door another token on the table names too (a dossier line: no stop).
+  Net.TWIN_LINE = 'Another token on the table names the same door';
 
   var FRONT_NAMES = {
     docks: ['the Crane-house at Berth {n}', 'the {last} Bonded Warehouse', 'Berth {n}'],
@@ -109,7 +109,8 @@
     var cs = this.s.cards;
     for (var k in cs) {
       var c = cs[k];
-      if (c === card || c.def !== 'clue' || !c.loc || c.loc.t !== 'table' || !c.data || c.data.link !== card.data.link) continue;
+      // A find still face down is not yet read: it names no door.
+      if (c === card || c.def !== 'clue' || c.hidden || !c.loc || c.loc.t !== 'table' || !c.data || c.data.link !== card.data.link) continue;
       if (c.caseId !== card.caseId) return c;
     }
     return null;

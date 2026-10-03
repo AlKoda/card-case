@@ -124,7 +124,7 @@
   // What would have saved you, under a losing ending: one line with the threat's seal. The line is the rules' own
   // (s.over.lesson, from e.endingLesson, made particular by s.over.cause); an older ending without one is read
   // again from the rules. The seal is the threat's that ended it (s.over.threat, else CF.ENDINGS[id].threat).
-  var LESSON_ART = { burnout: 'imed-10', fatigue: 'imed-13', obsession: 'iinv-13', pressure: 'cres-04', scrutiny: 'cres-03', dread: 'cres-12', wound: 'imed-09', dagger: 'citem2-07' };
+  var LESSON_ART = { burnout: 'imed-10', fatigue: 'imed-13', obsession: 'iinv-13', pressure: 'cres-04', scrutiny: 'cres-03', dread: 'cres-12', wound: 'imed-09', dagger: 'citem2-07', inquisitor: 'cwax-01', purse: 'itrade-20' };
   function endLesson(over) {
     if (!over || over.win) return null;
     var end = CF.ENDINGS[over.id] || {};
