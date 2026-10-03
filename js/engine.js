@@ -6,6 +6,8 @@
   var U = CF.util;
 
   var WEEK = 60;          // seconds of game time per week
+  // An Unanswered card's words: where the Rolls are found, not a card of the same name (check-up).
+  var COLD_DESC = 'The trail went cold. {name} walked. Once the Watch-house has the Rolls (a Sworn Examiner\'s Petition), this can be opened again in Study.';
   var MAX_OPEN_CASES = 4; // the ceiling; rank sets the real number (maxOpenCases)
   var COLD_WARNING = 60; // seconds left on a case before the warning
   var FADE_WARNING = 30; // seconds left on a clue or witness before the warning
@@ -124,7 +126,11 @@
     var seed = opts.seed !== undefined ? opts.seed : Math.floor(Math.random() * 1e9);
     var s = {
       version: 2, seed: seed, rng: seed, t: 0, week: 1, weekT: 0, dispatchT: 170, nextUid: 1,
-      cards: {}, verbs: {}, cases: {}, rooms: {}, flags: { oldDebt: {} }, journal: [], criminals: {}, network: { fronts: {} }, askSeen: {}, seals: {}, roomUse: {},
+      // The flags Engine.load backfills for older saves start here as load would leave them, so a fresh save
+      // round-trips and load's guesses (coquilleWord past week 6) only ever touch saves from before round 8.
+      cards: {}, verbs: {}, cases: {}, rooms: {}, journal: [], rankWeek: -1,
+      flags: { oldDebt: {}, coquilleWord: false, thieftakerWarned: false, mountainIgnored: false, mountainDone: false, mountainWar: false,
+        pension: false, assize: null, longService: null, oldbaileyWarned: false }, criminals: {}, network: { fronts: {} }, askSeen: {}, seals: {}, roomUse: {},
       meters: { pressure: 0, scrutiny: 0, retaliation: 0, reputation: 0, dread: 0 },
       counts: { cruelty: 0, mercy: 0, purse: 0, debt: 0 },
       rank: 0, calling: opts.calling || 'master', origin: opts.calling || 'master', who: opts.who || null, detective: opts.name || 'Examiner',
@@ -264,6 +270,13 @@
     });
     // The Merciful Judge counts the ones sent home (round 7): an older save counts its pardons, fines and reformed from the records.
     s.stats.sentHome = Math.max(s.stats.sentHome || 0, Engine.sentHomeOf(s));
+    // A watchman's or informer's card name is the whole surname (check-up): an older card cut 'de Witt' to 'de'.
+    Object.keys(s.cards).forEach(function (u) {
+      var nc = s.cards[u], nm = nc.data && nc.data.name, sur = CF.nameParts(nm || '')[1];
+      if (!nm || !sur || sur.indexOf(' ') < 0 || (nc.def !== 'teammate' && nc.def !== 'informant') || typeof nc.label !== 'string') return;
+      var cut = ' ' + nm.split(' ')[1];
+      if (nc.label.slice(-cut.length) === cut) nc.label = nc.label.slice(0, -cut.length) + ' ' + sur;
+    });
     // The Harbourmaster's own case (round 8): an older save has neither opened it nor seen him fall.
     if (s.flags.harbourFallen === undefined) s.flags.harbourFallen = false;
     if (s.flags.harbourCase === undefined) s.flags.harbourCase = null;
@@ -275,6 +288,19 @@
       if (lc.data.aspect === undefined) lc.data.aspect = CF.LOOSE_END_ASPECTS[i % CF.LOOSE_END_ASPECTS.length];
       if (lc.data.fromTitle === undefined) lc.data.fromTitle = null;
       if (lc.data.week === undefined) lc.data.week = -1;
+    });
+    // Raw proof once named instruments the city never had (a Fingerprint Set, a Forensic Kit, Lab Access): an older card
+    // names the game's own (check-up).
+    var OLD_NEEDS = { 'a Fingerprint Set': 'prints', 'a Forensic Kit': 'bio', 'Lab Access': 'lab' };
+    Object.keys(s.cards).forEach(function (u) {
+      var ec = s.cards[u];
+      if (ec.def !== 'evidence' || typeof ec.desc !== 'string') return;
+      ec.desc = ec.desc.replace(/ Needs (a Fingerprint Set|a Forensic Kit|Lab Access) to analyse properly\./, function (all, old) { return ' Needs ' + CF.NEEDS_LABEL[OLD_NEEDS[old]] + ' to analyse properly.'; });
+    });
+    // An Unanswered card said With the Rolls, the name of a paper card too: an older card says where the Rolls are (check-up).
+    Object.keys(s.cards).forEach(function (u) {
+      var uc = s.cards[u], m = uc.def === 'coldcase' && typeof uc.desc === 'string' && /^The trail went cold\. ([\s\S]+) walked\. With the Rolls, this can be opened again in Study\.$/.exec(uc.desc);
+      if (m) uc.desc = U.fill(COLD_DESC, { name: m[1] });
     });
     // A citizen sent home may come back as a witness (round 8): an older save has had none come.
     if (!s.flags.oldDebt || typeof s.flags.oldDebt !== 'object') s.flags.oldDebt = {};
@@ -386,6 +412,23 @@
     if (s.flags.opening && s.flags.stage === 'hired' && !s.over && !Object.keys(s.cases || {}).some(function (k) { var r = s.cases[k]; return r.opening && (r.status === 'open' || r.status === 'trial'); })) {
       e.openingLost(null, 'cold');
     }
+    // An innocent pilloried or branded is nobody's repeat offender (check-up): an older save's record for a wrong
+    // name, loose in the city, goes home, and its Abroad card with it. A wrong name is a suspect, not the culprit,
+    // of a case whose real culprit was hidden for it (wrongfulCase).
+    Object.keys(s.criminals).forEach(function (k) {
+      var wc = s.criminals[k], wr = wc.wrongfulCase && s.cases && s.cases[wc.wrongfulCase];
+      if (!wr) return;
+      (wr.suspects || []).forEach(function (x) {
+        if (x.guilty || x.key === wr.culprit) return;
+        var inn = e.criminalByName(x.name);
+        if (!inn || inn === wc || (inn.status !== 'at_large' && inn.status !== 'hunted')) return;
+        var hist = (inn.history || []).map(function (h) { return h.how; });
+        if (hist.indexOf('sentence:pillory') < 0 && hist.indexOf('sentence:brand') < 0) return;
+        if (hist.some(function (h) { return h && h !== 'sentence:pillory' && h !== 'sentence:brand'; })) return;
+        inn.status = 'wronged';
+        e.cardsOf('atlarge', true).forEach(function (ac) { if (ac.data && ac.data.criminalId === inn.id) e.remove(ac); });
+      });
+    });
     // A question still asked: its answers as the city words them now (a free way out added since is shown, and
     // choose(i) runs what is shown; life.js).
     if (s.choice && e.refreshChoice) e.refreshChoice();
@@ -1289,6 +1332,9 @@
     var seen = this.s.askSeen || (this.s.askSeen = {}), seenKey = (spec.base || spec.label) + '|' + vid;
     if (seen[seenKey] === this.s.week) { v.askSkipped = true; return; }
     seen[seenKey] = this.s.week;
+    // The week's door, on work it cannot thin (a search that would find one thing at most): not put, since ignoring it
+    // could cost nothing and the box would promise a loss that never comes.
+    if (spec.worth && !spec.worth(this, v)) { v.askSkipped = true; return; }
     v.ask = { label: spec.label, text: spec.text, accepts: spec.accepts, filled: null };
     this.dirty = true;
     this.emit('ask', { verb: vid, label: spec.label, text: spec.text });
@@ -1326,8 +1372,10 @@
       if (result && spec.thanks) result.text = (result.text ? result.text + ' ' : '') + spec.thanks;
     } else if (v.ask && spec && spec.penalty) {
       // The ask was put and ignored: the work still finishes, but thinner.
-      if (spec.penalty === 'thin') {
-        // What the case turns on (the culprit's trait, the front's link) is never the thing left behind.
+      // A 'thin' ask is paid by the work itself: it reads ctx.askThin and leaves one find where it was (the search
+      // one token fewer, the round one house fewer), to be found another day; the case is never short of its proof.
+      // Work that does not read it (none today) loses the last token it found, if it found two or more.
+      if (spec.penalty === 'thin' && !ctx.thinDone) {
         var finds = ctx.out.filter(function (c) { return (c.def === 'clue' || c.def === 'evidence') && !(c.data && (c.data.trait || c.data.link)); });
         if (finds.length >= 1 && ctx.out.filter(function (c) { return c.def === 'clue' || c.def === 'evidence'; }).length >= 2) { var lost = finds[finds.length - 1]; this.remove(lost); ctx.out.splice(ctx.out.indexOf(lost), 1); }
       }
@@ -1364,9 +1412,14 @@
     var v = this.verb(verbId);
     var rec = CF.RECIPES_BY_ID[v.recipe];
     var ctx = this.makeCtx(verbId, v.ctxSlots);
-    var result;
+    var result, overBefore = !!this.s.over;
     try {
       // The main card can vanish mid-recipe (burned informant, expired case...).
+      // How the ask went, for the work to read: answered (ctx.askAnswered), or put and ignored where ignoring finds
+      // less (ctx.askThin: the work leaves a find where it was, for another day, and sets ctx.thinDone).
+      var aspec = v.ask ? this.askSpec(v) : null;
+      ctx.askAnswered = !!(v.ask && v.ask.filled && this.card(v.ask.filled));
+      ctx.askThin = !!(v.ask && !ctx.askAnswered && aspec && aspec.penalty === 'thin');
       if (!rec || !ctx.primary || !rec.match(ctx)) result = { title: 'Interrupted', text: this.interruptedText(v), interrupted: true };
       else result = rec.run(ctx) || { title: rec.label, text: '' };
     } catch (err) {
@@ -1400,7 +1453,9 @@
     if (v.recipe === 'duty_beat' && this.perkHas('surefoot')) { var extra = this.make('funds'); extra.loc = { t: 'out', verb: verbId }; v.out.push(extra.uid); }
     if (this.s.intro) (this.s.intro.done = this.s.intro.done || {})[verbId] = true;
     this.layoutVerbs();
-    this.story(result.title, result.text, result.kind || 'verb');
+    // A work that ended the file in a loss (the last blow on the stair) has no story after the ending:
+    // 'They Came Anyway' would read as if you lived. A won ending keeps the work's own word.
+    if (!(this.s.over && !overBefore && !this.s.over.win)) this.story(result.title, result.text, result.kind || 'verb');
     this.emit('complete', { verb: verbId });
     if (this.choiceHook) this.choiceHook(verbId, v);
     if (v.out.length === 0 && !result.keepOpen) {
@@ -1733,12 +1788,15 @@
     }
     var stipend = [];
     for (var si = 0; si < salary; si++) stipend.push(this.create('funds').uid);
-    // The stipend's Coin, new on the table: the interface flies them out of the Bell.
+    // The stipend's Coin, new on the table: the interface flies them out of the Bell (the week's story carries their
+    // uids too; the event is for a listener that wants them before the story).
     this.emit('salary', { uids: stipend, paid: paid });
     if (!paid) {
       this.create('fatigue');
       this.create('fatigue');
       lines.push('You cannot pay your lodging. The landlord puts your chest in the lane at prime. You sleep in the Watch-house, on the bench.');
+      // The dues are taken before the stipend: say it came, so the Coin in the ledger reads right.
+      lines.push(U.fill('The Council\'s stipend comes after the landlord: {m} Coin.', { m: salary }));
     }
 
     // The criminal ecosystem grows. The sworn of a band count with their band.
@@ -1754,7 +1812,7 @@
       var walked = atLarge === 1 ? 'One who walked from you is still inside the walls.' : U.fill('{N} who walked from you are still inside the walls.', { N: CF.numberWord(atLarge, true) });
       var talk = [walked, 'A name you let go was heard in the Red Ox this week.', 'Somebody who walked from a case of yours bought a round in the Stews and drank to your health, the wrong way.'];
       var bandCards = this.cardsOf('gang', true);
-      lines.push(gangs && bandCards.length ? bandCards[0].data.name + ' keep a cellar now, and a tally.' : talk[atLarge ? s.week % 3 : 1 + s.week % 2]);
+      lines.push(gangs && bandCards.length ? CF.fillCap('{name} keep a cellar now, and a tally.', { name: bandCards[0].data.name }) : talk[atLarge ? s.week % 3 : 1 + s.week % 2]);
     }
     // A week in which no case went cold lets the Vendetta cool, unless the bands are feeding it.
     var coldBefore = (s.weekSnap || {}).cold || 0;
@@ -2186,14 +2244,13 @@
   // every CF.FAVOUR_STEP Standing the Council writes a Writ of the Council:
   // once per step (s.flags.favourStep counts the steps written). In Attend it
   // does one thing, by what goes with it: a Case taken off your hands (no
-  // Crowd, Standing -1), the Rolls (Suspicion -2), the Rival (recalled for
+  // Crowd, Standing -1), the Day-book (Suspicion -2), the Rival (recalled for
   // CF.FAVOUR_RECALL weeks) or a Witness (held for the Court).
   // favourNext() is { base, step, given, at } at the top office, else null:
   // `at` is the Standing of the next writ, for the Standing meter.
   CF.FAVOUR_STEP = 4;
   CF.FAVOUR_RECALL = 8;
   CF.FAVOUR_HOLD = 120;
-  CF.FAVOUR_INFO = 'Past the last office, every four Standing the Council grants you a favour.';
   P.favourNext = function () {
     var s = this.s, cap = this.rankCap ? this.rankCap() : CF.TOP_RANK;
     if ((s.rank || 0) < cap) return null;
@@ -2212,7 +2269,8 @@
     if (card.def === 'case') return 'The Council takes it off your hands: no Crowd, Standing -1.';
     if (card.def === 'paperwork') return 'The clerks lose a leaf of their list: Suspicion -2.';
     if (card.def === 'rival') return U.fill('The Harbourmaster\'s examiner is recalled for {n} weeks.', { n: CF.FAVOUR_RECALL });
-    if (card.def === 'witness') return 'Held for the Court: they stay in the city until it sits.';
+    // What the writ does, said as it is: the witness's clock gains FAVOUR_HOLD, not a stay until the Court sits.
+    if (card.def === 'witness') return U.fill('Held for the Court: they stay {n} weeks longer.', { n: Math.round(CF.FAVOUR_HOLD / WEEK) });
     return '';
   };
   // Use the writ on a card (the Attend recipe): what it did, as story text.
@@ -2227,7 +2285,7 @@
     if (card.def === 'paperwork') {
       this.remove(card, 'none');
       this.meter('scrutiny', -2);
-      return 'The writ goes to the clerks with the Rolls under it. Two leaves of their list go into the fire. Suspicion -2.';
+      return 'The writ goes to the clerks with the Day-book under it. Two leaves of their list go into the fire. Suspicion -2.';
     }
     if (card.def === 'rival') {
       var name = card.data && card.data.name || 'The Harbourmaster\'s examiner';
@@ -2305,8 +2363,10 @@
     if (s.week - s.councilCount.from < C.weeks) return lines;
     var ex = this.councilExpects();
     if (ex.n >= ex.m) {
-      if (s.meters.pressure > 0) this.meter('pressure', -1);
-      lines.push(U.fill('The Council counts what you closed: {n} of {m} this fortnight, and is content. The Crowd eases.', ex));
+      // More than asked reads as more, not '2 of 1'; the Crowd eases only when it had somewhere to fall.
+      lines.push(ex.n > ex.m ? U.fill('The Council counts {n} closed this fortnight, more than it asked, and is content.', ex)
+        : U.fill('The Council counts what you closed: {n} of {m} this fortnight, and is content.', ex));
+      if (s.meters.pressure > 0) { this.meter('pressure', -1); lines.push('The Crowd eases.'); }
     } else if (ex.n > 0) {
       lines.push(U.fill('The Council counts what you closed: {n} of {m} this fortnight. It expected more.', ex));
     } else {
@@ -2402,7 +2462,8 @@
     if (typeof s.flags.longService !== 'number') {
       if (s.week < L.week - L.warn) return null;
       s.flags.longService = s.week;
-      if (L.warnTitle) this.story(L.warnTitle, L.warnText, 'major');
+      // Told once: as its own story when it has a title, else as the Bell's line (round 8 review: both, the same Bell).
+      if (L.warnTitle) { this.story(L.warnTitle, L.warnText, 'major'); return null; }
       return L.warnText;
     }
     if (s.week >= this.longServiceDue()) this.gameOver('longservice');
@@ -2422,14 +2483,17 @@
     corruption: { win: false, title: 'The Council\'s Sergeants', text: 'The Council\'s sergeants come for you at first light, with a writ and a sack for your things. The beaten confessions, the purses, the proof that appeared from nowhere. They kept a list too.',
       threat: 'scrutiny', lesson: 'Suspicion rises with searches without a Writ, proof arranged, purses pocketed and questions put with Health. It falls when you enter the Rolls in Attend, and with a friend on the Council.' },
     merciful: { win: true, title: 'The Merciful Judge', text: 'Twelve times you sent a poor sinner home instead of to the Ravenstone, and four of them are citizens now with stalls in the Market and children who do not know what their fathers were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
-    hangmans: { win: false, title: 'The Hangman\'s Examiner', text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.' },
-    stake: { win: false, title: 'The Stake', text: 'The Inquisitor\'s charge lands on you: heresy, from a patron you crossed, sworn to by two men you sent to the Hole. The proof against you is the proof you taught the city to want. The Bishop does not answer your letter. The Fire on Friday.' },
+    hangmans: { win: false, title: 'The Hangman\'s Examiner', text: 'The Council keeps you, because the city is quiet. The city fears you, because it knows why. You live outside the walls now, in the executioner\'s house by the Ravenstone, and dine with him, because nobody else will. The work goes on. It is very quiet.',
+      threat: 'dread', lesson: 'The brand, the Sword, the Rope and the Wheel are counted as cruelty. Once the executioner keeps you a place, Dread held high ends it: choose lighter rungs, and let Dread fall.' },
+    stake: { win: false, title: 'The Stake', text: 'The Inquisitor\'s charge lands on you: heresy, from a patron you crossed, sworn to by two men you sent to the Hole. The proof against you is the proof you taught the city to want. The Bishop does not answer your letter. The Fire on Friday.',
+      threat: 'inquisitor', lesson: 'The Inquisitor comes when the Bishop\'s Favour falls low, and with a wrong name in the Rolls he may ask for yours. Win the Bishop back, or call in his favour, before he asks.' },
     dagger: { win: false, title: 'The Dagger on the Pillow', text: 'They warned you once. A dagger on the pillow, and the door still barred. You did not pay, and you did not leave, and one morning the servant who brings the water is not the servant. The Order of the Mountain keeps its word, in daylight, before witnesses, and nobody in the city will say they saw it.',
       threat: 'dagger', lesson: 'Answer the dagger on the pillow before it fades: in Rest with Coin, or alone, or in Attend with a watchman. Left to lie, it is the end.' },
     kingofthunes: { win: true, title: 'The King of Thunes', text: 'The old King goes into the river and the Court kneels to a new one who keeps the Examiner\'s desk by day. Crimes fall in number and rise in scale. You decide who is caught, and the Council thanks you for the quiet. Under the Warrens, where the lame walk and the blind see, they sing a new name.' },
     treatycity: { win: true, title: 'The Treaty City', text: 'Twelve quiet weeks. The Stews keep their own peace, the Court tries its own, the Rolls fill with answered cases, and the Council votes you a pension for the calm it does not ask about. You retire rich to a house on the Hill. The city calls it peace, and for the years you have left, it is.' },
     thieftaker: { win: true, title: 'The Thief-taker General', text: 'The city has never had an officer so effective, or so rich. Every fence in the Free City pays you, every victim thanks you, and the Council votes you a chain of office without asking where the goods you recover come from. You know. You are the only one who does. It will hold for years, if nobody ever reads the ledger.' },
-    oldbailey: { win: false, title: 'The Old Bailey', text: 'Somebody you hanged had a brother, and the brother had a ledger. The Council makes a new law with your trade in it, word for word, and tries you under it in the same court where you sent so many. Two witnesses. Your own men. The ballad is already printed.' },
+    oldbailey: { win: false, title: 'The Old Bailey', text: 'Somebody you hanged had a brother, and the brother had a ledger. The Council makes a new law with your trade in it, word for word, and tries you under it in the same court where you sent so many. Two witnesses. Your own men. The ballad is already printed.',
+      threat: 'purse', lesson: 'The thief-takers\' purses, wrong names, frames and debts are never forgotten. Once the brother\'s ledger is told, refuse the next one.' },
     riot: { win: false, title: 'The Crowd Turns', text: 'The next execution is meant to be a lesson. The crowd has learned a different one. When the cart reaches the Ravenstone they take the poor sinner off it, and then they come for you. You get out of the city by the Harbour gate with what you are wearing. The Council does not send after you.',
       threat: 'dread', lesson: 'Dread rises with leaning on people and cruelty on the ladder. Mercy and fair dealing let it fall.' },
     death: { win: false, title: 'Killed in the Council\'s Service', text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.',
@@ -2481,7 +2545,6 @@
     var coin = this.cardsOf('funds')[0];
     if (coin) this.remove(coin, 'spent'); else this.count('debt');
     this.story(CF.ABBEY.title, coin ? CF.ABBEY.paid : CF.ABBEY.owed, 'major', { cue: 'quiet' });
-    this.emit('abbey', { ending: id });
     // The week you lay there: the Bell rings, unless it has not yet been given to you.
     if (!s.flags.bellSilent) { s.weekT = 0; this.weekTick(); }
   };
@@ -2702,7 +2765,7 @@
     var name = this.newName(p.sex);
     var traits = U.sample(this.rng, p.traits || [], p.nTraits || 1);
     return {
-      label: p.role + ' ' + name.split(' ')[1],
+      label: p.role + ' ' + CF.nameParts(name)[1],
       desc: p.desc + ' Slot them into a verb to help. ' + traits.map(function (t) { return CF.OFFICER_TRAITS[t].label + ': ' + CF.OFFICER_TRAITS[t].desc; }).join(' '),
       aspects: U.clone(p.aspects),
       data: { personnel: key, name: name, level: 1, role: p.role, traits: traits },
@@ -2882,7 +2945,7 @@
     rec.found++;
     if (item.type === 'clue') this.create('clue', this.clueSpec(rec, item, helpers));
     else {
-      var needs = item.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[item.needs] + ' to analyse properly.' : '';
+      var needs = item.needs ? ' Needs ' + CF.NEEDS_LABEL[item.needs] + ' to analyse properly.' : '';
       this.create('evidence', { label: item.label, desc: item.text + ' Take it to Study.' + needs + ' (Raw proof in: ' + rec.title + ')', caseId: rec.id, data: { item: item } });
     }
     return item;
@@ -3504,7 +3567,7 @@
     });
     this.create('coldcase', {
       label: 'Unanswered: ' + rec.title,
-      desc: 'The trail went cold. ' + culprit.name + ' walked. With the Rolls, this can be opened again in Study.',
+      desc: U.fill(COLD_DESC, { name: culprit.name }),
       data: { template: rec.template, culpritName: culprit.name, culpritTrait: culprit.trait, atLargeUid: al.uid, title: rec.title,
         // What the case was, for the day it is opened again: the same victim, scene and names, the proof not yet found.
         from: { id: rec.id, victim: rec.victim, district: rec.district, scene: rec.scene, structure: rec.structure, vars: rec.vars,
@@ -3587,7 +3650,8 @@
   };
   // A thread pulled on the Rival `r` (how: question, shadow, caught, case).
   // Returns { exposed } with the story's tail, for the recipe or the verdict.
-  P.rivalThread = function (r, how) {
+  // With the work's ctx, what the exposure turns up is one of its finds (face down in the window); else on the table.
+  P.rivalThread = function (r, how, ctx) {
     var s = this.s;
     if (!r || r.def !== 'rival' || !r.loc) return null;
     r.data = r.data || {};
@@ -3598,7 +3662,7 @@
       this.meter('reputation', 1);
       if (this.favourGain) this.favourGain('council', 1, 'the Rival exposed');
       s.stats.rivalExposed = (s.stats.rivalExposed || 0) + 1;
-      if (!s.flags.harbourFallen) this.create('customsleaf');
+      if (!s.flags.harbourFallen) { if (ctx && ctx.give) ctx.give('customsleaf'); else this.create('customsleaf'); }
       return { exposed: true, text: 'The Council reads the file in silence and sends the Harbourmaster\'s Examiner back to the Customs House. Your name is spoken in the chamber, warmly for once.' +
         (s.flags.harbourFallen ? '' : ' In the examiner\'s desk, a leaf from the Customs House: what the Harbourmaster paid, and for what.') };
     }
@@ -3749,7 +3813,6 @@
       }
       if (d.solid) s.stats.solid = (s.stats.solid || 0) + 1;
       if (this.growthTick) this.growthTick();
-      if (this.openingKeep) this.openingKeep();
       if (d.solid && d.guilty) {
         if (s.calling === 'master' && rng() < 0.55) {
           this.create('looseend', this.looseEndSpec(rec.title, rec.keyAspects[0]));
@@ -3758,7 +3821,6 @@
         }
       }
       this.onConviction(rec, d, notes);
-      if (!s.over) this.condemn(rec, d, tier);
       if (!d.guilty) {
         var culprit = rec.suspects.filter(function (x) { return x.guilty; })[0];
         this.meter('scrutiny', 1);
@@ -3775,6 +3837,10 @@
       if (rec.crimeTitle) notes.unshift('The hue and cry brought them in. The Court tried them for what they walked from.');
       this.story('Guilty: ' + d.name, 'The sworn men are out for ' + (d.solid ? 'the length of a Paternoster' : 'two days') + '. ' + d.name + ' is convicted of ' + this.convictedOf(rec) + ', and the sergeants take them down to the Hole to wait for the sentence. ' +
         (d.guilty ? '' : 'You tell yourself it was the right person. ') + notes.join(' '), 'victory');
+      // The verdict is told first: then the ladder on your desk, then the keep it earned (round 8 review: the
+      // keep and the ladder were told before the sworn men had spoken).
+      if (!s.over) this.condemn(rec, d, tier);
+      if (this.openingKeep) this.openingKeep();
     } else {
       s.stats.acquittals++;
       if (!unlucky) this.meter('pressure', 1);

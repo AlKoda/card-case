@@ -178,7 +178,6 @@
   // `id` keys the ending's seal; `near` is a word ('Near', 'Halfway', 'A long
   // road'; for a warning 'Warned'), `want` one sentence of what it still
   // wants, in words rather than counts (`text` is the same, as the journal reads it). DOM-free: the journal draws it.
-  Callings.ROADS_HELP = 'There are many ways to end. The journal\'s Roads show the three you are nearest, and what each still wants.';
   Callings.NEAR = [[0.8, 'Near'], [0.5, 'Halfway'], [0, 'A long road']];
   function part(have, need) { return need > 0 ? Math.max(0, Math.min(1, have / need)) : 1; }
   function nearWord(frac) { for (var i = 0; i < Callings.NEAR.length; i++) if (frac >= Callings.NEAR[i][0]) return Callings.NEAR[i][1]; return 'A long road'; }

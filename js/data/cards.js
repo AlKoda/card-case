@@ -44,12 +44,14 @@
     informant: { label: 'Informer', color: '#7a5c8a' },
     intel: { label: 'Whisper', color: '#8a6f9c' },
     place: { label: 'Place', color: '#4f7a5a' },
+    // A card's own `kindLabel` stands in for its kind's where the kind would mislabel it (the Rival and a thief
+    // Abroad are of no band of the Coquille).
     criminal: { label: 'Coquille', color: '#5b1f1f' },
     court: { label: 'Court', color: '#8e7cc3' },
     condemned: { label: 'Condemned', color: '#7a2a2a' },
     sentence: { label: 'Sentence', color: '#8e7cc3' },
     plea: { label: 'Plea', color: '#b8a878' },
-    paper: { label: 'The Rolls', color: '#a8a290' },
+    paper: { label: 'Paperwork', color: '#a8a290' },
     temptation: { label: 'Temptation', color: '#c7a13b' },
     career: { label: 'Office', color: '#d4af37' },
     insight: { label: 'Insight', color: '#b48ede' },
@@ -85,7 +87,7 @@
       desc: 'A cough from the river, and the river in your chest. In Rest: with Coin, a physician; with the Physician\'s Case, treat yourself; with Health, sweat it out (slow, and it tires you); with a watchman, their grandmother\'s remedy. Let the clock run out and it takes your Instinct: for good, if you had it to spare.' },
     stress: { label: 'Stress', kind: 'threat', tags: ['need'], image: 'icon-obsession', aspects: { stress: 1 }, decay: 110, onExpire: 'need',
       desc: 'The same case behind your eyes every night. In Rest: alone, an evening off; with Coin, a quick one; with Instinct, walk it off (quick, free); with a watchman, a drink with the Watch. Let the clock run out and it takes your Wit: for good, if you had it to spare.' },
-    rival: { label: 'The Rival', kind: 'criminal', tags: ['person', 'rival'], aspects: { rival: 1 },
+    rival: { label: 'The Rival', kind: 'criminal', kindLabel: 'Rival', tags: ['person', 'rival'], aspects: { rival: 1 },
       desc: 'The Harbourmaster\'s Examiner, appointed to show the Council it has a choice. They work your cases from the other side: they close them first, spoil your scenes, pay your witnesses to forget. Find a thread on them: Question them with Wit, or shadow them in Explore with Instinct. Then catch them at it: a token they spoiled, a witness they paid or a case they took, with them in Question; or answer their case in the Blood Court first. Coin buys a quiet fortnight; Health frightens them.' },
     burnout: { label: 'Fever', kind: 'threat', tags: ['strain', 'collapse'], image: 'icon-burnout', aspects: { burnout: 1 }, decay: 120, onExpire: 'burnout',
       desc: 'You cannot face the street. Attend, Explore and Question are shut to you. Lie down in Rest before this runs out, or they carry you to the pesthouse.' },
@@ -98,7 +100,7 @@
     case: { label: 'Case', kind: 'case', tags: ['casework'], aspects: { case: 1 }, onExpire: 'cold',
       desc: 'A crime the Council wants answered.' },
     coldcase: { label: 'Unanswered', kind: 'coldcase', tags: ['casework', 'cold'], aspects: { coldcase: 1 },
-      desc: 'A case that went unanswered. Somebody walked. With the Rolls, it can be opened again in Study.' },
+      desc: 'A case that went unanswered. Somebody walked. Once the Watch-house has the Rolls (a Sworn Examiner\'s Petition), it can be opened again in Study.' },
     clue: { label: 'Token', kind: 'clue', tags: ['casework', 'proof'], aspects: { clue: 1 }, decay: 300, onExpire: 'vanish',
       desc: 'A token: a thing found, a thing said, a thing that points.' },
     evidence: { label: 'Raw Proof', kind: 'evidence', tags: ['casework', 'raw'], aspects: { evidence: 1 }, decay: 260, onExpire: 'vanish',
@@ -156,7 +158,7 @@
       desc: 'Two cases that touch the same door. They are one case, and now you know it.' },
 
     // --- The underworld ----------------------------------------------
-    atlarge: { label: 'Abroad', kind: 'criminal', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
+    atlarge: { label: 'Abroad', kind: 'criminal', kindLabel: 'Abroad', tags: ['crime', 'person'], aspects: { atlarge: 1, criminal: 1 },
       desc: 'Someone who walked. Every week they are out there, the Vendetta grows. Three of them will find each other.' },
     gang: { label: 'Band', kind: 'criminal', tags: ['crime', 'network'], image: 'icon-roots', aspects: { gang: 1, criminal: 1 },
       desc: 'People who walked from your cases and found each other in the same cellar. They feed the Vendetta every week. Post the Watch on them in Attend with a watchman; at Bailiff, go in Disguise to build a case against them.' },
@@ -172,8 +174,8 @@
       desc: 'One rung of the Carolina\'s ladder. It leaves the table with the Condemned it belongs to.' },
     plea: { label: 'A Plea', kind: 'plea', tags: ['court', 'letter'], aspects: { plea: 1 }, decay: 100, onExpire: 'vanish',
       desc: 'Somebody asks mercy for the Condemned. In Sentence, with a lighter rung, it counts as a reason. Some letters are heavier than paper.' },
-    paperwork: { label: 'The Rolls', kind: 'paper', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { paperwork: 1 }, stackable: true,
-      desc: 'Depositions, examinations, the day-book. Entered fair in Attend (with Wit) they soothe the Council\'s eye.' },
+    paperwork: { label: 'The Day-book', kind: 'paper', tags: ['precinct', 'form'], image: 'icon-folder', aspects: { paperwork: 1 }, stackable: true,
+      desc: 'Depositions and examinations, written up in the day-book. Entered fair in the Rolls in Attend (with Wit), they soothe the Council\'s eye.' },
     writsale: { label: 'A Patrician\'s Letter', kind: 'temptation', tags: ['money', 'corrupt', 'letter'], aspects: { writsale: 1 }, decay: 70, onExpire: 'vanish',
       desc: 'A patrician wants a rival searched and will pay for the writ. Put it in Attend to oblige, or let it lie.' },
     tribute: { label: 'The King\'s Tribute', kind: 'temptation', tags: ['money', 'corrupt'], aspects: { tribute: 1 }, decay: 60, onExpire: 'vanish',
@@ -191,7 +193,7 @@
       desc: 'A favour owed you. Put it in Attend to call it in, at the cost of the patron\'s favour.' },
     // The Council's favour past the last office (engine.js, favourNext): one use, picked by what goes with it.
     councilwrit: { label: 'Writ of the Council', kind: 'career', tags: ['career', 'letter'], image: 'icon-court', aspects: { councilwrit: 1 },
-      desc: 'The Council grants you one favour. Put it in Attend with a Case (the Council takes it off your hands), with the Rolls (Suspicion -2), with the Rival (recalled for eight weeks) or with a Witness (held for the Court).' },
+      desc: 'The Council grants you one favour. Put it in Attend with a Case (the Council takes it off your hands), with the Day-book (Suspicion -2), with the Rival (recalled for eight weeks) or with a Witness (held for the Court).' },
     // Kept for older saves; the generic `promotion` card replaced them.
     promo_inspector: { label: 'The Council\'s Letter', kind: 'career', tags: ['career'], image: 'icon-star', aspects: { promotion: 1 },
       desc: 'The Council has noticed you. Attend on them.' },
@@ -219,6 +221,10 @@
   };
 
   // Things the Council's treasury will buy. rank = minimum office to see the petition.
+  // The instrument raw proof asks for in Study, by its item's `needs`: the game's own names, one list for every
+  // place that writes 'Needs ... to analyse properly' (check-up: two of them named a Fingerprint Set and a Forensic Kit).
+  CF.NEEDS_LABEL = { prints: 'the Vinegar and Umbrella', bio: 'a Physician\'s Case', lab: 'the Apothecary\'s Key' };
+
   CF.ORDERS = {
     camera: { label: 'Sketch-book', cost: 5, give: 'camera', rank: 0 },
     prints: { label: 'Vinegar and Umbrella', cost: 3, give: 'prints', rank: 0 },
@@ -318,20 +324,16 @@
   CF.TOP_RANK = CF.RANK_DEFS.length - 1;
   CF.COMMISSIONER_REP = 18;
 
-  // win: the gain line for the calling's option in 'What You Want' (the
-  // calling's own ending; others remain open).
+  // The gain line for each calling's option is the question's own ('What You Want', life.js).
   CF.CALLINGS = {
     commissioner: { card: 'calling_commissioner', label: 'The Burgomaster', theme: 'Power',
       blurb: 'Rise through the offices. Remake the city\'s Watch from the Council chamber.',
-      bonus: 'Begin with an extra Coin and a Beadle already in service.',
-      win: 'Your ending: the Council\'s Seat, by office and calm' },
+      bonus: 'Begin with an extra Coin and a Beadle already in service.' },
     master: { card: 'calling_master', label: 'The Scholar', theme: 'Knowledge',
       blurb: 'Trace every small crime back to the hidden hand that drew it.',
-      bonus: 'Begin with a Sketch-book. Loose Ends appear on sound convictions.',
-      win: 'Your ending: the Architect sentenced, by threads and loose ends' },
+      bonus: 'Begin with a Sketch-book. Loose Ends appear on sound convictions.' },
     crusader: { card: 'calling_crusader', label: 'The Reformer', theme: 'Justice',
       blurb: 'Break the Coquille by any means, even if it costs your office.',
-      bonus: 'Begin with an Informer. The Council\'s eye looks away a little longer.',
-      win: 'Your ending: the Coquille broken and its King hanged' },
+      bonus: 'Begin with an Informer. The Council\'s eye looks away a little longer.' },
   };
 })(typeof window !== 'undefined' ? window : globalThis);

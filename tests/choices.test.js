@@ -512,12 +512,14 @@ console.log('the ending\'s numbers: ok');
 (function oldMercy() {
   var g = game(33);
   delete g.s.stats.sentHome;
-  g.criminalFor('Citizen A', null).status = 'reformed';
+  // The ending needs four citizens made (CF.Societies.MERCIFUL), so the old save here has four (round 8 review: a
+  // one-citizen telling could never be reached, and is gone).
+  ['Citizen A', 'Citizen D', 'Citizen E', 'Citizen F'].forEach(function (n) { g.criminalFor(n, null).status = 'reformed'; });
   var sp = g.criminalFor('Rogue B', null); sp.traits.push('spared');
   var sp2 = g.criminalFor('Rogue C', null); sp2.traits.push('spared');
   g.gameOver('merciful');
-  assert.strictEqual(g.s.over.text.indexOf('Three times you sent a poor sinner home'), 0, 'reformed and spared both went home: ' + g.s.over.text);
-  assert.ok(g.s.over.text.indexOf('and one of them is a citizen now') > 0, 'one is a citizen');
+  assert.strictEqual(g.s.over.text.indexOf('Six times you sent a poor sinner home'), 0, 'reformed and spared both went home: ' + g.s.over.text);
+  assert.ok(g.s.over.text.indexOf('and four of them are citizens now') > 0, 'four are citizens: ' + g.s.over.text);
   console.log('an old save\'s mercy counted: ok');
 })();
 
@@ -722,6 +724,15 @@ console.log('choices: all OK');
     assert.ok(l && CF.ENDINGS[id].threat && !CF.ENDINGS[id].win, id + ' has a lesson');
   });
   assert.strictEqual(ld.endingLesson('master', null), null, 'a won run needs none');
+  // Every losing ending says what would have saved you (check-up: the Hangman's Examiner, the Stake and the Old Bailey had none).
+  Object.keys(CF.ENDINGS).forEach(function (id) {
+    if (CF.ENDINGS[id].win) return;
+    assert.ok(ld.endingLesson(id, null) && CF.ENDINGS[id].threat, id + ': a losing ending has its lesson and threat');
+  });
+  ['hangmans', 'stake', 'oldbailey'].forEach(function (id) {
+    var g = game(90); g.gameOver(id);
+    assert.ok(g.s.over.lesson && g.s.over.threat, id + ': the end paper carries the lesson');
+  });
   assert.ok(/Rest/.test(ld.endingLesson('burnout', null)));
   assert.strictEqual(ld.endingLesson('burnout', { fever: 90, restIdle: true }).indexOf(CF.ENDING_REST_IDLE), 0, 'Rest stood empty: said first');
   console.log('the abbey and the lessons: ok');
@@ -928,16 +939,19 @@ console.log('choices: all OK');
 
 // ---- The Year: seasons, the Assize, the Long Service ----------------------------------------
 (function year() {
-  var S = CF.Story;
-  // A quarter of fifty-two weeks to a season, the Bell's line on each season's first week.
+  // A quarter of fifty-two weeks to a season, the Bell's line on each season's first week: the engine's own
+  // e.season() and e.seasonLine(), the ones the Bell and the week bar read (round 8 review: story.js kept a dead copy).
+  var sy = game(1);
   [[1, 'lent'], [13, 'lent'], [14, 'fair'], [26, 'fair'], [27, 'plague'], [39, 'plague'], [40, 'winter'], [52, 'winter'], [53, 'lent']].forEach(function (p) {
-    assert.strictEqual(S.season(p[0]).id, p[1], 'week ' + p[0]);
+    assert.strictEqual(sy.season(p[0]).id, p[1], 'week ' + p[0]);
   });
-  assert.strictEqual(S.season(53).year, 2);
-  var bells = [];
-  for (var w = 1; w <= 60; w++) if (S.seasonBell(w)) bells.push(w);
-  assert.deepStrictEqual(bells, [1, 14, 27, 40, 53]);
-  assert.strictEqual(S.seasonBell(27), 'Week 27. The Plague Summer: the Abbey cart goes round twice a day.');
+  assert.strictEqual(sy.weekOfYear(53), 1, 'a second year');
+  var bells = [], bellLines = [];
+  for (var w = 1; w <= 60; w++) { sy.s.week = w; var sl = sy.seasonLine(); if (sl) { bells.push(w); bellLines.push(sl); } }
+  assert.deepStrictEqual(bells, [14, 27, 40, 53], 'the Bell says a season on its first week (the first week of all is the opening\'s)');
+  sy.s.week = 27;
+  assert.strictEqual(sy.seasonLine(), 'The Plague Summer: the Abbey cart goes round twice a day.');
+  assert.ok(!CF.Story.season && !CF.Story.seasonBell && !CF.SEASON_BELL, 'one set of season helpers');
 
   function ready(seed) { var e = game(seed); if (e.s.intro) e.s.intro.finished = true; e.s.choice = null; return e; }
   // The Assize (engine.js assizeWeek, at the Bell): once a year, from week 26 to 29, never over another
@@ -964,7 +978,7 @@ console.log('choices: all OK');
   a = answered(1); assert.strictEqual(a.pv.cards.personnel, 1, 'more men: a Letter of Service');
   a = answered(2); assert.strictEqual(a.pv.meters.reputation, 2, 'nothing: Standing +2');
   // The told year, by its shape.
-  function told(st) { var g = ready(153); for (var k in st) g.s.stats[k] = st[k]; return S.assize(g); }
+  function told(st) { var g = ready(153); for (var k in st) g.s.stats[k] = st[k]; return CF.Story.assize(g); }
   assert.ok(/Not one has ended/.test(told({ cases: 1, convictions: 0 })) && /one case with your name on it/.test(told({ cases: 1 })));
   assert.ok(/applause/.test(told({ cases: 8, convictions: 5 })), 'a clean year is applauded');
   assert.ok(/benches are quiet/.test(told({ cases: 8, convictions: 1, cold: 4 })) && /4 gone cold/.test(told({ cases: 8, convictions: 1, cold: 4 })));
@@ -980,8 +994,13 @@ console.log('choices: all OK');
   e = ready(155); e.s.week = 48; e.s.flags.assize = { week: 26, record: null, year: 1 };
   assert.strictEqual(e.longServiceWeek(), null, 'below the cap: no pension');
   e.s.rank = CF.TOP_RANK;
-  assert.strictEqual(e.longServiceWeek(), CF.LONG_SERVICE.warnText, 'told four weeks before');
+  // Told four weeks before, once: as its own story, not again as the Bell's line (round 8 review: twice in one Bell).
+  assert.strictEqual(e.longServiceWeek(), null, 'told four weeks before, as its story only');
   assert.ok(e.s.journal.some(function (j) { return j.title === CF.LONG_SERVICE.warnTitle; }), 'and its story');
+  var lw = ready(159); lw.s.week = 47; lw.s.flags.assize = { week: 26, record: null, year: 1 }; lw.s.rank = CF.TOP_RANK; lw.s.flags.firstCase = true;
+  lw.weekTick();
+  var said = 0; lw.s.journal.forEach(function (j) { said += (j.text || '').split(CF.LONG_SERVICE.warnText).length - 1; });
+  assert.strictEqual(said, 1, 'the pension is told once in the Bell that brings it');
   assert.strictEqual(e.longServiceDue(), 52);
   e.s.week = 51; e.longServiceWeek(); assert.ok(!e.s.over);
   e.s.week = 52; e.longServiceWeek(); assert.ok(e.s.over, 'pensioned at week 52');
@@ -1002,7 +1021,7 @@ console.log('choices: all OK');
   CF.setLang('ar');
   var texts = [told({ cases: 1 }), told({ cases: 9, convictions: 5, wrongful: 3 }), told({ cases: 12, convictions: 2, cold: 5 }), told({ cases: 20, convictions: 9, sentHome: 4 }), told({ cases: 7, convictions: 4, attacks: 3 }), told({ cases: 7, convictions: 4, attacks: 2 }), CF.LONG_SERVICE.warnText, CF.LONG_SERVICE.title, CF.LONG_SERVICE.warnTitle, CF.ASSIZE.title];
   CF.SEASONS.forEach(function (sw) { texts.push(sw.name, sw.line); if (sw.effect) texts.push(sw.effect); });
-  bells.forEach(function (bw) { texts.push(S.seasonBell(bw)); });
+  bellLines.forEach(function (bl) { texts.push(bl); });
   CF.ENDING_VARIANTS.longservice.forEach(function (v) { [2, 3, 11].forEach(function (n) { texts.push(CF.util.fill(v.text, { wrongful: n })); }); });
   as.options.forEach(function (o) { texts.push(o.label, o.gain, o.text); });
   texts.forEach(function (t) { assert.ok(!/[A-Za-z]{2}/.test(CF.T(t)), 'Arabic for: ' + t + ' => ' + CF.T(t)); });

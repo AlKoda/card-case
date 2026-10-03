@@ -136,12 +136,27 @@ function run(e, verb, cards) {
   f.s.counts.purse = 6; f.s.stats.wrongful = 3;
   f.checkPurseEndings();
   assert.ok(!f.s.over && f.s.flags.oldbaileyWarned && f.s.journal[0].title === 'The Brother\'s Ledger', 'the Old Bailey is told before it lands');
+  // Told already past the counts, the warning still holds: nothing done, nothing lands (check-up; this
+  // test once ended the run at the next check with no step taken, against what the warning says).
+  f.checkPurseEndings(); f.checkPurseEndings();
+  assert.ok(!f.s.over, 'past the counts when told: another step is still needed');
+  f.s.counts.purse = 7;
   f.checkPurseEndings();
   assert.ok(f.s.over && f.s.over.id === 'oldbailey' && !f.s.over.win, 'lost to greed: the Old Bailey');
   var g = game(11);
   g.s.counts.purse = 6; g.s.counts.debt = 4;
   g.checkPurseEndings(); g.checkPurseEndings();
+  assert.ok(!g.s.over, 'the debt past the line when told: still a step to refuse');
+  g.s.counts.debt = 5; g.checkPurseEndings();
   assert.strictEqual(g.s.over.id, 'oldbailey', 'or the debt does it');
+  // A save warned before the steps were kept: the next step after loading ends it, none before.
+  var og = game(18); og.s.counts.purse = 6; og.s.stats.wrongful = 3; og.s.flags.oldbaileyWarned = true;
+  var ogs = JSON.parse(og.save()); delete ogs.flags.oldbaileySteps;
+  var ol = CF.Engine.load(JSON.stringify(ogs));
+  ol.checkPurseEndings();
+  assert.ok(!ol.s.over, 'an older warned save is not ended with no step taken');
+  ol.s.stats.wrongful = 4; ol.checkPurseEndings();
+  assert.strictEqual(ol.s.over && ol.s.over.id, 'oldbailey', 'and a step after it lands');
   // A step short (a debt away): told while it can still be refused, and the refusal holds.
   var near = game(15);
   near.s.counts.purse = 6; near.s.counts.debt = 3;

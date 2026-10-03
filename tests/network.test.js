@@ -128,6 +128,37 @@ function gangUp(e) {
   e.autoSlot('reflect', a2.uid); e.autoSlot('reflect', a3.uid);
   assert.notStrictEqual((e.currentRecipe('reflect') || { recipe: {} }).recipe.id === 'ref_deduce' && CF.Deduce.find([a2, a3]).id, 'connect', 'same case is not a connection');
   e.clearSlots('reflect');
+  // The same two chits laid again find nothing new: no second Thread, no second gain (check-up: a Thread
+  // and Scholar +2 every time, 26 Threads in one bot run).
+  var master0 = e.s.paths.master, threads0 = e.cardsOf('thread', true).length;
+  assert.ok(e.autoSlot('reflect', a.uid) && e.autoSlot('reflect', b.uid));
+  var pvAgain = e.preview('reflect');
+  assert.strictEqual(pvAgain.text, 'These fit together. Something new comes of it.', 'a door two cases share is not called a misfit (check-up)');
+  assert.ok(pvAgain && /^You have followed this thread to .+ before\. These tokens add nothing to it\.$/.test(pvAgain.blocked || ''), 'laid again, Rest says so: ' + JSON.stringify(pvAgain && pvAgain.blocked));
+  assert.ok(!e.start('reflect'), 'and does not start');
+  e.clearSlots('reflect');
+  // Run anyway (the rules' own guard): nothing new.
+  var ctxAgain = { e: e };
+  var res2 = CF.Deduce.connect(ctxAgain, [a, b]);
+  assert.strictEqual(res2.title, 'Nothing New');
+  assert.strictEqual(e.cardsOf('thread', true).length, threads0, 'no second Thread');
+  assert.strictEqual(e.s.paths.master, master0, 'no second gain');
+  // A third case at the same door is news: the Thread on the table takes it in, and the gain is given.
+  var c3 = e.spawnCase('missing', { quiet: true, culpritName: 'Crook 3', culpritTrait: 'limp' });
+  var r3 = e.caseRec(c3.caseId); r3.front = front.id;
+  var b3 = e.create('clue', e.clueSpec(r3, { link: front.id, label: 'A chit', text: 'A chit.', aspects: { financial: 1 } }, []));
+  var third = run(e, 'reflect', [a, b3]);
+  assert.strictEqual(third.story.title, 'These Cases Are One', 'a third case joins');
+  assert.strictEqual(e.cardsOf('thread', true).length, threads0, 'the same Thread, not a second');
+  assert.ok(thread.data.cases.indexOf(r3.title) >= 0, 'the Thread names the third case');
+  assert.strictEqual(e.s.paths.master, master0 + 2, 'a connection found');
+  // A save from before front.joined: the Thread on the table names the cases already joined.
+  var oldSave = JSON.parse(e.save()); delete oldSave.network.fronts[front.id].joined;
+  var ol = CF.Engine.load(JSON.stringify(oldSave));
+  var oa = ol.card(a.uid), ob = ol.card(b.uid);
+  var m0 = ol.s.paths.master;
+  var oj = CF.Deduce.joining(ol, [oa, ob]);
+  assert.ok(oj && !oj.fresh.length && ol.s.paths.master === m0, 'an older save does not farm the Thread either');
 
   // The Front can be staked out: something for every open case that passes through.
 
@@ -197,6 +228,9 @@ function gangUp(e) {
   var b2 = e.create('clue', e.clueSpec(r2, l2, []));
   assert.strictEqual(e.linkTwin(a), b2, 'another token on the table names the same door');
   assert.ok(CF.Network.TWIN_LINE, 'the cue has words');
+  b2.hidden = true;
+  assert.strictEqual(e.linkTwin(a), null, 'a find still face down names no door');
+  delete b2.hidden;
   var res = run(e, 'reflect', [a, b2]);
   var thread = res.out.filter(function (c) { return c.def === 'thread'; })[0];
   assert.ok(thread && thread.data.fence && /A receiver of stolen goods keeps it\. Bring the Thread to Rest alone/.test(thread.desc), thread && thread.desc);

@@ -13,7 +13,9 @@
   var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap', 'uiScale'];
   var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap', 'strings', 'haptics', 'tilt', 'calm'];
 
-  function showValue(input) { input.nextElementSibling.textContent = input.value + (input.id === 's-gap' ? 'px' : '%'); }
+  // A slider's value with its unit, in the reader's script ('14 بكسل', '80٪').
+  function showValue(input) { input.nextElementSibling.textContent = input.id === 's-gap' ? tr('{n}px', { n: input.value }) : tr('{n}%', { n: input.value }); }
+  SettingsUI.showValue = showValue;
 
   SettingsUI.open = function () {
     var v = CF.Settings.values;
@@ -116,22 +118,12 @@
   };
   // The Clerk's origin takes a Coin off every petition, the board's too.
   function orderDiscount(e) { return e.s.who === 'clerk' ? 1 : 0; }
-  // The petition card for an order: the engine's own builder when it has
-  // one (so the board and the Council's forms cannot differ), else the same
-  // shape built here.
-  function orderSpec(e, key) {
-    var spec = typeof e.orderSpec === 'function' ? e.orderSpec(key) : null;
-    if (spec && spec.data && spec.data.order === key) return spec;
-    var o = CF.ORDERS[key], disc = orderDiscount(e);
-    var what = o.room ? CF.ROOMS[o.room].desc : CF.CARDS[o.give].desc;
-    return { label: 'Petition: ' + o.label, desc: what + ' Costs ' + Math.max(1, o.cost - disc) + ' Coin.', data: { order: key, discount: disc } };
-  }
-  // Put the requisition form on the table, unless it is already there.
+  // Put the requisition form on the table, unless it is already there: through the engine's own Petition (e.petition,
+  // which keeps one form at a time and never one already granted), as the instruments below are.
   Precinct.order = function (e, key) {
     var room = CF.ROOMS[key], order = CF.ORDERS[room.order];
     if (e.s.rooms[key] || e.s.rank < order.rank) return false;
-    if (e.cardsOf('order', true).some(function (c) { return c.data.order === room.order; })) return false;
-    e.create('order', orderSpec(e, room.order));
+    if (!e.petition(room.order)) return false;
     e.dirty = true;
     return true;
   };
@@ -165,6 +157,19 @@
   Precinct.open = function (e) {
     Precinct.e = e;
     Precinct.render();
+    // The board opens on the tile marked Next: the sideways strip on a phone, the paper on a desk, scroll to it once
+    // the board is shown (the caller shows it after this returns).
+    setTimeout(Precinct.showNext, 0);
+  };
+  // Every scroller around the tile marked Next brings it into view (centred along the strip), without moving the page.
+  Precinct.showNext = function () {
+    var n = document.querySelector('#precinct-grid .room.next');
+    if (!n || !n.getBoundingClientRect) return;
+    for (var p = n.parentNode; p && p.getBoundingClientRect && p !== document.body; p = p.parentNode) {
+      var r = n.getBoundingClientRect(), pr = p.getBoundingClientRect();
+      if (p.scrollWidth > p.clientWidth + 1 && (r.left < pr.left || r.right > pr.right)) p.scrollLeft += (r.left + r.width / 2) - (pr.left + pr.width / 2);
+      if (p.scrollHeight > p.clientHeight + 1 && (r.top < pr.top || r.bottom > pr.bottom)) p.scrollTop += r.bottom > pr.bottom && r.height < pr.height ? r.bottom - pr.bottom + 8 : r.top - pr.top - 8;
+    }
   };
   Precinct.render = function () {
     var e = Precinct.e;
@@ -177,7 +182,7 @@
       var d = document.createElement('div');
       d.className = 'room ' + t.state + (t.good ? ' good' : '') + (t.key === next ? ' next' : '');
       d.innerHTML = '<div class="rm-icon" style="background-image:var(--art-' + (t.good ? t.icon : ROOM_ICONS[t.key] || 'iplace-10') + ')"></div><div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
-        '<div class="rm-foot">' + esc(t.good && t.state === 'owned' ? CF.T('Bought') : Precinct.foot(t)) + '</div>' + (t.key === next ? '<div class="rm-next">' + esc('Next') + '</div>' : '');
+        '<div class="rm-foot"><span>' + esc(t.good && t.state === 'owned' ? CF.T('Bought') : Precinct.foot(t)) + '</span>' + (t.key === next ? '<b class="rm-next">' + esc('Next') + '</b>' : '') + '</div>';
       // An instrument is petitioned from here as a room is, so the tile marked Next can always be acted on.
       if (t.state === 'open') {
         var b = document.createElement('button');
@@ -261,7 +266,7 @@
     var truth;
     if (!opened) truth = '<i>' + esc('Sealed. Break the seal to learn the truth.') + '</i>';
     else if (rec.outcome === 'wrongful') truth = tr('<b>{name}</b>, {role}, did it, and someone else went to the rope for it.', { name: esc(cul.name), role: esc(cul.role) }) + ' ' + esc(cul.motive || '');
-    else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
+    else truth = '<b>' + esc(cul.name) + '</b>' + escText(tr(', ')) + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
     var portrait = CF.UI.personArt(cul.name || rec.title, cul.role || '', cul.sex || (cul.name ? CF.Engine.prototype.sexOf(cul.role) || CF.Engine.prototype.sexOfName(cul.name) : null));
     // The portrait floats on the corner and the title and rows run beside it, in either direction, at any width.
     box.innerHTML = '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +

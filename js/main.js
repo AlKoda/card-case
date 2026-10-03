@@ -124,7 +124,7 @@
   // What would have saved you, under a losing ending: one line with the threat's seal. The line is the rules' own
   // (s.over.lesson, from e.endingLesson, made particular by s.over.cause); an older ending without one is read
   // again from the rules. The seal is the threat's that ended it (s.over.threat, else CF.ENDINGS[id].threat).
-  var LESSON_ART = { burnout: 'imed-10', fatigue: 'imed-13', obsession: 'iinv-13', pressure: 'cres-04', scrutiny: 'cres-03', dread: 'cres-12', wound: 'imed-09', dagger: 'citem2-07' };
+  var LESSON_ART = { burnout: 'imed-10', fatigue: 'imed-13', obsession: 'iinv-13', pressure: 'cres-04', scrutiny: 'cres-03', dread: 'cres-12', wound: 'imed-09', dagger: 'citem2-07', inquisitor: 'cwax-01', purse: 'itrade-20' };
   function endLesson(over) {
     if (!over || over.win) return null;
     var end = CF.ENDINGS[over.id] || {};
@@ -356,15 +356,30 @@
   // Back (Android, or the host's own back control): close the top modal, or
   // open the pause menu; on the title screen there is nothing to go back to.
   UI.onBack = function () {
+    // The question is answered first: it stands over the screen that asked it (the title, a menu), which comes
+    // before it in the page.
+    if (!$('confirm').classList.contains('hidden')) { closeConfirm(); return true; }
     var open = document.querySelector('.modal:not(.hidden)');
-    if (open && open.id === 'confirm') { closeConfirm(); return true; }
     if (open && open.id === 'title') return false;
     if (open && (open.id === 'settings' || open.id === 'archive')) { goBack(); return true; }
-    if (open && open.id === 'end') return true;
+    // The end paper: the file is closed, so Back goes up to the title, where a second Back leaves as anywhere else.
+    if (open && open.id === 'end') { openTitle(); return true; }
     if (open) { only(inGame ? null : 'title'); return true; }
-    if (inGame) { only('menu'); return true; }
+    // The table after 'Look at the Table': the file is closed, so Back is the way to the end paper and its choices.
+    if (inGame && UI.e && UI.e.s.over) { only('end'); return true; }
+    if (inGame) { openMenu(); return true; }
     return false;
   };
+  // The pause menu. Over a closed file (the table looked at after the end) it leads back to the end paper, and the
+  // save and the resignation, which have nothing left to act on, stand down.
+  function openMenu() {
+    var over = !!(UI.e && UI.e.s.over);
+    $('m-end').classList.toggle('hidden', !over);
+    $('m-save').classList.toggle('hidden', over);
+    $('m-new').classList.toggle('hidden', over);
+    only('menu');
+  }
+  UI.openMenu = openMenu;
   click('btn-help', function () { openHelp('game'); });
   UI.openPrecinct = function () { if (UI.e) { CF.Precinct.open(UI.e); only('precinct'); } };
   click('btn-precinct', function () { CF.Precinct.open(UI.e); only('precinct'); });
@@ -374,7 +389,8 @@
   click('m-help', function () { openHelp('game'); });
   click('precinct-close', function () { only(null); });
   click('help-close', function () { if (returnTo === 'title') openTitle(); else only(null); });
-  click('btn-menu', function () { only('menu'); });
+  click('btn-menu', openMenu);
+  click('m-end', function () { only('end'); });
   click('m-resume', function () { only(null); });
   click('m-tidy', function () { if (UI.e) UI.tidy(); only(null); });
   click('m-save', function () { save(); only(null); });
@@ -424,9 +440,10 @@
     t.id = 'update-toast';
     t.className = 'toast k-event';
     t.style.cssText = 'position:fixed;right:calc(12px + var(--sa-r));top:calc(var(--sa-t) + 64px);z-index:1400;width:380px;max-width:calc(100vw - 24px);--bar:var(--art-clabel-06);--icon:var(--art-bround-16)';
-    t.innerHTML = '<b></b><span></span>';
-    t.firstChild.textContent = tr('A new edition is ready');
-    t.lastChild.textContent = tr('Tap to reload.');
+    // The seal sits in the round socket at the left, as on every other toast (js/ui.js toast).
+    t.innerHTML = '<i class="t-icon"></i><b></b><span></span>';
+    t.querySelector('b').textContent = tr('A new edition is ready');
+    t.querySelector('span').textContent = tr('Tap to reload.');
     t.addEventListener('click', function () {
       t.remove();
       save();
@@ -455,8 +472,10 @@
     history.pushState({ cf: 1 }, '');
     window.addEventListener('popstate', function (ev) {
       if (!ev.state || ev.state.cf !== 0) return;
-      if (UI.back()) history.pushState({ cf: 1 }, '');
-      else history.back();
+      // Nothing left to close (the title): the page asks before it is left, as the APK asks for a second Back.
+      // The sentinel goes back at once, so a No keeps the page; a Yes steps past both entries.
+      history.pushState({ cf: 1 }, '');
+      if (!UI.back()) ask('Leave the game?', function () { save(); history.go(-2); });
     });
   }
   if (resume && saveParses()) whenArt(function () { if (continueGame()) UI.setPaused(true); });

@@ -515,11 +515,13 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   var L = game(906);
   L.s.rank = L.rankCap(); L.s.rankWeek = -1;
   L.s.week = 46; L.weekTick();
-  assert.strictEqual(L.s.flags.longService, undefined, 'not told before week 48');
+  assert.ok(typeof L.s.flags.longService !== 'number', 'not told before week 48');
   L.weekTick();
   assert.strictEqual(L.s.flags.longService, 48, 'told at week 48');
   wk = L.s.journal.filter(function (j) { return j.kind === 'week'; })[0];
-  assert.ok(wk.parts.indexOf('The Council is drawing up your pension. Four more weeks.') >= 0, 'on the Bell');
+  // Told once, as its own story ('Your Pension'), not again on the Bell (round 8 review: the same Bell said it twice).
+  var pens = L.s.journal.filter(function (j) { return j.title === CF.LONG_SERVICE.warnTitle; })[0];
+  assert.ok(pens && pens.text === 'The Council is drawing up your pension. Four more weeks.' && wk.parts.indexOf(pens.text) < 0, 'told in its own story, once');
   var road = L.roads().filter(function (x) { return x.id === 'longservice'; })[0];
   assert.ok(road && road.want === 'The Council is drawing up your pension.' && road.frac < 1, 'on the Roads');
   for (var i = 0; i < 3 && !L.s.over; i++) { for (var c = 0; c < 4; c++) L.create('funds'); L.weekTick(); }
@@ -531,7 +533,7 @@ console.log('patrons: arrive, council, sentences, favour all OK');
   // Below the cap at week 52: no pension; the cap reached late is told, and ended four weeks on.
   var N = game(907);
   N.s.week = 51; N.weekTick();
-  assert.ok(!N.s.over && N.s.flags.longService === undefined && N.longServiceDue() === null, 'below the cap, the year goes on');
+  assert.ok(!N.s.over && typeof N.s.flags.longService !== 'number' && N.longServiceDue() === null, 'below the cap, the year goes on');
   N.s.rank = N.rankCap(); N.s.rankWeek = -1; N.s.week = 59; N.weekTick();
   assert.ok(N.s.flags.longService === 60 && N.longServiceDue() === 64 && !N.s.over, 'told when the cap is reached');
   // A hangman's road tops out at Bailiff.

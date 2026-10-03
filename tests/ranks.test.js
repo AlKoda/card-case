@@ -221,6 +221,13 @@ function run(e, verb, cards) {
   assert.strictEqual(byKey.intel.state, 'open');
   assert.ok(CF.Precinct.order(e, 'intel'));
   assert.ok(!CF.Precinct.order(e, 'intel'), 'only one form at a time');
+  // The board's form is the engine's own Petition (e.petition), word for word (round 8 review: a copy of its own).
+  var intelForm = e.cardsOf('order', true).filter(function (c) { return c.data.order === CF.ROOMS.intel.order; })[0];
+  var intelSpec = e.orderSpec(CF.ROOMS.intel.order);
+  assert.ok(intelForm && intelForm.label === intelSpec.label && intelForm.desc === intelSpec.desc, 'the engine\'s own form');
+  e.s.flags.bought = e.s.flags.bought || {}; e.remove(intelForm); e.s.flags.bought[CF.ROOMS.intel.order] = true;
+  assert.ok(!CF.Precinct.order(e, 'intel'), 'a Petition granted is not asked again');
+  delete e.s.flags.bought[CF.ROOMS.intel.order]; assert.ok(CF.Precinct.order(e, 'intel'));
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'ordered');
   e.s.rooms.intel = true;
   assert.strictEqual(CF.Precinct.tiles(e).filter(function (t) { return t.key === 'intel'; })[0].state, 'owned');
@@ -300,7 +307,7 @@ function run(e, verb, cards) {
   var officer = t.create('teammate', t.teammateSpec('rookie'));
   officer.data.traits = ['steady']; officer.data.level = 2;
   t.autoSlot('duty', officer.uid); t.autoSlot('duty', byDef(t, 'funds')[0].uid);
-  assert.ok(/Needs 2 Funds/.test(t.preview('duty').blocked || ''), 'two Funds without the room: ' + JSON.stringify(t.preview('duty')));
+  assert.ok(/Needs 2 Coin/.test(t.preview('duty').blocked || ''), 'two Coin without the room (named as the card is, not by its id funds): ' + JSON.stringify(t.preview('duty')));
   t.clearSlots('duty');
   t.s.rooms.training = true;
   t.autoSlot('duty', officer.uid); t.autoSlot('duty', byDef(t, 'funds')[0].uid);
@@ -513,6 +520,8 @@ function run(e, verb, cards) {
   // With a Witness: held for the Court.
   var w4 = e.create('councilwrit'), wit = e.create('witness', e.witnessSpec(raced));
   var life = wit.life;
+  // It promises what it gives: two weeks more, not 'until the Court sits' (round 8 review).
+  assert.strictEqual(e.councilFavourGives(wit), 'Held for the Court: they stay ' + (CF.FAVOUR_HOLD / CF.WEEK) + ' weeks longer.');
   run(e, 'duty', [w4, wit]);
   assert.ok(e.card(wit.uid) && e.card(wit.uid).life >= life + CF.FAVOUR_HOLD - 15 && e.card(wit.uid).data.held, 'the witness held for the Court');
   // An older save: no writ written yet, and one comes at the next step.
@@ -557,7 +566,11 @@ function run(e, verb, cards) {
   assert.strictEqual(e.councilExpects().n, 1, 'an answered case counts');
   e.s.week += 2;
   var met = e.councilCountWeek();
-  assert.ok(/1 of 1 this fortnight, and is content/.test(met[0]) && e.s.meters.pressure === 0, 'met: the Crowd eases');
+  assert.ok(/1 of 1 this fortnight, and is content/.test(met[0]) && e.s.meters.pressure === 0 && met[1] === 'The Crowd eases.', 'met: the Crowd eases');
+  // More than asked is said as more, and a quiet Crowd is not said to ease (round 8 review: '2 of 1 ... The Crowd eases' at 0).
+  e.s.stats.convictions += 2; e.s.week += 2;
+  var more = e.councilCountWeek();
+  assert.deepStrictEqual(more, ['The Council counts 2 closed this fortnight, more than it asked, and is content.'], 'more than asked, the Crowd already quiet: ' + more);
   // Never a road to dismissal: from Restless up, falling short adds nothing.
   e.s.week += 2; e.s.meters.pressure = 5;
   e.councilCountWeek();
@@ -567,4 +580,32 @@ function run(e, verb, cards) {
   assert.deepStrictEqual(e.councilCountWeek(), [], 'counted only at the fortnight');
   assert.strictEqual(e.councilExpects().m, 2);
   console.log('the Council counts: ok');
+})();
+
+// ---- Screens check-up: a Petition alone in Attend names its price in Coin (the card's name), never 'Funds' (its
+// id); the Watch-house opens on the tile marked Next, scrolling the sideways strip (a phone) or the paper to it.
+(function screensCheckup() {
+  var e = game(5);
+  e.promote(); e.promote();
+  e.tableCards().filter(function (c) { return c.def === 'funds'; }).forEach(function (c) { e.remove(c); });
+  var o = e.petition('prints');
+  assert.ok(o && e.autoSlot('duty', o.uid), 'a Petition into Attend');
+  var why = (e.preview('duty') || {}).blocked;
+  assert.ok(/^Needs \d+ Coin \(you have put in 0\)\.$/.test(why || '') && !/Funds/.test(why), 'the price in Coin: ' + why);
+  // Precinct.showNext, with a stand-in page: the tile far along a strip 900 wide, and below a paper 500 tall.
+  var seg = screens.slice(screens.indexOf('  Precinct.showNext = function'), screens.indexOf('  Precinct.render = function'));
+  assert.ok(seg.length > 0 && /setTimeout\(Precinct\.showNext, 0\)/.test(screens), 'the board scrolls to Next once it is shown');
+  function box(l, t, w, h) { return { left: l, top: t, right: l + w, bottom: t + h, width: w, height: h }; }
+  var body = { getBoundingClientRect: function () { return box(0, 0, 915, 412); } };
+  var paper = { parentNode: body, scrollWidth: 900, clientWidth: 900, scrollHeight: 1400, clientHeight: 500, scrollLeft: 0, scrollTop: 0, getBoundingClientRect: function () { return box(0, 0, 900, 500); } };
+  var strip = { parentNode: paper, scrollWidth: 2400, clientWidth: 900, scrollHeight: 300, clientHeight: 300, scrollLeft: 0, scrollTop: 0, getBoundingClientRect: function () { return box(0, 0, 900, 300); } };
+  var tile = { parentNode: strip, getBoundingClientRect: function () { return box(1800 - strip.scrollLeft, 700 - paper.scrollTop, 270, 180); } };
+  var doc = { body: body, querySelector: function (sel) { return sel === '#precinct-grid .room.next' ? tile : null; } };
+  var P = { };
+  vm.runInNewContext('(function () { var Precinct = P;\n' + seg + '})();', { P: P, document: doc });
+  P.showNext();
+  var r = tile.getBoundingClientRect();
+  assert.ok(r.left >= 0 && r.right <= 900, 'the strip brings Next into view: ' + r.left + '..' + r.right);
+  assert.ok(r.top >= 0 && r.bottom <= 500, 'and the paper too: ' + r.top + '..' + r.bottom);
+  console.log('screens check-up: the price in Coin, the board opens on Next: ok');
 })();

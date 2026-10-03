@@ -75,7 +75,7 @@
       { text: 'They give you a bell, a Mass and a line in the Rolls. The people who did it are drinking to your memory in a cellar by the Harbour.' },
     ],
     merciful: [
-      { when: function (st) { return st.reformed === 1; }, text: '{sentHome} times you sent a poor sinner home instead of to the Ravenstone, and one of them is a citizen now with a stall in the Market and children who do not know what their parents were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
+      // The ending needs CF.Societies.MERCIFUL.reformed (four) citizens made, so it is always told in the plural.
       { text: '{sentHome} times you sent a poor sinner home instead of to the Ravenstone, and {reformed} of them are citizens now with stalls in the Market and children who do not know what their parents were. The Council never understood it. The city did. When you go, they carry the bier themselves.' },
     ],
     hangmans: [
@@ -323,22 +323,8 @@
   };
 
   // ---- The Year ---------------------------------------------------------------------
-  // Fifty-two weeks to a year, a quarter to a season (CF.SEASONS in engine.js: the names, the
-  // Bell's line, and the crimes a season brings). Here, the words read from them: the season of a
-  // week (the week bar's tooltip) and the Bell's line on a season's first week.
-  // The season of a week: { id, name, first (its first week, this year), year (1, 2...) }.
-  Story.season = function (week) {
-    var Y = CF.YEAR_WEEKS || 52, w = Math.max(1, week || 1), at = (w - 1) % Y + 1, sw = CF.SEASONS[0];
-    CF.SEASONS.forEach(function (x) { if (at >= x.from) sw = x; });
-    return { id: sw.id, name: sw.name, first: w - (at - sw.from), year: Math.floor((w - 1) / Y) + 1 };
-  };
-  // The season's line on its first week ('Week 27. The Plague Summer: ...'), else null.
-  CF.SEASON_BELL = 'Week {n}. {line}';
-  Story.seasonBell = function (week) {
-    var se = Story.season(week);
-    if (se.first !== week) return null;
-    return U.fill(CF.SEASON_BELL, { n: week, line: CF.SEASONS.filter(function (x) { return x.id === se.id; })[0].line });
-  };
+  // Fifty-two weeks to a year, a quarter to a season: CF.SEASONS in engine.js holds the names, the
+  // Bell's line and the crimes a season brings, and e.season() / e.seasonLine() read them (one place).
 
   // The Assize: halfway through the year the Council sits as a court and its clerk reads your
   // service aloud. Story.assize tells it from s.stats, one sentence per thing the Rolls hold, so

@@ -272,12 +272,26 @@
     var T = a.rec && CF.CASE_TEMPLATES[a.rec.template];
     if (a.tier === 'reasonable') notes.push({ kind: 'bad', text: 'Half proof: the Court would convict of ' + (T && T.lesser ? T.lesser : 'the lesser crime') + ', and the ladder stops at banishment.' });
     if (a.tier !== 'strong') {
-      var gaps = rows.filter(function (r) { return r.have < r.need; }).map(function (r) { return CF.ASPECTS[r.aspect].label + ' ' + (r.need - r.have); });
-      // Every row met: full proof wants a word behind the rows, and confronting the accused is the honest road to one.
+      // What full proof still wants, read off the dark seals (not off every row: a row short of its mark is
+      // not wanted when the seals are lit by other proof). Each seal names the proof that would light it.
       var dark = (a.gates || []).filter(function (g) { return !g.ok; }).map(function (g) { return g.id; });
-      if (dark.length === 1 && dark[0] === 'word') notes.push({ kind: 'dim', text: 'Word behind it: a witness\'s Deposition, two tokens bound in Rest, a hand matched to them, or a free confession. Confront them in Question with a token of the case.' });
-      else if (!gaps.length) notes.push({ kind: 'dim', text: 'To full proof: a witness, a token that names them, or a confession freely given. Confront them in Question with a token of the case.' });
-      else notes.push({ kind: 'dim', text: 'To full proof: ' + gaps.join(', ') + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
+      var labelOf = function (r) { return CF.ASPECTS[r.aspect].label; };
+      var open = rows.filter(function (r) { return r.have < r.need; }).map(labelOf);
+      var bare = rows.filter(function (r) { return !r.have; }).map(labelOf);
+      // The kinds as a list the eye reads at once, Body / Coin, in any language.
+      var orList = function (xs) { return xs.join(' / '); };
+      var wants = [];
+      if (dark.indexOf('enough') >= 0) {
+        var short = Math.max(0.5, Math.ceil((a.need - a.score) * 2) / 2);
+        wants.push(open.length ? U.fill('{n} more proof, such as {rows}', { n: short, rows: orList(open) }) : U.fill('{n} more proof', { n: short }));
+      }
+      if (dark.indexOf('kinds') >= 0) wants.push(bare.length ? U.fill('a second kind the case turns on, such as {rows}', { rows: orList(bare) }) : 'a second kind the case turns on');
+      if (dark.indexOf('word') >= 0 && dark.length > 1) wants.push('a word behind it');
+      if (dark.indexOf('clean') >= 0) wants.push('without the tokens marked Someone else');
+      // Only the word dark: confronting the accused is the honest road to one.
+      if (dark.length === 1 && dark[0] === 'word') notes.push({ kind: 'dim', id: 'word', text: 'Word behind it: a witness\'s Deposition, two tokens bound in Rest, a hand matched to them, or a free confession. Confront them in Question with a token of the case.' });
+      else if (!wants.length) notes.push({ kind: 'dim', text: 'To full proof: a witness, a token that names them, or a confession freely given. Confront them in Question with a token of the case.' });
+      else notes.push({ kind: 'dim', text: 'To full proof: ' + wants.join('; ') + (a.witnesses === 1 ? '; or a second witness who wants something else' : '') + '; or a confession, freely given.' });
     }
     return { rows: rows, notes: notes, bad: bad, wordWanted: !!a.wordWanted, gates: a.gates || [], fullBy: a.fullBy || null, standing: a.standing || {}, score: Math.round(a.score * 10) / 10, need: a.need, tier: a.tier, tierLabel: Charge.TIERS[a.tier].label, tierText: Charge.TIERS[a.tier].text,
       tierGloss: Charge.TIERS[a.tier].gloss };

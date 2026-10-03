@@ -175,7 +175,6 @@
   // The Rival is hunted a thread a week: careful until the Bell after the last one was found.
   function rivalCareful(card) { var d = card.data || {}; return d.heatWeek !== undefined && d.heatWeek !== null && UI.e.s.week <= d.heatWeek; }
   // The way the next thread must come: the other verb from the first one's, or either.
-  function rivalNextWay(card) { var d = card.data || {}; return !d.heat ? null : d.heatBy === 'interrogate' ? 'investigate' : d.heatBy === 'investigate' ? 'interrogate' : null; }
   // Whether the rules want the Rival caught at it for the second thread: Question then has a slot, beside the
   // Rival, for their own dirty work (a token, a witness or a case). Read off the verb, so the interface follows
   // the rules whether or not they carry it.
@@ -207,7 +206,7 @@
   var RING_LEN = 2 * (240 + 240) - 8 * 20 + 2 * Math.PI * 20;
 
   // The face of a card: {art, fam, tone, gray, banded}.
-  function full(art, tone, gray) { return { art: art, fam: 'full', tone: tone || 'gold', gray: !!gray, banded: /^(cplace3|cstory)-/.test(art) }; }
+  function full(art, tone, gray) { return { art: art, fam: 'full', tone: tone || 'gold', gray: !!gray, banded: /^(cplace3|cstory)-/.test(art), storyBand: /^cstory-/.test(art) }; }
   function icon(art, tone, gray) { return { art: art, fam: 'icon', tone: tone || 'gold', gray: !!gray }; }
   function cardPicture(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, tone = PIC_TONE[k] || 'gold';
@@ -246,7 +245,7 @@
   var UI = (CF.UI = {
     e: null, openVerbs: [], selected: null, hover: null, hoverSlot: null,
     speed: 1, paused: false, modal: false, drag: null,
-    view: { x: 16, y: 16, z: 1 }, winPos: {}, lifted: null, spawn: {},
+    view: { x: 16, y: 16, z: 1 }, lifted: null, spawn: {},
     onGameOver: null, onSave: null,
   });
   UI.personArt = personArt;
@@ -290,7 +289,6 @@
     UI.typing = null;
     boundsCache = null;
     UI.spawn = {};
-    UI.winPos = {};
     UI.seenVerbs = {};
     UI.newVerbs = {};
     UI.lastRank = engine.s.rank;
@@ -301,10 +299,6 @@
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
     pileEl = null; choiceEl = null; linkEl = null; pinEl = null;
     Object.keys(goneWhy).forEach(function (k) { delete goneWhy[k]; });
-    // The grid over the whole table: its cells line up with the tidy layout.
-    var B = T.BOUNDS, grid = h('div', 'grid');
-    grid.style.left = B.x + 'px'; grid.style.top = B.y + 'px'; grid.style.width = B.w + 'px'; grid.style.height = B.h + 'px';
-    $('#board').appendChild(grid);
     applyTableSettings();
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
@@ -317,6 +311,7 @@
     UI.dockH = undefined;
     $('#btn-journal').classList.remove('unread');
     $('#journal-drawer').classList.remove('open');
+    if (document.body) document.body.classList.remove('has-journal');
     $('#peek').classList.remove('open');
     cardEls = {}; verbEls = {}; winEls = {}; liveCards = []; UI.verdictWait = null; UI.strainSeen = null;
     engine.on(onEvent);
@@ -345,15 +340,25 @@
       // The pile strip is sized by the pitch: it is rebuilt on the next sync.
       if (pileEl) { pileEl.remove(); pileEl = null; }
     }
-    var g = document.querySelector('#board .grid'), B = T.BOUNDS;
+    var g = document.querySelector('#board .grid'), B = T.BOUNDS, board = document.querySelector('#board');
+    // The grid over the whole table: its cells line up with the tidy layout. A board emptied (a new game, a change
+    // of language) gets it again, first under everything else on the table.
+    if (!g && board && UI.e) {
+      g = h('div', 'grid');
+      g.style.left = B.x + 'px'; g.style.top = B.y + 'px'; g.style.width = B.w + 'px'; g.style.height = B.h + 'px';
+      board.insertBefore(g, board.firstChild);
+    }
     if (g) {
       g.classList.toggle('hidden', CF.Settings.get('grid') === false);
       g.style.backgroundSize = T.PX + 'px ' + T.PY + 'px';
       g.style.backgroundPosition = (((0 - B.x) % T.PX) + T.PX) % T.PX + 'px ' + (((T.TOP - B.y) % T.PY) + T.PY) % T.PY + 'px';
     }
     UI.gridPitch = T.PX + 'x' + T.PY;
+    // The case strings (and anything else a setting shapes on the table) are drawn by the next render, at once.
+    if (UI.e) UI.e.dirty = true;
   }
   CF.Settings.onChange(applyTableSettings);
+  UI.applyTableSettings = applyTableSettings;
   // The language: every word on the page is re-read through CF.T, and the
   // table is rebuilt so the cards and verbs pick up their new names.
   UI.applyLang = function () {
@@ -522,7 +527,10 @@
       else zoomAt(r.left + r.width / 2, r.top + r.height / 2, b.dataset.zoom === 'in' ? 1.15 : 1 / 1.15);
     });
     document.addEventListener('keydown', function (ev) {
-      if (UI.modal || ev.target.tagName === 'INPUT') return;
+      if (ev.target.tagName === 'INPUT') return;
+      // Escape over a menu, a screen or a question is Back: the top one is put away, as Android's Back and the
+      // browser's do (UI.back, js/main.js UI.onBack). The title has nothing under it and stays.
+      if (UI.modal) { if (ev.key === 'Escape') { ev.preventDefault(); UI.back(); } return; }
       // Enter on a focused button is that button's click, not Begin.
       if (ev.key === 'Enter' && /^(BUTTON|SELECT|TEXTAREA|A)$/.test(ev.target.tagName)) return;
       if (ev.code === 'Space') { ev.preventDefault(); UI.setPaused(!UI.paused); }
@@ -554,10 +562,11 @@
     // Long presses on a tablet must not open the browser's context menu.
     document.addEventListener('contextmenu', function (ev) { if (ev.target.closest && ev.target.closest('#table')) ev.preventDefault(); });
     document.addEventListener('dblclick', onDoubleClick);
+    UI.wheelScrolls = function (t) { return !!(t && t.closest && t.closest('.vwin, #journal-drawer, #peek.pinned')); };
     $('#table').addEventListener('wheel', function (ev) {
       if (UI.modal) return;
-      // Inside a verb window the wheel scrolls the window, not the table.
-      if (ev.target.closest && ev.target.closest('.vwin')) return;
+      // Inside a verb window, the Journal or a pinned dossier the wheel scrolls that paper, not the table.
+      if (UI.wheelScrolls(ev.target)) return;
       ev.preventDefault();
       wheelAcc += ev.deltaY; wheelAt = { x: ev.clientX, y: ev.clientY };
       if (!wheelRaf) wheelRaf = requestAnimationFrame(function () { wheelRaf = 0; var d = wheelAcc; wheelAcc = 0; zoomAt(wheelAt.x, wheelAt.y, Math.exp(-d * 0.0015)); });
@@ -655,14 +664,17 @@
     app.classList.add('shake');
   }
 
-  // What ignoring an ask costs: the spec's penalty, found by the ask's label when the verb does not carry it.
+  // What ignoring an ask costs: the spec's penalty, as the engine reads the ask (a case's own door, 'A battened
+  // hatch', is the plain 'A locked door' under its scene's words: e.askSpec puts them together).
   function askPenalty(vid) {
-    var v = UI.e.verb(vid);
+    var e = UI.e, v = e.verb(vid);
     if (!v || !v.ask) return null;
     if (v.ask.penalty !== undefined) return v.ask.penalty || null;
-    var spec = (CF.ASKS || []).filter(function (a) { return a.label === v.ask.label && (!a.when || a.when(v.recipe, vid)); })[0];
+    var spec = e.askSpec ? e.askSpec(v) : null;
+    if (!spec) spec = (CF.ASKS || []).filter(function (a) { return a.label === v.ask.label && (!a.when || a.when(v.recipe, vid)); })[0];
     return spec && spec.penalty ? spec.penalty : null;
   }
+  UI.askPenalty = askPenalty;
 
   // The verdict has its moment where the player was watching: on the Blood Court card whose clock ran out (for a case
   // gone cold, on the case card), kept a moment as a ghost after the engine has taken it. The stamp is a wax unlike the
@@ -695,14 +707,18 @@
       var at = rec.at && rec.at.x !== undefined ? rec.at : el.cfAt;
       var from = e.s.nextUid || 0;
       // What the verdict makes waits under the stamp until the ghost gives it up.
-      UI.verdictWait = trial ? { from: from } : null;
+      var wait = UI.verdictWait = trial ? { from: from } : null;
       setTimeout(function () {
         if (UI.e !== e) { el.remove(); return; } // another game since
-        UI.verdictWait = null;
+        // A later verdict in the same hold keeps its own wait (and its cards) until its stamp lifts.
+        var later = UI.verdictWait && UI.verdictWait !== wait ? UI.verdictWait.from : Infinity;
+        if (UI.verdictWait === wait) UI.verdictWait = null;
         var made = e.tableCards().filter(function (c) { return c.uid >= from && (c.def === 'condemned' || c.def === 'atlarge'); }).sort(function (a, b) { return b.uid - a.uid; })[0];
         var mel = made && cardEls[made.uid];
+        // Every card that waited under the stamp shows now, not only the one the ghost gives up: two verdicts in
+        // one hold, or a Condemned that joined a stack meanwhile, are never left unseen.
+        Object.keys(cardEls).forEach(function (k) { if (+k < later && cardEls[k].classList.contains('awaiting')) cardEls[k].classList.remove('awaiting'); });
         if (mel) {
-          mel.classList.remove('awaiting');
           if (at && !calm()) {
             mel.classList.add('no-anim');
             place(mel, at.x, at.y);
@@ -731,17 +747,12 @@
     if (trial) { CF.Audio.play(outcome === 'acquitted' ? 'acquit' : 'convict'); UI.haptic('heavy'); }
   }
 
-  // A strain card (the Fever, a Fixation) that a story just announced: the newest of its kind on the table.
+  // A strain card (the Fever, a Fixation) that a story just announced: the card the story names (entry.uid).
   var STRAIN_DEFS = ['burnout', 'tunnel'];
   function strainOfStory(entry) {
-    if (!entry || entry.kind !== 'danger' || !UI.e) return null;
-    for (var i = 0; i < STRAIN_DEFS.length; i++) {
-      var def = CF.CARDS[STRAIN_DEFS[i]];
-      if (!def || entry.title !== def.label) continue;
-      var c = UI.e.cardsOf(STRAIN_DEFS[i]).sort(function (a, b) { return b.uid - a.uid; })[0];
-      return c ? c.uid : null;
-    }
-    return null;
+    if (!entry || entry.kind !== 'danger' || !entry.uid || !UI.e) return null;
+    var c = UI.e.card(entry.uid);
+    return c && STRAIN_DEFS.indexOf(c.def) >= 0 ? c.uid : null;
   }
   function strainArrived(uid) {
     var e = UI.e, c = e && e.card(uid);
@@ -787,10 +798,13 @@
     }
     if (type === 'choice') {
       CF.Audio.play('start');
+      // The question stands on the table with its words: its story's toast (the Journal keeps it) would only lie
+      // over the answers, at the right of the table where the choice is put.
+      Array.prototype.slice.call($('#toasts').children).forEach(function (t) { if (t.dataset && t.dataset.title === payload.title) t.remove(); });
       if (UI.openVerbs.length) closeAllWindows();
-      var sp = UI.e.choiceSpot();
       UI.viewBefore = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
-      panToBoard(sp.x, sp.y, 380, 300);
+      // The camera goes once the question stands on the table (the render after this), so it is framed whole.
+      UI.choicePan = true;
     }
     if (type === 'chosen') UI.saveSoon = true;
     if (type === 'chosen' && UI.viewBefore) {
@@ -900,6 +914,7 @@
     var text = entry.kind === 'verb' ? 'Tap to read' : entry.parts ? storyText(entry) : entry.text || '';
     // The medallion is its own element, so a right-to-left bar can be mirrored under it while the icon is not.
     t.innerHTML = '<i class="t-icon"></i><b>' + esc(entry.title) + '</b><span>' + esc(text) + '</span>';
+    t.dataset.title = entry.title || '';
     var stay = TOAST_LONG[entry.kind] ? 9000 : 6000;
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
@@ -936,6 +951,7 @@
       renderInspector();
       renderControls();
       renderHint();
+      if (UI.choicePan) { UI.choicePan = false; if (e.s.choice) panToChoice(); }
     } finally { e._memo = null; }
   }
 
@@ -950,6 +966,8 @@
   UI.toggleJournal = function (on) {
     var open = on === undefined ? !$('#journal-drawer').classList.contains('open') : !!on;
     $('#journal-drawer').classList.toggle('open', open);
+    // The toasts stand clear of the open drawer (the stylesheet), not over the Roads at its head.
+    if (document.body) document.body.classList.toggle('has-journal', open);
     $('#btn-journal').classList.toggle('on', open);
     if (open) { UI.journalSeen = UI.e ? UI.e.s.journal.length : 0; $('#btn-journal').classList.remove('unread'); }
   };
@@ -1055,6 +1073,9 @@
     var spentOf = function (ab) { return has(CF.CARDS[ab].spends || 'spent_' + ab).sort(function (a, b) { return a.life - b.life; })[0]; };
     var cases = table.filter(function (c) { return c.def === 'case'; });
     var open = cases.map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
+    // An open case's card lying in an idle verb's slot is still in hand: the desk is not empty.
+    var held = e.cardsOf('case', true).filter(function (c) { return c.loc.t === 'slot' && idle(c.loc.verb); }).map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
+    var inHand = open.length + held.length;
     var wit = has('focus')[0], hp = has('health')[0];
     // A case about to go cold with somebody to charge.
     if (e.verb('arrest').unlocked && idle('arrest')) for (var ci = 0; ci < open.length; ci++) {
@@ -1080,19 +1101,19 @@
     // The underworld's grudge, and nothing to meet it with.
     if (meterLevel('retaliation') >= 3 && !hp && idle('reflect')) return tr('The Vendetta is high and you are Winded: an attack now would find you without Health. Rest before the Bell.');
     // The Rival has acted twice and still has their desk.
-    // One thread a week (data.heatWeek), and the second found the other way (data.heatBy: the verb of the
-    // first), where the engine keeps them; without them, the Wit line alone.
+    // One thread a week (data.heatWeek); the second is the Rival caught at their own work (rivalCatch), where the
+    // rules want it; without that, Wit or Instinct again.
     var rival = table.filter(function (c) { return c.def === 'rival'; })[0];
     if (rival && (rival.data.heat || 0) < 2 && !rivalCareful(rival) && s.journal.filter(function (j) { return RIVAL_TITLES.test(j.title); }).length >= 2) {
-      var rname = rival.data.name || e.labelOf(rival), rnext = rivalNextWay(rival), inst = has('instinct')[0];
+      var rname = rival.data.name || e.labelOf(rival), inst = has('instinct')[0];
       // Caught at it: the second thread is their own dirty work, put before them in Question.
       if (rival.data.heat && rivalCatch(rival)) {
         var dirt = rivalDirt(e)[0];
         if (dirt && can('interrogate')) { UI.hintGo = { uid: dirt.uid }; return tr('One thread on the Rival. Now catch them at it: Question {name} with {label}.', { name: rname, label: e.labelOf(dirt) }); }
-      } else if (rnext !== 'investigate' && wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
-      else if (rnext !== 'interrogate' && inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
-      else if (rnext !== 'investigate' && !wit && spentOf('focus') && CF.VERBS.interrogate && e.verb('interrogate').unlocked) return spentLine('focus', spentOf('focus'));
-      else if (rnext !== 'interrogate' && !inst && spentOf('instinct') && e.verb('investigate').unlocked) return spentLine('instinct', spentOf('instinct'));
+      } else if (wit && can('interrogate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: Question {name} with Wit.', { name: rname }) : tr('The Rival has moved twice. Question {name} with Wit to find their weakness.', { name: rname }); }
+      else if (inst && can('investigate')) { UI.hintGo = { uid: rival.uid }; return rival.data.heat ? tr('One thread on the Rival. Pull it: shadow {name} in Explore with Instinct.', { name: rname }) : tr('The Rival has moved twice. Shadow {name} in Explore with Instinct to find their weakness.', { name: rname }); }
+      else if (!wit && spentOf('focus') && CF.VERBS.interrogate && e.verb('interrogate').unlocked) return spentLine('focus', spentOf('focus'));
+      else if (!inst && spentOf('instinct') && e.verb('investigate').unlocked) return spentLine('instinct', spentOf('instinct'));
     }
     // Two leaves from the Customs House open the Harbourmaster's Books, where the rules have that case.
     var leafDef = customsLeafDef(), leafRec = recipeOf(leafDef), leaves = leafRec ? freeOf(leafDef).filter(function (c) { return c.loc.t === 'table'; }) : [];
@@ -1102,6 +1123,9 @@
     }
     var insight = table.filter(function (c) { return c.def === 'insight' && c.data && CF.INSIGHTS[c.data.insight] && !e.unavailableReason(c); })[0];
     if (insight && can('reflect')) return tr('An Insight waits: put {label} into Rest alone to learn it, or with your {ability} to keep it as a trick.', { label: e.labelOf(insight), ability: tr(CF.CARDS[CF.INSIGHTS[insight.data.insight].trains].label) });
+    // A case laid in an idle verb's slot and left there: the plate is waiting to be pressed.
+    var laid = held.filter(function (x) { var pv = e.preview(x.card.loc.verb); return pv && pv.label && !pv.blocked; })[0];
+    if (laid) return tr('{title} lies in {verb}: press {recipe}.', { title: laid.rec.title, verb: tr(CF.VERBS[laid.card.loc.verb].label), recipe: tr(e.preview(laid.card.loc.verb).label) });
     if (can('investigate')) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
     var raw = has('evidence')[0];
     if (raw && can('analyze')) return tr('Raw proof waits: put {label} into Study to read it.', { label: e.labelOf(raw) });
@@ -1135,9 +1159,9 @@
     if (can('investigate')) for (var m = 0; m < open.length; m++) if (open[m].rec.found < open[m].rec.items.length) return tr('The scene has more to give: search {title} again.', { title: open[m].rec.title });
     var fat = has('fatigue').length;
     if (fat >= 2 && can('reflect')) return tr('Weariness is piling up: put one into Rest before the fever takes you.');
-    if ((has('funds').length < 2 || !open.length) && !hp && spentOf('health') && can('duty')) return spentLine('health', spentOf('health'));
+    if ((has('funds').length < 2 || !inHand) && !hp && spentOf('health') && can('duty')) return spentLine('health', spentOf('health'));
     if (has('funds').length < 2 && hp && can('duty')) return tr('Coin is short: Attend with Health earns your keep.');
-    if (!open.length && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
+    if (!inHand && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
     // The scene is searched out (the rule above caught every other): another search only feeds an Obsession. Door to
     // door, if the case's own Quarter is on the table and somebody there is still to be met; else charge or let go.
     if (can('investigate')) for (var dd = 0; dd < open.length; dd++) {
@@ -1182,7 +1206,7 @@
     var go = UI.hintGo;
     if (!go || !UI.e) return;
     if (go.uid !== undefined) { if (UI.panTo(go.uid)) return; }
-    if (go.spot) panToBoard(go.spot.x, go.spot.y, 380, 300);
+    if (go.spot) { if (choiceEl && UI.e.s.choice) panToChoice(); else panToBoard(go.spot.x, go.spot.y, 380, 300); }
   };
   var adviceShown = null;
   function showAdvice(hint, text) {
@@ -1353,6 +1377,7 @@
     var info = METER_INFO[key]; if (!info) return;
     var box = $('#peek');
     UI.selected = null; UI.hover = null;
+    box.classList.remove('far');
     box.dataset.uid = 'meter:' + key; box.dataset.sig = '';
     peekHead(METER_ICONS[key], info.title);
     var ends = key === 'reputation' && UI.e ? repTarget(UI.e).line : info.ends;
@@ -1423,17 +1448,17 @@
   // The highest office open to you: the origins system caps a hangman at Bailiff.
   function rankCap(e) { return e.rankCap ? e.rankCap() : CF.TOP_RANK; }
   // What Standing is climbing toward: the next office up to the cap (a hangman's ends at Bailiff); at the top, the
-  // Seat for a Commissioner; past that, the Council's next favour where the rules grant them (CF.FAVOUR_EVERY
+  // Seat for a Commissioner; past that, the Council's next favour where the rules grant them (CF.FAVOUR_STEP
   // Standing past the last office, s.flags.favourStep given so far); else nothing further. Its line says which.
   function repTarget(e) {
-    var s = e.s, m = s.meters, cap = rankCap(e), every = CF.FAVOUR_EVERY;
+    var s = e.s, m = s.meters, cap = rankCap(e), every = CF.FAVOUR_STEP;
     if (s.rank < cap) return { max: CF.RANK_REP[s.rank + 1], line: 'At each threshold the Council writes: a new office, more cases, a bigger stipend, and the powers that come with the rank.' };
     if (s.calling === 'commissioner' && s.rank === CF.TOP_RANK && m.reputation < CF.COMMISSIONER_REP) return { max: CF.COMMISSIONER_REP, line: tr('At {n} Standing the Council offers you the Seat.', { n: CF.COMMISSIONER_REP }) };
     // The rules' own next writ (engine favourNext(): the Standing of the next Writ of the Council).
     var fav = null;
     try { fav = typeof e.favourNext === 'function' ? e.favourNext() : null; } catch (err) { fav = null; }
-    if (fav && typeof fav.at === 'number') return { max: fav.at, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: CF.FAVOUR_STEP || every || 4 }) };
-    if (typeof every === 'number' && every > 0) {
+    if (fav && typeof fav.at === 'number') return { max: fav.at, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: every || 4 }) };
+    if (typeof e.favourNext !== 'function' && typeof every === 'number' && every > 0) {
       var step = (s.flags && typeof s.flags.favourStep === 'number' ? s.flags.favourStep : 0) + 1;
       return { max: CF.RANK_REP[cap] + every * step, line: tr('Past the last office, every {n} Standing the Council grants you a favour.', { n: every }) };
     }
@@ -1562,8 +1587,8 @@
     // What a verdict's stamp looks for once the card has left the state: its case, its kind, its place.
     n.cfCase = card.caseId || (card.data && card.data.caseId) || null; n.cfDef = card.def;
     n.classList.toggle('facedown', !!card.hidden);
-    n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b|\bbanded\b/g, '').trim() +
-      ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (pic.banded ? ' banded' : '') + (count > 1 ? ' stack-' + Math.min(3, count) : '');
+    n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b|\bbanded\b|\bband-story\b/g, '').trim() +
+      ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (pic.banded ? ' banded' : '') + (pic.storyBand ? ' band-story' : '') + (count > 1 ? ' stack-' + Math.min(3, count) : '');
     n.innerHTML = '';
     n._time = undefined; n._ring = null; n._urgent = undefined; // the live children are rebuilt below
     for (var i = Math.min(2, count - 1); i > 0; i--) {
@@ -1698,6 +1723,11 @@
     cards.forEach(function (c) { if (c.loc.x >= pile.x && c.loc.x < pile.x + pw && c.loc.y >= pile.y && c.loc.y < pile.y + T.CH) pileEnd = Math.max(pileEnd, c.loc.x + T.CW); });
     if (pileEnd > -Infinity) { x0 = Math.min(x0, pile.x); y0 = Math.min(y0, pile.y - 30); x1 = Math.max(x1, pileEnd); y1 = Math.max(y1, pile.y + T.CH); }
     if (!cards.length) { x0 = 0; y0 = T.TOP; x1 = 4 * (T.CW + T.GAP); y1 = T.TOP + T.CH; }
+    // A choice waiting on the table is part of it: the Fit takes it in whole, its last answer with it.
+    if (e.s.choice && choiceEl && choiceEl.offsetWidth && typeof e.choiceSpot === 'function') {
+      var cs = e.choiceSpot();
+      x0 = Math.min(x0, cs.x); y0 = Math.min(y0, cs.y); x1 = Math.max(x1, cs.x + choiceEl.offsetWidth); y1 = Math.max(y1, cs.y + choiceEl.offsetHeight);
+    }
     return (boundsCache = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
   }
 
@@ -1713,17 +1743,52 @@
     bandCache = { top: r.top, h: h };
     return h;
   }
-  // Fit the whole board into the table area.
+  // Fit the whole board into the table area, as the eye sees it: the table is tilted, so the near rows stand
+  // wider and taller on the screen than on the plane. The fit is measured through the tilt (toPlane), not on the
+  // flat plane, or the near corners would run off the sides while the far side of the felt stood empty.
+  // Lean in when there is little on the table (to 1.25); stand back as far as a pinch can for a full one. A phone
+  // on its side is short for the tiles' row and four rows of cards: the farthest zoom (0.3) still shows them whole
+  // (pure icons, the clocks counter-scaled by --zk), so the Fit can keep its word there too.
+  UI.Z_MIN = 0.3;
   UI.fitView = function () {
     if (!UI.e) return;
+    tiltChanged();
     var r = $('#table').getBoundingClientRect();
     var b = boardBounds();
-    bandCache = null;
     var dockH = toolBand(r);
-    // Fit what is on the table, and lean in when there is little of it.
-    // Upright on a phone the fit may go as far as a pinch can (0.4), so more of each row is in sight.
-    var z = U.clamp(Math.min((r.width - 60) / b.w, (r.height - dockH - 60) / b.h), portraitPhone() ? 0.4 : 0.5, 1.25);
-    UI.view = { x: (r.width - b.w * z) / 2 - b.x * z, y: dockH + Math.max(20, (r.height - dockH - b.h * z) / 2) - b.y * z, z: z };
+    var box = { l: 30, r: r.width - 30, t: dockH + 20, b: r.height - 20 }, cx = r.width / 2;
+    // A phone on its side docks the hint at the foot of the felt: the fit stops above it while it shows.
+    var hint = $('#hint');
+    if (hint && !hint.classList.contains('gone') && hint.textContent && hint.getBoundingClientRect) {
+      var hr = hint.getBoundingClientRect();
+      if (hr.height > 0 && hr.top > r.top + r.height / 2) box.b = Math.min(box.b, hr.top - r.top - 6);
+    }
+    if (box.b - box.t < 40) box = { l: 0, r: r.width, t: dockH, b: r.height };
+    var top = toPlane(cx, box.t).y, bot = toPlane(cx, box.b).y;
+    var sy = function (py) { return fromPlane(0, py).y; };
+    // Where the board stands at zoom z: its far edge on the plane (centred down the screen, or at the top when it
+    // is too tall), and its left edge (centred across the narrower of its far and near rows).
+    function at(z) {
+      var W = b.w * z, H = b.h * z, y0 = top, lo = top, hi = bot - H;
+      var fitsV = hi >= lo;
+      if (fitsV) {
+        for (var i = 0; i < 24; i++) { y0 = (lo + hi) / 2; if (sy(y0) - box.t < box.b - sy(y0 + H)) lo = y0; else hi = y0; }
+        y0 = (lo + hi) / 2;
+      }
+      var ya = sy(y0), yb = Math.min(sy(y0 + H), r.height * 2);
+      var l = Math.max(toPlane(box.l, ya).x, toPlane(box.l, yb).x), rr = Math.min(toPlane(box.r, ya).x, toPlane(box.r, yb).x);
+      return { ok: fitsV && W <= rr - l, x0: (l + rr) / 2 - W / 2, y0: y0 };
+    }
+    var zLo = UI.Z_MIN, zHi = 1.25, z = zHi, best = at(zHi);
+    if (!best.ok) {
+      var low = at(zLo);
+      if (!low.ok) { z = zLo; best = low; }
+      else {
+        for (var k = 0; k < 16; k++) { var zm = (zLo + zHi) / 2, m = at(zm); if (m.ok) { zLo = zm; low = m; } else zHi = zm; }
+        z = zLo; best = low;
+      }
+    }
+    UI.view = { x: best.x0 - b.x * z, y: best.y0 - b.y * z, z: z };
     applyView();
   };
 
@@ -1808,7 +1873,7 @@
 
   function zoomAt(cx, cy, factor, rect) {
     var r = rect || $('#table').getBoundingClientRect();
-    var v = UI.view, z = U.clamp(v.z * factor, 0.4, 1.6);
+    var v = UI.view, z = U.clamp(v.z * factor, UI.Z_MIN, 1.6);
     var pp = toPlane(cx - r.left, cy - r.top), px = pp.x, py = pp.y;
     v.x = px - (px - v.x) * (z / v.z);
     v.y = py - (py - v.y) * (z / v.z);
@@ -1899,8 +1964,13 @@
       pileEl.appendChild(h('span', 'pz-label', 'New cards'));
       board.appendChild(pileEl);
     }
-    if (!(UI.drag && UI.drag.kind === 'pile')) place(pileEl, pile.x - 9, pile.y - 8);
+    if (!(UI.drag && UI.drag.kind === 'pile')) placePile(pileEl, pile.x, pile.y);
   }
+  // The pile is set by left and top, not a transform: a transform would make the strip a stacking context of its
+  // own, and its tab and label (z-index 2 in the stylesheet) would sink under the cards (z-index 1) of the row
+  // above, where a finger or the mouse could no longer take hold of them.
+  function placePile(el, x, y) { el.style.left = Math.round(x - 9) + 'px'; el.style.top = Math.round(y - 8) + 'px'; }
+  UI.placePile = placePile;
   // Glide the camera to a point on the board.
   // A notice: a pulse on something worth a look, or, when it is off the
   // screen, a marker at the table's edge pointing to it. Tapping it goes there.
@@ -1926,6 +1996,7 @@
       var entry = { el: el, mark: mark, uid: spec.uid, verb: spec.verb, until: performance.now() + 12000 };
       UI.notices.push(entry);
       placeMark(entry);
+      layoutMarks();
     }, spec.fresh ? 450 : 50);
   };
   function removeMark(mark) { mark.remove(); UI.notices = UI.notices.filter(function (n) { return n.mark !== mark; }); }
@@ -1956,18 +2027,67 @@
     // Kept on screen by its own width, measured once it shows: a long label (or an Arabic one) is not cut at the edge.
     if (!n.w) n.w = n.mark.offsetWidth || 0;
     var half = Math.max(24, Math.min(tr2.width / 2, Math.ceil(n.w / 2) + 4));
-    var mx = Math.round(Math.max(half, Math.min(tr2.width - half, cx))), my = Math.round(Math.max(80, Math.min(tr2.height - 90, cy)));
-    var ang = Math.round(Math.atan2(cy - my, cx - mx) * 180 / Math.PI);
-    if (n.mx !== mx) { n.mx = mx; n.mark.style.left = mx + 'px'; }
-    if (n.my !== my) { n.my = my; n.mark.style.top = my + 'px'; }
-    if (n.ang !== ang) { n.ang = ang; n.mark.style.setProperty('--ang', ang + 'deg'); }
+    // On a desk the foot of the felt has the tools and the pause banner; on a phone the tools take the top band
+    // (toolBand) and a row of cards stands near the foot, so there the mark hugs the very edge and covers no more
+    // than a card's rim.
+    var band = toolBand(tr2), yLo = band ? band + 20 : 80, yHi = band ? tr2.height - 20 : tr2.height - 90;
+    var mx = Math.round(Math.max(half, Math.min(tr2.width - half, cx))), my = Math.round(Math.max(yLo, Math.min(yHi, cy)));
+    // Where it would stand alone, and the way it may give room to another mark: along the top or the foot when it
+    // was held there, else up or down its side.
+    n.bx = mx; n.by = my; n.cx = cx; n.cy = cy; n.half = half; n.yLo = yLo; n.yHi = yHi;
+    n.along = cy < yLo || cy > yHi ? 'x' : 'y';
   }
+  // Two marks that point the same way never lie on one another: each in turn takes the free place along its edge
+  // (the top or foot sideways, a side up or down) nearest to where it would stand alone, beside the ones already
+  // placed (spreadMarks, DOM-free for the tests).
+  function spreadMarks(list, width) {
+    var placed = [];
+    list.forEach(function (n) {
+      var w = n.w || 48, hgt = n.h || 30, ax = n.along === 'x';
+      var clash = function (x, y) {
+        for (var i = 0; i < placed.length; i++) {
+          var p = placed[i];
+          if (Math.abs(p.x - x) < (p.w + w) / 2 + 6 && Math.abs(p.y - y) < (p.h + hgt) / 2 + 4) return true;
+        }
+        return false;
+      };
+      var lo = ax ? n.half : n.yLo, hi = ax ? width - n.half : n.yHi, base = ax ? n.bx : n.by;
+      var cands = [base];
+      placed.forEach(function (p) {
+        var gap = ax ? (p.w + w) / 2 + 6 : (p.h + hgt) / 2 + 4, at = ax ? p.x : p.y;
+        cands.push(at + gap, at - gap);
+      });
+      var best = null;
+      cands.forEach(function (c) {
+        if (c < lo - 0.5 || c > hi + 0.5) return;
+        if (clash(ax ? c : n.bx, ax ? n.by : c)) return;
+        if (best === null || Math.abs(c - base) < Math.abs(best - base)) best = c;
+      });
+      if (best === null) best = base;
+      n.mx2 = Math.round(ax ? best : n.bx); n.my2 = Math.round(ax ? n.by : best);
+      placed.push({ x: n.mx2, y: n.my2, w: w, h: hgt });
+    });
+    return list;
+  }
+  UI.spreadMarks = spreadMarks;
   // Each frame: retire the old marks; the rest move only when the camera or their target has.
   function updateNotices() {
     var now = performance.now();
     UI.notices.slice().forEach(function (n) {
       if (now > n.until || !n.el.isConnected) { removeMark(n.mark); return; }
       placeMark(n);
+    });
+    layoutMarks();
+  }
+  // The marks that show, set apart and written where they changed.
+  function layoutMarks() {
+    var shown = UI.notices.filter(function (n) { return n.key !== 'off' && n.inside === false && n.bx !== undefined; });
+    shown.forEach(function (n) { if (!n.h) n.h = n.mark.offsetHeight || 0; });
+    spreadMarks(shown, tableRect().width).forEach(function (n) {
+      var mx = n.mx2, my = n.my2, ang = Math.round(Math.atan2(n.cy - my, n.cx - mx) * 180 / Math.PI);
+      if (n.mx !== mx) { n.mx = mx; n.mark.style.left = mx + 'px'; }
+      if (n.my !== my) { n.my = my; n.mark.style.top = my + 'px'; }
+      if (n.ang !== ang) { n.ang = ang; n.mark.style.setProperty('--ang', ang + 'deg'); }
     });
   }
   // Less motion: the camera is there at once, with no glide.
@@ -1986,6 +2106,27 @@
     }
     requestAnimationFrame(step);
   }
+  // The camera to a question on the table, framed whole: its real size (as tall as its answers make it, as the tilt
+  // shows it), between the tool row and a hint docked at the foot (a phone on its side), every answer in reach. It
+  // leans in to 0.95 as for anything else, and stands back as far as it must for a tall question on a short screen.
+  function panToChoice(done) {
+    var sp = UI.e.choiceSpot(), el = choiceEl, w = 380, ht = 300, k = 1;
+    var r = $('#table').getBoundingClientRect(), v = UI.view, band = toolBand(r), foot = 0;
+    if (el && el.offsetHeight) {
+      w = el.offsetWidth || w; ht = el.offsetHeight;
+      var er = el.getBoundingClientRect();
+      if (er.height > 0 && v.z > 0) k = U.clamp(er.height / (ht * v.z), 0.7, 1.5);
+    }
+    var hint = $('#hint');
+    if (hint && !hint.classList.contains('gone')) {
+      var hr = hint.getBoundingClientRect();
+      if (hr.height > 0 && hr.top > r.top + r.height / 2) foot = Math.max(0, r.bottom - hr.top + 6);
+    }
+    var room = r.height - band - foot - 12;
+    var z = Math.max(UI.Z_MIN, Math.min(Math.max(v.z, 0.95), room / (ht * k), (r.width - 16) / (w * k)));
+    tweenView({ x: r.width / 2 - (sp.x + w / 2) * z, y: band + (r.height - band - foot) / 2 - (sp.y + ht / 2) * z, z: z }, done);
+  }
+  UI.panToChoice = panToChoice;
   function panToBoard(x, y, w, h, done) {
     var r = $('#table').getBoundingClientRect(), v = UI.view;
     var z = Math.max(v.z, 0.95), band = toolBand(r);
@@ -2562,7 +2703,7 @@
     // The dossier's clock, and the card pictured in it.
     var peekUid = UI.hover || UI.selected, peekCard = peekUid && e.card(peekUid);
     if (peekCard && peekCard.maxLife) {
-      var pt = $('#peek .i-time'); if (pt) pt.textContent = tr('Time left: {t}', { t: U.fmtTime(peekCard.life) });
+      var pt = $('#peek .i-time'); if (pt) pt.textContent = clockLine(peekCard);
       var pc = $('#peek .i-card .card'); if (pc) updateCardLive(pc, peekCard);
     }
     updateVerbRings();
@@ -2618,6 +2759,13 @@
     if (i >= 0) UI.openVerbs.splice(i, 1);
     UI.openVerbs.push(vid);
     if (verbEls[vid]) verbEls[vid].classList.remove('new');
+    // On a phone the docked window and a pinned dossier share too little screen: the window puts the dossier away,
+    // as Back or a touch on the felt would (a tap on a card in the window reads it again).
+    if (narrow() && UI.selected) {
+      UI.hover = null; select(null);
+      var pk = $('#peek');
+      if (pk) { pk.classList.remove('open', 'pinned'); pk.dataset.uid = ''; }
+    }
     document.body.classList.add('has-window'); // the page makes room (toasts move clear of the window)
     UI.e.dirty = true;
   }
@@ -2671,8 +2819,9 @@
       if (!w) {
         w = h('div', 'vwin');
         w.dataset.win = vid;
-        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3><button class="vw-info" title="' + esc('What this verb does') + '">i</button><button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
-        w.querySelector('.vw-info').addEventListener('click', function (ev) { ev.stopPropagation(); UI.about = UI.about === vid ? null : vid; UI.e.dirty = true; });
+        // The Bell's window is its own description: it has no info to open.
+        w.innerHTML = '<div class="vw-head"><div class="vw-icon"></div><h3></h3>' + (CF.VERBS[vid].auto ? '' : '<button class="vw-info" title="' + esc('What this verb does') + '">i</button>') + '<button class="vw-close" title="' + esc('Close (Esc)') + '">×</button></div><div class="divider"></div><div class="vw-body"></div>';
+        if (!CF.VERBS[vid].auto) w.querySelector('.vw-info').addEventListener('click', function (ev) { ev.stopPropagation(); UI.about = UI.about === vid ? null : vid; UI.e.dirty = true; });
         w.querySelector('.vw-icon').style.backgroundImage = art(VERB_TOKENS[vid] || 'cvtok-investigate');
         w.querySelector('h3').textContent = tr(CF.VERBS[vid].label);
         w.querySelector('.vw-close').addEventListener('click', function () { closeWindow(vid); });
@@ -2687,12 +2836,27 @@
         var body = w.querySelector('.vw-body');
         body.innerHTML = '';
         buildWindowBody(body, vid);
+        keepClearOfBar(body);
+        // A slot just tapped: the cards that fit come into view (on a short screen they open below the slots).
+        if (UI.pickReveal && UI.pickReveal === vid) {
+          UI.pickReveal = null;
+          var pk = body.querySelector('.picker');
+          if (pk && pk.scrollIntoView) pk.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
       }
     });
   }
 
   // The window stands at the side of the table, fitted to it.
   function positionWindow(vid, w) { void vid; w.classList.add('docked'); }
+  // The body scrolls under its sticky bar (Start, Clear; Take all): whatever is scrolled into view stops below it.
+  function keepClearOfBar(body) {
+    var bar = null;
+    for (var i = 0; i < body.children.length; i++) if (body.children[i].classList.contains('actions')) { bar = body.children[i]; break; }
+    var hgt = bar && bar.offsetHeight ? bar.offsetHeight + 6 : 0;
+    body.style.scrollPaddingTop = hgt ? hgt + 'px' : '';
+  }
+  UI.keepClearOfBar = keepClearOfBar;
 
   function miniCard(card) {
     var mc = miniCard0(card);
@@ -2773,6 +2937,7 @@
       return;
     }
 
+    if (v.status !== 'idle' && UI.about === vid) aboutBlock(pane, vid);
     if (v.status === 'running') {
       var rec = CF.RECIPES_BY_ID[v.recipe];
       var ctx = e.makeCtx(vid, v.ctxSlots);
@@ -2826,26 +2991,7 @@
     // Idle.
     if (v.story) pane.appendChild(storyBox(v.story));
     var primaryCard = v.slots[e.primaryKey(vid)];
-    if (UI.about === vid) {
-      // What a junior can do here now; each office's power below it, dim, and the ones still to come as one line each.
-      var info = e.verbInfo(vid);
-      pane.appendChild(h('p', 'vw-desc vw-about', info.basics));
-      info.powers.forEach(function (pw) {
-        pane.appendChild(h('p', 'vw-desc vw-power' + (pw.open ? '' : ' locked'), pw.open ? tr('{label}: {text}', { label: tr(pw.label), text: tr(pw.text) }) : tr('At {rank}: {label}', { rank: tr(pw.rankLabel), label: tr(pw.label) })));
-      });
-      var sr = e.s.stats.recipes || {};
-      var ways = e.s.stats.ways || {};
-      var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && (ways[r.id] || typeof r.label === 'string'); }).map(function (r) { return tr(ways[r.id] || r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
-      pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: joinList(known) }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
-      // The verb's own part of the Help, one tap away: the book, no words.
-      if (HELP_AT[vid] && CF.openHelp) {
-        var hb = h('button', 'vw-help');
-        hb.title = tr('How to Play');
-        hb.style.backgroundImage = art('bround-22');
-        hb.addEventListener('click', function (ev) { ev.stopPropagation(); CF.Audio.play('click'); CF.openHelp(HELP_AT[vid]); });
-        pane.appendChild(hb);
-      }
-    }
+    if (UI.about === vid) aboutBlock(pane, vid);
     var lock = e.lockReason(vid);
     var pv = e.preview(vid);
     // The Court reads the charge first: what the case needs against what the
@@ -2884,6 +3030,7 @@
         box.addEventListener('click', function () {
           var same = UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key;
           UI.pick = same ? null : { verb: vid, slot: sl.key };
+          UI.pickReveal = same ? null : vid;
           e.dirty = true;
         });
         if (UI.pick && UI.pick.verb === vid && UI.pick.slot === sl.key) s.classList.add('picking');
@@ -2894,7 +3041,7 @@
       // Under a token before the Court: its standing toward this accused, not the slot's name.
       var stand = assess && !sl.primary && uid ? tokenStanding(assess, pcard, e.card(uid)) : null;
       var lab = h('div', 's-label' + (stand ? ' st-' + stand : ''), stand ? STANDING[stand] : sl.primary ? parts[0] : sl.label);
-      lab.title = sl.primary && parts.length > 1 ? tr(sl.label) : tr(sl.accepts.map(prettyAspect).join(' / '));
+      lab.title = sl.primary && parts.length > 1 ? slashText(sl.label) : kindsText(sl.accepts, ' / ');
       var slotIcon = slotArt(sl);
       if (slotIcon) { var si = h('i', 's-icon'); si.style.backgroundImage = art(slotIcon); si.title = lab.title; s.appendChild(si); }
       s.appendChild(lab);
@@ -2961,6 +3108,28 @@
     pane.appendChild(act2);
   }
 
+  // The info pane: what a junior can do here now, the offices' powers, the ways found; open in any state of the verb.
+  function aboutBlock(pane, vid) {
+    var e = UI.e;
+    // What a junior can do here now; each office's power below it, dim, and the ones still to come as one line each.
+    var info = e.verbInfo(vid);
+    pane.appendChild(h('p', 'vw-desc vw-about', info.basics));
+    info.powers.forEach(function (pw) {
+      pane.appendChild(h('p', 'vw-desc vw-power' + (pw.open ? '' : ' locked'), pw.open ? tr('{label}: {text}', { label: tr(pw.label), text: tr(pw.text) }) : tr('At {rank}: {label}', { rank: tr(pw.rankLabel), label: tr(pw.label) })));
+    });
+    var sr = e.s.stats.recipes || {};
+    var ways = e.s.stats.ways || {};
+    var known = (CF.RECIPES_BY_VERB[vid] || []).filter(function (r) { return sr[r.id] && (ways[r.id] || typeof r.label === 'string'); }).map(function (r) { return tr(ways[r.id] || r.label) + (sr[r.id] > 1 ? ' ×' + sr[r.id] : ''); });
+    pane.appendChild(h('p', 'vw-desc vw-about', known.length ? tr('Ways you have found here: {list}.', { list: joinList(known) }) : tr('You have not found a way here yet: put a card in and see what it offers.')));
+    // The verb's own part of the Help, one tap away: the book, no words.
+    if (HELP_AT[vid] && CF.openHelp) {
+      var hb = h('button', 'vw-help');
+      hb.title = tr('How to Play');
+      hb.style.backgroundImage = art('bround-22');
+      hb.addEventListener('click', function (ev) { ev.stopPropagation(); CF.Audio.play('click'); CF.openHelp(HELP_AT[vid]); });
+      pane.appendChild(hb);
+    }
+  }
   // The Charge plate's colour by the charge it would bring.
   var TIER_PLATE = { weak: 'dark', reasonable: 'redfill', strong: 'gold' };
   // A verb's first words, for the window's info: what anyone can do with it from the first day (e.verbInfo).
@@ -2994,7 +3163,7 @@
     var fits = e.tableCards().filter(function (c) { return e.slotAccepts(sl, c); }).sort(function (a, b) { return a.uid - b.uid; });
     var seen = {}, shown = [];
     fits.forEach(function (c) { var k = e.stackKey(c) || c.uid; if (!seen[k]) { seen[k] = true; shown.push(c); } });
-    box.innerHTML = '<div class="pk-head"><span>' + escText(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: sl.accepts.map(prettyAspect).join(', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
+    box.innerHTML = '<div class="pk-head"><span>' + escText(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: kindsText(sl.accepts, ', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
     box.querySelector('.pk-close').addEventListener('click', function () { UI.pick = null; e.dirty = true; });
     if (!shown.length) { box.appendChild(h('p', 'pk-none', 'Nothing on the table fits this slot yet.')); return box; }
     var row = h('div', 'pk-cards');
@@ -3108,7 +3277,11 @@
       typed.add(story);
     } else {
       if (!UI.typing || UI.typing.story !== story) UI.typing = { story: story, t0: performance.now() };
-      UI.typing.el = p;
+      // The words still to come stand unseen after the typed ones, so the story has its full height from the
+      // first frame: the finds under it do not slide down between a player's two taps.
+      var shown = h('span'), ghost = h('span', 'ghost');
+      p.appendChild(shown); p.appendChild(ghost);
+      UI.typing.el = shown; UI.typing.ghost = ghost;
       d.title = tr('Click to show all');
       d.addEventListener('click', function () { typed.add(story); p.textContent = storyText(story); UI.typing = null; });
       advanceTyping();
@@ -3120,8 +3293,9 @@
     if (!t || !t.el) return;
     var n = Math.floor(((performance.now() - t.t0) / 1000) * CF.Settings.typeRate());
     var full = storyText(t.story);
-    if (n >= full.length) { t.el.textContent = full; typed.add(t.story); UI.typing = null; return; }
+    if (n >= full.length) { t.el.textContent = full; if (t.ghost) t.ghost.textContent = ''; typed.add(t.story); UI.typing = null; return; }
     t.el.textContent = full.slice(0, n);
+    if (t.ghost) t.ghost.textContent = full.slice(n);
   }
 
   // A picture of what a slot takes, from its first accepted kind.
@@ -3132,8 +3306,18 @@
     for (var i = 0; i < sl.accepts.length; i++) if (SLOT_ART[sl.accepts[i]]) return SLOT_ART[sl.accepts[i]];
     return null;
   }
+  // A slot's kinds in the reader's language: each name read alone (a joined list is no key), joined by the language's own
+  // comma, or by a slash.
+  function kindsText(ids, sep) {
+    return ids.map(function (a) { return tr(prettyAspect(a)); }).join(sep === ', ' ? tr(', ') : sep);
+  }
+  UI.kindsText = kindsText;
+  // A slot's ' / '-joined name, each part read alone.
+  function slashText(label) { return String(label).split(' / ').map(function (x) { return tr(x); }).join(' / '); }
+  UI.slashText = slashText;
   function prettyAspect(a) {
-    var map = { tool: 'Instrument', teammate: 'Watchman', atlarge: 'Abroad', coldcase: 'Unanswered', looseend: 'Loose End', promotion: 'The Council\'s Letter', chair: 'The Seat', funds: 'Coin', focus: 'Wit' };
+    var map = { tool: 'Instrument', teammate: 'Watchman', atlarge: 'Abroad', coldcase: 'Unanswered', looseend: 'Loose End', promotion: 'The Council\'s Letter', chair: 'The Seat', funds: 'Coin', focus: 'Wit',
+      nextdoor: 'The Next Door', spent: 'Spent Health, Wit or Instinct', lesson: 'Insight', kit_bio: 'Physician\'s Case' };
     if (map[a]) return map[a];
     if (CF.ASPECTS[a]) return CF.ASPECTS[a].label;
     if (CF.KINDS[a]) return CF.KINDS[a].label;
@@ -3244,12 +3428,18 @@
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
       html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'iinv-05') + '"></span>' +
-        '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + r.have + ' / ' + r.need + '</span></div>';
+        '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + CF.bidi(r.have + ' / ' + r.need) + '</span></div>';
     });
     // Every other seal lit and only the word dark: say what word would do it.
     var onlyWord = gates && d.tier !== 'strong' && gates.every(function (g) { return g.ok === (g.id !== 'word'); });
-    d.notes.forEach(function (n) { if (!(onlyWord && /^To full proof/.test(n.text))) html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
-    if (onlyWord) html += '<div class="ch-note dim ch-word">' + esc(WORD_NOTE) + '</div>';
+    // The rules' own word note (describe() gives it with id 'word') is the one shown; the window's stands in only
+    // where the rules gave none, so the line is never said twice.
+    var ruleWord = d.notes.some(function (n) { return n.id === 'word'; });
+    d.notes.forEach(function (n) {
+      if (onlyWord && /^To full proof/.test(n.text)) return;
+      html += '<div class="ch-note ' + n.kind + (n.id === 'word' ? ' ch-word' : '') + '">' + esc(n.text) + '</div>';
+    });
+    if (onlyWord && !ruleWord) html += '<div class="ch-note dim ch-word">' + esc(WORD_NOTE) + '</div>';
     return html + '</div>';
   }
   // A token before the Court, read against this accused: it names them (their name, their mark, or about them),
@@ -3297,9 +3487,6 @@
     return r !== null && CF.RANKS && CF.RANKS[r] ? r : null;
   }
   UI.wayRank = wayRank;
-  function sameDoor(e, card) {
-    return e.tableCards().some(function (c) { return c !== card && !c.hidden && c.def === 'clue' && c.data && c.data.link === card.data.link && c.caseId !== card.caseId; });
-  }
   function dossierNotes(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, lines = [];
     var rec = card.caseId ? e.caseRec(card.caseId) : null;
@@ -3308,7 +3495,7 @@
     if (k === 'case' && rec) {
       var met = rec.suspects.filter(function (x) { return x.revealed; });
       lines.push(tr('{scene}, {district}', { scene: tr(rec.scene), district: tr(CF.DISTRICTS[rec.district].label) }));
-      lines.push(met.length ? tr('Accused met: {list}', { list: joinList(met.map(function (x) { return tr(x.name.split(' ')[1] || x.name) + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); })) }) : tr('Accused met: none'));
+      lines.push(met.length ? tr('Accused met: {list}', { list: joinList(met.map(function (x) { return tr(CF.nameParts(x.name)[1] || x.name) + (x.cleared ? ' ✗' : rec.identified === x.key ? ' ★' : ''); })) }) : tr('Accused met: none'));
       lines.push([tr(rec.found >= rec.items.length ? 'Scene: searched out' : rec.searches ? 'Scene: partly searched' : 'Scene: not searched')]
         .concat(rec.delegate ? [tr('{name} on it', { name: rec.delegate.card.label })] : []).concat(rec.major ? [tr('cried')] : []).join(' · '));
       // The clock itself is the live line under the notes (Time left).
@@ -3328,7 +3515,7 @@
       var hw = typeof e.heresyWatch === 'function' ? e.heresyWatch(rec) : undefined;
       if (hw) lines.push(hw.vars ? tr(hw.line, hw.vars) : hw.line);
       else if (hw === undefined && ctpl && ctpl.heresy) {
-        if (e.s.flags.inquisitor || !((e.s.favour || {}).bishop > 0)) lines.push(tr('Smells of heresy: the Inquisitor\'s after week {n}', { n: (rec.week || 0) + 2 }));
+        if (e.s.flags.inquisitor || !((e.s.favour || {}).bishop > 0)) lines.push(tr('Smells of heresy: from week {n} the Inquisitor may take it', { n: (rec.week || 0) + 2 }));
         else lines.push('The Bishop has kept the Dominicans off this one.');
       }
       if (e.s.flags.inquisitor) lines.push('The Inquisitor is in the city');
@@ -3354,11 +3541,12 @@
       if (card.data.confession) lines.push(card.data.confession === 'free' ? 'Confessed freely' : 'Under the question');
       else if (card.data.falseConfession) lines.push('A false confession');
       // A chit that names the same door as another case's token on the table: a quiet cue, not which door or why.
-      if (card.data.link && sameDoor(e, card)) lines.push('Another token on the table names the same door');
+      // The rules' own cue (network.js linkTwin, Net.TWIN_LINE).
+      if (card.data.link && e.linkTwin && e.linkTwin(card)) lines.push(CF.Network.TWIN_LINE);
       if (card.data.tampered) lines.push('Spoiled by the Rival');
       if (card.data.bribed) lines.push('Paid to forget');
       if (card.data.frame) lines.push('The thief-takers\' men');
-      if (card.maxLife) lines.push(tr('Keeps for {t}', { t: U.fmtTime(card.life) }));
+      // How long it keeps is the dossier's live clock line (clockLine), not a second line here.
       if (k === 'evidence' && card.data.item && card.data.item.needs) lines.push('Needs an instrument');
     } else if (k === 'teammate' || k === 'personnel') {
       if (card.data.name) lines.push(card.data.name);
@@ -3437,7 +3625,7 @@
         lines.push(fr.watched ? 'Watched: a safer way in' : 'Not yet watched');
       }
     } else if (card.def === 'rival') {
-      var rd = card.data || {}, rway = rivalNextWay(card);
+      var rd = card.data || {};
       if (rd.heat) lines.push(tr('Weakness found: {n} of 2', { n: rd.heat }));
       else if (rd.stalled && rd.stalled >= e.s.week) lines.push(tr('Lying low until week {n}', { n: rd.stalled + 1 }));
       if (rivalCareful(card)) lines.push('Careful this week: the next thread after the Bell');
@@ -3449,8 +3637,7 @@
           if (rdirt) lines.push(tr('On your table: {label}', { label: e.labelOf(rdirt) }));
           if (typeof rd.heatWeek === 'number') lines.push(tr('The thread goes cold after week {n}', { n: rd.heatWeek + (CF.RIVAL_THREAD_WEEKS || 3) }));
         } else lines.push('Question with Wit, or shadow in Explore with Instinct, for a first thread');
-      } else if (rway === 'investigate') lines.push('The next thread: shadow them in Explore with Instinct');
-      else if (rway === 'interrogate') lines.push('The next thread: Question them with Wit');
+      }
       else if (!rd.heat) lines.push('Question with Wit, or shadow in Explore with Instinct, to expose');
       if (harbourArc()) lines.push('Sent home, they leave a leaf from the Customs House');
     } else if (card.def === 'atlarge') {
@@ -3490,12 +3677,15 @@
       if (harbourArc()) lines.push(tr('{need} in {verb} open the Harbourmaster\'s Books: {n} of {need}', { need: LEAVES_NEED, verb: tr(CF.VERBS[hb ? hb.verb : 'reflect'].label), n: Math.min(LEAVES_NEED, freeOf(card.def).length) }));
     } else if (card.def === 'wound') {
       lines.push('Another blow before this knits will kill you.');
-      lines.push(tr('Knits in {t}', { t: U.fmtTime(card.life) }));
-    } else if (card.maxLife) {
-      lines.push(tr('Time left: {t}', { t: U.fmtTime(card.life) }));
     }
+    // A card's clock is not among the notes: the dossier's live line under them (clockLine) keeps it, ticking.
     return lines.slice(0, k === 'case' ? 8 : k === 'calling' ? 9 : 6);
   }
+  // The dossier's one clock line, written again every frame: a wound knits, anything else runs out.
+  function clockLine(card) {
+    return card.def === 'wound' ? tr('Knits in {t}', { t: U.fmtTime(card.life) }) : tr('Time left: {t}', { t: U.fmtTime(card.life) });
+  }
+  UI.clockLine = clockLine;
   // A list in the reader's own commas (Arabic joins with its own).
   function joinList(xs) { return xs.join(tr(', ')); }
   // Pieces put together with nothing but punctuation between them: each piece is read in the reader's language
@@ -3589,6 +3779,18 @@
     var p = proofRow(card);
     return [UI.e.labelOf(card), dossierDesc(card, rec)].concat(notes).concat(p ? [p.title] : []);
   };
+  // The dossier stands at the top left of the table; over the card it shows (Health at the left of a desk), it
+  // stands at the right instead, so the card stays in sight and in reach. Not with a window open: the window
+  // is docked at the right, and on a phone it is the sheet from the bottom.
+  function placePeek(box, card) {
+    var far = false, el = card.loc && card.loc.t === 'table' ? cardEls[card.uid] : null;
+    if (el && !UI.openVerbs.length && el.getBoundingClientRect) {
+      var r = el.getBoundingClientRect(), t = tableRect(), s = UI.scale(), reach = (12 + 330 + 12) * s;
+      far = t.width >= 2 * reach && r.right > t.left && r.left < t.left + reach;
+    }
+    if (box.classList.contains('far') !== far) box.classList.toggle('far', far);
+  }
+  UI.placePeek = placePeek;
   // The dossier: a card floating at the top right of the table while a card
   // is hovered, pinned while one is selected.
   function renderInspector() {
@@ -3600,6 +3802,7 @@
     if (!card || card.hidden) { box.classList.remove('open'); box.dataset.uid = ''; return; }
     box.classList.add('open');
     box.classList.toggle('pinned', UI.selected === uid);
+    placePeek(box, card);
     if (box.dataset.uid === String(uid) && box.dataset.sig === cardSig(card, 1)) return;
     box.dataset.uid = uid; box.dataset.sig = cardSig(card, 1);
     var def = CF.CARDS[card.def];
@@ -3611,7 +3814,7 @@
     // The painted band at the top carries the kind's seal and the name, as a verb window's does; under the card,
     // the kind and (for anything but the case itself) the case it belongs to.
     peekHead(kindArt, e.labelOf(card));
-    html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div>';
+    html += '<div class="i-kind">' + esc(def.kindLabel || (CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
       return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'iinv-05') + '"></span>' + esc(CF.ASPECTS[k].label) + ' ' + a[k] + '</span>';
@@ -3622,7 +3825,7 @@
     html += '<p>' + esc(dossierDesc(card, rec)) + '</p>';
     html += proofHtml(proofRow(card));
     if (notes.length) html += '<div class="i-lines">' + notes.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
-    if (card.maxLife) html += '<div class="i-note i-time">' + escText(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
+    if (card.maxLife) html += '<div class="i-note i-time">' + escText(clockLine(card)) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     var canMark = card.loc && (card.loc.t === 'table' || card.loc.t === 'slot');
@@ -3730,7 +3933,15 @@
   // Drags: a card (from the table, a slot, or a verb's output), a verb token,
   // a window, or the table itself (panning). Cards are lifted into a layer
   // above everything, tilt as they move, and settle when dropped.
-  function cardAt(target) { return target.closest && target.closest('.card[data-uid]'); }
+  // The card under the pointer. A find turning over in a window stands edge-on for a moment: the press then lands
+  // on its wrapper (.mini-wrap), which still holds that card.
+  function cardAt(target) {
+    if (!target.closest) return null;
+    var n = target.closest('.card[data-uid]');
+    if (n) return n;
+    var w = target.closest('.mini-wrap');
+    return w && w.querySelector ? w.querySelector('.card[data-uid]') : null;
+  }
 
   function canTake(vid, card) {
     var e = UI.e, v = e.verb(vid);
@@ -3782,12 +3993,11 @@
     }
     if (UI.drag) cancelDrag(); // a second pointer, or a pointerup we never saw
     var t = ev.target;
-    var winHead = t.closest && t.closest('.vw-head');
+    // A window stands docked at the side (positionWindow): a press on it brings it to the front, it never moves.
     var win = t.closest && t.closest('.vwin');
     if (win) {
       var wid = win.dataset.win;
       if (UI.openVerbs[UI.openVerbs.length - 1] !== wid) { openWindow(wid); }
-      void winHead;
     }
     var n = cardAt(t);
     if (n && n.closest('.pk-card')) return; // picker cards are buttons, not cards
@@ -3797,7 +4007,7 @@
       if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
       // The number badge is the handle for the whole stack; the card is one card.
       var whole = ev.shiftKey || !!(t.closest && t.closest('.c-count'));
-      var dd = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole };
+      var dd = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole, inWin: !!win };
       UI.drag = dd;
       // A hold on a stacked card, without moving, lifts the whole stack.
       if (!whole && card.loc.t === 'table' && UI.e.stackOf(card).length > 1) {
@@ -3845,7 +4055,7 @@
     if (d.kind === 'pan') applyView();
     else if (d.kind === 'pinch') applyPinch(d);
     else if ((d.kind === 'verb' || d.kind === 'pile') && d.at) {
-      place(d.el, d.kind === 'pile' ? d.at.x - 9 : d.at.x, d.kind === 'pile' ? d.at.y - 8 : d.at.y);
+      if (d.kind === 'pile') placePile(d.el, d.at.x, d.at.y); else place(d.el, d.at.x, d.at.y);
       if (d.kind === 'verb') syncLinksHeld(['v:' + d.verb]);
     }
   }
@@ -3861,7 +4071,7 @@
   function applyPinch(d) {
     var pinch = pinchState();
     if (!pinch) return;
-    var want = U.clamp(d.z0 * (pinch.d / d.d0), 0.4, 1.6);
+    var want = U.clamp(d.z0 * (pinch.d / d.d0), UI.Z_MIN, 1.6);
     zoomAt(pinch.cx, pinch.cy, want / UI.view.z, d.rect);
   }
 
@@ -3885,13 +4095,6 @@
     }
     var dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
     if (!d.started && Math.abs(dx) + Math.abs(dy) < 5) return;
-    if (d.kind === 'window') {
-      var tr = $('#table').getBoundingClientRect();
-      UI.winPos[d.verb] = { x: U.clamp(d.px + dx, 4 - 300, tr.width - 60), y: U.clamp(d.py + dy, 4, tr.height - 40) };
-      d.el.style.left = UI.winPos[d.verb].x + 'px';
-      d.el.style.top = UI.winPos[d.verb].y + 'px';
-      return;
-    }
     if (d.kind === 'pan') {
       if (!d.started) { d.started = true; d.rect = $('#table').getBoundingClientRect(); $('#table').classList.add('panning'); }
       if (d.holdT) { clearTimeout(d.holdT); d.holdT = 0; }
@@ -4140,7 +4343,9 @@
     return false;
   }
   UI.back = function () {
-    if (closeNearest()) return true;
+    // A menu, a screen or a dialog stands over the table: Back is for it (js/main.js UI.onBack), never for a window
+    // or the dossier hidden behind it.
+    if (!UI.modal && closeNearest()) return true;
     if (UI.onBack) return UI.onBack();
     return false;
   };
@@ -4179,7 +4384,6 @@
     clearMarks();
     resumeAfterDrag();
     if (d.holdT) clearTimeout(d.holdT);
-    if (d.kind === 'window') return;
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
     if (d.kind === 'pile') {
       d.el.classList.remove('dragging');
@@ -4203,10 +4407,32 @@
     // Card.
     var card = e.card(d.uid);
     if (!d.started) {
-      // A finished verb's card: face down, a tap turns it over; face up, a tap takes it.
-      if (card && card.loc && card.loc.t === 'out' && ev.target.closest('.vwin')) {
+      // A finished verb's card: face down, a tap turns it over; face up, a tap reads it; two taps take it to the
+      // table, face down or up. The second tap is told here, by the pointer, for a finger as for the mouse: the
+      // turn redraws the card under it, and the browser's own dblclick may never come (or come to the wrapper).
+      if (card && card.loc && card.loc.t === 'out' && (d.inWin || ev.target.closest('.vwin'))) {
+        var now = performance.now(), last = UI.lastTap;
+        UI.lastTap = { uid: d.uid, t: now };
+        if (last && last.uid === d.uid && now - last.t < DOUBLE_TAP) {
+          UI.lastTap = null; UI.tookByTaps = now;
+          markSpawn(card.uid, d.src);
+          e.takeOutput(card.loc.verb, card.uid);
+          CF.Audio.play('drop'); UI.haptic(10);
+          e.dirty = true;
+          return;
+        }
         if (card.hidden) flipReveal(card, d.src); else select(d.uid);
         return;
+      }
+      // Two taps on a table card send it where it goes (as a double-click does): told here by the pointer, since a
+      // finger's two taps bring no dblclick. The first tap reads it, as ever.
+      if (card && card.loc && card.loc.t === 'table') {
+        var now2 = performance.now(), last2 = UI.lastTap;
+        UI.lastTap = { uid: d.uid, t: now2 };
+        if (last2 && last2.uid === d.uid && now2 - last2.t < DOUBLE_TAP) {
+          UI.lastTap = null; UI.tookByTaps = now2;
+          if (sendOnDouble(card)) return;
+        }
       }
       // With a verb open, a tap on a card that fits puts it in; the window stays.
       if (card && card.loc && card.loc.t === 'table' && UI.openVerbs.length) {
@@ -4236,7 +4462,7 @@
         CF.Audio.play('drop'); UI.haptic('confirm');
         absorb(d, t);
       } else {
-        refused(t);
+        refused(t, card);
         if (card.loc.t === 'table' && d.from === 'out') {
           // It left the verb's output but found no slot: drop it by the pointer.
           UI.spawn[card.uid] = { cx: ev.clientX, cy: ev.clientY, gx: d.gx, gy: d.gy };
@@ -4266,16 +4492,49 @@
 
   // A drop the verb will not take: a dull knock, a short buzz, the tile or slot shakes its head (a red edge under
   // less motion), and the reason, where the rules give one, stands in the hint bar for two seconds.
-  function refused(t) {
+  // A refusal always has its reason: the verb's lock, the work it is at, the rules' own word, else what the verb
+  // (or the slot) takes, so a card of the wrong kind is never sent back without a word.
+  function refused(t, card) {
     var e = UI.e, vid = t.verb;
     CF.Audio.play('refuse'); UI.haptic('reject');
     var node = t.node;
     if (node) { node.classList.remove('refuse'); void node.offsetWidth; node.classList.add('refuse'); setTimeout(function () { node.classList.remove('refuse'); }, 320); }
-    var v = vid ? e.verb(vid) : null, pv = v && v.status === 'idle' && e.preview ? e.preview(vid) : null;
-    var why = vid ? e.lockReason(vid) || (pv && pv.blocked) : null;
-    UI.hintFlash = why ? { text: tr(why), until: performance.now() + 2000 } : null;
+    var why = vid ? refusalReason(vid, t.slot, card) : null;
+    UI.hintFlash = why ? { text: why, until: performance.now() + 2500 } : null;
   }
   UI.refused = refused;
+  // What each verb takes, in a line: the hint bar's answer to a card of the wrong kind on its tile.
+  var VERB_TAKES = {
+    duty: 'Attend takes Health or Wit for a day\'s work, a Case, a watchman, a Petition, a Letter of Service, or the Council\'s letters.',
+    investigate: 'Explore takes a Case, an Accused, Instinct or Health, an informer, or someone abroad.',
+    analyze: 'Study takes raw proof: a token, an Accused, or an unanswered case.',
+    interrogate: 'Question takes a Witness, an Accused, or the Rival.',
+    reflect: 'Rest takes a Case or its tokens, Weariness, Fever, Hunger, Sickness, Stress, a Wound, or an Insight.',
+    arrest: 'The Court takes an Accused, or the Condemned.',
+    time: 'The Bell takes no cards. It rings by itself at the week\'s end.',
+  };
+  UI.VERB_TAKES = VERB_TAKES;
+  function refusalReason(vid, slotKey, card) {
+    var e = UI.e, v = e.verb(vid), def = CF.VERBS[vid];
+    if (!v || !def) return null;
+    var lock = e.lockReason(vid);
+    if (lock) return tr(lock);
+    if (v.status === 'running') {
+      if (v.ask && !v.ask.filled) return tr('{verb} asks for {what}, not this.', { verb: def.label, what: v.ask.label });
+      return tr('{verb} is at work. Wait for its clock to run out.', { verb: def.label });
+    }
+    if (card && card.loc && card.loc.t === 'table') { var un = e.unavailableReason(card); if (un) return tr(un); }
+    var pv = v.status === 'idle' && e.preview ? e.preview(vid) : null;
+    if (pv && pv.blocked) return tr(pv.blocked);
+    var sl = null;
+    def.slots.forEach(function (x) { if (x.key === slotKey) sl = x; });
+    if (sl && !sl.primary) {
+      var kinds = [];
+      sl.accepts.forEach(function (a) { var w = prettyAspect(a); if (kinds.indexOf(w) < 0) kinds.push(w); });
+      return tr('This place takes {what}.', { what: kinds.slice(0, 4).join(', ') });
+    }
+    return VERB_TAKES[vid] ? tr(VERB_TAKES[vid]) : null;
+  }
   // A card dropped into a slot shrinks into it.
   function absorb(d, t) {
     var el = d.el;
@@ -4292,8 +4551,11 @@
     setTimeout(function () { el.remove(); }, 240);
   }
 
+  // Two taps on a find within this long take it (onPointerUp); the dblclick that follows them is already answered.
+  var DOUBLE_TAP = 450;
   function onDoubleClick(ev) {
     if (UI.modal) return;
+    if (UI.tookByTaps && performance.now() - UI.tookByTaps < 700) return;
     var n = cardAt(ev.target);
     var e = UI.e;
     if (!n) return;
@@ -4301,13 +4563,19 @@
     if (!card || !card.loc) return;
     if (card.loc.t === 'out') { markSpawn(card.uid, n); e.takeOutput(card.loc.verb, card.uid); e.dirty = true; return; }
     if (card.loc.t !== 'table') return;
-    // A verb asking for this card mid-work comes first.
-    for (var a = 0; a < CF.VERB_ORDER.length; a++) if (e.askAccepts(CF.VERB_ORDER[a], card)) { UI.answerAsk(CF.VERB_ORDER[a], card.uid); return; }
+    sendOnDouble(card);
+  }
+  // A table card asked for twice (a double-click, or two taps): a verb asking for it mid-work first, else the
+  // open window or a fresh verb that takes it. True when it went somewhere.
+  function sendOnDouble(card) {
+    var e = UI.e;
+    for (var a = 0; a < CF.VERB_ORDER.length; a++) if (e.askAccepts(CF.VERB_ORDER[a], card)) { UI.answerAsk(CF.VERB_ORDER[a], card.uid); return true; }
     var tries = UI.openVerbs.slice().reverse().concat(CF.VERB_ORDER);
     for (var i = 0; i < tries.length; i++) {
       var id = tries[i], v = e.verb(id);
       var fresh = UI.openVerbs.indexOf(id) >= 0 || (v.status === 'idle' && !Object.keys(v.slots).length);
-      if (fresh && canTake(id, card) && e.autoSlot(id, card.uid)) { openWindow(id); CF.Audio.play('drop'); e.dirty = true; return; }
+      if (fresh && canTake(id, card) && e.autoSlot(id, card.uid)) { openWindow(id); CF.Audio.play('drop'); UI.haptic(10); e.dirty = true; return true; }
     }
+    return false;
   }
 })();

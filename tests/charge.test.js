@@ -109,7 +109,32 @@ assert.ok(half.notes.some(function (n) { return n.kind === 'dim' && /^Word behin
 var gap = CF.Charge.describe(assess([clue({ forensic: 1 }), clue({ testimony: 2 }, { stake: 'reward' })]));
 assert.strictEqual(gap.tier, 'weak');
 var want = gap.notes.filter(function (n) { return /^To full proof/.test(n.text); })[0];
-assert.ok(want && /Body 1, Presence 2, Coin 1/.test(want.text) && /or a second witness who wants something else/.test(want.text), 'the shortfall and a second witness: ' + (want && want.text));
+// The shortfall is read off the dark seals, not off every row (a row short of its mark is not wanted once
+// the seals are lit): how much more proof, the kinds that would give it, and a second kind the case turns on.
+// (This test once wanted every short row listed, 'Body 1, Presence 2, Coin 1', which full proof never asked.)
+var gapA = assess([clue({ forensic: 1 }), clue({ testimony: 2 }, { stake: 'reward' })]);
+var prof = rec.charge;
+var short = Math.ceil((gapA.need - gapA.score) * 2) / 2;
+assert.ok(want && want.text.indexOf('To full proof: ' + short + ' more proof, such as ') === 0 && /a second kind the case turns on, such as /.test(want.text) && /or a second witness who wants something else/.test(want.text), 'the shortfall and a second witness: ' + (want && want.text));
+// Full proof by the seals with a row still short: the Court asks nothing more of that row.
+var rowShort = null;
+[0, 1, 2].forEach(function (drop) {
+  if (rowShort) return;
+  var ks = Object.keys(prof), lay = [];
+  ks.forEach(function (k, i) { var asp = {}; asp[k] = i === drop ? 0 : prof[k] * 2; if (asp[k]) lay.push(clue(asp, { corroborated: true })); });
+  var r = assess(lay);
+  if (r.tier === 'strong' && ks.some(function (k) { return (r.have[k] || 0) < prof[k]; })) rowShort = r;
+});
+assert.ok(rowShort, 'a full proof with a row short of its mark exists');
+assert.ok(!CF.Charge.describe(rowShort).notes.some(function (n) { return /^To full proof|^Word behind it/.test(n.text); }), 'full proof with a row short wants nothing more');
+// Weak with the seals of kinds and word lit: only more proof is asked, not the rows one by one.
+var wk = null;
+Object.keys(prof).forEach(function (k) { if (!wk) { var asp = {}; asp[k] = 1; var o = Object.keys(prof).filter(function (x) { return x !== k; })[0]; var asp2 = {}; asp2[o] = 1; var r = assess([clue(asp, { corroborated: true }), clue(asp2)]); if (r.tier !== 'strong' && r.gates.every(function (g) { return g.id === 'enough' ? !g.ok : g.ok; })) wk = r; } });
+assert.ok(wk, "a weak charge with only Enough dark");
+if (wk) {
+  var wkNote = CF.Charge.describe(wk).notes.filter(function (n) { return /^To full proof/.test(n.text); })[0];
+  assert.ok(wkNote && /more proof, such as/.test(wkNote.text) && !/second kind/.test(wkNote.text), 'only the dark seal is named: ' + (wkNote && wkNote.text));
+}
 assert.ok(!CF.Charge.describe(spread).notes.some(function (n) { return /^To full proof|^Half proof/.test(n.text); }), 'full proof wants nothing more');
 
 // The court reacts to the tier: a weak charge on an innocent person rarely convicts,

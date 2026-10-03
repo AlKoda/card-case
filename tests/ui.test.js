@@ -97,7 +97,7 @@ var document = {
   getElementById: function (id) { return body.querySelector('#' + id); },
   createElement: function (tag) { return new El(tag); },
   createElementNS: function (ns, tag) { return new El(tag); },
-  addEventListener: function () {}, removeEventListener: function () {},
+  listeners: {}, addEventListener: function (ev, fn) { (this.listeners[ev] = this.listeners[ev] || []).push(fn); }, removeEventListener: function () {},
   elementFromPoint: function () { return null; },
 };
 var timers = [];
@@ -232,6 +232,31 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   render(e);
   var cp = $('#peek').innerHTML;
   assert.ok(/The Rival works this too/.test(cp) && /The Inquisitor is in the city/.test(cp), 'the case dossier reads the systems');
+  // 'Accused met' gives the whole surname: 'de Groot', never 'de' (check-up).
+  var met0 = rec.suspects.filter(function (x) { return x.revealed; })[0], name0 = met0.name;
+  met0.name = 'Wouter de Groot';
+  render(e);
+  assert.ok(/Accused met: de Groot/.test($('#peek').innerHTML.replace(/<[^>]+>/g, '')), 'the whole surname: ' + $('#peek').innerHTML.replace(/<[^>]+>/g, ' ').slice(0, 300));
+  met0.name = name0;
+  // The kind line names what the card is: the Rival and a thief Abroad are no band of the Coquille (cases check-up).
+  var kindOf = function (c) { UI.selected = c.uid; render(e); var k = $('#peek').querySelector('.i-kind'); return k ? k.textContent : ''; };
+  var rv = e.create('rival', { data: {} });
+  assert.ok(/^Rival/.test(kindOf(rv)) && !/Coquille/.test(kindOf(rv)), 'the Rival is a Rival: ' + kindOf(rv));
+  var ab = e.create('atlarge', { label: 'Petty Thief: Hal Fuller', data: { name: 'Hal Fuller' } });
+  assert.ok(/^Abroad/.test(kindOf(ab)) && !/Coquille/.test(kindOf(ab)), 'a thief abroad is Abroad: ' + kindOf(ab));
+  var band = e.create('gang', { label: 'Band: The Rats', data: {} });
+  assert.ok(/Coquille/.test(kindOf(band)), 'a band is of the Coquille: ' + kindOf(band));
+  e.remove(rv); e.remove(ab); e.remove(band); UI.selected = null;
+  // A timed card's dossier tells its clock once, in the live line (cases check-up: raw proof said 'Keeps for' too).
+  var ev = e.create('evidence', { label: 'The Bad Coin', desc: 'Bright.', caseId: rec.id, data: { item: { key: 'coin', label: 'The Bad Coin', text: 'Bright.', needs: 'bio' } } });
+  var tri = e.create('trial', { label: 'Blood Court: X', desc: 'X stands before the Blood Court.', data: { caseId: rec.id, name: 'X', guilty: true, tier: 'weak' } });
+  [ev, clue, tri].forEach(function (c) {
+    UI.selected = c.uid; render(e);
+    var t = $('#peek').innerHTML.replace(/<[^>]+>/g, '\n'), clock = CF.util.fmtTime(c.life);
+    assert.ok(c.maxLife, e.labelOf(c) + ' is timed');
+    assert.strictEqual(t.split(clock).length - 1, 1, e.labelOf(c) + ': its time is said once: ' + t.replace(/\n+/g, ' | ').slice(0, 400));
+  });
+  e.remove(ev); e.remove(tri); UI.selected = null;
   console.log('ui: the dossier names the mark, the lack and the Rival');
 })();
 
@@ -699,7 +724,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/\.card \.verdict \{[^}]*width: 80%[^}]*animation: stamp 0\.35s/.test(css) && /\.card\.awaiting \{ visibility: hidden; \}/.test(css), 'the verdict is stamped on the card it was given on, at four fifths of it');
   assert.ok(/\.toast \{[^}]*aspect-ratio: auto/.test(css) && !/\.toast \{[^}]*overflow: hidden/.test(css), 'a toast is as tall as its words');
   assert.ok(/\.toast::after \{[^}]*border-image: var\(--bar\)/.test(css) && /\.toast::before \{[^}]*var\(--bar\)/.test(css) && /\.toast \.t-icon \{[^}]*var\(--icon\)/.test(css) && /<i class="t-icon"><\/i>/.test(ui), 'the bar is sliced, the icon sits in its circle (its own element, so Arabic mirrors the bar and not the icon)');
-  assert.ok(/#toasts \{[^}]*right: calc\(12px \+ var\(--sa-r\)\)[^}]*top: calc\(var\(--sa-t\) \+ 260px\)/.test(css) && /body\.has-window #toasts \{ right: calc\(390px \* var\(--ui-scale, 1\)\)/.test(css), 'toasts sit top right under the verb row, clear of the hint, the window and the notch');
+  assert.ok(/#toasts \{[^}]*right: calc\(12px \+ var\(--sa-r\)\)[^}]*top: auto;[^}]*bottom: calc\(60px \+ var\(--sa-b\)\)/.test(css) && /body\.has-window #toasts \{ right: calc\(390px \* var\(--ui-scale, 1\)\)/.test(css), 'toasts grow up from the bottom right, above the tools, clear of the verb row, the hint, the window and the notch');
+  assert.ok(/body\.has-journal #toasts \{ right: calc\(min\(380px, 90vw\) \+ 12px/.test(css) && /document\.body\.classList\.toggle\('has-journal', open\)/.test(ui), 'and stand beside the open Journal, not over its Roads');
   var phone = /@media \(max-height: 520px\), \(max-width: 980px\) \{[\s\S]*?\n\}/.exec(css)[0]; // to the block's own closing brace, past the nested keyframes
   assert.ok(/#toasts \{ top: auto; bottom: calc\(12px \+ var\(--sa-b\)\)/.test(phone) && /#toasts \.toast:nth-last-child\(n\+3\) \{ display: none/.test(phone), 'on a phone the toasts grow up from the bottom, two at most');
   assert.ok(/body\.has-window #toasts \{[^}]*bottom: calc\(78% - 28px/.test(phone) && /body\.has-window #toasts \.toast:not\(:last-child\) \{ display: none/.test(phone), 'with the sheet open the newest toast alone sits above it, never on its X');
@@ -805,7 +831,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/z-index: auto/.test(pz) && (pz.match(/repeating-linear-gradient/g) || []).length === 3 && /var\(--cell-px, 130px\)/.test(pz) && !/border-bottom/.test(pz), 'the strip is six faint cells, above the grid and below the cards');
   assert.ok(/width: 34px/.test(rule('#board .pile-zone .pz-tab')) && /ctab-04/.test(rule('#board .pile-zone .pz-tab')) && /z-index: 2/.test(rule('#board .pile-zone .pz-tab')), 'the tab hangs off the corner');
   var lab = rule('#board .pile-zone .pz-label');
-  assert.ok(/border-image: var\(--art-clabel-02\)/.test(lab) && /z-index: 2/.test(lab) && /color: #1c1914/.test(lab), 'the label is a painted bar in paper ink');
+  assert.ok(/border-image: var\(--art-clabel-02\)/.test(lab) && /z-index: 0/.test(lab) && /color: #1c1914/.test(lab), 'the label is a painted bar in paper ink, under the cards of the row above (their names stay in sight)');
   assert.ok(/--cell-px/.test(screens) && /CF\.Settings\.onChange\(cellPitch\)/.test(screens), 'the cell pitch follows the spacing setting');
   // The verb window and the dossier.
   var vw = /\n\.vwin \{([\s\S]*?)\n\}/.exec(css)[1];
@@ -817,9 +843,10 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/position: absolute/.test(vc) && /width: 44px; height: 44px/.test(vc) && /background: none/.test(vc) && /right: -54px/.test(vc), 'the X is a 44px hot spot over the baked X');
   assert.ok(/background: #f6efdc/.test(rule('.recipe')) && /border: 1px solid #a88a4c/.test(rule('.recipe')), 'the recipe is a bordered paper inset');
   assert.ok(!/background: var\(--paper\)/.test(rule('.story')), 'the story has no paper of its own');
-  assert.ok(/transform: none/.test(rule('[dir=rtl] .vwin')) && /scaleX\(-1\)/.test(rule('[dir=rtl] .vwin::before')) && /left: -54px/.test(rule('[dir=rtl] .vw-close')), 'Arabic mirrors the panel and moves the X left');
+  // Arabic swaps only the sides: the foot (none on a phone's sheet) and the closing slide stay the layout's.
+  assert.ok(!/transform|border-width:|border-bottom/.test(rule('[dir=rtl] .vwin')) && /border-left-width: calc\(66px/.test(rule('[dir=rtl] .vwin')) && !/border-width:|border-bottom/.test(rule('[dir=rtl] .vwin::before')) && /scaleX\(-1\)/.test(rule('[dir=rtl] .vwin::before')) && /left: -54px/.test(rule('[dir=rtl] .vw-close')), 'Arabic mirrors the panel and moves the X left');
   assert.ok(/border-image: var\(--art-cpanel3-01\) 64 66 28 20 fill \/ 1 stretch/.test(rule('#peek')) && /border-width: 45px 46px 20px 14px/.test(rule('#peek')), 'the dossier is the same panel, smaller');
-  assert.ok(/<div id="peek"><\/div>\s*<button id="peek-x" title="Close">/.test(html) && /display: block/.test(rule('#peek.open + #peek-x')) && /peek-x/.test(screens) && /#peek \.peek-close/.test(screens), 'the dossier\'s X is a hot spot beside the panel, wired to its close');
+  assert.ok(/<div id="peek"><\/div>\s*<button id="peek-x" title="Close">/.test(html) && /display: block/.test(rule('#peek.open.pinned + #peek-x')) && /peek-x/.test(screens) && /#peek \.peek-close/.test(screens), 'the dossier\'s X is a hot spot beside the panel, wired to its close');
   console.log('ui: the stylesheet and the markup paint the panels, the pile, the slots and the ending');
 })();
 
@@ -1217,6 +1244,23 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   UI.pointer.up({ pointerId: 8, clientX: 400, clientY: 400, target: inner });
   UI.back();
   render(e);
+  // A dossier pinned by a tap steps aside when a tile is tapped open on a phone, for a finger and for the mouse
+  // (cases check-up: it stood over the window's title and first slot). On a wide screen it stays where it is.
+  var pinCard = e.tableCards().filter(function (c) { return !c.hidden; })[0], mmPin = globalThis.matchMedia;
+  [['touch', true], ['mouse', true], ['touch', false], ['mouse', false]].forEach(function (pc, i) {
+    globalThis.matchMedia = function () { return { matches: pc[1], addEventListener: function () {}, addListener: function () {} }; };
+    UI.selected = pinCard.uid; render(e);
+    assert.ok($('#peek').classList.contains('pinned'), 'the dossier is pinned');
+    UI.pointer.down({ pointerId: 60 + i, pointerType: pc[0], button: 0, clientX: 400, clientY: 400, target: inner, preventDefault: function () {} });
+    UI.pointer.up({ pointerId: 60 + i, pointerType: pc[0], clientX: 400, clientY: 400, target: inner });
+    render(e);
+    assert.ok(UI.openVerbs.indexOf('duty') >= 0, pc[0] + ': the tap opens the verb');
+    if (pc[1]) assert.ok(!UI.selected && !$('#peek').classList.contains('pinned') && !$('#peek').classList.contains('open'), pc[0] + ' on a phone: the dossier steps aside for the window');
+    else assert.strictEqual(UI.selected, pinCard.uid, pc[0] + ' on a wide screen: the dossier stays');
+    while (UI.back()) { /* the dossier, then the window */ }
+    UI.selected = null; render(e);
+  });
+  globalThis.matchMedia = mmPin;
   // The pile, the same.
   var pzEl = $('#board').querySelector('.pile-zone');
   if (pzEl) {
@@ -1243,13 +1287,14 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   render(e);
   ccEl = $('#board').querySelector('.card[data-uid=' + cc.uid + ']');
   assert.ok(!ccEl.querySelector('.c-searched'), 'a scene with more to give has none');
-  // The Rival: careful for the week a thread was found; the second thread is the other way. (Under the rules
-  // that want the Rival caught at it, item 65 below, Question has a slot for their work: read here without it.)
+  // The Rival: careful for the week a thread was found. (Under the rules that want the Rival caught at it, item 65
+  // below, Question has a slot for their work: read here without it, the next thread is Wit again. This test once
+  // read data.heatBy, 'the other way', which the engine never writes (round 8 review): it now reads what is kept.)
   var islots0 = CF.VERBS.interrogate.slots;
   CF.VERBS.interrogate.slots = islots0.filter(function (sl) { return sl.key !== 'theirs'; });
   if (!e.verb('interrogate').unlocked) e.verb('interrogate').unlocked = true;
   if (!e.verb('investigate').unlocked) e.verb('investigate').unlocked = true;
-  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week, heatBy: 'interrogate', stalled: 0 } });
+  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week, heatHow: 'question', stalled: 0 } });
   e.s.journal.unshift({ t: 1, week: 1, title: 'The Rival Takes a Case', text: '', kind: 'danger' }, { t: 2, week: 1, title: 'A Scene Spoiled', text: '', kind: 'danger' });
   var wit = e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('focus');
   var ins = e.cardsOf('instinct').filter(function (c) { return c.loc.t === 'table'; })[0] || e.create('instinct');
@@ -1257,15 +1302,12 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(!/Rival/.test(UI.advice() || ''), 'careful this week: no Rival line');
   rv.data.heatWeek = e.s.week - 1;
   var say = UI.advice() || '';
-  assert.ok(/shadow Anselm Brecht in Explore with Instinct/.test(say), 'after a Wit thread, the next is shadowing: ' + say);
-  rv.data.heatBy = 'investigate';
-  say = UI.advice() || '';
-  assert.ok(/Question Anselm Brecht with Wit/.test(say), 'after a shadow, the next is a question: ' + say);
+  assert.ok(/One thread on the Rival\. Pull it: Question Anselm Brecht with Wit\./.test(say), 'the week after, the next thread: ' + say);
   UI.selected = rv.uid;
   rv.data.heatWeek = e.s.week;
   render(e);
   var peek = $('#peek').innerHTML;
-  assert.ok(/Careful this week/.test(peek) && /The next thread: Question them with Wit/.test(peek), 'the dossier says when and how: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 300));
+  assert.ok(/Careful this week/.test(peek) && /Weakness found: 1 of 2/.test(peek), 'the dossier says when: ' + peek.replace(/<[^>]+>/g, ' ').slice(0, 300));
   UI.selected = null;
   $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
   CF.VERBS.interrogate.slots = islots0;
@@ -1600,7 +1642,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   UI.view = { x: 0, y: 0, z: 1 };
   UI.playUpright();
   assert.ok(!UI.upright && !$('#table').classList.contains('upright') && store['casefile.upright'] === '1', 'play upright: the card goes, remembered');
-  assert.ok(UI.view.z >= 0.4, 'the fit may go as far as 0.4 upright');
+  assert.ok(UI.view.z >= UI.Z_MIN && UI.Z_MIN === 0.3, 'the fit may go as far as a pinch can (0.3) upright');
   UI.checkUpright();
   assert.ok(!UI.upright, 'and it does not come back');
   assert.ok(/screen\.orientation\.lock\('landscape'\)/.test(main), 'installed, the page asks to lie on its side');
@@ -1661,6 +1703,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var spot = e.choiceSpot(), v0 = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
   played.length = 0;
   e.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'lamplighter'; })[0], null);
+  // The camera goes in the render that puts the question on the table (so it frames the question's real size).
+  render(e);
   assert.ok(UI.view.x !== v0.x || UI.view.y !== v0.y || UI.view.z !== v0.z, 'a calm camera is on the choice at once');
   void spot;
 
@@ -1808,7 +1852,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var marks0 = UI.notices.length;
   var f = e.create('burnout');
   var box = $('#toasts'), n0 = box.children.length;
-  e.story('Fever', 'Your hands will not stop shaking.', 'danger');
+  // As the engine tells it (engine.js: the Fever's story names its card, entry.uid; the title match is gone, round 8 review).
+  e.story('Fever', 'Your hands will not stop shaking.', 'danger', { uid: f.uid });
   render(e);
   assert.strictEqual(UI.strainSeen, f.uid, 'the Fever\'s arrival is caught from its story');
   var t = box.children[box.children.length - 1];
@@ -1981,6 +2026,10 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var on = gates.map(function (g) { return g.dataset.gate + ':' + (g.classList.contains('on') ? 1 : 0); }).join(' ');
   assert.strictEqual(on, 'enough:' + (a.score >= a.need ? 1 : 0) + ' kinds:' + (a.covered >= 2 ? 1 : 0) + ' word:0 clean:1', 'the seals read the charge: ' + on);
   if (a.score >= a.need && a.covered >= 2) assert.ok(box.querySelector('.ch-word') && !/To full proof/.test(box.textContent), 'only the word dark: the note says what word would do');
+  // The word note is said once, though the rules and the window both know it (check-up: it was shown twice).
+  var wordLines = box.querySelectorAll('.ch-note').filter(function (n) { return /^Word behind it:/.test(n.textContent); });
+  assert.ok(wordLines.length <= 1, 'the word note once: ' + wordLines.length);
+  if (a.score >= a.need && a.covered >= 2) assert.strictEqual(wordLines.length, 1, 'only the word dark: one word note');
   var labs = $('#windows').querySelectorAll('.slot .s-label').map(function (l) { return l.textContent; });
   assert.ok(labs.indexOf('Proof') >= 0 && labs.indexOf('PROOF') < 0, 'a plain token is Proof: ' + labs);
   // A token that names them, one that names somebody else.
@@ -2031,7 +2080,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
 
   // Item 65: when the rules want the Rival caught at it, the advisor and the dossier point to their own dirty work.
   e.verb('interrogate').unlocked = true;
-  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week - 1, heatBy: 'interrogate', stalled: 0 } });
+  var rv = e.create('rival', { label: 'The Rival: Anselm Brecht', data: { name: 'Anselm Brecht', heat: 1, heatWeek: e.s.week - 1, heatHow: 'question', stalled: 0 } });
   e.s.journal.unshift({ t: 1, week: 1, title: 'The Rival Takes a Case', text: '', kind: 'danger' }, { t: 2, week: 1, title: 'A Scene Spoiled', text: '', kind: 'danger' });
   if (!e.cardsOf('focus').filter(function (c) { return c.loc.t === 'table'; }).length) e.create('focus');
   var slots0 = CF.VERBS.interrogate.slots;
@@ -2380,7 +2429,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(!UI.hintFlash, 'then lets go');
   flushTimers();
   assert.ok(!slot.classList.contains('refuse'), 'the shake ends');
-  assert.ok(/\} else \{\n        refused\(t\);/.test(uiSrc), 'every refused drop on a slot or tile is told');
+  assert.ok(/\} else \{\n        refused\(t, card\);/.test(uiSrc), 'every refused drop on a slot or tile is told');
   assert.ok(/html\[data-calm\] \.slot\.refuse \{ outline: 2px solid transparent;[^}]*animation: refuseFlash/.test(css), 'a red edge instead of a shake when calm');
 
   // Item 96: a running verb no longer silences the advisor; a line waits only for its own verb.
@@ -2620,14 +2669,15 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/if \(UI\.hushSync\) UI\.hushSync\(\);/.test(main), 'menus hush it');
 
   // Item 107: Standing at the last office aims at the next favour where the rules grant them, and says so.
-  var cap = e.rankCap ? e.rankCap() : CF.TOP_RANK, oldEvery = CF.FAVOUR_EVERY;
+  // (The step is the engine's own CF.FAVOUR_STEP: the UI once read a CF.FAVOUR_EVERY nobody defined, round 8 review.)
+  var cap = e.rankCap ? e.rankCap() : CF.TOP_RANK, oldEvery = CF.FAVOUR_STEP;
   e.s.rank = cap; e.s.calling = 'master'; e.s.meters.reputation = CF.RANK_REP[cap] + 5;
-  delete CF.FAVOUR_EVERY;
+  delete CF.FAVOUR_STEP;
   var fn1 = e.favourNext;
   e.favourNext = undefined;
   var t0 = UI.repTarget(e);
   assert.ok(t0.max === e.s.meters.reputation && t0.line === 'You hold the last office open to you.', 'without favours: full, and no promise of a letter');
-  CF.FAVOUR_EVERY = 4; e.s.flags.favourStep = 1;
+  CF.FAVOUR_STEP = 4; e.s.flags.favourStep = 1;
   var t1 = UI.repTarget(e);
   e.favourNext = fn1;
   // The rules' own writ (engine favourNext) is what the meter aims at, where they keep one.
@@ -2638,7 +2688,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/grants you a favour/.test($('#peek').innerHTML) && !/At each threshold/.test($('#peek').innerHTML), 'the popover says what comes next, not a threshold that never will');
   e.s.calling = 'commissioner'; e.s.rank = CF.TOP_RANK; e.s.meters.reputation = 10;
   assert.strictEqual(UI.repTarget(e).max, CF.COMMISSIONER_REP, 'a Commissioner aims at the Seat first');
-  if (oldEvery === undefined) delete CF.FAVOUR_EVERY; else CF.FAVOUR_EVERY = oldEvery;
+  if (oldEvery === undefined) delete CF.FAVOUR_STEP; else CF.FAVOUR_STEP = oldEvery;
   delete e.s.flags.favourStep; e.s.calling = 'master'; e.s.rank = 0; e.s.meters.reputation = 0;
   $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
 
@@ -2795,8 +2845,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(UI.journalRoads(e).every(function (r) { return typeof r.text === 'string' && r.text; }), 'the rules\' own roads all have words');
   // A heresy case says what the rules say of it (patrons.js heresyWatch: their week, their gate).
   var rec = e.openCases()[0], hw0 = e.heresyWatch, cc = e.caseCard(rec.id);
-  e.heresyWatch = function (r) { return r.id === rec.id ? { kept: false, week: 9, line: 'Smells of heresy: the Inquisitor\'s after week {n}', vars: { n: 9 } } : null; };
-  assert.ok(UI.dossierLines(cc).some(function (l) { return l === 'Smells of heresy: the Inquisitor\'s after week 9'; }), 'the Inquisitor\'s week is the rules\' own');
+  e.heresyWatch = function (r) { return r.id === rec.id ? { kept: false, week: 9, line: 'Smells of heresy: from week {n} the Inquisitor may take it', vars: { n: 9 } } : null; };
+  assert.ok(UI.dossierLines(cc).some(function (l) { return l === 'Smells of heresy: from week 9 the Inquisitor may take it'; }), 'the Inquisitor\'s week is the rules\' own');
   e.heresyWatch = function () { return null; };
   assert.ok(!UI.dossierLines(cc).some(function (l) { return /heresy|Dominicans/.test(l); }), 'nothing where the rules see no heresy');
   e.heresyWatch = hw0;
@@ -2868,6 +2918,450 @@ function render(e) { e.dirty = true; UI.renderNow(); }
     assert.ok(found[role] && found[role].sex === 'm', role + ' is a man');
   });
   console.log('ui: faces by sex');
+})();
+
+// ---- The table check-up: what a player's hand found on the table, held to here.
+(function tableCheckup() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var ui = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  var e = CF.Engine.newGame({ calling: 'master', seed: 3, name: 'Hodge Ebner' });
+  e.s.flags.marketOpen = true;
+  UI.attach(e); UI.paused = true; UI.closeAllWindows && UI.closeAllWindows();
+  render(e);
+  function cardEl(uid) { return $('#board').querySelector('.card[data-uid=' + uid + ']'); }
+  function on(el, extra) { var t = new El('div'); t.closest = function (sel) { if (sel === '.card[data-uid]') return el; return extra ? extra(sel) : null; }; return t; }
+
+  // A hover never blocks a drag: only a pinned dossier takes the pointer, and over the card it shows it stands at
+  // the other side of the table.
+  assert.ok(/pointer-events: none/.test(rule('#peek.open')) && /pointer-events: auto/.test(rule('#peek.open.pinned')), 'the hover dossier lets the pointer through; a pinned one takes it');
+  assert.ok(/display: block/.test(rule('#peek.open.pinned + #peek-x')) && !rule('#peek.open + #peek-x'), 'the X is there only for a pinned dossier');
+  assert.ok(/left: auto; right: 12px/.test(rule('#peek.far')) && /right: calc\(35\.6px/.test(rule('#peek.open.pinned.far + #peek-x')) && /right: 60px/.test(rule('#peek.far ~ #peek-head')), 'at the right, its X and its band go with it');
+  var health = e.tableCards().filter(function (c) { return c.def === 'health'; })[0];
+  UI.selected = null;
+  UI.pointer.move({ pointerId: 1, pointerType: 'mouse', clientX: 100, clientY: 400, target: on(cardEl(health.uid)) });
+  assert.strictEqual(UI.hover, health.uid, 'the mouse resting on Health shows its dossier');
+  assert.ok($('#peek').classList.contains('open') && !$('#peek').classList.contains('pinned') && $('#peek').classList.contains('far'), 'a hover dossier, not pinned, at the far side from the card under it');
+  UI.pointer.down({ pointerId: 1, pointerType: 'mouse', button: 0, clientX: 100, clientY: 400, target: on(cardEl(health.uid)), preventDefault: function () {} });
+  assert.ok(UI.drag && UI.drag.kind === 'card' && UI.drag.uid === health.uid, 'and the press takes the card');
+  UI.pointer.up({ pointerId: 1, pointerType: 'mouse', clientX: 100, clientY: 400, target: on(cardEl(health.uid)) });
+  UI.openVerbs.push('duty');
+  UI.placePeek($('#peek'), health);
+  assert.ok(!$('#peek').classList.contains('far'), 'with a window docked at the right, the dossier keeps the left');
+  UI.openVerbs.pop();
+  UI.selected = null; UI.hover = null; $('#peek').classList.remove('open', 'pinned', 'far'); $('#peek').dataset.uid = '';
+
+  // A refused drop always says why: what the verb takes, what it is busy with, what the place takes.
+  var instinct = e.tableCards().filter(function (c) { return c.def === 'instinct'; })[0];
+  UI.refused({ verb: 'analyze', node: new El('div') }, health);
+  assert.strictEqual(UI.hintFlash && UI.hintFlash.text, UI.VERB_TAKES.analyze, 'Health on Study: what Study takes');
+  UI.refused({ verb: 'arrest', node: new El('div') }, health);
+  assert.strictEqual(UI.hintFlash.text, 'The Court takes an Accused, or the Condemned.', 'Health on the Court: what the Court takes');
+  UI.refused({ verb: 'duty', node: new El('div') }, instinct);
+  assert.ok(/^Attend takes Health or Wit/.test(UI.hintFlash.text), 'Instinct on Attend: what Attend takes');
+  UI.refused({ verb: 'investigate', slot: 'where', node: new El('div') }, health);
+  assert.ok(/^This place takes /.test(UI.hintFlash.text), 'a slot of the wrong kind says what it takes: ' + UI.hintFlash.text);
+  Object.keys(UI.VERB_TAKES).forEach(function (v) { assert.ok(CF.VERBS[v] && UI.VERB_TAKES[v].indexOf(CF.VERBS[v].label) === 0, 'each line names its verb: ' + v); });
+  assert.ok(e.autoSlot('duty', health.uid) && e.start('duty'), 'Attend at work');
+  UI.refused({ verb: 'duty', node: new El('div') }, instinct);
+  assert.ok(/^Attend (is at work|asks for)/.test(UI.hintFlash.text), 'a busy verb says it is busy: ' + UI.hintFlash.text);
+  UI.hintFlash = null;
+  CF.Settings.typeRate = function () { return 0; };
+
+  // The pile is set by left and top, so its tab is above the cards of the row above (no stacking context of its own).
+  render(e);
+  var pz = $('#board').querySelector('.pile-zone');
+  assert.ok(pz && pz.style.left !== undefined && pz.style.top !== undefined && !pz.style.transform, 'the pile is placed by left and top, never a transform');
+  assert.ok(/z-index: 2/.test(rule('#board .pile-zone .pz-tab')) && /z-index: auto/.test(rule('#board .pile-zone')) && /calc\(34px \* var\(--zk, 1\)\)/.test(css), 'its tab is above the cards, and a finger\'s size at the farthest zoom');
+  ['touch', 'mouse'].forEach(function (pt, i) {
+    var tab = new El('span'); tab.className = 'pz-tab';
+    tab.closest = function (sel) { return sel === '.pile-zone' ? pz : null; };
+    var p0 = { x: e.pile().x, y: e.pile().y }, l0 = pz.style.left;
+    UI.pointer.down({ pointerId: 20 + i, pointerType: pt, button: 0, clientX: 200, clientY: 300, target: tab, preventDefault: function () {} });
+    assert.strictEqual(UI.drag && UI.drag.kind, 'pile', pt + ': the tab takes the pile');
+    UI.pointer.move({ pointerId: 20 + i, pointerType: pt, clientX: 420, clientY: 300, target: tab });
+    UI.pointer.up({ pointerId: 20 + i, pointerType: pt, clientX: 420, clientY: 300, target: tab });
+    render(e);
+    assert.ok(e.pile().x !== p0.x || e.pile().y !== p0.y, pt + ': and moves it');
+    assert.ok(pz.style.left !== l0 && !pz.style.transform, pt + ': drawn by left and top');
+  });
+
+  // Fit shows the whole table: every card and tile inside the view, through the tilt; the farthest zoom is a pinch's.
+  e.tableCards().forEach(function (c, i) { if (c.loc && c.loc.t === 'table') c.loc = { t: 'table', x: (i % 9) * CF.TABLE.PX, y: CF.TABLE.TOP + (2 + Math.floor(i / 9) * 3) * CF.TABLE.PY }; });
+  render(e);
+  UI.fitView();
+  var v = UI.view, tr0 = $('#table').getBoundingClientRect(), out = [];
+  function seen(x, y, w, h) { [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(function (q) { var sp = UI.fromPlane(v.x + q[0] * v.z, v.y + q[1] * v.z); if (sp.x < -0.5 || sp.y < -0.5 || sp.x > tr0.width + 0.5 || sp.y > tr0.height + 0.5) out.push([x, y]); }); }
+  e.tableCards().forEach(function (c) { seen(c.loc.x, c.loc.y, CF.TABLE.CW, CF.TABLE.CH); });
+  CF.VERB_ORDER.forEach(function (id) { var vb = e.verb(id); if (vb.unlocked && vb.x !== undefined) seen(vb.x, vb.y, CF.TABLE.VW, CF.TABLE.VH); });
+  assert.ok(!out.length && v.z >= UI.Z_MIN && v.z <= 1.25, 'after Fit every card and tile is in view (z ' + v.z + '): ' + JSON.stringify(out));
+  assert.ok(/tiltChanged\(\);[\s\S]{0,1200}toPlane\(cx, box\.t\)/.test(ui) && /U\.clamp\(v\.z \* factor, UI\.Z_MIN, 1\.6\)/.test(ui), 'the fit is measured through the tilt, and the pinch goes as far');
+  assert.ok(/e\.s\.choice && choiceEl && choiceEl\.offsetWidth/.test(ui), 'a waiting choice is in the fit');
+
+  // Finds: two taps take a find, face down or up, for a finger as for the mouse; they stay where they are while
+  // the story types above them; the press on a find turning edge-on still reaches it.
+  var cs = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  e.autoSlot('investigate', cs.uid); e.start('investigate'); e.tick(41);
+  UI.openWindow('investigate'); render(e);
+  var vi = e.verb('investigate');
+  assert.strictEqual(vi.status, 'done', 'Explore has finished');
+  var win = $('#windows').querySelector('.vwin');
+  var ghost = win && win.querySelector('.ghost');
+  assert.ok(!vi.story || (ghost && ghost.textContent === UI.storyText(vi.story)), 'the words still to type hold their place unseen');
+  assert.ok(/\.story p \.ghost \{ visibility: hidden; \}/.test(css), 'unseen, not absent');
+  var hidden = vi.out.filter(function (u) { return e.card(u).hidden; });
+  assert.ok(hidden.length >= 2, 'face-down finds');
+  ['touch', 'mouse'].forEach(function (pt, i) {
+    var u = hidden[i], el = new El('div'); el.dataset.uid = String(u); el.className = 'card';
+    var t = on(el, function (sel) { return sel === '.vwin' ? win : null; });
+    var tap = function () {
+      UI.pointer.down({ pointerId: 30 + i, pointerType: pt, button: 0, clientX: 1000, clientY: 500, target: t, preventDefault: function () {} });
+      UI.pointer.up({ pointerId: 30 + i, pointerType: pt, clientX: 1000, clientY: 500, target: t });
+    };
+    UI.lastTap = null;
+    tap();
+    assert.strictEqual(e.card(u).loc.t, 'out', pt + ': one tap turns it, where it lies');
+    tap();
+    assert.strictEqual(e.card(u).loc.t, 'table', pt + ': the second tap takes it to the table');
+    flushTimers();
+  });
+  var u3 = vi.out.filter(function (u) { return e.card(u).loc.t === 'out'; })[0];
+  if (u3) {
+    var c3 = new El('div'); c3.dataset.uid = String(u3); c3.className = 'card';
+    var wrap = new El('div'); wrap.className = 'mini-wrap flip-out';
+    wrap.closest = function (sel) { return sel === '.mini-wrap' ? wrap : sel === '.vwin' ? win : null; };
+    wrap.querySelector = function () { return c3; };
+    UI.pointer.down({ pointerId: 40, pointerType: 'touch', button: 0, clientX: 1000, clientY: 500, target: wrap, preventDefault: function () {} });
+    assert.ok(UI.drag && UI.drag.kind === 'card' && UI.drag.uid === u3, 'a press on the turning wrapper is a press on its find');
+    UI.pointer.up({ pointerId: 40, pointerType: 'touch', clientX: 1000, clientY: 500, target: wrap });
+    UI.lastTap = { uid: u3, t: performance.now() - 2000 };
+    UI.pointer.down({ pointerId: 41, pointerType: 'mouse', button: 0, clientX: 1000, clientY: 500, target: wrap, preventDefault: function () {} });
+    UI.pointer.up({ pointerId: 41, pointerType: 'mouse', clientX: 1000, clientY: 500, target: wrap });
+    assert.strictEqual(e.card(u3).loc.t, 'out', 'two taps far apart are two taps, not a double');
+    flushTimers();
+  }
+  assert.ok(/if \(UI\.tookByTaps && performance\.now\(\) - UI\.tookByTaps < 700\) return;/.test(ui), 'the browser\'s dblclick after two taps is not answered twice');
+  UI.closeAllWindows && UI.closeAllWindows();
+
+  // Toasts stand clear of the tiles (bottom right, over the tools) and of the open Journal; a choice's story toast
+  // gives way to the choice itself.
+  UI.toggleJournal(true);
+  assert.ok(document.body.classList.contains('has-journal'), 'the page knows the Journal is open');
+  UI.toggleJournal(false);
+  assert.ok(!document.body.classList.contains('has-journal'), 'and when it shuts');
+  var spec = (CF.CHOICES || [])[0];
+  if (spec && e.offerChoice) {
+    e.offerChoice(spec);
+    assert.ok(!$('#toasts').children.some(function (t) { return t.dataset && t.dataset.title === spec.title; }), 'no toast lies over the choice it repeats');
+    e.s.choice = null; render(e);
+  }
+  assert.ok(/@media \(min-width: 981px\) and \(min-height: 521px\) \{\n  body\.has-window #hint \{ left: calc\(\(100% - 390px/.test(css), 'a long lesson keeps left of a docked window');
+  assert.ok(/@media \(max-height: 520px\) \{[^@]*\n  #pause-banner \{ top: 8px; bottom: auto; \}/.test(css), 'on a phone on its side the pause banner keeps to the top band, off the hint');
+  assert.ok(/padding-inline: 14px 6px/.test(rule('.side-head')), 'the Journal\'s X sits at the band\'s edge in either direction');
+  assert.ok(/var band = toolBand\(tr2\), yLo = band \? band \+ 20 : 80, yHi = band \? tr2\.height - 20 : tr2\.height - 90;/.test(ui), 'on a phone an edge mark hugs the edge, off the card row');
+
+  // The dossier has one clock line, the live one.
+  var w = e.create('wound');
+  UI.selected = w.uid; render(e);
+  var ph = $('#peek').innerHTML;
+  assert.strictEqual((ph.match(/Knits in /g) || []).length, 1, 'a wound says once when it knits');
+  assert.ok(!/Time left: /.test(ph), 'and not twice in other words');
+  UI.dossierLines(w).concat(UI.dossierLines(cs)).forEach(function (l) { assert.ok(!/^Time left: |^Knits in /.test(l), 'no frozen clock among the notes: ' + l); });
+  UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  e.remove(w);
+
+  // The Sketch-book's name stands in its painted band; the verdict's wait never leaves a card unseen.
+  var cam = e.create('camera'); render(e);
+  var camEl = e.cardsOf('camera').map(function (c) { return cardEl(c.uid); }).filter(Boolean)[0];
+  assert.ok(camEl && camEl.classList.contains('band-story') && /top: 73\.5%; bottom: 10%/.test(rule('.card.face-full.banded.band-story .c-body')), 'a story card\'s name sits in its band');
+  assert.ok(/if \(\+k < later && cardEls\[k\]\.classList\.contains\('awaiting'\)\)/.test(ui) && /if \(UI\.verdictWait === wait\) UI\.verdictWait = null;/.test(ui), 'every card waiting under a lifted stamp shows');
+  assert.ok(!/winPos/.test(ui) && !/kind === 'window'/.test(ui), 'no dead window drag: the window is docked');
+  console.log('ui: the table check-up (hover, refusals, pile, fit, finds, toasts, dossier clock, story band)');
+})();
+
+// ---- The verbs check-up: what a player's hand found at the verbs, held to here.
+(function verbsCheckup() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var e = CF.Engine.newGame({ calling: 'master', seed: 3, name: 'Hodge Ebner' });
+  e.s.flags.marketOpen = true;
+  UI.attach(e); UI.paused = true;
+  function closeAll() { var n = 0; while ((UI.openVerbs.length || UI.pick) && n++ < 9) UI.back(); render(e); }
+  closeAll();
+  function win(vid) { return $('#windows').querySelectorAll('.vwin').filter(function (w) { return w.dataset.win === vid; })[0]; }
+  // A case's own door ('A battened hatch' at the quay) says what ignoring costs, as the plain door does.
+  e.tableCards().filter(function (c) { return c.def === 'case'; }).forEach(function (c) { e.remove(c); });
+  var hc = e.spawnCase('harbor', { quiet: true }), hrec = e.caseRec(hc.caseId);
+  (CF.CASE_TEMPLATES[hrec.template].leads || []).forEach(function (l) { hrec.leads = hrec.leads || {}; hrec.leads[l.id] = true; });
+  assert.ok(e.autoSlot('investigate', hc.uid) && e.start('investigate'), 'the quay searched');
+  var v = e.verb('investigate');
+  e.tick(v.duration * 0.35);
+  assert.ok(v.ask && v.ask.label === 'A battened hatch', 'the hatch is asked: ' + JSON.stringify(v.ask));
+  assert.strictEqual(UI.askPenalty('investigate'), 'thin', 'its cost is the door\'s: it finds less');
+  UI.openWindow('investigate'); render(e);
+  var wt = win('investigate').textContent;
+  assert.ok(/finds less/.test(wt) && !/as it would have/.test(wt), 'the box says so: ' + wt);
+  // The info opens on a verb at work too.
+  UI.about = 'investigate'; render(e);
+  assert.ok(win('investigate').querySelector('.vw-about'), 'the info shows while the verb is at work');
+  UI.about = null; closeAll();
+
+  // The Bell's window is its description: no dead info button; a card dropped on it is told why it went back.
+  UI.openWindow('time'); render(e);
+  assert.ok(win('time') && !win('time').querySelector('.vw-info'), 'the Bell has no info button');
+  assert.ok(win('investigate') === undefined || win('investigate').querySelector('.vw-info'), 'the other verbs keep theirs');
+  UI.refused({ verb: 'time', node: new El('div') }, e.tableCards().filter(function (c) { return c.def === 'focus'; })[0]);
+  assert.strictEqual(UI.hintFlash && UI.hintFlash.text, UI.VERB_TAKES.time, 'Wit on the Bell: the Bell takes no cards');
+  UI.hintFlash = null; closeAll();
+
+  // An empty slot tapped: the cards that fit are scrolled into view, below the sticky Start bar (whose height is the
+  // body's scroll padding), for a finger as for the mouse: the tap is the slot's click either way.
+  var scrolled = [];
+  El.prototype.scrollIntoView = function (o) { scrolled.push({ el: this, o: o }); };
+  UI.openWindow('duty'); render(e);
+  var body = win('duty').querySelector('.vw-body');
+  assert.strictEqual(body.style.scrollPaddingTop, '106px', 'the body keeps what it scrolls to clear of the bar: ' + body.style.scrollPaddingTop);
+  var box = win('duty').querySelectorAll('.slot').filter(function (sl) { return sl.dataset.slot === 'main'; })[0].querySelector('.s-box');
+  box.click(); render(e);
+  var pk = win('duty').querySelector('.picker');
+  assert.ok(UI.pick && pk, 'the picker opens');
+  assert.ok(scrolled.some(function (x) { return x.el === pk && x.o && x.o.block === 'nearest'; }), 'and is brought into view');
+  scrolled.length = 0; render(e);
+  assert.ok(!scrolled.length, 'once: the window does not jump back to it on every redraw');
+  box = win('duty').querySelectorAll('.slot').filter(function (sl) { return sl.dataset.slot === 'main'; })[0].querySelector('.s-box');
+  box.click(); render(e);
+  assert.ok(!UI.pick && !scrolled.length, 'a second tap closes it, and nothing scrolls');
+  delete El.prototype.scrollIntoView;
+  closeAll();
+  assert.ok(/\.vw-body \.actions \{ order: -1; position: sticky; top: 0;/.test(css), 'the Start bar is still sticky (the padding is what keeps a slot clear of it)');
+  console.log('ui: the verbs check-up (a case\'s door, the info at work, the Bell, the picker in view)');
+})();
+
+// ---- The opening check-up: two taps on a table card send it (a finger brings no dblclick); the advisor sees a case
+// left in a verb's slot.
+(function openingCheckup() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 3, name: 'Hodge Ebner' });
+  e.s.flags.marketOpen = true;
+  UI.attach(e); UI.paused = true; UI.closeAllWindows && UI.closeAllWindows();
+  render(e);
+  function closeAll() { var n = 0; while ((UI.openVerbs.length || UI.pick) && n++ < 9) UI.back(); render(e); }
+  function on(el) { var t = new El('div'); t.closest = function (sel) { return sel === '.card[data-uid]' ? el : null; }; return t; }
+  // Two taps on a table card, for a finger as for the mouse: the first reads it, the second sends it to a verb that
+  // takes it, as a double-click does. Two taps far apart are two reads.
+  ['touch', 'mouse'].forEach(function (pt, i) {
+    closeAll();
+    var card = e.tableCards().filter(function (c) { return c.def === 'health'; })[0];
+    var el = new El('div'); el.dataset.uid = String(card.uid); el.className = 'card';
+    var t = on(el);
+    var tap = function (k) {
+      UI.pointer.down({ pointerId: 50 + i * 4 + k, pointerType: pt, button: 0, clientX: 300, clientY: 300, target: t, preventDefault: function () {} });
+      UI.pointer.up({ pointerId: 50 + i * 4 + k, pointerType: pt, clientX: 300, clientY: 300, target: t });
+    };
+    UI.lastTap = null;
+    tap(0);
+    assert.strictEqual(e.card(card.uid).loc.t, 'table', pt + ': one tap reads it, where it lies');
+    assert.strictEqual(UI.selected, card.uid, pt + ': and shows its dossier');
+    tap(1);
+    assert.strictEqual(e.card(card.uid).loc.t, 'slot', pt + ': the second tap sends it to a verb: ' + JSON.stringify(e.card(card.uid).loc));
+    assert.ok(UI.openVerbs.indexOf(e.card(card.uid).loc.verb) >= 0, pt + ': whose window opens');
+    e.unslot(e.card(card.uid).loc.verb, e.card(card.uid).loc.slot);
+    closeAll();
+    UI.lastTap = { uid: card.uid, t: performance.now() - 2000 };
+    tap(2);
+    assert.strictEqual(e.card(card.uid).loc.t, 'table', pt + ': two taps far apart are not a double');
+    UI.selected = null;
+  });
+  closeAll();
+  // A case laid in Explore's slot and left there: the advisor says to press, not that the desk is empty.
+  var cs = e.tableCards().filter(function (c) { return c.def === 'case'; });
+  assert.ok(cs.length, 'a case on the desk');
+  e.tableCards().filter(function (c) { return c.def === 'case'; }).slice(1).forEach(function (c) { e.remove(c); });
+  e.tableCards().filter(function (c) { return c.def === 'funds'; }).forEach(function (c) { e.remove(c); });
+  e.create('funds'); e.create('funds');
+  assert.ok(e.autoSlot('investigate', cs[0].uid), 'the case into Explore, not pressed');
+  var said = UI.advice();
+  assert.ok(!/Nothing on the desk/.test(said || ''), 'the case in hand is not an empty desk: ' + said);
+  var rec = e.caseRec(cs[0].caseId);
+  assert.ok(said && said.indexOf(rec.title) >= 0 && /press/.test(said), 'it names the case and says to press: ' + said);
+  e.unslot('investigate', 'main'); closeAll();
+  console.log('ui: the opening check-up (two taps on the table, a case left in a slot)');
+})();
+
+// ---- The screens check-up: a change of language keeps the grid; a setting redraws the table at once; the wheel
+// scrolls the Journal and a pinned dossier; Back under a menu is the menu's; a question is framed whole.
+(function screensCheckup() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 61 });
+  UI.attach(e);
+  render(e);
+  assert.ok($('#board').querySelector('.grid'), 'a new table has its grid');
+  // A change of language empties the board: the grid comes back with it, first under everything, and follows the toggle.
+  var was = CF.lang();
+  settings.lang = was === 'en' ? 'ar' : 'en'; settings.grid = true;
+  UI.applyLang();
+  var g = $('#board').querySelector('.grid');
+  assert.ok(g && $('#board').children[0] === g, 'the grid is there after the language changes, under the cards');
+  assert.ok(!g.classList.contains('hidden'), 'and shown, as the setting says');
+  settings.grid = false; UI.applyTableSettings();
+  assert.ok($('#board').querySelector('.grid').classList.contains('hidden'), 'and hides when the setting says so');
+  settings.lang = was; UI.applyLang(); delete settings.lang;
+  render(e);
+  // A setting that shapes the table (the case strings) is drawn by the very next render, without a card moved.
+  e.dirty = false;
+  settings.strings = false; UI.applyTableSettings();
+  assert.ok(e.dirty, 'a setting marks the table to be drawn again');
+  settings.strings = true; UI.applyTableSettings();
+  render(e);
+  // The wheel scrolls the paper under it: a verb window, the Journal, a pinned dossier; elsewhere it zooms the table.
+  function under(sel) { return { closest: function (q) { return q.split(',').map(function (x) { return x.trim(); }).indexOf(sel) >= 0 ? {} : null; } }; }
+  assert.ok(UI.wheelScrolls(under('.vwin')) && UI.wheelScrolls(under('#journal-drawer')) && UI.wheelScrolls(under('#peek.pinned')), 'the wheel scrolls a window, the Journal and a pinned dossier');
+  assert.ok(!UI.wheelScrolls(under('#board')) && !UI.wheelScrolls(under('#peek')), 'and zooms over the felt and under a dossier a hover shows');
+  // Back with a menu or a screen up (Help over a verb window) is for the menu, never the window behind it.
+  e.verb('investigate').unlocked = true;
+  UI.openWindow('duty');
+  var asked = 0, keep = UI.onBack;
+  UI.onBack = function () { asked++; return true; };
+  UI.modal = true;
+  assert.ok(UI.back() && asked === 1 && UI.openVerbs.indexOf('duty') >= 0, 'Back under Help goes to Help; the window stays');
+  UI.modal = false;
+  for (var nb = 0; nb < 4 && UI.openVerbs.indexOf('duty') >= 0; nb++) assert.ok(UI.back(), 'Back puts something away');
+  assert.ok(asked === 1 && UI.openVerbs.indexOf('duty') < 0, 'with the Help gone, Back puts away the table\'s own things, the window among them');
+  UI.onBack = keep;
+  // A question offered while the player looks elsewhere: the camera goes once it stands on the table, and frames it
+  // whole between the tool row and a hint at the foot (a phone on its side: a table 367 tall, a question 340 tall).
+  var spec = CF.CHOICES.filter(function (c) { return !c.after && e.choiceOpenFor(c, null); })[0];
+  assert.ok(spec, 'a question to ask');
+  settings.calm = true;
+  var table = $('#table'), hint = $('#hint'), tRect = table.getBoundingClientRect, hRect = hint.getBoundingClientRect;
+  table.getBoundingClientRect = function () { return { left: 0, top: 45, right: 915, bottom: 412, width: 915, height: 367 }; };
+  hint.classList.remove('gone');
+  hint.getBoundingClientRect = function () { return { left: 8, top: 360, right: 520, bottom: 404, width: 512, height: 44 }; };
+  UI.view.z = 1.2;
+  e.offerChoice(spec, null);
+  assert.ok(UI.choicePan, 'the camera waits for the question to stand on the table');
+  e.dirty = true; UI.renderNow();
+  var ch = $('#board').querySelector('.choice');
+  Object.defineProperty(ch, 'offsetHeight', { value: 340 }); Object.defineProperty(ch, 'offsetWidth', { value: 380 });
+  ch.getBoundingClientRect = function () { return { left: 0, top: 0, right: 380 * UI.view.z, bottom: 340 * UI.view.z, width: 380 * UI.view.z, height: 340 * UI.view.z }; };
+  UI.panToChoice();
+  var sp = e.choiceSpot(), top = UI.view.y + sp.y * UI.view.z, bottom = top + 340 * UI.view.z, foot = 367 - (412 - 360 + 6);
+  assert.ok(!UI.choicePan, 'and goes in that render');
+  assert.ok(top >= 0 && bottom <= foot, 'the whole question, every answer, above the hint: ' + top.toFixed(0) + '..' + bottom.toFixed(0) + ' of ' + foot);
+  assert.ok(UI.view.z < 0.95 && UI.view.z >= UI.Z_MIN, 'it stands back for a tall question on a short screen: ' + UI.view.z.toFixed(2));
+  table.getBoundingClientRect = tRect; hint.getBoundingClientRect = hRect; settings.calm = false;
+  e.s.choice = null; render(e);
+  // The pause menu leads back to the end paper once the file is closed (js/main.js), and Back from the table does too.
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8'), html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(/id="m-end">[^<]*<i[^>]*><\/i>Back to the Ending<\/button>/.test(html) && /click\('m-end', function \(\) \{ only\('end'\); \}\)/.test(main) && /click\('btn-menu', openMenu\)/.test(main), 'the menu has a way back to the ending');
+  assert.ok(/\$\('m-end'\)\.classList\.toggle\('hidden', !over\)/.test(main) && /if \(inGame && UI\.e && UI\.e\.s\.over\) \{ only\('end'\); return true; \}/.test(main), 'shown only over a closed file, where Back goes to the end paper too');
+  assert.ok(/if \(!\$\('confirm'\)\.classList\.contains\('hidden'\)\) \{ closeConfirm\(\); return true; \}/.test(main), 'Back answers No to a question before the screen under it');
+  console.log('ui: the screens check-up (grid, settings at once, wheel, Back under a menu, a question framed whole)');
+})();
+
+// ---- The Arabic check-up: a slot's kinds read name by name with the language's comma; the Court's rows keep have/need
+// in order; the edge marks stand apart; the sheet on a phone has no foot in Arabic either; the Settings' units, the
+// Rolls' comma, the speed buttons, the window's title and the clipped marks of Arabic letters.
+(function arabicCheckup() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var screens = fs.readFileSync(path.join(__dirname, '..', 'js/screens.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  if (!CF.I18N.dicts.ar || !CF.I18N.dicts.ar['the Rolls']) fs.readdirSync(path.join(__dirname, '..', 'js/lang/ar')).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js/lang/ar', f), 'utf8'), { filename: f }); });
+  // Every slot of every verb: its kinds (the picker's header, a slot's title) and its ' / ' name, read part by part.
+  var main = CF.VERBS.investigate.slots.filter(function (sl) { return sl.primary; })[0];
+  assert.strictEqual(UI.kindsText(main.accepts, ', ').split(', ')[0], 'Case', 'in English the kinds are names, joined by a comma');
+  assert.ok(UI.kindsText(main.accepts, ', ').indexOf('The Next Door') >= 0, 'and a kind with no card of its own has its name, not its id');
+  var leaks = [], arPick;
+  CF.setLang('ar');
+  try {
+    Object.keys(CF.VERBS).forEach(function (vid) {
+      (CF.VERBS[vid].slots || []).forEach(function (sl) {
+        [UI.kindsText(sl.accepts, ', '), UI.kindsText(sl.accepts, ' / '), UI.slashText(sl.label)].forEach(function (t) { if (/[A-Za-z]/.test(t)) leaks.push(vid + '.' + sl.key + ': ' + t); });
+      });
+    });
+    arPick = CF.T('{slot} takes: {kinds}', { slot: UI.slashText(main.label), kinds: UI.kindsText(main.accepts, ', ') });
+  } finally { CF.setLang('en'); }
+  assert.deepStrictEqual(leaks, [], 'no slot names a kind in English in Arabic');
+  assert.ok(arPick.indexOf('، ') > 0 && arPick.indexOf(', ') < 0 && !/[A-Za-z]/.test(arPick), 'the picker\'s header whole in Arabic, with the Arabic comma: ' + arPick);
+  // The Court's rows: have / need, isolated so a right-to-left line cannot turn them about.
+  var e = CF.Engine.newGame({ calling: 'master', seed: 13 });
+  UI.attach(e);
+  e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  assert.ok(e.autoSlot('arrest', sc.uid), 'the accused before the Court');
+  var nums;
+  CF.setLang('ar');
+  try {
+    UI.openWindow('arrest');
+    render(e);
+    nums = $('#windows').querySelector('.vwin').querySelectorAll('.ch-num').map(function (x) { return x.textContent; });
+  } finally { CF.setLang('en'); }
+  assert.ok(nums.length && nums.every(function (t) { return /^⁦\d+(\.\d+)? \/ \d+⁩$/.test(t); }), 'each row reads have / need, isolated: ' + JSON.stringify(nums));
+  for (var nb = 0; nb < 9 && UI.openVerbs.length; nb++) UI.back();
+  render(e);
+  // Edge marks that point the same way stand apart along their edge, each as near its own place as it can.
+  function mk(bx, by, w, along) { return { bx: bx, by: by, w: w, h: 30, along: along, half: Math.ceil(w / 2) + 4, yLo: 80, yHi: 700 }; }
+  function clear(list) {
+    for (var i = 0; i < list.length; i++) for (var j = i + 1; j < list.length; j++) {
+      var a = list[i], b = list[j];
+      if (Math.abs(a.mx2 - b.mx2) < (a.w + b.w) / 2 && Math.abs(a.my2 - b.my2) < (a.h + b.h) / 2) return false;
+    }
+    return true;
+  }
+  var foot = UI.spreadMarks([mk(60, 700, 111, 'x'), mk(235, 700, 226, 'x'), mk(414, 700, 119, 'x'), mk(69, 700, 95, 'x')], 1280);
+  assert.ok(clear(foot), 'four marks at the foot, none over another: ' + foot.map(function (n) { return n.mx2; }).join(','));
+  assert.ok(foot.every(function (n) { return n.my2 === 700 && n.mx2 >= n.half && n.mx2 <= 1280 - n.half; }), 'all on the foot, all on the screen');
+  assert.strictEqual(foot[0].mx2, 60, 'the first keeps its place');
+  var side = UI.spreadMarks([mk(54, 300, 100, 'y'), mk(54, 310, 100, 'y'), mk(54, 690, 100, 'y'), mk(54, 700, 100, 'y')], 1280);
+  assert.ok(clear(side), 'and up or down a side: ' + side.map(function (n) { return n.my2; }).join(','));
+  assert.ok(side.every(function (n) { return n.my2 >= 80 && n.my2 <= 700; }), 'within the side');
+  // The phone's sheet: Arabic swaps the sides only, so the sheet keeps no foot and its slide, and the window's
+  // closing is the layout's (tests above: the [dir=rtl] .vwin rule names no bottom and no transform).
+  assert.ok(/border-bottom-width: 0/.test(rule('  .vwin')) && /border-right-width: calc\(20px/.test(rule('[dir=rtl] .vwin')), 'Arabic keeps the phone\'s footless sheet');
+  assert.ok(/padding-inline-start: 10px/.test(rule('[dir=rtl] .vw-head h3')), 'the Arabic title steps off the mirrored bevel');
+  assert.ok(/-webkit-line-clamp: 2/.test(rule('  [dir=rtl] body.has-window #toasts .toast span')), 'on a short screen the Arabic toast ends above the sheet\'s head');
+  assert.ok(/direction: ltr/.test(rule('[dir=rtl] #controls .speed')) && /scaleX\(-1\)/.test(rule('[dir=rtl] #m-title .mi')), 'the speed buttons read left to right; the menu\'s back arrow points the Arabic way');
+  assert.ok(/padding-block: 0\.35em; margin-block: -0\.35em/.test(rule('[dir=rtl] .meter .m-word')) && /padding-block: 0\.35em/.test(rule('[dir=rtl] .lu-title .lu-rank')), 'a cut word keeps the marks over and under its letters');
+  // Settings and the Rolls.
+  assert.ok(/tr\('\{n\}px', \{ n: input\.value \}\)/.test(screens) && /tr\('\{n\}%', \{ n: input\.value \}\)/.test(screens), 'a slider\'s unit is read in the language');
+  assert.ok(/'<\/b>' \+ escText\(tr\(', '\)\) \+ esc\(cul\.role\)/.test(screens), 'the Rolls name the culprit and their role with the language\'s comma');
+  CF.setLang('ar');
+  var px = CF.T('{n}px', { n: 14 }), pc = CF.T('{n}%', { n: 80 });
+  CF.setLang('en');
+  assert.ok(!/[A-Za-z]/.test(px) && px.indexOf('14') === 0 && pc === '80٪', 'the units in Arabic: ' + px + ' ' + pc);
+  assert.strictEqual(CF.T('{n}px', { n: 14 }), '14px', 'and as they were in English');
+  console.log('ui: the Arabic check-up (kinds by name, the Court\'s numbers, marks apart, the sheet\'s foot, units, the Rolls\' comma)');
+})();
+
+// ---- Platform check-up: Escape is Back over a menu or a screen, the end paper's Back goes up to the title, and
+// the new edition's toast wears its seal like every other toast.
+(function platformCheckup() {
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var keydown = (document.listeners.keydown || [])[0];
+  assert.ok(keydown, 'the table listens for keys');
+  function key(k, tag) { var prevented = false; keydown({ key: k, code: k === ' ' ? 'Space' : k, target: { tagName: tag || 'BODY' }, preventDefault: function () { prevented = true; } }); return prevented; }
+  var backs = 0, keepBack = UI.onBack, keepModal = UI.modal, keepPaused = UI.paused;
+  UI.onBack = function () { backs++; return true; };
+  // A menu is up: Escape puts it away the way Back does (UI.back, then js/main.js UI.onBack), and nothing else.
+  UI.modal = true;
+  assert.ok(key('Escape'), 'Escape over a menu is taken');
+  assert.strictEqual(backs, 1, 'and is Back for the top window');
+  var pausedBefore = UI.paused;
+  key(' '); key('1'); key('t');
+  assert.strictEqual(backs, 1, 'other keys still do nothing under a menu');
+  assert.strictEqual(UI.paused, pausedBefore, 'Space does not pause the table behind a menu');
+  key('Escape', 'INPUT');
+  assert.strictEqual(backs, 1, 'Escape in a text field is the field\'s');
+  // With nothing up, Escape is still the table's own: the nearest window, never the menu.
+  UI.modal = false;
+  key('Escape');
+  assert.strictEqual(backs, 1, 'on the bare table Escape does not open the menu');
+  UI.onBack = keepBack; UI.modal = keepModal; UI.paused = keepPaused;
+  // The end paper: Back goes up to the title (where a second Back leaves), not nowhere.
+  assert.ok(/if \(open && open\.id === 'end'\) \{ openTitle\(\); return true; \}/.test(main) && !/open\.id === 'end'\) return true;/.test(main), 'Back on the end paper goes to the title');
+  // The update toast has the icon element the toast style paints its seal on (css .toast .t-icon).
+  var upd = main.slice(main.indexOf('CF.onUpdate = function'), main.indexOf('// ---------------------------------------------------------------- Boot'));
+  assert.ok(/<i class="t-icon"><\/i>/.test(upd) && /--icon:var\(--art-bround-16\)/.test(upd), 'the new edition\'s toast has its seal');
+  console.log('ui: the platform check-up (Escape is Back over a menu, the end paper\'s Back, the update toast\'s seal)');
 })();
 
 void realSetTimeout;

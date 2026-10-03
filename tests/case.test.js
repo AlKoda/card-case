@@ -661,3 +661,53 @@ function lender(d) {
   d.charge([l, s, dep]);
   console.log('fire, the Lender and the Bucket-chain: convicted');
 })();
+
+// ---- Cases check-up: raw proof names the game's own instruments; the coining canvass speaks of the street ----
+(function instruments() {
+  var d = written(11, 'coining', []), e = d.e;
+  var coin = d.byLabel(/^The Bad Coin$/)[0];
+  assert.ok(coin, 'the bad coin: ' + d.log.join(' | '));
+  assert.ok(e.descOf(coin).indexOf('Needs ' + CF.NEEDS_LABEL.bio + ' to analyse properly.') >= 0, 'the instrument by its own name: ' + e.descOf(coin));
+  // Every raw proof the game can write names an instrument the game has.
+  var bad = /Fingerprint Set|Forensic Kit|Lab Access/;
+  e.tableCards().filter(function (c) { return c.def === 'evidence'; }).forEach(function (c) { assert.ok(!bad.test(e.descOf(c)), 'no foreign instrument: ' + e.descOf(c)); });
+  // The scene's own draw (drawSceneItem) as well.
+  var rec2 = e.caseRec(e.spawnCase('burglary', { quiet: true }).caseId);
+  rec2.items = [{ type: 'evidence', key: 'x', label: 'A Smear', text: 'A smear.', needs: 'prints' }]; rec2.found = 0;
+  e.drawSceneItem(rec2, {});
+  var smear = d.byLabel(/^A Smear$/)[0];
+  assert.ok(smear && e.descOf(smear).indexOf('Needs ' + CF.NEEDS_LABEL.prints + ' to analyse properly.') >= 0 && !bad.test(e.descOf(smear)), 'the scene names it too: ' + (smear && e.descOf(smear)));
+  // An older save's raw proof is read again with the right name.
+  smear.desc = smear.desc.replace(CF.NEEDS_LABEL.prints, 'a Fingerprint Set');
+  var back = CF.Engine.load(JSON.stringify(e.s));
+  assert.ok(back.descOf(back.card(smear.uid)).indexOf(CF.NEEDS_LABEL.prints) >= 0, 'an older card names the right instrument');
+  // The door-to-door lead of a coining case does not send you to the Market from the Warrens.
+  var canv = CF.CASE_TEMPLATES.coining.leads.filter(function (l) { return l.id === 'canvass'; })[0];
+  assert.ok(!/Market/.test(canv.preview) && !/Market/.test(canv.story.text), 'the canvass speaks of the street');
+  console.log('instruments by their own names, the street not the Market: ok');
+})();
+
+// ---- Cases check-up: the Rolls are a room, the Day-book a card ----
+(function rolls() {
+  var e = CF.Engine.newGame({ seed: 31, calling: 'master' });
+  assert.strictEqual(CF.CARDS.paperwork.label, 'The Day-book', 'the paper card is the Day-book');
+  assert.notStrictEqual(CF.KINDS.paper.label, CF.ROOMS.archive.label, 'its kind is not named for the room');
+  var kase = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  e.goCold(kase.caseId);
+  var cold = e.tableCards().filter(function (c) { return c.def === 'coldcase'; })[0];
+  assert.ok(cold && /Watch-house has the Rolls/.test(e.descOf(cold)) && /Sworn Examiner/.test(e.descOf(cold)), 'the Unanswered card says where the Rolls are: ' + (cold && e.descOf(cold)));
+  var pv = (e.autoSlot('analyze', cold.uid), e.preview('analyze'));
+  assert.ok(pv && /Watch-house room a Sworn Examiner may petition for/.test(pv.blocked || ''), 'Study says where the Rolls are: ' + JSON.stringify(pv && pv.blocked));
+  // An older Unanswered card says it too, once loaded.
+  cold.desc = 'The trail went cold. ' + cold.data.culpritName + ' walked. With the Rolls, this can be opened again in Study.';
+  var back = CF.Engine.load(JSON.stringify(e.s));
+  assert.ok(/Watch-house has the Rolls/.test(back.descOf(back.card(cold.uid))), 'an older Unanswered card is read again');
+  console.log('the Rolls are a room, the Day-book a card: ok');
+})();
+
+// ---- Cases check-up: the long silence answered says nothing of a confession (it may end in an alibi) ----
+(function silence() {
+  var ask = CF.ASKS.filter(function (a) { return a.when('int_suspect', 'interrogate'); })[0];
+  assert.ok(ask && !/came out in a rush|confess/i.test(ask.thanks), 'the thanks fits an alibi as well as a confession: ' + (ask && ask.thanks));
+  console.log('the long silence answered: ok');
+})();

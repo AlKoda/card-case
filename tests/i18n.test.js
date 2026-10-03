@@ -335,7 +335,8 @@ assert.deepStrictEqual(CF.cardFace({ def: 'clue' }, 'Kept: Matched: Warning: X')
     texts.push(cul.name + ' walks out of the Hole into the Market and does not look back. A year from now they keep ' + pl + ', and a family, and they cross the street when they see you.');
   });
   texts.push(CF.RUNGS.fine.desc, CF.RUNGS.pillory.desc, CF.Charge.TIERS.weak.gloss, CF.Charge.TIERS.reasonable.gloss);
-  Object.keys(CF.CALLINGS).forEach(function (k) { texts.push(CF.CALLINGS[k].win); });
+  // Each calling's end, as the question 'What You Want' says it (the CALLINGS copy was never shown, and is gone).
+  CF.CHOICES.filter(function (c) { return c.id === 'calling'; })[0].options.forEach(function (o) { texts.push(o.gain); });
   CF.setLang('ar');
   var bad = texts.filter(function (t) { var a = CF.T(t); return /[A-Za-z]{3}/.test(a) || a.indexOf('{') >= 0; }).map(function (t) { return t + '  =>  ' + CF.T(t); });
   CF.setLang('en');
@@ -555,4 +556,46 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   assert.ok(!/[a-z]{3}/.test(rival), 'the old Rival line reads: ' + rival);
   CF.setLang('en');
   console.log('i18n: ' + n + ' journal lines from older saves read, the slowest in ' + worst + ' ms');
+})();
+
+// ---- No Arabic key is written twice in one file (round 8 review: '{text} You are more than you were.' twice in
+// round3.js). A later file may still correct an earlier one; within one file the second copy only misleads.
+(function noDuplicateKeys() {
+  var dir = path.join(__dirname, '..', 'js/lang/ar'), twice = [];
+  fs.readdirSync(dir).filter(function (f) { return /\.js$/.test(f); }).forEach(function (f) {
+    var src = fs.readFileSync(path.join(dir, f), 'utf8'), re = /^\s*("(?:[^"\\]|\\.)*")\s*:/mg, m, seen = {};
+    while ((m = re.exec(src))) {
+      var k = JSON.parse(m[1]);
+      if (seen[k]) twice.push(f + ': ' + k.slice(0, 80));
+      seen[k] = true;
+    }
+  });
+  assert.deepStrictEqual(twice, [], 'each key once per file');
+  console.log('i18n: no key twice in one file');
+})();
+
+// The Arabic check-up: an older save's journal reads in Arabic. The edition before kept only the first sentence of an
+// Insight's story ('... three nights running. You are more than you were.') and the opening without Wit's wage; each has
+// its own key, so no line of an old Journal stays English.
+(function oldJournals() {
+  var dir = path.join(root, 'tests/fixtures/saves'), left = [];
+  CF.setLang('ar');
+  try {
+    fs.readdirSync(dir).forEach(function (f) {
+      var sv = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).save;
+      if (typeof sv === 'string') sv = JSON.parse(sv);
+      var st = sv.s || sv;
+      (st.journal || []).forEach(function (j) {
+        ['title', 'text'].forEach(function (k) {
+          // The fixtures' made-up names ('Sworn A0') are names, not English.
+          var out = j[k] ? CF.T(j[k]).replace(/Sworn [A-C]\d/g, '') : '';
+          if (/[A-Za-z]{3}/.test(out)) left.push(f + ': ' + j[k].slice(0, 90) + ' => ' + out.slice(0, 90));
+        });
+      });
+    });
+    var ins = CF.T('A gentleman on the Hill, retired from a regiment nobody names, has watched you walk the hard round past his window three nights running. You are more than you were.');
+    assert.ok(/^سيدٌ على التل/.test(ins) && /أنت أكثر مما كنت\.$/.test(ins), 'the old Insight line whole in Arabic: ' + ins);
+  } finally { CF.setLang('en'); }
+  assert.deepStrictEqual(left, [], 'every journal line of every older save reads in Arabic');
+  console.log('i18n: older saves\' journals read in Arabic');
 })();
