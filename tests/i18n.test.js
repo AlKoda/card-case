@@ -573,3 +573,29 @@ console.log('i18n: every token face (' + Object.keys(heads).length + ' heads) re
   assert.deepStrictEqual(twice, [], 'each key once per file');
   console.log('i18n: no key twice in one file');
 })();
+
+// The Arabic check-up: an older save's journal reads in Arabic. The edition before kept only the first sentence of an
+// Insight's story ('... three nights running. You are more than you were.') and the opening without Wit's wage; each has
+// its own key, so no line of an old Journal stays English.
+(function oldJournals() {
+  var dir = path.join(root, 'tests/fixtures/saves'), left = [];
+  CF.setLang('ar');
+  try {
+    fs.readdirSync(dir).forEach(function (f) {
+      var sv = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).save;
+      if (typeof sv === 'string') sv = JSON.parse(sv);
+      var st = sv.s || sv;
+      (st.journal || []).forEach(function (j) {
+        ['title', 'text'].forEach(function (k) {
+          // The fixtures' made-up names ('Sworn A0') are names, not English.
+          var out = j[k] ? CF.T(j[k]).replace(/Sworn [A-C]\d/g, '') : '';
+          if (/[A-Za-z]{3}/.test(out)) left.push(f + ': ' + j[k].slice(0, 90) + ' => ' + out.slice(0, 90));
+        });
+      });
+    });
+    var ins = CF.T('A gentleman on the Hill, retired from a regiment nobody names, has watched you walk the hard round past his window three nights running. You are more than you were.');
+    assert.ok(/^سيدٌ على التل/.test(ins) && /أنت أكثر مما كنت\.$/.test(ins), 'the old Insight line whole in Arabic: ' + ins);
+  } finally { CF.setLang('en'); }
+  assert.deepStrictEqual(left, [], 'every journal line of every older save reads in Arabic');
+  console.log('i18n: older saves\' journals read in Arabic');
+})();

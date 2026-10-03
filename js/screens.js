@@ -13,7 +13,9 @@
   var RANGES = ['master', 'music', 'sfx', 'textSpeed', 'gap', 'uiScale'];
   var TOGGLES = ['shake', 'pauseOnCase', 'pauseOnVerb', 'pauseOnBlur', 'guided', 'pauseOnDrag', 'grid', 'snap', 'strings', 'haptics', 'tilt', 'calm'];
 
-  function showValue(input) { input.nextElementSibling.textContent = input.value + (input.id === 's-gap' ? 'px' : '%'); }
+  // A slider's value with its unit, in the reader's script ('14 بكسل', '80٪').
+  function showValue(input) { input.nextElementSibling.textContent = input.id === 's-gap' ? tr('{n}px', { n: input.value }) : tr('{n}%', { n: input.value }); }
+  SettingsUI.showValue = showValue;
 
   SettingsUI.open = function () {
     var v = CF.Settings.values;
@@ -264,7 +266,7 @@
     var truth;
     if (!opened) truth = '<i>' + esc('Sealed. Break the seal to learn the truth.') + '</i>';
     else if (rec.outcome === 'wrongful') truth = tr('<b>{name}</b>, {role}, did it, and someone else went to the rope for it.', { name: esc(cul.name), role: esc(cul.role) }) + ' ' + esc(cul.motive || '');
-    else truth = '<b>' + esc(cul.name) + '</b>, ' + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
+    else truth = '<b>' + esc(cul.name) + '</b>' + escText(tr(', ')) + esc(cul.role) + '. ' + esc(cul.motive || '') + ' <span class="a-dim">' + esc(cul.trait || '') + '</span>';
     var portrait = CF.UI.personArt(cul.name || rec.title, cul.role || '', cul.sex || (cul.name ? CF.Engine.prototype.sexOf(cul.role) || CF.Engine.prototype.sexOfName(cul.name) : null));
     // The portrait floats on the corner and the title and rows run beside it, in either direction, at any width.
     box.innerHTML = '<div class="a-portrait' + (opened ? '' : ' sealed') + '" style="background-image:var(--art-' + portrait + ')"></div>' + (opened ? '' : '<div class="a-seal"></div>') +

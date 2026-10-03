@@ -2852,5 +2852,18 @@
     "The Council counts {n} closed this fortnight, more than it asked, and is content.": { one: "يعدّ المجلس قضية واحدة مغلقة في هذين الأسبوعين، أكثر مما طلب، ويرضى.", two: "يعدّ المجلس قضيتين مغلقتين في هذين الأسبوعين، أكثر مما طلب، ويرضى.", few: "يعدّ المجلس {n} قضايا مغلقة في هذين الأسبوعين، أكثر مما طلب، ويرضى.", many: "يعدّ المجلس {n} قضيةً مغلقة في هذين الأسبوعين، أكثر مما طلب، ويرضى.", other: "يعدّ المجلس {n} قضية مغلقة في هذين الأسبوعين، أكثر مما طلب، ويرضى." },
     "The Crowd eases.": "يهدأ الحشد.",
     "Smells of heresy: from week {n} the Inquisitor may take it": "تفوح منها الهرطقة: من الأسبوع {n} قد يأخذها المفتّش",
+    "{n}px": "{n} بكسل",
+    "{n}%": "{n}٪",
+    "Spent Health, Wit or Instinct": "الصحة أو الفطنة أو الحدس المنفَقة",
+    "A gentleman on the Hill, retired from a regiment nobody names, has watched you walk the hard round past his window three nights running.": "سيدٌ على التل، متقاعد من فوج لا يسمّيه أحد، راقبك تمشي الجولة الشاقة أمام نافذته ثلاث ليالٍ متوالية.",
+    "Full proof before the Blood Court, and the judge asked who taught you.": "بيّنة كاملة أمام محكمة الدم، وسأل القاضي من علّمك.",
+    "Three rounds of the ward, and you notice you no longer look at the doors.": "ثلاث جولات في الدرب، وتلاحظ أنك لم تعد تنظر إلى الأبواب.",
+    "The sergeant has seen every examiner burn out the same way.": "رأى الرقيب كل محقق يحترق بالطريقة نفسها.",
+    "Hunger, the river cough and the black nights, and you are still at the desk.": "الجوع وسعال النهر والليالي السوداء، وما زلت على المكتب.",
+    "An informer trusts you now, which in this city is rarer than gold.": "مخبرٌ يثق بك الآن، وهذا في هذه المدينة أندر من الذهب.",
+    "Two houses searched under seal, and you have learned what a Writ is: not leave to look, but leave to be wrong in public.": "بيتان فُتّشا تحت الختم، وقد تعلّمت ما الصك: ليس إذنًا بالنظر، بل إذنًا بأن تخطئ على الملأ.",
+    "Twice among them in another man's coat, and back with all your teeth.": "مرتين بينهم في معطف رجلٍ آخر، وعدت بأسنانك كلها.",
+    "No office, no stipend, no name the crier would sing. You lodge at {where}, and you live by {work}. Health in Attend earns a Coin. The city has not noticed you yet.": "لا منصب، ولا راتب، ولا اسم يصدح به المنادي. تسكن في {where}، وتعيش من {work}. الصحة في الدوام تكسب نقودًا. لم تلحظك المدينة بعد.",
+    "Day-book": "دفتر اليومية",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

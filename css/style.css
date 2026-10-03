@@ -1243,6 +1243,8 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
 @media (max-height: 520px) {
   body.has-window #toasts { right: auto; left: calc(12px + var(--sa-l)); top: calc(var(--sa-t) + 56px); bottom: auto; }
   [dir=rtl] body.has-window #toasts { left: auto; right: calc(12px + var(--sa-r)); }
+  /* Arabic lines stand taller: two of them, not three, so the toast ends above the sheet's head (the Journal keeps the whole). */
+  [dir=rtl] body.has-window #toasts .toast span { -webkit-line-clamp: 2; }
   [dir=rtl] #zoom { right: auto; left: 10px; }
   .title-scene .title-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; left: 20%; width: 60%; top: 27%; }
   .title-scene .title-buttons .plate-btn { font-size: 11px; letter-spacing: 0.08em; padding: 2px 8px; border-width: 10px 20px; gap: 6px; }
@@ -1350,7 +1352,11 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
 [dir=rtl] .verb .v-plate { font-size: 16px; line-height: 1.5; overflow: clip; overflow-clip-margin: 6px; }
 [dir=rtl] .verb .v-plate.long { font-size: 14px; }
 [dir=rtl] .toast b { font-size: 14.5px; line-height: 1.4; }
-[dir=rtl] .meter .m-word { font-size: 13.5px; }
+/* A word cut to its room keeps the marks above and below its letters (the shadda, the dots under ya): the clip is drawn
+   past the tight line by padding, and the padding is taken back by the margin, so nothing moves. */
+[dir=rtl] .meter .m-word { font-size: 13.5px; padding-block: 0.35em; margin-block: -0.35em; }
+[dir=rtl] .lu-title { line-height: 1.3; }
+[dir=rtl] .lu-title .lu-rank { padding-block: 0.35em; margin-block: -0.2em -0.35em; }
 [dir=rtl] .meter .m-label { font-size: 11.5px; }
 [dir=rtl] .toast span, [dir=rtl] #hint, [dir=rtl] #peek .i-lines { line-height: 1.6; }
 /* Arabic has no italic: emphasis is carried by colour, as the help already does. */
@@ -1367,7 +1373,15 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
 [dir=rtl] #name { direction: ltr; text-align: right; }
 /* A count alone keeps its sign before its number. */
 [dir=rtl] .card .c-count { unicode-bidi: isolate; direction: ltr; }
-[dir=rtl] .vwin { transform: none; border-width: calc(64px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1)) calc(66px * var(--ui-scale, 1)); }
-[dir=rtl] .vwin::before { right: calc(-20px * var(--ui-scale, 1)); left: calc(-66px * var(--ui-scale, 1)); border-width: calc(64px * var(--ui-scale, 1)) calc(66px * var(--ui-scale, 1)) calc(28px * var(--ui-scale, 1)) calc(20px * var(--ui-scale, 1)); transform: scaleX(-1); }
+/* Arabic mirrors the panel side to side only: the X's column and the left edge change places, while the top and the
+   foot stay whatever the layout gives them (no foot on a phone's sheet), and the window's own closing slide is kept. */
+[dir=rtl] .vwin { border-right-width: calc(20px * var(--ui-scale, 1)); border-left-width: calc(66px * var(--ui-scale, 1)); }
+[dir=rtl] .vwin::before { right: calc(-20px * var(--ui-scale, 1)); left: calc(-66px * var(--ui-scale, 1)); border-right-width: calc(66px * var(--ui-scale, 1)); border-left-width: calc(20px * var(--ui-scale, 1)); transform: scaleX(-1); }
 [dir=rtl] .vw-body { margin: 0 -10px 0 -46px; padding: 2px 12px 2px 4px; }
+/* The mirrored bar's bright bevel runs just past the icon: the Arabic title, smaller than the capitals, steps clear of it onto the dark. */
+[dir=rtl] .vw-head h3 { padding-inline-start: 10px; font-size: 16px; text-shadow: 0 0 3px #000, 0 1px 2px #000; }
 [dir=rtl] .vw-close { right: auto; left: -54px; }
+/* The speed buttons are a player's controls, read left to right in every language (their arrows point that way);
+   the Main Menu's back arrow points the way an Arabic line reads. */
+[dir=rtl] #controls .speed { direction: ltr; }
+[dir=rtl] #m-title .mi { transform: scaleX(-1); }

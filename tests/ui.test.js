@@ -843,7 +843,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/position: absolute/.test(vc) && /width: 44px; height: 44px/.test(vc) && /background: none/.test(vc) && /right: -54px/.test(vc), 'the X is a 44px hot spot over the baked X');
   assert.ok(/background: #f6efdc/.test(rule('.recipe')) && /border: 1px solid #a88a4c/.test(rule('.recipe')), 'the recipe is a bordered paper inset');
   assert.ok(!/background: var\(--paper\)/.test(rule('.story')), 'the story has no paper of its own');
-  assert.ok(/transform: none/.test(rule('[dir=rtl] .vwin')) && /scaleX\(-1\)/.test(rule('[dir=rtl] .vwin::before')) && /left: -54px/.test(rule('[dir=rtl] .vw-close')), 'Arabic mirrors the panel and moves the X left');
+  // Arabic swaps only the sides: the foot (none on a phone's sheet) and the closing slide stay the layout's.
+  assert.ok(!/transform|border-width:|border-bottom/.test(rule('[dir=rtl] .vwin')) && /border-left-width: calc\(66px/.test(rule('[dir=rtl] .vwin')) && !/border-width:|border-bottom/.test(rule('[dir=rtl] .vwin::before')) && /scaleX\(-1\)/.test(rule('[dir=rtl] .vwin::before')) && /left: -54px/.test(rule('[dir=rtl] .vw-close')), 'Arabic mirrors the panel and moves the X left');
   assert.ok(/border-image: var\(--art-cpanel3-01\) 64 66 28 20 fill \/ 1 stretch/.test(rule('#peek')) && /border-width: 45px 46px 20px 14px/.test(rule('#peek')), 'the dossier is the same panel, smaller');
   assert.ok(/<div id="peek"><\/div>\s*<button id="peek-x" title="Close">/.test(html) && /display: block/.test(rule('#peek.open.pinned + #peek-x')) && /peek-x/.test(screens) && /#peek \.peek-close/.test(screens), 'the dossier\'s X is a hot spot beside the panel, wired to its close');
   console.log('ui: the stylesheet and the markup paint the panels, the pile, the slots and the ending');
@@ -3253,6 +3254,82 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/\$\('m-end'\)\.classList\.toggle\('hidden', !over\)/.test(main) && /if \(inGame && UI\.e && UI\.e\.s\.over\) \{ only\('end'\); return true; \}/.test(main), 'shown only over a closed file, where Back goes to the end paper too');
   assert.ok(/if \(!\$\('confirm'\)\.classList\.contains\('hidden'\)\) \{ closeConfirm\(\); return true; \}/.test(main), 'Back answers No to a question before the screen under it');
   console.log('ui: the screens check-up (grid, settings at once, wheel, Back under a menu, a question framed whole)');
+})();
+
+// ---- The Arabic check-up: a slot's kinds read name by name with the language's comma; the Court's rows keep have/need
+// in order; the edge marks stand apart; the sheet on a phone has no foot in Arabic either; the Settings' units, the
+// Rolls' comma, the speed buttons, the window's title and the clipped marks of Arabic letters.
+(function arabicCheckup() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var screens = fs.readFileSync(path.join(__dirname, '..', 'js/screens.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  if (!CF.I18N.dicts.ar || !CF.I18N.dicts.ar['the Rolls']) fs.readdirSync(path.join(__dirname, '..', 'js/lang/ar')).forEach(function (f) { vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js/lang/ar', f), 'utf8'), { filename: f }); });
+  // Every slot of every verb: its kinds (the picker's header, a slot's title) and its ' / ' name, read part by part.
+  var main = CF.VERBS.investigate.slots.filter(function (sl) { return sl.primary; })[0];
+  assert.strictEqual(UI.kindsText(main.accepts, ', ').split(', ')[0], 'Case', 'in English the kinds are names, joined by a comma');
+  assert.ok(UI.kindsText(main.accepts, ', ').indexOf('The Next Door') >= 0, 'and a kind with no card of its own has its name, not its id');
+  var leaks = [], arPick;
+  CF.setLang('ar');
+  try {
+    Object.keys(CF.VERBS).forEach(function (vid) {
+      (CF.VERBS[vid].slots || []).forEach(function (sl) {
+        [UI.kindsText(sl.accepts, ', '), UI.kindsText(sl.accepts, ' / '), UI.slashText(sl.label)].forEach(function (t) { if (/[A-Za-z]/.test(t)) leaks.push(vid + '.' + sl.key + ': ' + t); });
+      });
+    });
+    arPick = CF.T('{slot} takes: {kinds}', { slot: UI.slashText(main.label), kinds: UI.kindsText(main.accepts, ', ') });
+  } finally { CF.setLang('en'); }
+  assert.deepStrictEqual(leaks, [], 'no slot names a kind in English in Arabic');
+  assert.ok(arPick.indexOf('، ') > 0 && arPick.indexOf(', ') < 0 && !/[A-Za-z]/.test(arPick), 'the picker\'s header whole in Arabic, with the Arabic comma: ' + arPick);
+  // The Court's rows: have / need, isolated so a right-to-left line cannot turn them about.
+  var e = CF.Engine.newGame({ calling: 'master', seed: 13 });
+  UI.attach(e);
+  e.verb('arrest').unlocked = true;
+  var rec = e.openCases()[0];
+  e.revealSuspect(rec, null, { key: rec.culprit });
+  var sc = e.tableCards().filter(function (c) { return c.def === 'suspect' && c.caseId === rec.id; })[0];
+  assert.ok(e.autoSlot('arrest', sc.uid), 'the accused before the Court');
+  var nums;
+  CF.setLang('ar');
+  try {
+    UI.openWindow('arrest');
+    render(e);
+    nums = $('#windows').querySelector('.vwin').querySelectorAll('.ch-num').map(function (x) { return x.textContent; });
+  } finally { CF.setLang('en'); }
+  assert.ok(nums.length && nums.every(function (t) { return /^⁦\d+(\.\d+)? \/ \d+⁩$/.test(t); }), 'each row reads have / need, isolated: ' + JSON.stringify(nums));
+  for (var nb = 0; nb < 9 && UI.openVerbs.length; nb++) UI.back();
+  render(e);
+  // Edge marks that point the same way stand apart along their edge, each as near its own place as it can.
+  function mk(bx, by, w, along) { return { bx: bx, by: by, w: w, h: 30, along: along, half: Math.ceil(w / 2) + 4, yLo: 80, yHi: 700 }; }
+  function clear(list) {
+    for (var i = 0; i < list.length; i++) for (var j = i + 1; j < list.length; j++) {
+      var a = list[i], b = list[j];
+      if (Math.abs(a.mx2 - b.mx2) < (a.w + b.w) / 2 && Math.abs(a.my2 - b.my2) < (a.h + b.h) / 2) return false;
+    }
+    return true;
+  }
+  var foot = UI.spreadMarks([mk(60, 700, 111, 'x'), mk(235, 700, 226, 'x'), mk(414, 700, 119, 'x'), mk(69, 700, 95, 'x')], 1280);
+  assert.ok(clear(foot), 'four marks at the foot, none over another: ' + foot.map(function (n) { return n.mx2; }).join(','));
+  assert.ok(foot.every(function (n) { return n.my2 === 700 && n.mx2 >= n.half && n.mx2 <= 1280 - n.half; }), 'all on the foot, all on the screen');
+  assert.strictEqual(foot[0].mx2, 60, 'the first keeps its place');
+  var side = UI.spreadMarks([mk(54, 300, 100, 'y'), mk(54, 310, 100, 'y'), mk(54, 690, 100, 'y'), mk(54, 700, 100, 'y')], 1280);
+  assert.ok(clear(side), 'and up or down a side: ' + side.map(function (n) { return n.my2; }).join(','));
+  assert.ok(side.every(function (n) { return n.my2 >= 80 && n.my2 <= 700; }), 'within the side');
+  // The phone's sheet: Arabic swaps the sides only, so the sheet keeps no foot and its slide, and the window's
+  // closing is the layout's (tests above: the [dir=rtl] .vwin rule names no bottom and no transform).
+  assert.ok(/border-bottom-width: 0/.test(rule('  .vwin')) && /border-right-width: calc\(20px/.test(rule('[dir=rtl] .vwin')), 'Arabic keeps the phone\'s footless sheet');
+  assert.ok(/padding-inline-start: 10px/.test(rule('[dir=rtl] .vw-head h3')), 'the Arabic title steps off the mirrored bevel');
+  assert.ok(/-webkit-line-clamp: 2/.test(rule('  [dir=rtl] body.has-window #toasts .toast span')), 'on a short screen the Arabic toast ends above the sheet\'s head');
+  assert.ok(/direction: ltr/.test(rule('[dir=rtl] #controls .speed')) && /scaleX\(-1\)/.test(rule('[dir=rtl] #m-title .mi')), 'the speed buttons read left to right; the menu\'s back arrow points the Arabic way');
+  assert.ok(/padding-block: 0\.35em; margin-block: -0\.35em/.test(rule('[dir=rtl] .meter .m-word')) && /padding-block: 0\.35em/.test(rule('[dir=rtl] .lu-title .lu-rank')), 'a cut word keeps the marks over and under its letters');
+  // Settings and the Rolls.
+  assert.ok(/tr\('\{n\}px', \{ n: input\.value \}\)/.test(screens) && /tr\('\{n\}%', \{ n: input\.value \}\)/.test(screens), 'a slider\'s unit is read in the language');
+  assert.ok(/'<\/b>' \+ escText\(tr\(', '\)\) \+ esc\(cul\.role\)/.test(screens), 'the Rolls name the culprit and their role with the language\'s comma');
+  CF.setLang('ar');
+  var px = CF.T('{n}px', { n: 14 }), pc = CF.T('{n}%', { n: 80 });
+  CF.setLang('en');
+  assert.ok(!/[A-Za-z]/.test(px) && px.indexOf('14') === 0 && pc === '80٪', 'the units in Arabic: ' + px + ' ' + pc);
+  assert.strictEqual(CF.T('{n}px', { n: 14 }), '14px', 'and as they were in English');
+  console.log('ui: the Arabic check-up (kinds by name, the Court\'s numbers, marks apart, the sheet\'s foot, units, the Rolls\' comma)');
 })();
 
 void realSetTimeout;

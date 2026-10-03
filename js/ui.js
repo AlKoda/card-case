@@ -1993,6 +1993,7 @@
       var entry = { el: el, mark: mark, uid: spec.uid, verb: spec.verb, until: performance.now() + 12000 };
       UI.notices.push(entry);
       placeMark(entry);
+      layoutMarks();
     }, spec.fresh ? 450 : 50);
   };
   function removeMark(mark) { mark.remove(); UI.notices = UI.notices.filter(function (n) { return n.mark !== mark; }); }
@@ -2028,17 +2029,62 @@
     // than a card's rim.
     var band = toolBand(tr2), yLo = band ? band + 20 : 80, yHi = band ? tr2.height - 20 : tr2.height - 90;
     var mx = Math.round(Math.max(half, Math.min(tr2.width - half, cx))), my = Math.round(Math.max(yLo, Math.min(yHi, cy)));
-    var ang = Math.round(Math.atan2(cy - my, cx - mx) * 180 / Math.PI);
-    if (n.mx !== mx) { n.mx = mx; n.mark.style.left = mx + 'px'; }
-    if (n.my !== my) { n.my = my; n.mark.style.top = my + 'px'; }
-    if (n.ang !== ang) { n.ang = ang; n.mark.style.setProperty('--ang', ang + 'deg'); }
+    // Where it would stand alone, and the way it may give room to another mark: along the top or the foot when it
+    // was held there, else up or down its side.
+    n.bx = mx; n.by = my; n.cx = cx; n.cy = cy; n.half = half; n.yLo = yLo; n.yHi = yHi;
+    n.along = cy < yLo || cy > yHi ? 'x' : 'y';
   }
+  // Two marks that point the same way never lie on one another: each in turn takes the free place along its edge
+  // (the top or foot sideways, a side up or down) nearest to where it would stand alone, beside the ones already
+  // placed (spreadMarks, DOM-free for the tests).
+  function spreadMarks(list, width) {
+    var placed = [];
+    list.forEach(function (n) {
+      var w = n.w || 48, hgt = n.h || 30, ax = n.along === 'x';
+      var clash = function (x, y) {
+        for (var i = 0; i < placed.length; i++) {
+          var p = placed[i];
+          if (Math.abs(p.x - x) < (p.w + w) / 2 + 6 && Math.abs(p.y - y) < (p.h + hgt) / 2 + 4) return true;
+        }
+        return false;
+      };
+      var lo = ax ? n.half : n.yLo, hi = ax ? width - n.half : n.yHi, base = ax ? n.bx : n.by;
+      var cands = [base];
+      placed.forEach(function (p) {
+        var gap = ax ? (p.w + w) / 2 + 6 : (p.h + hgt) / 2 + 4, at = ax ? p.x : p.y;
+        cands.push(at + gap, at - gap);
+      });
+      var best = null;
+      cands.forEach(function (c) {
+        if (c < lo - 0.5 || c > hi + 0.5) return;
+        if (clash(ax ? c : n.bx, ax ? n.by : c)) return;
+        if (best === null || Math.abs(c - base) < Math.abs(best - base)) best = c;
+      });
+      if (best === null) best = base;
+      n.mx2 = Math.round(ax ? best : n.bx); n.my2 = Math.round(ax ? n.by : best);
+      placed.push({ x: n.mx2, y: n.my2, w: w, h: hgt });
+    });
+    return list;
+  }
+  UI.spreadMarks = spreadMarks;
   // Each frame: retire the old marks; the rest move only when the camera or their target has.
   function updateNotices() {
     var now = performance.now();
     UI.notices.slice().forEach(function (n) {
       if (now > n.until || !n.el.isConnected) { removeMark(n.mark); return; }
       placeMark(n);
+    });
+    layoutMarks();
+  }
+  // The marks that show, set apart and written where they changed.
+  function layoutMarks() {
+    var shown = UI.notices.filter(function (n) { return n.key !== 'off' && n.inside === false && n.bx !== undefined; });
+    shown.forEach(function (n) { if (!n.h) n.h = n.mark.offsetHeight || 0; });
+    spreadMarks(shown, tableRect().width).forEach(function (n) {
+      var mx = n.mx2, my = n.my2, ang = Math.round(Math.atan2(n.cy - my, n.cx - mx) * 180 / Math.PI);
+      if (n.mx !== mx) { n.mx = mx; n.mark.style.left = mx + 'px'; }
+      if (n.my !== my) { n.my = my; n.mark.style.top = my + 'px'; }
+      if (n.ang !== ang) { n.ang = ang; n.mark.style.setProperty('--ang', ang + 'deg'); }
     });
   }
   // Less motion: the camera is there at once, with no glide.
@@ -2992,7 +3038,7 @@
       // Under a token before the Court: its standing toward this accused, not the slot's name.
       var stand = assess && !sl.primary && uid ? tokenStanding(assess, pcard, e.card(uid)) : null;
       var lab = h('div', 's-label' + (stand ? ' st-' + stand : ''), stand ? STANDING[stand] : sl.primary ? parts[0] : sl.label);
-      lab.title = sl.primary && parts.length > 1 ? tr(sl.label) : tr(sl.accepts.map(prettyAspect).join(' / '));
+      lab.title = sl.primary && parts.length > 1 ? slashText(sl.label) : kindsText(sl.accepts, ' / ');
       var slotIcon = slotArt(sl);
       if (slotIcon) { var si = h('i', 's-icon'); si.style.backgroundImage = art(slotIcon); si.title = lab.title; s.appendChild(si); }
       s.appendChild(lab);
@@ -3114,7 +3160,7 @@
     var fits = e.tableCards().filter(function (c) { return e.slotAccepts(sl, c); }).sort(function (a, b) { return a.uid - b.uid; });
     var seen = {}, shown = [];
     fits.forEach(function (c) { var k = e.stackKey(c) || c.uid; if (!seen[k]) { seen[k] = true; shown.push(c); } });
-    box.innerHTML = '<div class="pk-head"><span>' + escText(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: sl.accepts.map(prettyAspect).join(', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
+    box.innerHTML = '<div class="pk-head"><span>' + escText(tr('{slot} takes: {kinds}', { slot: sl.label, kinds: kindsText(sl.accepts, ', ') })) + '</span><button class="pk-close" title="' + esc('Close') + '">×</button></div>';
     box.querySelector('.pk-close').addEventListener('click', function () { UI.pick = null; e.dirty = true; });
     if (!shown.length) { box.appendChild(h('p', 'pk-none', 'Nothing on the table fits this slot yet.')); return box; }
     var row = h('div', 'pk-cards');
@@ -3257,8 +3303,18 @@
     for (var i = 0; i < sl.accepts.length; i++) if (SLOT_ART[sl.accepts[i]]) return SLOT_ART[sl.accepts[i]];
     return null;
   }
+  // A slot's kinds in the reader's language: each name read alone (a joined list is no key), joined by the language's own
+  // comma, or by a slash.
+  function kindsText(ids, sep) {
+    return ids.map(function (a) { return tr(prettyAspect(a)); }).join(sep === ', ' ? tr(', ') : sep);
+  }
+  UI.kindsText = kindsText;
+  // A slot's ' / '-joined name, each part read alone.
+  function slashText(label) { return String(label).split(' / ').map(function (x) { return tr(x); }).join(' / '); }
+  UI.slashText = slashText;
   function prettyAspect(a) {
-    var map = { tool: 'Instrument', teammate: 'Watchman', atlarge: 'Abroad', coldcase: 'Unanswered', looseend: 'Loose End', promotion: 'The Council\'s Letter', chair: 'The Seat', funds: 'Coin', focus: 'Wit' };
+    var map = { tool: 'Instrument', teammate: 'Watchman', atlarge: 'Abroad', coldcase: 'Unanswered', looseend: 'Loose End', promotion: 'The Council\'s Letter', chair: 'The Seat', funds: 'Coin', focus: 'Wit',
+      nextdoor: 'The Next Door', spent: 'Spent Health, Wit or Instinct', lesson: 'Insight', kit_bio: 'Physician\'s Case' };
     if (map[a]) return map[a];
     if (CF.ASPECTS[a]) return CF.ASPECTS[a].label;
     if (CF.KINDS[a]) return CF.KINDS[a].label;
@@ -3369,7 +3425,7 @@
     d.rows.forEach(function (r) {
       var pct = Math.min(100, (r.have / r.need) * 100);
       html += '<div class="ch-row' + (r.have >= r.need ? ' met' : r.have ? ' part' : '') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[r.aspect] || 'iinv-05') + '"></span>' +
-        '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + r.have + ' / ' + r.need + '</span></div>';
+        '<span class="ch-name">' + esc(CF.ASPECTS[r.aspect].label) + '</span><span class="ch-bar"><i style="width:' + pct + '%"></i></span><span class="ch-num">' + CF.bidi(r.have + ' / ' + r.need) + '</span></div>';
     });
     // Every other seal lit and only the word dark: say what word would do it.
     var onlyWord = gates && d.tier !== 'strong' && gates.every(function (g) { return g.ok === (g.id !== 'word'); });
