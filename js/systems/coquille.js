@@ -63,7 +63,7 @@
       var loose = [];
       for (var k in s.criminals) {
         var c = s.criminals[k];
-        if (c.status === 'dead' || c.status === 'reformed' || c.status === 'jailed' || c.status === 'banished') continue;
+        if (c.status === 'dead' || c.status === 'reformed' || c.status === 'jailed' || c.status === 'banished' || c.status === 'wronged') continue;
         loose.push(c);
       }
       best = most(loose);

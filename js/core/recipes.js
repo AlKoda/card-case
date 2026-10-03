@@ -230,7 +230,7 @@
       return ctx.give('clue', e.clueSpec(rec, item, e.helpers(ctx), flags));
     }
     if (g.type === 'evidence') {
-      var needs = g.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[g.needs] + ' to analyse properly.' : '';
+      var needs = g.needs ? ' Needs ' + CF.NEEDS_LABEL[g.needs] + ' to analyse properly.' : '';
       var res = g.result ? { label: fill(g.result.label), text: fill(g.result.text), aspects: g.result.aspects } : null;
       return ctx.give('evidence', { label: fill(g.label), desc: fill(g.text) + ' Take it to Study.' + needs + ' (Raw proof in: ' + rec.title + ')',
         caseId: rec.id, data: { item: { key: g.key, label: fill(g.label), text: fill(g.text), needs: g.needs || null, tags: g.tags, result: res,

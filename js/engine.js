@@ -6,6 +6,8 @@
   var U = CF.util;
 
   var WEEK = 60;          // seconds of game time per week
+  // An Unanswered card's words: where the Rolls are found, not a card of the same name (check-up).
+  var COLD_DESC = 'The trail went cold. {name} walked. Once the Watch-house has the Rolls (a Sworn Examiner\'s Petition), this can be opened again in Study.';
   var MAX_OPEN_CASES = 4; // the ceiling; rank sets the real number (maxOpenCases)
   var COLD_WARNING = 60; // seconds left on a case before the warning
   var FADE_WARNING = 30; // seconds left on a clue or witness before the warning
@@ -276,6 +278,19 @@
       if (lc.data.fromTitle === undefined) lc.data.fromTitle = null;
       if (lc.data.week === undefined) lc.data.week = -1;
     });
+    // Raw proof once named instruments the city never had (a Fingerprint Set, a Forensic Kit, Lab Access): an older card
+    // names the game's own (check-up).
+    var OLD_NEEDS = { 'a Fingerprint Set': 'prints', 'a Forensic Kit': 'bio', 'Lab Access': 'lab' };
+    Object.keys(s.cards).forEach(function (u) {
+      var ec = s.cards[u];
+      if (ec.def !== 'evidence' || typeof ec.desc !== 'string') return;
+      ec.desc = ec.desc.replace(/ Needs (a Fingerprint Set|a Forensic Kit|Lab Access) to analyse properly\./, function (all, old) { return ' Needs ' + CF.NEEDS_LABEL[OLD_NEEDS[old]] + ' to analyse properly.'; });
+    });
+    // An Unanswered card said With the Rolls, the name of a paper card too: an older card says where the Rolls are (check-up).
+    Object.keys(s.cards).forEach(function (u) {
+      var uc = s.cards[u], m = uc.def === 'coldcase' && typeof uc.desc === 'string' && /^The trail went cold\. ([\s\S]+) walked\. With the Rolls, this can be opened again in Study\.$/.exec(uc.desc);
+      if (m) uc.desc = U.fill(COLD_DESC, { name: m[1] });
+    });
     // A citizen sent home may come back as a witness (round 8): an older save has had none come.
     if (!s.flags.oldDebt || typeof s.flags.oldDebt !== 'object') s.flags.oldDebt = {};
     // Mid-work asks are rationed per verb and week (round 8): an older save has asked nothing yet.
@@ -386,6 +401,23 @@
     if (s.flags.opening && s.flags.stage === 'hired' && !s.over && !Object.keys(s.cases || {}).some(function (k) { var r = s.cases[k]; return r.opening && (r.status === 'open' || r.status === 'trial'); })) {
       e.openingLost(null, 'cold');
     }
+    // An innocent pilloried or branded is nobody's repeat offender (check-up): an older save's record for a wrong
+    // name, loose in the city, goes home, and its Abroad card with it. A wrong name is a suspect, not the culprit,
+    // of a case whose real culprit was hidden for it (wrongfulCase).
+    Object.keys(s.criminals).forEach(function (k) {
+      var wc = s.criminals[k], wr = wc.wrongfulCase && s.cases && s.cases[wc.wrongfulCase];
+      if (!wr) return;
+      (wr.suspects || []).forEach(function (x) {
+        if (x.guilty || x.key === wr.culprit) return;
+        var inn = e.criminalByName(x.name);
+        if (!inn || inn === wc || (inn.status !== 'at_large' && inn.status !== 'hunted')) return;
+        var hist = (inn.history || []).map(function (h) { return h.how; });
+        if (hist.indexOf('sentence:pillory') < 0 && hist.indexOf('sentence:brand') < 0) return;
+        if (hist.some(function (h) { return h && h !== 'sentence:pillory' && h !== 'sentence:brand'; })) return;
+        inn.status = 'wronged';
+        e.cardsOf('atlarge', true).forEach(function (ac) { if (ac.data && ac.data.criminalId === inn.id) e.remove(ac); });
+      });
+    });
     // A question still asked: its answers as the city words them now (a free way out added since is shown, and
     // choose(i) runs what is shown; life.js).
     if (s.choice && e.refreshChoice) e.refreshChoice();
@@ -2196,7 +2228,7 @@
   // every CF.FAVOUR_STEP Standing the Council writes a Writ of the Council:
   // once per step (s.flags.favourStep counts the steps written). In Attend it
   // does one thing, by what goes with it: a Case taken off your hands (no
-  // Crowd, Standing -1), the Rolls (Suspicion -2), the Rival (recalled for
+  // Crowd, Standing -1), the Day-book (Suspicion -2), the Rival (recalled for
   // CF.FAVOUR_RECALL weeks) or a Witness (held for the Court).
   // favourNext() is { base, step, given, at } at the top office, else null:
   // `at` is the Standing of the next writ, for the Standing meter.
@@ -2237,7 +2269,7 @@
     if (card.def === 'paperwork') {
       this.remove(card, 'none');
       this.meter('scrutiny', -2);
-      return 'The writ goes to the clerks with the Rolls under it. Two leaves of their list go into the fire. Suspicion -2.';
+      return 'The writ goes to the clerks with the Day-book under it. Two leaves of their list go into the fire. Suspicion -2.';
     }
     if (card.def === 'rival') {
       var name = card.data && card.data.name || 'The Harbourmaster\'s examiner';
@@ -2892,7 +2924,7 @@
     rec.found++;
     if (item.type === 'clue') this.create('clue', this.clueSpec(rec, item, helpers));
     else {
-      var needs = item.needs ? ' Needs ' + ({ prints: 'a Fingerprint Set', bio: 'a Forensic Kit', lab: 'Lab Access' })[item.needs] + ' to analyse properly.' : '';
+      var needs = item.needs ? ' Needs ' + CF.NEEDS_LABEL[item.needs] + ' to analyse properly.' : '';
       this.create('evidence', { label: item.label, desc: item.text + ' Take it to Study.' + needs + ' (Raw proof in: ' + rec.title + ')', caseId: rec.id, data: { item: item } });
     }
     return item;
@@ -3514,7 +3546,7 @@
     });
     this.create('coldcase', {
       label: 'Unanswered: ' + rec.title,
-      desc: 'The trail went cold. ' + culprit.name + ' walked. With the Rolls, this can be opened again in Study.',
+      desc: U.fill(COLD_DESC, { name: culprit.name }),
       data: { template: rec.template, culpritName: culprit.name, culpritTrait: culprit.trait, atLargeUid: al.uid, title: rec.title,
         // What the case was, for the day it is opened again: the same victim, scene and names, the proof not yet found.
         from: { id: rec.id, victim: rec.victim, district: rec.district, scene: rec.scene, structure: rec.structure, vars: rec.vars,

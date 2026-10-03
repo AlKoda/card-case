@@ -262,3 +262,67 @@ console.log('sentence: ladder, prices, capital, council all OK');
   assert.strictEqual(cond.data.custom, 'banish');
   console.log('a branded hand, the lesser crime: ok');
 })();
+
+// ---- An innocent sentenced and let go is nobody's repeat offender (cases check-up) ----
+(function wrongedGoHome() {
+  function wrongful(seed, template) {
+    var e = game(seed);
+    var kase = byDef(e, 'case')[0], rec = e.caseRec(kase.caseId);
+    if (template && rec.template !== template) { e.remove(kase); rec = e.caseRec(e.spawnCase(template, { quiet: true }).caseId); }
+    var inn = rec.suspects.filter(function (x) { return !x.guilty; })[0];
+    e.remove(e.caseCard(rec.id));
+    var t = e.create('trial', { data: { caseId: rec.id, name: inn.name, guilty: false, solid: true, tier: 'strong', real: 9, need: 6, coerced: 0, planted: 0, illegal: 0, contradictions: 0, confession: 'free' } });
+    var cond = null;
+    for (var i = 0; i < 6 && !cond; i++) { e.rng.setState(i + 1); if (!e.card(t.uid)) break; e.verdict(t); cond = byDef(e, 'condemned')[0]; }
+    return { e: e, rec: rec, inn: inn, cond: cond };
+  }
+  ['pillory', 'brand', 'banish'].forEach(function (r, ri) {
+    var g = null;
+    for (var i = 0; i < 30 && !(g && g.cond); i++) g = wrongful(300 + ri * 40 + i, 'burglary');
+    assert.ok(g.cond, 'a wrongful conviction: ' + r);
+    assert.ok(!g.cond.data.guilty, 'the condemned is innocent');
+    var st = g.e.passSentence(g.cond, r, null);
+    var rc = g.e.criminalByName(g.inn.name);
+    assert.ok(rc && rc.status !== 'at_large' && rc.status !== 'hunted', r + ': the innocent is not loose as a criminal: ' + (rc && rc.status));
+    assert.ok(!g.e.cardsOf('atlarge', true).some(function (c) { return c.data.name === g.inn.name; }), r + ': no Abroad card for the innocent');
+    if (r === 'brand') assert.ok(!/You made a Coquillard/.test(st.text) && rc.organization !== 'gang', 'an innocent branded is no Coquillard: ' + st.text);
+    if (r === 'banish') assert.strictEqual(rc.returnWeek, null, 'an innocent banished does not come back to a trade');
+    // Weeks go by: the innocent commits nothing, and no case comes with their name as its culprit.
+    for (var w = 0; w < 12; w++) { g.e.s.week++; g.e.criminalsAct(); if (g.e.banishedReturn) g.e.banishedReturn(); }
+    assert.strictEqual(rc.crimes, 1, r + ': no crimes on the innocent\'s record');
+    var again = Object.keys(g.e.s.cases).map(function (k) { return g.e.s.cases[k]; }).filter(function (x) { return x.id !== g.rec.id && x.suspects.some(function (s2) { return s2.guilty && s2.name === g.inn.name; }); });
+    assert.strictEqual(again.length, 0, r + ': no case with the innocent as its culprit');
+  });
+  // The guilty pilloried still walk, marked, as before.
+  var gg = null;
+  for (var j = 0; j < 20 && !(gg && gg.cond); j++) gg = convict(500 + j, 'strong');
+  gg.e.passSentence(gg.cond, 'pillory', null);
+  assert.strictEqual(gg.e.criminalByName(gg.culprit.name).status, 'at_large', 'the guilty pilloried walk');
+  // An older save: an innocent pilloried before this fix, loose with an Abroad card, goes home on load.
+  var o = null;
+  for (var k = 0; k < 30 && !(o && o.cond); k++) o = wrongful(600 + k, 'burglary');
+  o.e.passSentence(o.cond, 'pillory', null);
+  var orc = o.e.criminalByName(o.inn.name);
+  orc.status = 'at_large';
+  var oldCard = o.e.abroadCard(orc, 'Pilloried, and known by every quarter.');
+  var back = CF.Engine.load(JSON.stringify(o.e.s));
+  assert.strictEqual(back.criminalByName(o.inn.name).status, 'wronged', 'an older save\'s innocent goes home');
+  assert.ok(!back.card(oldCard.uid), 'and their Abroad card leaves the table');
+  console.log('an innocent pilloried, branded or banished goes home: ok');
+})();
+
+// ---- The Guild's plea asks against the crime's own custom, not always the rope (cases check-up) ----
+(function guildPlea() {
+  var seen = 0;
+  for (var i = 0; i < 60 && seen < 2; i++) {
+    var g = convict(700 + i, 'strong', i % 2 ? 'coining' : 'fraud');
+    if (!g.cond) continue;
+    var plea = byDef(g.e, 'plea').filter(function (p) { return p.data.from === 'guild'; })[0];
+    if (!plea) continue;
+    seen++;
+    var custom = CF.Sentence.rungLabel(g.rec.template, g.cond.data.custom).toLowerCase();
+    assert.ok(g.e.descOf(plea).indexOf('not given ' + custom + '.') >= 0 && !/not hanged/.test(g.e.descOf(plea)), 'the plea names the custom: ' + g.e.descOf(plea));
+  }
+  assert.ok(seen >= 1, 'a guild plea was seen');
+  console.log('the Guild\'s plea names the custom: ok');
+})();

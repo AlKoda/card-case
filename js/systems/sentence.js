@@ -9,7 +9,7 @@
 //                      customary one; `capital` crimes have a Wheel rung
 //                      with its own name (the Fire, the Water)
 //   s.counts           cruelty, mercy, purse (never go down)
-//   criminal.status    at_large | hunted | jailed | dead | banished | reformed
+//   criminal.status    at_large | hunted | jailed | dead | banished | reformed | wronged (an innocent sentenced and let go)
 //   criminal.traits    + spared, pilloried, branded
 (function (G) {
   var CF = G.CF;
@@ -158,7 +158,7 @@
     var rng = this.rng;
     // The patron who commissioned the case always pleads.
     if (patron === 'bishop' || rng() < (penitent ? 0.8 : 0.25)) pleas.push({ from: 'church', label: 'The Bishop\'s Plea', text: 'The Bishop\'s chaplain writes that ' + d.name + ' has made a good confession and asks mercy for a penitent. The Church counts pardons.' });
-    if (patron === 'guild' || (['burglary', 'fraud', 'coining', 'extortion', 'weights'].indexOf(rec.template) >= 0 && rng() < 0.3)) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: 'The wardens of ' + d.name + '\'s guild ask that a brother be fined and shamed, not hanged. They would remember the favour.' });
+    if (patron === 'guild' || (['burglary', 'fraud', 'coining', 'extortion', 'weights'].indexOf(rec.template) >= 0 && rng() < 0.3)) pleas.push({ from: 'guild', label: 'The Guild\'s Plea', text: U.fill('The wardens of {name}\'s guild ask that a brother be fined, not given {rung}. They would remember the favour.', { name: d.name, rung: Sen.rungLabel(rec.template, custom).toLowerCase() }) });
     if (rng() < 0.5) {
       var purse = rng() < 0.4;
       pleas.push({ from: 'family', purse: purse, label: 'A Family\'s Plea', text: d.name + '\'s ' + U.pick(rng, ['mother', 'wife', 'brother', 'father', 'sister']) + ' waits at the Watch-house door with a letter for the Examiner.' + (purse ? ' The letter is heavier than paper.' : '') });
@@ -236,14 +236,19 @@
       case 'pillory':
         this.meter('pressure', -1);
         if (c.traits.indexOf('pilloried') < 0) c.traits.push('pilloried');
-        c.status = 'at_large';
-        this.abroadCard(c, 'Pilloried, and known by every quarter.');
+        // An innocent goes home from the collar: no crime to go back to, so no record loose in the city (check-up).
+        if (!d.guilty) c.status = 'wronged';
+        else {
+          c.status = 'at_large';
+          this.abroadCard(c, 'Pilloried, and known by every quarter.');
+        }
         text = 'A day in the collar in the Market, with the turnips. By evening every quarter knows ' + name + '\'s face. If they are seen near a crime again, they will be named at once.';
         break;
       case 'banish':
         this.meter('dread', 1);
         c.status = 'banished';
-        c.returnWeek = s.week + U.randInt(this.rng, 4, 9);
+        // The banished who come back come back to their trade; an innocent had none to come back to.
+        c.returnWeek = d.guilty ? s.week + U.randInt(this.rng, 4, 9) : null;
         var alb = this.atLargeCardFor(c);
         if (alb) this.remove(alb);
         text = name + ' is whipped at the cart\'s tail to the Harbour gate and forbidden the city for ten years. The gate shuts. Some of them come back.';
@@ -252,6 +257,12 @@
         this.meter('dread', 1);
         count('cruelty', 1);
         if (c.traits.indexOf('branded') < 0) c.traits.push('branded');
+        if (!d.guilty) {
+          // The mark on an innocent cheek: a life ruined, not a Coquillard made. They leave the city (check-up).
+          c.status = 'wronged';
+          text = 'The iron, the smell, the mark on the cheek. ' + name + ' can never swear before a court again, and no honest master will take them. Within the month they are gone from the city.';
+          break;
+        }
         c.status = 'at_large';
         c.organization = 'gang';
         this.abroadCard(c, 'Branded on the cheek by your sentence.');

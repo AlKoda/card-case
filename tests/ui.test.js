@@ -232,6 +232,25 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   render(e);
   var cp = $('#peek').innerHTML;
   assert.ok(/The Rival works this too/.test(cp) && /The Inquisitor is in the city/.test(cp), 'the case dossier reads the systems');
+  // The kind line names what the card is: the Rival and a thief Abroad are no band of the Coquille (cases check-up).
+  var kindOf = function (c) { UI.selected = c.uid; render(e); var k = $('#peek').querySelector('.i-kind'); return k ? k.textContent : ''; };
+  var rv = e.create('rival', { data: {} });
+  assert.ok(/^Rival/.test(kindOf(rv)) && !/Coquille/.test(kindOf(rv)), 'the Rival is a Rival: ' + kindOf(rv));
+  var ab = e.create('atlarge', { label: 'Petty Thief: Hal Fuller', data: { name: 'Hal Fuller' } });
+  assert.ok(/^Abroad/.test(kindOf(ab)) && !/Coquille/.test(kindOf(ab)), 'a thief abroad is Abroad: ' + kindOf(ab));
+  var band = e.create('gang', { label: 'Band: The Rats', data: {} });
+  assert.ok(/Coquille/.test(kindOf(band)), 'a band is of the Coquille: ' + kindOf(band));
+  e.remove(rv); e.remove(ab); e.remove(band); UI.selected = null;
+  // A timed card's dossier tells its clock once, in the live line (cases check-up: raw proof said 'Keeps for' too).
+  var ev = e.create('evidence', { label: 'The Bad Coin', desc: 'Bright.', caseId: rec.id, data: { item: { key: 'coin', label: 'The Bad Coin', text: 'Bright.', needs: 'bio' } } });
+  var tri = e.create('trial', { label: 'Blood Court: X', desc: 'X stands before the Blood Court.', data: { caseId: rec.id, name: 'X', guilty: true, tier: 'weak' } });
+  [ev, clue, tri].forEach(function (c) {
+    UI.selected = c.uid; render(e);
+    var t = $('#peek').innerHTML.replace(/<[^>]+>/g, '\n'), clock = CF.util.fmtTime(c.life);
+    assert.ok(c.maxLife, e.labelOf(c) + ' is timed');
+    assert.strictEqual(t.split(clock).length - 1, 1, e.labelOf(c) + ': its time is said once: ' + t.replace(/\n+/g, ' | ').slice(0, 400));
+  });
+  e.remove(ev); e.remove(tri); UI.selected = null;
   console.log('ui: the dossier names the mark, the lack and the Rival');
 })();
 
@@ -1218,6 +1237,23 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   UI.pointer.up({ pointerId: 8, clientX: 400, clientY: 400, target: inner });
   UI.back();
   render(e);
+  // A dossier pinned by a tap steps aside when a tile is tapped open on a phone, for a finger and for the mouse
+  // (cases check-up: it stood over the window's title and first slot). On a wide screen it stays where it is.
+  var pinCard = e.tableCards().filter(function (c) { return !c.hidden; })[0], mmPin = globalThis.matchMedia;
+  [['touch', true], ['mouse', true], ['touch', false], ['mouse', false]].forEach(function (pc, i) {
+    globalThis.matchMedia = function () { return { matches: pc[1], addEventListener: function () {}, addListener: function () {} }; };
+    UI.selected = pinCard.uid; render(e);
+    assert.ok($('#peek').classList.contains('pinned'), 'the dossier is pinned');
+    UI.pointer.down({ pointerId: 60 + i, pointerType: pc[0], button: 0, clientX: 400, clientY: 400, target: inner, preventDefault: function () {} });
+    UI.pointer.up({ pointerId: 60 + i, pointerType: pc[0], clientX: 400, clientY: 400, target: inner });
+    render(e);
+    assert.ok(UI.openVerbs.indexOf('duty') >= 0, pc[0] + ': the tap opens the verb');
+    if (pc[1]) assert.ok(!UI.selected && !$('#peek').classList.contains('pinned') && !$('#peek').classList.contains('open'), pc[0] + ' on a phone: the dossier steps aside for the window');
+    else assert.strictEqual(UI.selected, pinCard.uid, pc[0] + ' on a wide screen: the dossier stays');
+    while (UI.back()) { /* the dossier, then the window */ }
+    UI.selected = null; render(e);
+  });
+  globalThis.matchMedia = mmPin;
   // The pile, the same.
   var pzEl = $('#board').querySelector('.pile-zone');
   if (pzEl) {
@@ -1982,6 +2018,10 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var on = gates.map(function (g) { return g.dataset.gate + ':' + (g.classList.contains('on') ? 1 : 0); }).join(' ');
   assert.strictEqual(on, 'enough:' + (a.score >= a.need ? 1 : 0) + ' kinds:' + (a.covered >= 2 ? 1 : 0) + ' word:0 clean:1', 'the seals read the charge: ' + on);
   if (a.score >= a.need && a.covered >= 2) assert.ok(box.querySelector('.ch-word') && !/To full proof/.test(box.textContent), 'only the word dark: the note says what word would do');
+  // The word note is said once, though the rules and the window both know it (check-up: it was shown twice).
+  var wordLines = box.querySelectorAll('.ch-note').filter(function (n) { return /^Word behind it:/.test(n.textContent); });
+  assert.ok(wordLines.length <= 1, 'the word note once: ' + wordLines.length);
+  if (a.score >= a.need && a.covered >= 2) assert.strictEqual(wordLines.length, 1, 'only the word dark: one word note');
   var labs = $('#windows').querySelectorAll('.slot .s-label').map(function (l) { return l.textContent; });
   assert.ok(labs.indexOf('Proof') >= 0 && labs.indexOf('PROOF') < 0, 'a plain token is Proof: ' + labs);
   // A token that names them, one that names somebody else.

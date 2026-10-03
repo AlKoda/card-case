@@ -34,7 +34,7 @@
     return spec;
   }
   function needsLabel(need) {
-    return { prints: 'the Vinegar and Umbrella', bio: 'a Physician\'s Case', lab: 'the Apothecary\'s Key' }[need];
+    return CF.NEEDS_LABEL[need];
   }
   function evidenceSpec(rec, item) {
     var needs = item.needs ? ' Needs ' + needsLabel(item.needs) + ' to analyse properly.' : '';
@@ -151,10 +151,10 @@
   // The Council's favour past the last office: a Writ of the Council, used once, by what goes with it.
   R.push({
     id: 'duty_councilwrit', verb: 'duty', label: 'The Council\'s Favour', duration: 10,
-    preview: function (ctx) { var t = ctx.slots.favour; return t ? ctx.e.councilFavourGives(t) : 'Put a Case, the Rolls, the Rival or a Witness with it.'; },
+    preview: function (ctx) { var t = ctx.slots.favour; return t ? ctx.e.councilFavourGives(t) : 'Put a Case, the Day-book, the Rival or a Witness with it.'; },
     blocked: function (ctx) {
       var t = ctx.slots.favour;
-      if (!t) return 'Put a Case, the Rolls, the Rival or a Witness with it.';
+      if (!t) return 'Put a Case, the Day-book, the Rival or a Witness with it.';
       if (t.def === 'case' && !ctx.e.councilMayTake(ctx.caseOf(t))) return 'The Council will not take this one off your hands.';
       return null;
     },
@@ -562,7 +562,7 @@
         if (!it) break;
         found.push(it.label);
       }
-      // A Forensic Kit finds physical evidence the eye misses.
+      // A Physician's Case finds physical evidence the eye misses.
       if (e.gearWith(ctx, 'extraEvidence').length && rec.items[rec.found] && rec.items[rec.found].type === 'evidence') {
         found.push(drawItem(ctx, rec, helpers).label);
       }
@@ -741,7 +741,7 @@
   R.push({
     id: 'an_reopen', verb: 'analyze', label: 'Open the Case Again', duration: 60,
     preview: 'Pull the old books from the Rolls. Read everything again with fresh eyes.',
-    blocked: function (ctx) { return !ctx.e.s.rooms.archive ? 'You need the Rolls to open an unanswered case again.' : !ctx.e.roomForCase(1) ? 'The desk is full. Close or let go of a case before you open an old one again.' : null; },
+    blocked: function (ctx) { return !ctx.e.s.rooms.archive ? 'You need the Rolls, the Watch-house room a Sworn Examiner may petition for, to open an unanswered case again.' : !ctx.e.roomForCase(1) ? 'The desk is full. Close or let go of a case before you open an old one again.' : null; },
     requires: ['coldcase'],
     run: function (ctx) {
       ctx.e.pathGain('master', 1, 'reopened a cold case');
@@ -2108,7 +2108,7 @@
       accepts: ['funds'], consume: true, reward: 'testimony', thanks: 'Paid for their morning, they remembered more.' },
     { when: function (id) { return id === 'int_suspect'; },
       at: 0.35, label: 'A long silence', text: 'They have stopped answering. Wit finds the question that opens them again. Without it, the silence is what you take home.',
-      accepts: ['focus'], penalty: 'fatigue', thanks: 'The right question, and the rest came out in a rush.', miss: 'The silence held, and it wore you down to break it.' },
+      accepts: ['focus'], penalty: 'fatigue', thanks: 'The right question, and they talked again.', miss: 'The silence held, and it wore you down to break it.' },
     { when: function (id) { return id === 'duty_beat'; },
       at: 0.3, label: 'A brawl', text: 'The bear-garden empties into the lane. A watchman at your side, and it is over quickly. Alone, it is on you.',
       accepts: ['teammate'], penalty: 'fatigue', reward: 'nofatigue', thanks: 'Two of you, and the brawl came apart before it wore you out.', miss: 'Alone in the lane, and it wore you out.' },

@@ -2681,6 +2681,13 @@
     if (i >= 0) UI.openVerbs.splice(i, 1);
     UI.openVerbs.push(vid);
     if (verbEls[vid]) verbEls[vid].classList.remove('new');
+    // On a phone the docked window and a pinned dossier share too little screen: the window puts the dossier away,
+    // as Back or a touch on the felt would (a tap on a card in the window reads it again).
+    if (narrow() && UI.selected) {
+      UI.hover = null; select(null);
+      var pk = $('#peek');
+      if (pk) { pk.classList.remove('open', 'pinned'); pk.dataset.uid = ''; }
+    }
     document.body.classList.add('has-window'); // the page makes room (toasts move clear of the window)
     UI.e.dirty = true;
   }
@@ -3337,8 +3344,14 @@
     });
     // Every other seal lit and only the word dark: say what word would do it.
     var onlyWord = gates && d.tier !== 'strong' && gates.every(function (g) { return g.ok === (g.id !== 'word'); });
-    d.notes.forEach(function (n) { if (!(onlyWord && /^To full proof/.test(n.text))) html += '<div class="ch-note ' + n.kind + '">' + esc(n.text) + '</div>'; });
-    if (onlyWord) html += '<div class="ch-note dim ch-word">' + esc(WORD_NOTE) + '</div>';
+    // The rules' own word note (describe() gives it with id 'word') is the one shown; the window's stands in only
+    // where the rules gave none, so the line is never said twice.
+    var ruleWord = d.notes.some(function (n) { return n.id === 'word'; });
+    d.notes.forEach(function (n) {
+      if (onlyWord && /^To full proof/.test(n.text)) return;
+      html += '<div class="ch-note ' + n.kind + (n.id === 'word' ? ' ch-word' : '') + '">' + esc(n.text) + '</div>';
+    });
+    if (onlyWord && !ruleWord) html += '<div class="ch-note dim ch-word">' + esc(WORD_NOTE) + '</div>';
     return html + '</div>';
   }
   // A token before the Court, read against this accused: it names them (their name, their mark, or about them),
@@ -3447,7 +3460,7 @@
       if (card.data.tampered) lines.push('Spoiled by the Rival');
       if (card.data.bribed) lines.push('Paid to forget');
       if (card.data.frame) lines.push('The thief-takers\' men');
-      if (card.maxLife) lines.push(tr('Keeps for {t}', { t: U.fmtTime(card.life) }));
+      // How long it keeps is the dossier's live clock line (clockLine), not a second line here.
       if (k === 'evidence' && card.data.item && card.data.item.needs) lines.push('Needs an instrument');
     } else if (k === 'teammate' || k === 'personnel') {
       if (card.data.name) lines.push(card.data.name);
@@ -3716,7 +3729,7 @@
     // The painted band at the top carries the kind's seal and the name, as a verb window's does; under the card,
     // the kind and (for anything but the case itself) the case it belongs to.
     peekHead(kindArt, e.labelOf(card));
-    html += '<div class="i-kind">' + esc((CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div>';
+    html += '<div class="i-kind">' + esc(def.kindLabel || (CF.KINDS[def.kind] || {}).label || def.kind) + (rec && def.kind !== 'case' ? ' · ' + esc(rec.title) : '') + '</div>';
     var a = CF.aspectsOf(card);
     var badges = CF.CLUE_ASPECTS.filter(function (k) { return a[k]; }).map(function (k) {
       return '<span class="chip big" data-aspect="' + k + '" title="' + esc('Tap for what this means') + '"><span class="chip-icon" style="background-image:' + art(ASPECT_ART[k] || 'iinv-05') + '"></span>' + esc(CF.ASPECTS[k].label) + ' ' + a[k] + '</span>';
