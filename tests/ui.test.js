@@ -1192,31 +1192,19 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(A.allow('click', 30) && !A.allow('page', 30.1) && A.allow('page', 30.5), 'a page turns only alone');
   var asrc = fs.readFileSync(path.join(__dirname, '..', 'js/audio.js'), 'utf8');
   assert.ok(/createDynamicsCompressor/.test(asrc) && /master\.connect\(limiter\)/.test(asrc), 'a limiter sits between the master and the speakers');
-  // A finger on a verb tile pans; held still, it lifts the tile; a tap still opens it.
+  // A finger on a verb tile moves it at once, as the mouse does: the player arranges the table. A tap still opens it.
   var tok = $('#board').querySelectorAll('.verb').filter(function (x) { return x.dataset.verb === 'duty'; })[0];
   assert.ok(tok, 'the Attend tile is on the table');
   var inner = new El('div');
   inner.closest = function (sel) { return /\.verb\[data-verb\]/.test(sel) ? tok : null; };
   var vb = e.verb('duty'), vx = vb.x, vy = vb.y, v0 = { x: UI.view.x, y: UI.view.y };
-  timers = []; delays = [];
   var down = { pointerId: 7, pointerType: 'touch', button: 0, clientX: 400, clientY: 400, target: inner, preventDefault: function () {} };
   UI.pointer.down(down);
-  assert.ok(UI.drag && UI.drag.kind === 'pan' && UI.drag.under && UI.drag.under.kind === 'verb', 'a touch on a tile starts as a pan');
-  assert.strictEqual(delays[delays.length - 1], 350, 'with a 350ms hold to lift');
+  assert.ok(UI.drag && UI.drag.kind === 'verb', 'a touch on a tile takes the tile, not the table');
   UI.pointer.move({ pointerId: 7, clientX: 550, clientY: 420, target: inner });
-  assert.ok(UI.drag.started && (UI.view.x !== v0.x || UI.view.y !== v0.y), 'a swipe pans the view');
-  flushTimers();
-  assert.strictEqual(UI.drag.kind, 'pan', 'and the hold does not fire once it moved');
+  assert.ok(UI.drag.started && UI.view.x === v0.x && UI.view.y === v0.y, 'a drag moves the tile and leaves the view');
   UI.pointer.up({ pointerId: 7, clientX: 550, clientY: 420, target: inner });
-  assert.ok(vb.x === vx && vb.y === vy, 'the tile stays where it was');
-  timers = [];
-  UI.pointer.down(down);
-  flushTimers();
-  assert.ok(UI.drag && UI.drag.kind === 'verb' && UI.drag.lifted && tok.classList.contains('held'), 'a hold lifts the tile');
-  UI.pointer.move({ pointerId: 7, clientX: 480, clientY: 470, target: inner });
-  assert.ok(UI.drag.started, 'and a drag moves it');
-  UI.pointer.up({ pointerId: 7, clientX: 480, clientY: 470, target: inner });
-  assert.ok((vb.x !== vx || vb.y !== vy) && !tok.classList.contains('held'), 'the tile is put down elsewhere');
+  assert.ok(vb.x !== vx || vb.y !== vy, 'the tile is put down where the finger left it');
   e.moveVerb('duty', vx, vy);
   timers = [];
   UI.pointer.down(down);
@@ -1235,9 +1223,12 @@ function render(e) { e.dirty = true; UI.renderNow(); }
     var pin = new El('div');
     pin.closest = function (sel) { return sel === '.pile-zone' ? pzEl : null; };
     timers = [];
+    var pl0 = e.pile(), px0 = pl0.x, py0 = pl0.y;
     UI.pointer.down({ pointerId: 9, pointerType: 'touch', button: 0, clientX: 200, clientY: 200, target: pin, preventDefault: function () {} });
-    assert.ok(UI.drag.kind === 'pan' && UI.drag.under.kind === 'pile', 'a touch on the pile starts as a pan');
-    UI.pointer.up({ pointerId: 9, clientX: 200, clientY: 200, target: pin });
+    assert.strictEqual(UI.drag.kind, 'pile', 'a touch on the pile takes the pile');
+    UI.pointer.move({ pointerId: 9, clientX: 330, clientY: 260, target: pin });
+    UI.pointer.up({ pointerId: 9, clientX: 330, clientY: 260, target: pin });
+    assert.ok(e.pile().x !== px0 || e.pile().y !== py0, 'and a drag moves it');
   }
   // A searched-out scene wears the glass stamp on its case card.
   var rec = e.openCases()[0], cc = e.caseCard(rec.id);
@@ -1283,7 +1274,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   // The board's children are placed from its origin, in Arabic too.
   var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
   assert.ok(/\n#board > \* \{ position: absolute; left: 0; top: 0;/.test(css), 'every board child is pinned to left and top 0');
-  console.log('ui: the Rival a thread a week, a swipe pans past a tile, the searched-out stamp, sounds that do not pile up, harm apart');
+  console.log('ui: the Rival a thread a week, a finger moves a tile, the searched-out stamp, sounds that do not pile up, harm apart');
 })();
 
 // ---- Round 8, lane 2, items 25-32: an instrument's boosts in words, the Court's tier glossed, the Calling's

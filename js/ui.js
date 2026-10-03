@@ -3815,8 +3815,7 @@
     // The box, while the verb asks: a tap answers it from the table.
     if (vn && ev.button === 0 && t.closest('.v-magnet.asks')) { UI.answerAsk(vn.dataset.verb); ev.preventDefault(); return; }
     if (vn && ev.button === 0) {
-      var vd = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
-      UI.drag = ev.pointerType === 'touch' ? holdToLift(vd) : vd;
+      UI.drag = { kind: 'verb', verb: vn.dataset.verb, el: vn, x0: ev.clientX, y0: ev.clientY, started: false };
       ev.preventDefault();
       return;
     }
@@ -3824,8 +3823,7 @@
     var pz = t.closest && t.closest('.pile-zone');
     if (pz && ev.button === 0) {
       var pl = UI.e.pile();
-      var pd = { kind: 'pile', el: pz, x0: ev.clientX, y0: ev.clientY, b0: { x: pl.x, y: pl.y }, started: false };
-      UI.drag = ev.pointerType === 'touch' ? holdToLift(pd) : pd;
+      UI.drag = { kind: 'pile', el: pz, x0: ev.clientX, y0: ev.clientY, b0: { x: pl.x, y: pl.y }, started: false };
       ev.preventDefault();
       return;
     }
@@ -3837,21 +3835,8 @@
     }
   }
 
-  // A finger on a verb tile or the pile pans the table, as a swipe should; held still for a
-  // moment, it lifts the tile instead. A tap still opens the verb. The mouse lifts at once.
-  var LIFT_HOLD = 350;
-  function holdToLift(under) {
-    var d = { kind: 'pan', x0: under.x0, y0: under.y0, vx: UI.view.x, vy: UI.view.y, started: false, under: under };
-    d.holdT = setTimeout(function () {
-      if (UI.drag !== d || d.started) return;
-      d.holdT = 0;
-      under.lifted = true;
-      UI.drag = under;
-      under.el.classList.add('held');
-      UI.haptic('tick');
-    }, LIFT_HOLD);
-    return d;
-  }
+  // A verb tile and the pile move under a finger as under the mouse: the player arranges the table.
+  // A tap still opens the verb; the felt around them pans.
 
   // A gesture's drawing, once a frame: the board under a pan, the tile or the pile under a drag, the zoom
   // under a pinch. The numbers are kept at every move; the page is written here. flushDraw runs a pending
@@ -4173,7 +4158,6 @@
     if (!d) return;
     if (d.holdT) clearTimeout(d.holdT);
     if (d.kind === 'pinch') return;
-    if (d.el && d.el.classList) d.el.classList.remove('held');
     if (d.kind === 'card' && d.started) { flyBack(d); UI.e.dirty = true; }
     if ((d.kind === 'verb' || d.kind === 'pile') && d.started) {
       d.el.classList.remove('dragging');
@@ -4196,10 +4180,7 @@
     resumeAfterDrag();
     if (d.holdT) clearTimeout(d.holdT);
     if (d.kind === 'window') return;
-    // A tap on a tile that was waiting to be held is a tap on the tile.
-    if (d.kind === 'pan' && d.under && !d.started) d = d.under;
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
-    if (d.el) d.el.classList.remove('held');
     if (d.kind === 'pile') {
       d.el.classList.remove('dragging');
       if (d.started) { e.movePile(d.at.x, d.at.y); CF.Audio.play('drop'); UI.haptic(10); }

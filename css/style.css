@@ -317,8 +317,6 @@ html[data-flat] #table { perspective: none; }
 .vwin.refuse, html[data-calm] .verb.refuse .v-token, html[data-calm] .slot.refuse { outline: 2px solid transparent; outline-offset: 2px; animation: refuseFlash 0.3s ease-out; }
 @keyframes refuseFlash { 30% { outline-color: var(--danger); } }
 /* Held under a finger long enough to lift: the tile rises before it moves. */
-.verb.held .v-token { transform: translateY(-10px) scale(1.03); transition: transform 0.12s; }
-#board .pile-zone.held { --cell: rgba(240, 200, 90, 0.7); }
 /* The name, on a plate below the tile. */
 .verb .v-plate {
   position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 16px; width: 200px; height: 40px; box-sizing: border-box;
