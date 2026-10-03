@@ -2861,5 +2861,7 @@
     "The wardens of {name}'s guild ask that a brother be fined, not given {rung}. They would remember the favour.": "وكلاء نقابة {name} يلتمسون أن يُغرَّم أخٌ لهم، لا أن يُحكم عليه بـ{rung}. وسيذكرون لك الجميل.",
     "The iron, the smell, the mark on the cheek. {name} can never swear before a court again, and no honest master will take them. Within the month they are gone from the city.": "الحديد، والرائحة، والوسم على الخد. لن يستطيع {name} أن يحلف أمام محكمة بعد اليوم، ولن يقبله معلّم شريف. وفي غضون الشهر يكون قد رحل عن المدينة.",
     "Within the month they are gone from the city.": "وفي غضون الشهر يكون قد رحل عن المدينة.",
+    "Attend is at work. When its clock runs out, open it and take the Coin.": "الدوام قيد العمل. حين ينفد وقته، افتحه وخذ النقود.",
+    "{title} lies in {verb}: press {recipe}.": "{title} موضوعة في {verb}: اضغط «{recipe}».",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

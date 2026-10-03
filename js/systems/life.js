@@ -141,6 +141,8 @@
     health: 'You have no office yet. Drag Health onto Attend and press what it offers: a day\'s labour, a Coin.',
     focus: 'Winded. Health comes back in a moment; meanwhile Wit keeps the day-book in Attend for a Coin.',
     none: 'Both spent. They come back on their own; the clock is running.',
+    // Attend at work: nothing else goes in until its clock runs out.
+    busy: 'Attend is at work. When its clock runs out, open it and take the Coin.',
     // In Attend's slot with the plate not yet pressed: nothing is spent until it is.
     press: 'Now press {recipe}.',
   };
@@ -150,6 +152,8 @@
     var s = e.s, duty = e.verb('duty');
     var pv = duty.status === 'idle' ? e.preview('duty') : null;
     if (pv && pv.label && !pv.blocked) return U.fill(WORK_HINTS.press, { recipe: pv.label });
+    // A labour under way: Health (or Wit) is in it, not yet winded, and Attend takes nothing more.
+    if (duty.status === 'running') return WORK_HINTS.busy;
     var idle = function (c) { return c.loc.t === 'table' || (c.loc.t === 'slot' && s.verbs[c.loc.verb] && s.verbs[c.loc.verb].status !== 'running'); };
     if (e.cardsOf('health', true).some(idle)) return WORK_HINTS.health;
     return e.cardsOf('focus', true).some(idle) ? WORK_HINTS.focus : WORK_HINTS.none;
@@ -279,7 +283,10 @@
     s.flags.firstCase = true;
     s.flags.hiredT = s.t;
     // The lessons come one beat at a time from here: the intro counts from the hire.
-    if (s.intro) { s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); }
+    // The sergeant's own Question is still finishing (this runs inside it) and is counted when it
+    // returns: it is not a verb finished since the hire.
+    // Its hint names the next move and stands until the player has made one (intro.js paced).
+    if (s.intro) { s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this) + (this.verb('interrogate').status === 'running' ? 1 : 0); s.intro.byHire = true; }
     if (this.introUnlock) this.introUnlock(['analyze', 'reflect']);
     if (this.introReveal) this.introReveal(['instinct', 'health', 'focus', 'personnel']);
     var rec = this.openCases().filter(function (r) { return r.opening; })[0];

@@ -116,18 +116,20 @@ console.log('intro: ok');
   var e = CF.Engine.newGame({ seed: 21, who: 'clerk', name: 'Beats', opening: true, guided: true });
   assert.ok(/Health onto Attend/.test(e.introHint()), 'work for bread: ' + e.introHint());
   assert.ok(/so does Wit, more slowly/.test(e.s.journal[0].text), 'the start says Wit earns too');
-  // Health at work, Wit on the table: the hint turns to Wit.
+  // Health at work: Attend takes nothing more until its clock runs out, and the hint says to wait, not that
+  // Health is winded or that Wit goes in (it would be refused). Once it is taken, the hint turns to Wit.
   var hp = tbl(e, 'health')[0];
   assert.ok(e.autoSlot('duty', hp.uid) && e.start('duty'));
   e.tick(0.1);
-  assert.ok(/^Winded\. Health comes back/.test(e.introHint()), 'Wit meanwhile: ' + e.introHint());
+  assert.ok(/^Attend is at work\./.test(e.introHint()), 'while the labour runs: ' + e.introHint());
+  assert.ok(!e.autoSlot('duty', tbl(e, 'focus')[0].uid), 'a busy Attend refuses Wit');
   e.tick(e.verb('duty').duration); e.collect('duty'); e.tick(0.1);
   assert.strictEqual(tbl(e, 'spent_health').length, 1);
   assert.ok(/^Winded\./.test(e.introHint()));
   // Wit at the day-book too: both spent.
   assert.ok(e.autoSlot('duty', tbl(e, 'focus')[0].uid) && e.start('duty'), 'Wit keeps the day-book');
   e.tick(0.1);
-  assert.ok(/^Both spent\./.test(e.introHint()), 'both spent: ' + e.introHint());
+  assert.ok(/^Attend is at work\./.test(e.introHint()), 'the day-book under way: ' + e.introHint());
   e.tick(e.verb('duty').duration); e.collect('duty'); e.tick(0.1);
   // Two days' work: the notice, and Explore runs by itself.
   assert.strictEqual(e.s.flags.stage, 'search');
@@ -152,30 +154,63 @@ console.log('intro: ok');
   assert.strictEqual(e.s.intro.step, 3, 'the lessons the opening gave are skipped: ' + e.s.intro.step);
   // Their prose may reach the journal as a quiet aside (intro.js ASIDES), never as a lesson told again.
   assert.ok(!e.s.journal.some(function (j) { return (j.title === 'What the Scene Gives' || j.title === 'People' || j.title === 'The Casebook') && j.kind !== 'minor'; }), 'no lesson told twice');
-  // The table is ripe for the Charge; the beat still waits eight seconds and a verb.
+  // The table is ripe for the Charge; the beat still waits eight seconds and a verb finished since the hire. The
+  // sergeant's own Question, which made the hire, is not that verb: the hire's hint stands until the player acts.
   var rec = e.openCases()[0];
   if (!tbl(e, 'suspect').length) e.revealSuspect(rec, null);
   if (!tbl(e, 'clue').length) e.create('clue', { label: 'x', caseId: rec.id, aspects: { testimony: 1 } });
-  var majors = [];
-  for (var t = 0; t < 60; t++) {
+  var majors = [], dayBook = null;
+  for (var t = 0; t < 200; t++) {
     if (t === 4) { assert.ok(e.autoSlot('duty', tbl(e, 'focus')[0].uid) && e.start('duty'), 'the day-book after the hire'); }
     if (t === 2) assert.ok(!e.verb('arrest').unlocked, 'the Charge does not come on the heels of the hire');
+    if (t === 30) assert.ok(!e.verb('arrest').unlocked, 'nor while nothing has been done since: ' + (e.s.t - hireT));
+    if (dayBook === null && e.verb('duty').status === 'done') {
+      dayBook = e.s.t - hireT;
+      // The day-book took the Wit, so the warning against Health in Question had its turn when it finished (an
+      // aside is a lesson too); the player acts again, as the hire's hint says: the case into Rest.
+      e.collect('duty');
+      var cc = tbl(e, 'case')[0];
+      assert.ok(cc && e.autoSlot('reflect', cc.uid) && e.start('reflect'), 'the case into Rest');
+    }
     e.tick(0.5);
     e.s.journal.slice(journalAt).forEach(function (j) { if (j.kind === 'major') majors.push(e.s.t - hireT); });
     journalAt = e.s.journal.length;
   }
   assert.ok(e.verb('arrest').unlocked && e.s.journal.some(function (j) { return j.title === 'The Charge'; }), 'the Charge came in time');
-  var charge = majors[0];
+  var charge = majors[majors.length - 1];
   assert.ok(charge >= 8, 'eight seconds at least after the hire: ' + charge);
+  assert.ok(dayBook !== null && charge >= dayBook, 'the Charge waits for the day-book to finish: ' + charge + ' / ' + dayBook);
   for (var w = 0; w < 30; w += 5) assert.ok(majors.filter(function (x) { return x >= w && x < w + 5; }).length <= 1, 'at most one beat per five seconds: ' + JSON.stringify(majors));
-  // Without a verb run since, a beat waits half a minute before it comes anyway.
+  // Without a verb run since, the Charge waits two minutes before it comes anyway (other beats half a minute): the
+  // hire's hint names the next move and stands while the player has not made one.
   var f = CF.Engine.newGame({ seed: 22, who: 'none', name: 'Idle', opening: true, guided: true });
-  f.s.flags.stage = 'hired'; f.s.flags.firstCase = true; f.s.intro.step = 3; f.s.intro.lastBeatT = f.s.t; f.s.intro.lastBeatVerbs = 0;
+  f.s.flags.stage = 'hired'; f.s.flags.firstCase = true; f.s.intro.step = 3; f.s.intro.lastBeatT = f.s.t; f.s.intro.lastBeatVerbs = 0; f.s.intro.byHire = true;
   f.introUnlock(['analyze', 'reflect']);
   var fc = f.spawnCase('missing', { quiet: true }), fr = f.caseRec(fc.caseId);
   fr.opening = true; f.revealSuspect(fr, null); f.create('clue', { label: 'x', caseId: fr.id, aspects: { testimony: 1 } });
   f.tick(10); assert.ok(!f.verb('arrest').unlocked, 'no verb run: the beat waits');
-  f.tick(21); assert.ok(f.verb('arrest').unlocked, 'but not for ever');
+  f.tick(21); assert.ok(!f.verb('arrest').unlocked, 'half a minute is not enough for the Charge');
+  f.tick(90); assert.ok(f.verb('arrest').unlocked, 'but not for ever');
+  // The hire made inside the sergeant's Question: that Question is not counted as a verb finished since.
+  var g = CF.Engine.newGame({ seed: 24, who: 'clerk', name: 'Hire', opening: true, guided: true });
+  g.s.flags.stage = 'questioned';
+  var gc = g.spawnCase('missing', { quiet: true, roles: g.openingScene().roles }), gr = g.caseRec(gc.caseId);
+  gr.opening = true; g.introUnlock(['investigate', 'interrogate']);
+  var gq = g.create('watchq', { label: 'Q' }), gw = g.cardsOf('focus', true)[0] || g.create('focus');
+  if (gw.loc.t !== 'table') { g.detach(gw); g.placeOnTable(gw); }
+  assert.ok(g.autoRun('interrogate', [gq.uid, gw.uid]), 'the sergeant sits you down');
+  g.tick(g.verb('interrogate').duration + 0.01);
+  assert.strictEqual(g.s.flags.stage, 'hired');
+  var ran = 0, sv = g.s.stats.verbs; for (var k in sv) ran += sv[k];
+  assert.strictEqual(g.s.intro.lastBeatVerbs, ran, 'the hire counts the sergeant\'s Question as already run: ' + g.s.intro.lastBeatVerbs + ' / ' + ran);
+  assert.ok(g.s.intro.byHire, 'and the hire\'s hint is marked to stand');
+  // A save from before (no byHire): the Charge keeps the half-minute pace.
+  var oldf = CF.Engine.newGame({ seed: 22, who: 'none', name: 'Idle', opening: true, guided: true });
+  oldf.s.flags.stage = 'hired'; oldf.s.flags.firstCase = true; oldf.s.intro.step = 3; oldf.s.intro.lastBeatT = oldf.s.t; oldf.s.intro.lastBeatVerbs = 0;
+  oldf.introUnlock(['analyze', 'reflect']);
+  var ofc = oldf.spawnCase('missing', { quiet: true }), ofr = oldf.caseRec(ofc.caseId);
+  ofr.opening = true; oldf.revealSuspect(ofr, null); oldf.create('clue', { label: 'x', caseId: ofr.id, aspects: { testimony: 1 } });
+  oldf.tick(31); assert.ok(oldf.verb('arrest').unlocked, 'an older save: half a minute, as before');
   // The hire's hint reads the table: a name already known and no raw proof left, it says whom to question.
   var h = CF.Engine.newGame({ seed: 23, who: 'monk', name: 'Named', opening: true, guided: true });
   h.s.flags.stage = 'questioned';
@@ -668,15 +703,18 @@ console.log('intro: ok');
   assert.strictEqual(e.introHint(), 'Now press A Day\'s Labour.', 'not started: press it, not Winded: ' + e.introHint());
   assert.ok(e.start('duty'));
   e.tick(0.1);
-  assert.ok(/^Winded\. Health comes back/.test(e.introHint()), 'started: Winded: ' + e.introHint());
-  // The labour done, Wit laid in Attend and not pressed: the same word, with its own plate.
+  // Pressed: Attend is at work and takes nothing more, so the hint says to wait (not Winded, not Wit in Attend).
+  assert.strictEqual(e.introHint(), 'Attend is at work. When its clock runs out, open it and take the Coin.', 'started: ' + e.introHint());
+  // The labour done and taken: now Health is Winded and Wit can go in.
   e.tick(e.verb('duty').duration); e.collect('duty'); e.tick(0.1);
+  assert.ok(/^Winded\. Health comes back/.test(e.introHint()), 'taken: Winded: ' + e.introHint());
+  // Wit laid in Attend and not pressed: the same word, with its own plate.
   assert.ok(e.autoSlot('duty', byDef(e, 'focus')[0].uid), 'Wit goes into Attend');
   e.tick(0.1);
   assert.strictEqual(e.introHint(), 'Now press ' + e.preview('duty').label + '.', 'Wit unpressed: ' + e.introHint());
   assert.ok(e.start('duty'));
   e.tick(0.1);
-  assert.ok(/^Both spent\./.test(e.introHint()), 'both at work: ' + e.introHint());
+  assert.ok(/^Attend is at work\./.test(e.introHint()), 'Wit at work: ' + e.introHint());
   console.log('work hint truth: ok');
 })();
 
@@ -759,4 +797,31 @@ console.log('intro: ok');
   assert.strictEqual(p.introTaughtControls(), false, 'a plain start keeps the how-to line');
   assert.strictEqual(CF.Engine.load(e.save()).introTaughtControls(), true, 'and a save keeps it');
   console.log('controls taught: ok');
+})();
+
+// ---- A first case gone cold went to no jury: no 'Sworn Men' beat, no 'the sworn men are out' -----
+(function coldNoJury() {
+  var e = CF.Engine.newGame({ seed: 5, who: 'watchman', name: 'Cold', opening: true, guided: true });
+  e.s.flags.stage = 'questioned';
+  var c = e.spawnCase('missing', { quiet: true, roles: e.openingScene().roles }), rec = e.caseRec(c.caseId);
+  rec.opening = true;
+  e.openingHired(); if (e.s.choice) e.choose(0);
+  e.revealSuspect(rec, null); e.create('clue', { label: 'x', caseId: rec.id, aspects: { testimony: 1 } });
+  e.introUnlock(['arrest']); e.s.intro.step = 4;
+  var t;
+  for (t = 0; t < 80; t++) e.tick(0.5);
+  assert.strictEqual(e.s.intro.step, 4, 'no charge yet: the Sworn Men wait');
+  e.goCold(rec.id);
+  for (t = 0; t < 240; t++) { if (e.s.choice) e.choose(e.s.choice.options.length - 1); e.tick(0.5); }
+  assert.strictEqual(rec.status, 'cold');
+  var titles = e.s.journal.map(function (j) { return j.title; });
+  assert.ok(titles.indexOf('The Trail Goes Cold') >= 0 && titles.indexOf(CF.OPENING_TEXT.keep) >= 0, 'the cold trail and the keep are told');
+  assert.ok(titles.indexOf('The Sworn Men') < 0, 'nobody was charged, so no sworn men: ' + titles.join(' | '));
+  assert.ok(!/sworn men are out/.test(e.introHint() || ''), 'nor the hint: ' + e.introHint());
+  // A charge laid is a jury: the beat's cue reads a trial, a verdict or a case before the Court.
+  var step4 = e.introSteps()[4];
+  rec.status = 'trial'; assert.ok(step4.cue(e), 'a case at trial');
+  rec.status = 'acquitted'; assert.ok(step4.cue(e), 'a verdict');
+  ['cold', 'settled', 'rival', 'open'].forEach(function (st) { rec.status = st; assert.ok(!step4.cue(e) || e.countOf('trial') > 0, st + ' is no jury'); });
+  console.log('cold, no jury: ok');
 })();

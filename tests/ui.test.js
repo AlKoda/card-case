@@ -3127,5 +3127,55 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   console.log('ui: the verbs check-up (a case\'s door, the info at work, the Bell, the picker in view)');
 })();
 
+// ---- The opening check-up: two taps on a table card send it (a finger brings no dblclick); the advisor sees a case
+// left in a verb's slot.
+(function openingCheckup() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 3, name: 'Hodge Ebner' });
+  e.s.flags.marketOpen = true;
+  UI.attach(e); UI.paused = true; UI.closeAllWindows && UI.closeAllWindows();
+  render(e);
+  function closeAll() { var n = 0; while ((UI.openVerbs.length || UI.pick) && n++ < 9) UI.back(); render(e); }
+  function on(el) { var t = new El('div'); t.closest = function (sel) { return sel === '.card[data-uid]' ? el : null; }; return t; }
+  // Two taps on a table card, for a finger as for the mouse: the first reads it, the second sends it to a verb that
+  // takes it, as a double-click does. Two taps far apart are two reads.
+  ['touch', 'mouse'].forEach(function (pt, i) {
+    closeAll();
+    var card = e.tableCards().filter(function (c) { return c.def === 'health'; })[0];
+    var el = new El('div'); el.dataset.uid = String(card.uid); el.className = 'card';
+    var t = on(el);
+    var tap = function (k) {
+      UI.pointer.down({ pointerId: 50 + i * 4 + k, pointerType: pt, button: 0, clientX: 300, clientY: 300, target: t, preventDefault: function () {} });
+      UI.pointer.up({ pointerId: 50 + i * 4 + k, pointerType: pt, clientX: 300, clientY: 300, target: t });
+    };
+    UI.lastTap = null;
+    tap(0);
+    assert.strictEqual(e.card(card.uid).loc.t, 'table', pt + ': one tap reads it, where it lies');
+    assert.strictEqual(UI.selected, card.uid, pt + ': and shows its dossier');
+    tap(1);
+    assert.strictEqual(e.card(card.uid).loc.t, 'slot', pt + ': the second tap sends it to a verb: ' + JSON.stringify(e.card(card.uid).loc));
+    assert.ok(UI.openVerbs.indexOf(e.card(card.uid).loc.verb) >= 0, pt + ': whose window opens');
+    e.unslot(e.card(card.uid).loc.verb, e.card(card.uid).loc.slot);
+    closeAll();
+    UI.lastTap = { uid: card.uid, t: performance.now() - 2000 };
+    tap(2);
+    assert.strictEqual(e.card(card.uid).loc.t, 'table', pt + ': two taps far apart are not a double');
+    UI.selected = null;
+  });
+  closeAll();
+  // A case laid in Explore's slot and left there: the advisor says to press, not that the desk is empty.
+  var cs = e.tableCards().filter(function (c) { return c.def === 'case'; });
+  assert.ok(cs.length, 'a case on the desk');
+  e.tableCards().filter(function (c) { return c.def === 'case'; }).slice(1).forEach(function (c) { e.remove(c); });
+  e.tableCards().filter(function (c) { return c.def === 'funds'; }).forEach(function (c) { e.remove(c); });
+  e.create('funds'); e.create('funds');
+  assert.ok(e.autoSlot('investigate', cs[0].uid), 'the case into Explore, not pressed');
+  var said = UI.advice();
+  assert.ok(!/Nothing on the desk/.test(said || ''), 'the case in hand is not an empty desk: ' + said);
+  var rec = e.caseRec(cs[0].caseId);
+  assert.ok(said && said.indexOf(rec.title) >= 0 && /press/.test(said), 'it names the case and says to press: ' + said);
+  e.unslot('investigate', 'main'); closeAll();
+  console.log('ui: the opening check-up (two taps on the table, a case left in a slot)');
+})();
+
 void realSetTimeout;
 console.log('ui.test: all passed');

@@ -97,12 +97,16 @@
         e.introUnlock(['reflect']);
         return { hint: 'Two tokens side by side in Rest: see whether they tell one story.' };
       } },
-    { beat: 3, cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
+    // On the opening path the hire's own hint (the case in Rest, or question the named) stands until the
+    // player has done something with the desk: a verb finished since the hire, not a clock alone.
+    { beat: 3, played: true, cue: function (e) { return e.countOf('suspect') > 0 && e.countOf('clue') > 0; },
       run: function (e) {
         e.introUnlock(['arrest']);
         return { hint: 'An accused and the tokens of their case in The Court make a charge. Read the window before you press: on Indicia they walk free and remember you; Full Proof holds.' };
       } },
-    { beat: 4, cue: function (e) { return e.countOf('trial') > 0 || (Object.keys(e.s.cases).length > 0 && e.s.cases[Object.keys(e.s.cases)[0]].status !== 'open'); },
+    // A charge laid: the sworn men are out (or have already answered). A case gone cold, settled or taken
+    // by the Rival went to no jury, and the keep tells it in its own words.
+    { beat: 4, cue: function (e) { var first = firstCase(e); return e.countOf('trial') > 0 || !!(first && JURY.indexOf(first.status) >= 0); },
       run: function (e) {
         e.introReveal(['funds']);
         e.introUnlock(['duty']);
@@ -119,6 +123,15 @@
       run: function (e) { e.introFinish(); return null; } },
   ];
 
+  // The guided start's first case (the opening's own, else the first opened), and the statuses that
+  // mean it went before the sworn men.
+  var JURY = ['trial', 'closed', 'acquitted'];
+  function firstCase(e) {
+    var cs = e.s.cases, keys = Object.keys(cs);
+    for (var i = 0; i < keys.length; i++) if (cs[keys[i]].opening) return cs[keys[i]];
+    return keys.length ? cs[keys[0]] : null;
+  }
+
   // Was any case of the guided start ended by an acquittal?
   function acquitted(e) {
     var cs = e.s.cases;
@@ -127,12 +140,16 @@
 
   // After the hire the beats come one at a time: eight seconds after the
   // last, and once a verb has finished since (or half a minute has passed).
-  function paced(e) {
+  // A step marked played, while the hire's own hint still stands (intro.byHire, set by
+  // openingHired), waits for the verb (or a long while: PLAYED_WAIT), so the hint that
+  // names the next move is not replaced before the player can make it.
+  var PLAYED_WAIT = 120;
+  function paced(e, played) {
     var s = e.s;
     if (s.intro.lastBeatT === undefined) return true;
     var since = s.t - s.intro.lastBeatT;
     if (since < 8) return false;
-    return verbsRun(e) > (s.intro.lastBeatVerbs || 0) || since >= 30;
+    return verbsRun(e) > (s.intro.lastBeatVerbs || 0) || since >= (played && s.intro.byHire ? PLAYED_WAIT : 30);
   }
 
   // The plain start's first three beats, which the opening path passes over, come back there as
@@ -167,6 +184,7 @@
       e.dirty = true;
       if (!a.hint) return false;
       s.intro.hint = a.hint; s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(e);
+      delete s.intro.byHire;
       return true;
     }
     return false;
@@ -182,12 +200,12 @@
     while (step && step.skipIf && step.skipIf(this)) { s.intro.step++; step = steps[s.intro.step]; }
     if (!step) { this.introFinish(); return; }
     if (!step.cue(this)) return;
-    if (step.beat !== undefined && openingPath(this) && !paced(this)) return;
+    if (step.beat !== undefined && openingPath(this) && !paced(this, step.played)) return;
     var key = typeof step.beat === 'function' ? step.beat(this) : step.beat;
     var beat = key !== undefined && key !== null ? CF.Story.beat(this, key) : null;
     var res = step.run(this);
     s.intro.step++;
-    if (beat) { this.story(beat.title, beat.text, 'major'); s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); }
+    if (beat) { this.story(beat.title, beat.text, 'major'); s.intro.lastBeatT = s.t; s.intro.lastBeatVerbs = verbsRun(this); delete s.intro.byHire; }
     if (res && res.hint && !s.intro.silent) s.intro.hint = res.hint;
     this.dirty = true;
   };

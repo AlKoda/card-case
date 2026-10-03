@@ -1068,6 +1068,9 @@
     var spentOf = function (ab) { return has(CF.CARDS[ab].spends || 'spent_' + ab).sort(function (a, b) { return a.life - b.life; })[0]; };
     var cases = table.filter(function (c) { return c.def === 'case'; });
     var open = cases.map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
+    // An open case's card lying in an idle verb's slot is still in hand: the desk is not empty.
+    var held = e.cardsOf('case', true).filter(function (c) { return c.loc.t === 'slot' && idle(c.loc.verb); }).map(function (c) { return { card: c, rec: e.caseRec(c.caseId) }; }).filter(function (x) { return x.rec && x.rec.status === 'open'; });
+    var inHand = open.length + held.length;
     var wit = has('focus')[0], hp = has('health')[0];
     // A case about to go cold with somebody to charge.
     if (e.verb('arrest').unlocked && idle('arrest')) for (var ci = 0; ci < open.length; ci++) {
@@ -1115,6 +1118,9 @@
     }
     var insight = table.filter(function (c) { return c.def === 'insight' && c.data && CF.INSIGHTS[c.data.insight] && !e.unavailableReason(c); })[0];
     if (insight && can('reflect')) return tr('An Insight waits: put {label} into Rest alone to learn it, or with your {ability} to keep it as a trick.', { label: e.labelOf(insight), ability: tr(CF.CARDS[CF.INSIGHTS[insight.data.insight].trains].label) });
+    // A case laid in an idle verb's slot and left there: the plate is waiting to be pressed.
+    var laid = held.filter(function (x) { var pv = e.preview(x.card.loc.verb); return pv && pv.label && !pv.blocked; })[0];
+    if (laid) return tr('{title} lies in {verb}: press {recipe}.', { title: laid.rec.title, verb: tr(CF.VERBS[laid.card.loc.verb].label), recipe: tr(e.preview(laid.card.loc.verb).label) });
     if (can('investigate')) for (var i = 0; i < open.length; i++) if (open[i].rec.searches === 0) return tr('A new case: put {title} into Explore to search the scene.', { title: open[i].rec.title });
     var raw = has('evidence')[0];
     if (raw && can('analyze')) return tr('Raw proof waits: put {label} into Study to read it.', { label: e.labelOf(raw) });
@@ -1148,9 +1154,9 @@
     if (can('investigate')) for (var m = 0; m < open.length; m++) if (open[m].rec.found < open[m].rec.items.length) return tr('The scene has more to give: search {title} again.', { title: open[m].rec.title });
     var fat = has('fatigue').length;
     if (fat >= 2 && can('reflect')) return tr('Weariness is piling up: put one into Rest before the fever takes you.');
-    if ((has('funds').length < 2 || !open.length) && !hp && spentOf('health') && can('duty')) return spentLine('health', spentOf('health'));
+    if ((has('funds').length < 2 || !inHand) && !hp && spentOf('health') && can('duty')) return spentLine('health', spentOf('health'));
     if (has('funds').length < 2 && hp && can('duty')) return tr('Coin is short: Attend with Health earns your keep.');
-    if (!open.length && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
+    if (!inHand && can('duty') && hp) return tr('Nothing on the desk. A case will come; Attend with Health meanwhile.');
     // The scene is searched out (the rule above caught every other): another search only feeds an Obsession. Door to
     // door, if the case's own Quarter is on the table and somebody there is still to be met; else charge or let go.
     if (can('investigate')) for (var dd = 0; dd < open.length; dd++) {
@@ -4337,6 +4343,16 @@
         if (card.hidden) flipReveal(card, d.src); else select(d.uid);
         return;
       }
+      // Two taps on a table card send it where it goes (as a double-click does): told here by the pointer, since a
+      // finger's two taps bring no dblclick. The first tap reads it, as ever.
+      if (card && card.loc && card.loc.t === 'table') {
+        var now2 = performance.now(), last2 = UI.lastTap;
+        UI.lastTap = { uid: d.uid, t: now2 };
+        if (last2 && last2.uid === d.uid && now2 - last2.t < DOUBLE_TAP) {
+          UI.lastTap = null; UI.tookByTaps = now2;
+          if (sendOnDouble(card)) return;
+        }
+      }
       // With a verb open, a tap on a card that fits puts it in; the window stays.
       if (card && card.loc && card.loc.t === 'table' && UI.openVerbs.length) {
         var openVid = UI.openVerbs[UI.openVerbs.length - 1];
@@ -4466,13 +4482,19 @@
     if (!card || !card.loc) return;
     if (card.loc.t === 'out') { markSpawn(card.uid, n); e.takeOutput(card.loc.verb, card.uid); e.dirty = true; return; }
     if (card.loc.t !== 'table') return;
-    // A verb asking for this card mid-work comes first.
-    for (var a = 0; a < CF.VERB_ORDER.length; a++) if (e.askAccepts(CF.VERB_ORDER[a], card)) { UI.answerAsk(CF.VERB_ORDER[a], card.uid); return; }
+    sendOnDouble(card);
+  }
+  // A table card asked for twice (a double-click, or two taps): a verb asking for it mid-work first, else the
+  // open window or a fresh verb that takes it. True when it went somewhere.
+  function sendOnDouble(card) {
+    var e = UI.e;
+    for (var a = 0; a < CF.VERB_ORDER.length; a++) if (e.askAccepts(CF.VERB_ORDER[a], card)) { UI.answerAsk(CF.VERB_ORDER[a], card.uid); return true; }
     var tries = UI.openVerbs.slice().reverse().concat(CF.VERB_ORDER);
     for (var i = 0; i < tries.length; i++) {
       var id = tries[i], v = e.verb(id);
       var fresh = UI.openVerbs.indexOf(id) >= 0 || (v.status === 'idle' && !Object.keys(v.slots).length);
-      if (fresh && canTake(id, card) && e.autoSlot(id, card.uid)) { openWindow(id); CF.Audio.play('drop'); e.dirty = true; return; }
+      if (fresh && canTake(id, card) && e.autoSlot(id, card.uid)) { openWindow(id); CF.Audio.play('drop'); UI.haptic(10); e.dirty = true; return true; }
     }
+    return false;
   }
 })();
