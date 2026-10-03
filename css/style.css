@@ -1125,7 +1125,9 @@ html[data-calm] .title-scene::before, html[data-calm] .title-scene::after { anim
 .room .plate-btn.small { align-self: flex-start; font-size: 12px; padding: 4px 14px; min-height: 30px; }
 /* The cheapest Petition the office allows and not yet bought: a gold edge and a small tag. */
 .room.next { border-color: #d4a24c; box-shadow: inset 0 0 0 1px rgba(60, 40, 10, 0.25), 0 0 0 2px rgba(212, 162, 76, 0.55); }
-.room .rm-next { position: absolute; bottom: 10px; inset-inline-end: 12px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a5a1a; }
+/* The Next tag stands on the foot's line, at its far end, clear of the Petition button under it. */
+.room .rm-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.room .rm-next { flex: none; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a5a1a; }
 .modal.dialog { background: rgba(6, 9, 10, 0.7); z-index: 1300; }
 .dlg { position: relative; background: center / 100% 100% no-repeat; filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.7)); }
 .dlg-confirm { width: min(420px, 92vw); aspect-ratio: 360 / 307; background-image: var(--art-cpanel-01); }

@@ -165,6 +165,19 @@
   Precinct.open = function (e) {
     Precinct.e = e;
     Precinct.render();
+    // The board opens on the tile marked Next: the sideways strip on a phone, the paper on a desk, scroll to it once
+    // the board is shown (the caller shows it after this returns).
+    setTimeout(Precinct.showNext, 0);
+  };
+  // Every scroller around the tile marked Next brings it into view (centred along the strip), without moving the page.
+  Precinct.showNext = function () {
+    var n = document.querySelector('#precinct-grid .room.next');
+    if (!n || !n.getBoundingClientRect) return;
+    for (var p = n.parentNode; p && p.getBoundingClientRect && p !== document.body; p = p.parentNode) {
+      var r = n.getBoundingClientRect(), pr = p.getBoundingClientRect();
+      if (p.scrollWidth > p.clientWidth + 1 && (r.left < pr.left || r.right > pr.right)) p.scrollLeft += (r.left + r.width / 2) - (pr.left + pr.width / 2);
+      if (p.scrollHeight > p.clientHeight + 1 && (r.top < pr.top || r.bottom > pr.bottom)) p.scrollTop += r.bottom > pr.bottom && r.height < pr.height ? r.bottom - pr.bottom + 8 : r.top - pr.top - 8;
+    }
   };
   Precinct.render = function () {
     var e = Precinct.e;
@@ -177,7 +190,7 @@
       var d = document.createElement('div');
       d.className = 'room ' + t.state + (t.good ? ' good' : '') + (t.key === next ? ' next' : '');
       d.innerHTML = '<div class="rm-icon" style="background-image:var(--art-' + (t.good ? t.icon : ROOM_ICONS[t.key] || 'iplace-10') + ')"></div><div class="rm-name">' + esc(t.label) + '</div><div class="rm-desc">' + esc(t.desc) + '</div>' +
-        '<div class="rm-foot">' + esc(t.good && t.state === 'owned' ? CF.T('Bought') : Precinct.foot(t)) + '</div>' + (t.key === next ? '<div class="rm-next">' + esc('Next') + '</div>' : '');
+        '<div class="rm-foot"><span>' + esc(t.good && t.state === 'owned' ? CF.T('Bought') : Precinct.foot(t)) + '</span>' + (t.key === next ? '<b class="rm-next">' + esc('Next') + '</b>' : '') + '</div>';
       // An instrument is petitioned from here as a room is, so the tile marked Next can always be acted on.
       if (t.state === 'open') {
         var b = document.createElement('button');

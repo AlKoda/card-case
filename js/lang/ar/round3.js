@@ -2863,5 +2863,8 @@
     "Within the month they are gone from the city.": "وفي غضون الشهر يكون قد رحل عن المدينة.",
     "Attend is at work. When its clock runs out, open it and take the Coin.": "الدوام قيد العمل. حين ينفد وقته، افتحه وخذ النقود.",
     "{title} lies in {verb}: press {recipe}.": "{title} موضوعة في {verb}: اضغط «{recipe}».",
+    "Back to the Ending": "العودة إلى الخاتمة",
+    "Leave the game?": "أتغادر اللعبة؟",
+    "Needs {n} Coin (you have put in {m}).": { one: "يحتاج إلى قطعة نقد واحدة (وضعت {m}).", two: "يحتاج إلى قطعتَي نقد (وضعت {m}).", few: "يحتاج إلى {n} قطع نقد (وضعت {m}).", many: "يحتاج إلى {n} قطعةَ نقد (وضعت {m}).", other: "يحتاج إلى {n} قطعة نقد (وضعت {m})." },
   });
 })(typeof window !== 'undefined' ? window : globalThis);

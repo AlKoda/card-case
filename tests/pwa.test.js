@@ -89,7 +89,9 @@ var i18n = fs.readFileSync(path.join(root, 'js/i18n.js'), 'utf8');
 assert.ok(/fonts: 'css\/fonts-ar\.css'/.test(i18n) && /CF\.loadFonts\(CF\.LANGS\[lang\]\.fonts/.test(i18n), 'CF.setLang adds the language\'s fonts');
 
 // ---- Back, install, resume, and a save that is never destroyed (js/main.js).
-assert.ok(/popstate/.test(main) && /history\.pushState\(\{ cf: 1 \}/.test(main) && /history\.back\(\)/.test(main), 'the browser Back closes windows through UI.back');
+// Nothing left to close (the title): the page asks before it is left, and a Yes steps past the sentinel and the page
+// (it used to leave at once, with history.back(), and no question).
+assert.ok(/popstate/.test(main) && /history\.pushState\(\{ cf: 1 \}/.test(main) && /if \(!UI\.back\(\)\) ask\('Leave the game\?', function \(\) \{ save\(\); history\.go\(-2\); \}\)/.test(main) && !/history\.back\(\)/.test(main), 'the browser Back closes windows through UI.back, and asks before it leaves the page');
 assert.ok(/beforeinstallprompt/.test(main) && /appinstalled/.test(main) && /t-install/.test(main) && /id="t-install"/.test(html) && />Install<\/button>/.test(html), 'install in one tap');
 assert.ok(/location\.hash/.test(main) && /resume/.test(main) && /UI\.setPaused\(true\)/.test(main), '#resume reopens the table, paused');
 assert.ok(/casefile\.save\.v1\.broken/.test(main) && /casefile\.save\.v1\.prev/.test(main) && !/store\(SAVE_KEY, null\);\s*openTitle/.test(main), 'a save that cannot be read is copied, never removed');

@@ -300,7 +300,7 @@ function run(e, verb, cards) {
   var officer = t.create('teammate', t.teammateSpec('rookie'));
   officer.data.traits = ['steady']; officer.data.level = 2;
   t.autoSlot('duty', officer.uid); t.autoSlot('duty', byDef(t, 'funds')[0].uid);
-  assert.ok(/Needs 2 Funds/.test(t.preview('duty').blocked || ''), 'two Funds without the room: ' + JSON.stringify(t.preview('duty')));
+  assert.ok(/Needs 2 Coin/.test(t.preview('duty').blocked || ''), 'two Coin without the room (named as the card is, not by its id funds): ' + JSON.stringify(t.preview('duty')));
   t.clearSlots('duty');
   t.s.rooms.training = true;
   t.autoSlot('duty', officer.uid); t.autoSlot('duty', byDef(t, 'funds')[0].uid);
@@ -567,4 +567,32 @@ function run(e, verb, cards) {
   assert.deepStrictEqual(e.councilCountWeek(), [], 'counted only at the fortnight');
   assert.strictEqual(e.councilExpects().m, 2);
   console.log('the Council counts: ok');
+})();
+
+// ---- Screens check-up: a Petition alone in Attend names its price in Coin (the card's name), never 'Funds' (its
+// id); the Watch-house opens on the tile marked Next, scrolling the sideways strip (a phone) or the paper to it.
+(function screensCheckup() {
+  var e = game(5);
+  e.promote(); e.promote();
+  e.tableCards().filter(function (c) { return c.def === 'funds'; }).forEach(function (c) { e.remove(c); });
+  var o = e.petition('prints');
+  assert.ok(o && e.autoSlot('duty', o.uid), 'a Petition into Attend');
+  var why = (e.preview('duty') || {}).blocked;
+  assert.ok(/^Needs \d+ Coin \(you have put in 0\)\.$/.test(why || '') && !/Funds/.test(why), 'the price in Coin: ' + why);
+  // Precinct.showNext, with a stand-in page: the tile far along a strip 900 wide, and below a paper 500 tall.
+  var seg = screens.slice(screens.indexOf('  Precinct.showNext = function'), screens.indexOf('  Precinct.render = function'));
+  assert.ok(seg.length > 0 && /setTimeout\(Precinct\.showNext, 0\)/.test(screens), 'the board scrolls to Next once it is shown');
+  function box(l, t, w, h) { return { left: l, top: t, right: l + w, bottom: t + h, width: w, height: h }; }
+  var body = { getBoundingClientRect: function () { return box(0, 0, 915, 412); } };
+  var paper = { parentNode: body, scrollWidth: 900, clientWidth: 900, scrollHeight: 1400, clientHeight: 500, scrollLeft: 0, scrollTop: 0, getBoundingClientRect: function () { return box(0, 0, 900, 500); } };
+  var strip = { parentNode: paper, scrollWidth: 2400, clientWidth: 900, scrollHeight: 300, clientHeight: 300, scrollLeft: 0, scrollTop: 0, getBoundingClientRect: function () { return box(0, 0, 900, 300); } };
+  var tile = { parentNode: strip, getBoundingClientRect: function () { return box(1800 - strip.scrollLeft, 700 - paper.scrollTop, 270, 180); } };
+  var doc = { body: body, querySelector: function (sel) { return sel === '#precinct-grid .room.next' ? tile : null; } };
+  var P = { };
+  vm.runInNewContext('(function () { var Precinct = P;\n' + seg + '})();', { P: P, document: doc });
+  P.showNext();
+  var r = tile.getBoundingClientRect();
+  assert.ok(r.left >= 0 && r.right <= 900, 'the strip brings Next into view: ' + r.left + '..' + r.right);
+  assert.ok(r.top >= 0 && r.bottom <= 500, 'and the paper too: ' + r.top + '..' + r.bottom);
+  console.log('screens check-up: the price in Coin, the board opens on Next: ok');
 })();

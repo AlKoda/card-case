@@ -300,10 +300,6 @@
     ['#board', '#windows'].forEach(function (sel) { $(sel).innerHTML = ''; });
     pileEl = null; choiceEl = null; linkEl = null; pinEl = null;
     Object.keys(goneWhy).forEach(function (k) { delete goneWhy[k]; });
-    // The grid over the whole table: its cells line up with the tidy layout.
-    var B = T.BOUNDS, grid = h('div', 'grid');
-    grid.style.left = B.x + 'px'; grid.style.top = B.y + 'px'; grid.style.width = B.w + 'px'; grid.style.height = B.h + 'px';
-    $('#board').appendChild(grid);
     applyTableSettings();
     UI.journalSeen = engine.s.journal.length;
     UI.hintMode = null;
@@ -345,15 +341,25 @@
       // The pile strip is sized by the pitch: it is rebuilt on the next sync.
       if (pileEl) { pileEl.remove(); pileEl = null; }
     }
-    var g = document.querySelector('#board .grid'), B = T.BOUNDS;
+    var g = document.querySelector('#board .grid'), B = T.BOUNDS, board = document.querySelector('#board');
+    // The grid over the whole table: its cells line up with the tidy layout. A board emptied (a new game, a change
+    // of language) gets it again, first under everything else on the table.
+    if (!g && board && UI.e) {
+      g = h('div', 'grid');
+      g.style.left = B.x + 'px'; g.style.top = B.y + 'px'; g.style.width = B.w + 'px'; g.style.height = B.h + 'px';
+      board.insertBefore(g, board.firstChild);
+    }
     if (g) {
       g.classList.toggle('hidden', CF.Settings.get('grid') === false);
       g.style.backgroundSize = T.PX + 'px ' + T.PY + 'px';
       g.style.backgroundPosition = (((0 - B.x) % T.PX) + T.PX) % T.PX + 'px ' + (((T.TOP - B.y) % T.PY) + T.PY) % T.PY + 'px';
     }
     UI.gridPitch = T.PX + 'x' + T.PY;
+    // The case strings (and anything else a setting shapes on the table) are drawn by the next render, at once.
+    if (UI.e) UI.e.dirty = true;
   }
   CF.Settings.onChange(applyTableSettings);
+  UI.applyTableSettings = applyTableSettings;
   // The language: every word on the page is re-read through CF.T, and the
   // table is rebuilt so the cards and verbs pick up their new names.
   UI.applyLang = function () {
@@ -554,10 +560,11 @@
     // Long presses on a tablet must not open the browser's context menu.
     document.addEventListener('contextmenu', function (ev) { if (ev.target.closest && ev.target.closest('#table')) ev.preventDefault(); });
     document.addEventListener('dblclick', onDoubleClick);
+    UI.wheelScrolls = function (t) { return !!(t && t.closest && t.closest('.vwin, #journal-drawer, #peek.pinned')); };
     $('#table').addEventListener('wheel', function (ev) {
       if (UI.modal) return;
-      // Inside a verb window the wheel scrolls the window, not the table.
-      if (ev.target.closest && ev.target.closest('.vwin')) return;
+      // Inside a verb window, the Journal or a pinned dossier the wheel scrolls that paper, not the table.
+      if (UI.wheelScrolls(ev.target)) return;
       ev.preventDefault();
       wheelAcc += ev.deltaY; wheelAt = { x: ev.clientX, y: ev.clientY };
       if (!wheelRaf) wheelRaf = requestAnimationFrame(function () { wheelRaf = 0; var d = wheelAcc; wheelAcc = 0; zoomAt(wheelAt.x, wheelAt.y, Math.exp(-d * 0.0015)); });
@@ -798,9 +805,9 @@
       // over the answers, at the right of the table where the choice is put.
       Array.prototype.slice.call($('#toasts').children).forEach(function (t) { if (t.dataset && t.dataset.title === payload.title) t.remove(); });
       if (UI.openVerbs.length) closeAllWindows();
-      var sp = UI.e.choiceSpot();
       UI.viewBefore = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
-      panToBoard(sp.x, sp.y, 380, 300);
+      // The camera goes once the question stands on the table (the render after this), so it is framed whole.
+      UI.choicePan = true;
     }
     if (type === 'chosen') UI.saveSoon = true;
     if (type === 'chosen' && UI.viewBefore) {
@@ -947,6 +954,7 @@
       renderInspector();
       renderControls();
       renderHint();
+      if (UI.choicePan) { UI.choicePan = false; if (e.s.choice) panToChoice(); }
     } finally { e._memo = null; }
   }
 
@@ -1201,7 +1209,7 @@
     var go = UI.hintGo;
     if (!go || !UI.e) return;
     if (go.uid !== undefined) { if (UI.panTo(go.uid)) return; }
-    if (go.spot) panToBoard(go.spot.x, go.spot.y, 380, 300);
+    if (go.spot) { if (choiceEl && UI.e.s.choice) panToChoice(); else panToBoard(go.spot.x, go.spot.y, 380, 300); }
   };
   var adviceShown = null;
   function showAdvice(hint, text) {
@@ -2055,6 +2063,27 @@
     }
     requestAnimationFrame(step);
   }
+  // The camera to a question on the table, framed whole: its real size (as tall as its answers make it, as the tilt
+  // shows it), between the tool row and a hint docked at the foot (a phone on its side), every answer in reach. It
+  // leans in to 0.95 as for anything else, and stands back as far as it must for a tall question on a short screen.
+  function panToChoice(done) {
+    var sp = UI.e.choiceSpot(), el = choiceEl, w = 380, ht = 300, k = 1;
+    var r = $('#table').getBoundingClientRect(), v = UI.view, band = toolBand(r), foot = 0;
+    if (el && el.offsetHeight) {
+      w = el.offsetWidth || w; ht = el.offsetHeight;
+      var er = el.getBoundingClientRect();
+      if (er.height > 0 && v.z > 0) k = U.clamp(er.height / (ht * v.z), 0.7, 1.5);
+    }
+    var hint = $('#hint');
+    if (hint && !hint.classList.contains('gone')) {
+      var hr = hint.getBoundingClientRect();
+      if (hr.height > 0 && hr.top > r.top + r.height / 2) foot = Math.max(0, r.bottom - hr.top + 6);
+    }
+    var room = r.height - band - foot - 12;
+    var z = Math.max(UI.Z_MIN, Math.min(Math.max(v.z, 0.95), room / (ht * k), (r.width - 16) / (w * k)));
+    tweenView({ x: r.width / 2 - (sp.x + w / 2) * z, y: band + (r.height - band - foot) / 2 - (sp.y + ht / 2) * z, z: z }, done);
+  }
+  UI.panToChoice = panToChoice;
   function panToBoard(x, y, w, h, done) {
     var r = $('#table').getBoundingClientRect(), v = UI.view;
     var z = Math.max(v.z, 0.95), band = toolBand(r);
@@ -4264,7 +4293,9 @@
     return false;
   }
   UI.back = function () {
-    if (closeNearest()) return true;
+    // A menu, a screen or a dialog stands over the table: Back is for it (js/main.js UI.onBack), never for a window
+    // or the dossier hidden behind it.
+    if (!UI.modal && closeNearest()) return true;
     if (UI.onBack) return UI.onBack();
     return false;
   };

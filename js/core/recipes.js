@@ -95,7 +95,7 @@
     if (typeof spec === 'function') return spec(ctx) || null;
     if (spec.funds !== undefined) {
       var need = fnOr(spec.funds, ctx);
-      if (ctx.count('funds') < need) return 'Needs ' + need + ' Funds (you have put in ' + ctx.count('funds') + ').';
+      if (ctx.count('funds') < need) return 'Needs ' + need + ' Coin (you have put in ' + ctx.count('funds') + ').'; // the card's name, not its id
     }
     if (spec.minClues && ctx.with('clue').length < spec.minClues) return 'You need at least ' + spec.minClues + ' clues.';
     if (spec.sameCase) {

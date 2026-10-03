@@ -1698,6 +1698,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   var spot = e.choiceSpot(), v0 = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
   played.length = 0;
   e.offerChoice(CF.CHOICES.filter(function (c) { return c.id === 'lamplighter'; })[0], null);
+  // The camera goes in the render that puts the question on the table (so it frames the question's real size).
+  render(e);
   assert.ok(UI.view.x !== v0.x || UI.view.y !== v0.y || UI.view.z !== v0.z, 'a calm camera is on the choice at once');
   void spot;
 
@@ -3175,6 +3177,76 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(said && said.indexOf(rec.title) >= 0 && /press/.test(said), 'it names the case and says to press: ' + said);
   e.unslot('investigate', 'main'); closeAll();
   console.log('ui: the opening check-up (two taps on the table, a case left in a slot)');
+})();
+
+// ---- The screens check-up: a change of language keeps the grid; a setting redraws the table at once; the wheel
+// scrolls the Journal and a pinned dossier; Back under a menu is the menu's; a question is framed whole.
+(function screensCheckup() {
+  var e = CF.Engine.newGame({ calling: 'master', seed: 61 });
+  UI.attach(e);
+  render(e);
+  assert.ok($('#board').querySelector('.grid'), 'a new table has its grid');
+  // A change of language empties the board: the grid comes back with it, first under everything, and follows the toggle.
+  var was = CF.lang();
+  settings.lang = was === 'en' ? 'ar' : 'en'; settings.grid = true;
+  UI.applyLang();
+  var g = $('#board').querySelector('.grid');
+  assert.ok(g && $('#board').children[0] === g, 'the grid is there after the language changes, under the cards');
+  assert.ok(!g.classList.contains('hidden'), 'and shown, as the setting says');
+  settings.grid = false; UI.applyTableSettings();
+  assert.ok($('#board').querySelector('.grid').classList.contains('hidden'), 'and hides when the setting says so');
+  settings.lang = was; UI.applyLang(); delete settings.lang;
+  render(e);
+  // A setting that shapes the table (the case strings) is drawn by the very next render, without a card moved.
+  e.dirty = false;
+  settings.strings = false; UI.applyTableSettings();
+  assert.ok(e.dirty, 'a setting marks the table to be drawn again');
+  settings.strings = true; UI.applyTableSettings();
+  render(e);
+  // The wheel scrolls the paper under it: a verb window, the Journal, a pinned dossier; elsewhere it zooms the table.
+  function under(sel) { return { closest: function (q) { return q.split(',').map(function (x) { return x.trim(); }).indexOf(sel) >= 0 ? {} : null; } }; }
+  assert.ok(UI.wheelScrolls(under('.vwin')) && UI.wheelScrolls(under('#journal-drawer')) && UI.wheelScrolls(under('#peek.pinned')), 'the wheel scrolls a window, the Journal and a pinned dossier');
+  assert.ok(!UI.wheelScrolls(under('#board')) && !UI.wheelScrolls(under('#peek')), 'and zooms over the felt and under a dossier a hover shows');
+  // Back with a menu or a screen up (Help over a verb window) is for the menu, never the window behind it.
+  e.verb('investigate').unlocked = true;
+  UI.openWindow('duty');
+  var asked = 0, keep = UI.onBack;
+  UI.onBack = function () { asked++; return true; };
+  UI.modal = true;
+  assert.ok(UI.back() && asked === 1 && UI.openVerbs.indexOf('duty') >= 0, 'Back under Help goes to Help; the window stays');
+  UI.modal = false;
+  for (var nb = 0; nb < 4 && UI.openVerbs.indexOf('duty') >= 0; nb++) assert.ok(UI.back(), 'Back puts something away');
+  assert.ok(asked === 1 && UI.openVerbs.indexOf('duty') < 0, 'with the Help gone, Back puts away the table\'s own things, the window among them');
+  UI.onBack = keep;
+  // A question offered while the player looks elsewhere: the camera goes once it stands on the table, and frames it
+  // whole between the tool row and a hint at the foot (a phone on its side: a table 367 tall, a question 340 tall).
+  var spec = CF.CHOICES.filter(function (c) { return !c.after && e.choiceOpenFor(c, null); })[0];
+  assert.ok(spec, 'a question to ask');
+  settings.calm = true;
+  var table = $('#table'), hint = $('#hint'), tRect = table.getBoundingClientRect, hRect = hint.getBoundingClientRect;
+  table.getBoundingClientRect = function () { return { left: 0, top: 45, right: 915, bottom: 412, width: 915, height: 367 }; };
+  hint.classList.remove('gone');
+  hint.getBoundingClientRect = function () { return { left: 8, top: 360, right: 520, bottom: 404, width: 512, height: 44 }; };
+  UI.view.z = 1.2;
+  e.offerChoice(spec, null);
+  assert.ok(UI.choicePan, 'the camera waits for the question to stand on the table');
+  e.dirty = true; UI.renderNow();
+  var ch = $('#board').querySelector('.choice');
+  Object.defineProperty(ch, 'offsetHeight', { value: 340 }); Object.defineProperty(ch, 'offsetWidth', { value: 380 });
+  ch.getBoundingClientRect = function () { return { left: 0, top: 0, right: 380 * UI.view.z, bottom: 340 * UI.view.z, width: 380 * UI.view.z, height: 340 * UI.view.z }; };
+  UI.panToChoice();
+  var sp = e.choiceSpot(), top = UI.view.y + sp.y * UI.view.z, bottom = top + 340 * UI.view.z, foot = 367 - (412 - 360 + 6);
+  assert.ok(!UI.choicePan, 'and goes in that render');
+  assert.ok(top >= 0 && bottom <= foot, 'the whole question, every answer, above the hint: ' + top.toFixed(0) + '..' + bottom.toFixed(0) + ' of ' + foot);
+  assert.ok(UI.view.z < 0.95 && UI.view.z >= UI.Z_MIN, 'it stands back for a tall question on a short screen: ' + UI.view.z.toFixed(2));
+  table.getBoundingClientRect = tRect; hint.getBoundingClientRect = hRect; settings.calm = false;
+  e.s.choice = null; render(e);
+  // The pause menu leads back to the end paper once the file is closed (js/main.js), and Back from the table does too.
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8'), html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(/id="m-end">[^<]*<i[^>]*><\/i>Back to the Ending<\/button>/.test(html) && /click\('m-end', function \(\) \{ only\('end'\); \}\)/.test(main) && /click\('btn-menu', openMenu\)/.test(main), 'the menu has a way back to the ending');
+  assert.ok(/\$\('m-end'\)\.classList\.toggle\('hidden', !over\)/.test(main) && /if \(inGame && UI\.e && UI\.e\.s\.over\) \{ only\('end'\); return true; \}/.test(main), 'shown only over a closed file, where Back goes to the end paper too');
+  assert.ok(/if \(!\$\('confirm'\)\.classList\.contains\('hidden'\)\) \{ closeConfirm\(\); return true; \}/.test(main), 'Back answers No to a question before the screen under it');
+  console.log('ui: the screens check-up (grid, settings at once, wheel, Back under a menu, a question framed whole)');
 })();
 
 void realSetTimeout;
