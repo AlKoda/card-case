@@ -699,7 +699,8 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/\.card \.verdict \{[^}]*width: 80%[^}]*animation: stamp 0\.35s/.test(css) && /\.card\.awaiting \{ visibility: hidden; \}/.test(css), 'the verdict is stamped on the card it was given on, at four fifths of it');
   assert.ok(/\.toast \{[^}]*aspect-ratio: auto/.test(css) && !/\.toast \{[^}]*overflow: hidden/.test(css), 'a toast is as tall as its words');
   assert.ok(/\.toast::after \{[^}]*border-image: var\(--bar\)/.test(css) && /\.toast::before \{[^}]*var\(--bar\)/.test(css) && /\.toast \.t-icon \{[^}]*var\(--icon\)/.test(css) && /<i class="t-icon"><\/i>/.test(ui), 'the bar is sliced, the icon sits in its circle (its own element, so Arabic mirrors the bar and not the icon)');
-  assert.ok(/#toasts \{[^}]*right: calc\(12px \+ var\(--sa-r\)\)[^}]*top: calc\(var\(--sa-t\) \+ 260px\)/.test(css) && /body\.has-window #toasts \{ right: calc\(390px \* var\(--ui-scale, 1\)\)/.test(css), 'toasts sit top right under the verb row, clear of the hint, the window and the notch');
+  assert.ok(/#toasts \{[^}]*right: calc\(12px \+ var\(--sa-r\)\)[^}]*top: auto;[^}]*bottom: calc\(60px \+ var\(--sa-b\)\)/.test(css) && /body\.has-window #toasts \{ right: calc\(390px \* var\(--ui-scale, 1\)\)/.test(css), 'toasts grow up from the bottom right, above the tools, clear of the verb row, the hint, the window and the notch');
+  assert.ok(/body\.has-journal #toasts \{ right: calc\(min\(380px, 90vw\) \+ 12px/.test(css) && /document\.body\.classList\.toggle\('has-journal', open\)/.test(ui), 'and stand beside the open Journal, not over its Roads');
   var phone = /@media \(max-height: 520px\), \(max-width: 980px\) \{[\s\S]*?\n\}/.exec(css)[0]; // to the block's own closing brace, past the nested keyframes
   assert.ok(/#toasts \{ top: auto; bottom: calc\(12px \+ var\(--sa-b\)\)/.test(phone) && /#toasts \.toast:nth-last-child\(n\+3\) \{ display: none/.test(phone), 'on a phone the toasts grow up from the bottom, two at most');
   assert.ok(/body\.has-window #toasts \{[^}]*bottom: calc\(78% - 28px/.test(phone) && /body\.has-window #toasts \.toast:not\(:last-child\) \{ display: none/.test(phone), 'with the sheet open the newest toast alone sits above it, never on its X');
@@ -805,7 +806,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(/z-index: auto/.test(pz) && (pz.match(/repeating-linear-gradient/g) || []).length === 3 && /var\(--cell-px, 130px\)/.test(pz) && !/border-bottom/.test(pz), 'the strip is six faint cells, above the grid and below the cards');
   assert.ok(/width: 34px/.test(rule('#board .pile-zone .pz-tab')) && /ctab-04/.test(rule('#board .pile-zone .pz-tab')) && /z-index: 2/.test(rule('#board .pile-zone .pz-tab')), 'the tab hangs off the corner');
   var lab = rule('#board .pile-zone .pz-label');
-  assert.ok(/border-image: var\(--art-clabel-02\)/.test(lab) && /z-index: 2/.test(lab) && /color: #1c1914/.test(lab), 'the label is a painted bar in paper ink');
+  assert.ok(/border-image: var\(--art-clabel-02\)/.test(lab) && /z-index: 0/.test(lab) && /color: #1c1914/.test(lab), 'the label is a painted bar in paper ink, under the cards of the row above (their names stay in sight)');
   assert.ok(/--cell-px/.test(screens) && /CF\.Settings\.onChange\(cellPitch\)/.test(screens), 'the cell pitch follows the spacing setting');
   // The verb window and the dossier.
   var vw = /\n\.vwin \{([\s\S]*?)\n\}/.exec(css)[1];
@@ -819,7 +820,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(!/background: var\(--paper\)/.test(rule('.story')), 'the story has no paper of its own');
   assert.ok(/transform: none/.test(rule('[dir=rtl] .vwin')) && /scaleX\(-1\)/.test(rule('[dir=rtl] .vwin::before')) && /left: -54px/.test(rule('[dir=rtl] .vw-close')), 'Arabic mirrors the panel and moves the X left');
   assert.ok(/border-image: var\(--art-cpanel3-01\) 64 66 28 20 fill \/ 1 stretch/.test(rule('#peek')) && /border-width: 45px 46px 20px 14px/.test(rule('#peek')), 'the dossier is the same panel, smaller');
-  assert.ok(/<div id="peek"><\/div>\s*<button id="peek-x" title="Close">/.test(html) && /display: block/.test(rule('#peek.open + #peek-x')) && /peek-x/.test(screens) && /#peek \.peek-close/.test(screens), 'the dossier\'s X is a hot spot beside the panel, wired to its close');
+  assert.ok(/<div id="peek"><\/div>\s*<button id="peek-x" title="Close">/.test(html) && /display: block/.test(rule('#peek.open.pinned + #peek-x')) && /peek-x/.test(screens) && /#peek \.peek-close/.test(screens), 'the dossier\'s X is a hot spot beside the panel, wired to its close');
   console.log('ui: the stylesheet and the markup paint the panels, the pile, the slots and the ending');
 })();
 
@@ -1600,7 +1601,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   UI.view = { x: 0, y: 0, z: 1 };
   UI.playUpright();
   assert.ok(!UI.upright && !$('#table').classList.contains('upright') && store['casefile.upright'] === '1', 'play upright: the card goes, remembered');
-  assert.ok(UI.view.z >= 0.4, 'the fit may go as far as 0.4 upright');
+  assert.ok(UI.view.z >= UI.Z_MIN && UI.Z_MIN === 0.3, 'the fit may go as far as a pinch can (0.3) upright');
   UI.checkUpright();
   assert.ok(!UI.upright, 'and it does not come back');
   assert.ok(/screen\.orientation\.lock\('landscape'\)/.test(main), 'installed, the page asks to lie on its side');
@@ -2380,7 +2381,7 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(!UI.hintFlash, 'then lets go');
   flushTimers();
   assert.ok(!slot.classList.contains('refuse'), 'the shake ends');
-  assert.ok(/\} else \{\n        refused\(t\);/.test(uiSrc), 'every refused drop on a slot or tile is told');
+  assert.ok(/\} else \{\n        refused\(t, card\);/.test(uiSrc), 'every refused drop on a slot or tile is told');
   assert.ok(/html\[data-calm\] \.slot\.refuse \{ outline: 2px solid transparent;[^}]*animation: refuseFlash/.test(css), 'a red edge instead of a shake when calm');
 
   // Item 96: a running verb no longer silences the advisor; a line waits only for its own verb.
@@ -2868,6 +2869,165 @@ function render(e) { e.dirty = true; UI.renderNow(); }
     assert.ok(found[role] && found[role].sex === 'm', role + ' is a man');
   });
   console.log('ui: faces by sex');
+})();
+
+// ---- The table check-up: what a player's hand found on the table, held to here.
+(function tableCheckup() {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'css/style.css'), 'utf8');
+  var ui = fs.readFileSync(path.join(__dirname, '..', 'js/ui.js'), 'utf8');
+  function rule(sel) { var re = new RegExp('(?:^|[\\n,] ?)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}', 'g'), m, out = []; while ((m = re.exec(css))) out.push(m[1]); return out.length ? out.join('\n') : null; }
+  var e = CF.Engine.newGame({ calling: 'master', seed: 3, name: 'Hodge Ebner' });
+  e.s.flags.marketOpen = true;
+  UI.attach(e); UI.paused = true; UI.closeAllWindows && UI.closeAllWindows();
+  render(e);
+  function cardEl(uid) { return $('#board').querySelector('.card[data-uid=' + uid + ']'); }
+  function on(el, extra) { var t = new El('div'); t.closest = function (sel) { if (sel === '.card[data-uid]') return el; return extra ? extra(sel) : null; }; return t; }
+
+  // A hover never blocks a drag: only a pinned dossier takes the pointer, and over the card it shows it stands at
+  // the other side of the table.
+  assert.ok(/pointer-events: none/.test(rule('#peek.open')) && /pointer-events: auto/.test(rule('#peek.open.pinned')), 'the hover dossier lets the pointer through; a pinned one takes it');
+  assert.ok(/display: block/.test(rule('#peek.open.pinned + #peek-x')) && !rule('#peek.open + #peek-x'), 'the X is there only for a pinned dossier');
+  assert.ok(/left: auto; right: 12px/.test(rule('#peek.far')) && /right: calc\(35\.6px/.test(rule('#peek.open.pinned.far + #peek-x')) && /right: 60px/.test(rule('#peek.far ~ #peek-head')), 'at the right, its X and its band go with it');
+  var health = e.tableCards().filter(function (c) { return c.def === 'health'; })[0];
+  UI.selected = null;
+  UI.pointer.move({ pointerId: 1, pointerType: 'mouse', clientX: 100, clientY: 400, target: on(cardEl(health.uid)) });
+  assert.strictEqual(UI.hover, health.uid, 'the mouse resting on Health shows its dossier');
+  assert.ok($('#peek').classList.contains('open') && !$('#peek').classList.contains('pinned') && $('#peek').classList.contains('far'), 'a hover dossier, not pinned, at the far side from the card under it');
+  UI.pointer.down({ pointerId: 1, pointerType: 'mouse', button: 0, clientX: 100, clientY: 400, target: on(cardEl(health.uid)), preventDefault: function () {} });
+  assert.ok(UI.drag && UI.drag.kind === 'card' && UI.drag.uid === health.uid, 'and the press takes the card');
+  UI.pointer.up({ pointerId: 1, pointerType: 'mouse', clientX: 100, clientY: 400, target: on(cardEl(health.uid)) });
+  UI.openVerbs.push('duty');
+  UI.placePeek($('#peek'), health);
+  assert.ok(!$('#peek').classList.contains('far'), 'with a window docked at the right, the dossier keeps the left');
+  UI.openVerbs.pop();
+  UI.selected = null; UI.hover = null; $('#peek').classList.remove('open', 'pinned', 'far'); $('#peek').dataset.uid = '';
+
+  // A refused drop always says why: what the verb takes, what it is busy with, what the place takes.
+  var instinct = e.tableCards().filter(function (c) { return c.def === 'instinct'; })[0];
+  UI.refused({ verb: 'analyze', node: new El('div') }, health);
+  assert.strictEqual(UI.hintFlash && UI.hintFlash.text, UI.VERB_TAKES.analyze, 'Health on Study: what Study takes');
+  UI.refused({ verb: 'arrest', node: new El('div') }, health);
+  assert.strictEqual(UI.hintFlash.text, 'The Court takes an Accused, or the Condemned.', 'Health on the Court: what the Court takes');
+  UI.refused({ verb: 'duty', node: new El('div') }, instinct);
+  assert.ok(/^Attend takes Health or Wit/.test(UI.hintFlash.text), 'Instinct on Attend: what Attend takes');
+  UI.refused({ verb: 'investigate', slot: 'where', node: new El('div') }, health);
+  assert.ok(/^This place takes /.test(UI.hintFlash.text), 'a slot of the wrong kind says what it takes: ' + UI.hintFlash.text);
+  Object.keys(UI.VERB_TAKES).forEach(function (v) { assert.ok(CF.VERBS[v] && UI.VERB_TAKES[v].indexOf(CF.VERBS[v].label) === 0, 'each line names its verb: ' + v); });
+  assert.ok(e.autoSlot('duty', health.uid) && e.start('duty'), 'Attend at work');
+  UI.refused({ verb: 'duty', node: new El('div') }, instinct);
+  assert.ok(/^Attend (is at work|asks for)/.test(UI.hintFlash.text), 'a busy verb says it is busy: ' + UI.hintFlash.text);
+  UI.hintFlash = null;
+  CF.Settings.typeRate = function () { return 0; };
+
+  // The pile is set by left and top, so its tab is above the cards of the row above (no stacking context of its own).
+  render(e);
+  var pz = $('#board').querySelector('.pile-zone');
+  assert.ok(pz && pz.style.left !== undefined && pz.style.top !== undefined && !pz.style.transform, 'the pile is placed by left and top, never a transform');
+  assert.ok(/z-index: 2/.test(rule('#board .pile-zone .pz-tab')) && /z-index: auto/.test(rule('#board .pile-zone')) && /calc\(34px \* var\(--zk, 1\)\)/.test(css), 'its tab is above the cards, and a finger\'s size at the farthest zoom');
+  ['touch', 'mouse'].forEach(function (pt, i) {
+    var tab = new El('span'); tab.className = 'pz-tab';
+    tab.closest = function (sel) { return sel === '.pile-zone' ? pz : null; };
+    var p0 = { x: e.pile().x, y: e.pile().y }, l0 = pz.style.left;
+    UI.pointer.down({ pointerId: 20 + i, pointerType: pt, button: 0, clientX: 200, clientY: 300, target: tab, preventDefault: function () {} });
+    assert.strictEqual(UI.drag && UI.drag.kind, 'pile', pt + ': the tab takes the pile');
+    UI.pointer.move({ pointerId: 20 + i, pointerType: pt, clientX: 420, clientY: 300, target: tab });
+    UI.pointer.up({ pointerId: 20 + i, pointerType: pt, clientX: 420, clientY: 300, target: tab });
+    render(e);
+    assert.ok(e.pile().x !== p0.x || e.pile().y !== p0.y, pt + ': and moves it');
+    assert.ok(pz.style.left !== l0 && !pz.style.transform, pt + ': drawn by left and top');
+  });
+
+  // Fit shows the whole table: every card and tile inside the view, through the tilt; the farthest zoom is a pinch's.
+  e.tableCards().forEach(function (c, i) { if (c.loc && c.loc.t === 'table') c.loc = { t: 'table', x: (i % 9) * CF.TABLE.PX, y: CF.TABLE.TOP + (2 + Math.floor(i / 9) * 3) * CF.TABLE.PY }; });
+  render(e);
+  UI.fitView();
+  var v = UI.view, tr0 = $('#table').getBoundingClientRect(), out = [];
+  function seen(x, y, w, h) { [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(function (q) { var sp = UI.fromPlane(v.x + q[0] * v.z, v.y + q[1] * v.z); if (sp.x < -0.5 || sp.y < -0.5 || sp.x > tr0.width + 0.5 || sp.y > tr0.height + 0.5) out.push([x, y]); }); }
+  e.tableCards().forEach(function (c) { seen(c.loc.x, c.loc.y, CF.TABLE.CW, CF.TABLE.CH); });
+  CF.VERB_ORDER.forEach(function (id) { var vb = e.verb(id); if (vb.unlocked && vb.x !== undefined) seen(vb.x, vb.y, CF.TABLE.VW, CF.TABLE.VH); });
+  assert.ok(!out.length && v.z >= UI.Z_MIN && v.z <= 1.25, 'after Fit every card and tile is in view (z ' + v.z + '): ' + JSON.stringify(out));
+  assert.ok(/tiltChanged\(\);[\s\S]{0,1200}toPlane\(cx, box\.t\)/.test(ui) && /U\.clamp\(v\.z \* factor, UI\.Z_MIN, 1\.6\)/.test(ui), 'the fit is measured through the tilt, and the pinch goes as far');
+  assert.ok(/e\.s\.choice && choiceEl && choiceEl\.offsetWidth/.test(ui), 'a waiting choice is in the fit');
+
+  // Finds: two taps take a find, face down or up, for a finger as for the mouse; they stay where they are while
+  // the story types above them; the press on a find turning edge-on still reaches it.
+  var cs = e.tableCards().filter(function (c) { return c.def === 'case'; })[0];
+  e.autoSlot('investigate', cs.uid); e.start('investigate'); e.tick(41);
+  UI.openWindow('investigate'); render(e);
+  var vi = e.verb('investigate');
+  assert.strictEqual(vi.status, 'done', 'Explore has finished');
+  var win = $('#windows').querySelector('.vwin');
+  var ghost = win && win.querySelector('.ghost');
+  assert.ok(!vi.story || (ghost && ghost.textContent === UI.storyText(vi.story)), 'the words still to type hold their place unseen');
+  assert.ok(/\.story p \.ghost \{ visibility: hidden; \}/.test(css), 'unseen, not absent');
+  var hidden = vi.out.filter(function (u) { return e.card(u).hidden; });
+  assert.ok(hidden.length >= 2, 'face-down finds');
+  ['touch', 'mouse'].forEach(function (pt, i) {
+    var u = hidden[i], el = new El('div'); el.dataset.uid = String(u); el.className = 'card';
+    var t = on(el, function (sel) { return sel === '.vwin' ? win : null; });
+    var tap = function () {
+      UI.pointer.down({ pointerId: 30 + i, pointerType: pt, button: 0, clientX: 1000, clientY: 500, target: t, preventDefault: function () {} });
+      UI.pointer.up({ pointerId: 30 + i, pointerType: pt, clientX: 1000, clientY: 500, target: t });
+    };
+    UI.lastTap = null;
+    tap();
+    assert.strictEqual(e.card(u).loc.t, 'out', pt + ': one tap turns it, where it lies');
+    tap();
+    assert.strictEqual(e.card(u).loc.t, 'table', pt + ': the second tap takes it to the table');
+    flushTimers();
+  });
+  var u3 = vi.out.filter(function (u) { return e.card(u).loc.t === 'out'; })[0];
+  if (u3) {
+    var c3 = new El('div'); c3.dataset.uid = String(u3); c3.className = 'card';
+    var wrap = new El('div'); wrap.className = 'mini-wrap flip-out';
+    wrap.closest = function (sel) { return sel === '.mini-wrap' ? wrap : sel === '.vwin' ? win : null; };
+    wrap.querySelector = function () { return c3; };
+    UI.pointer.down({ pointerId: 40, pointerType: 'touch', button: 0, clientX: 1000, clientY: 500, target: wrap, preventDefault: function () {} });
+    assert.ok(UI.drag && UI.drag.kind === 'card' && UI.drag.uid === u3, 'a press on the turning wrapper is a press on its find');
+    UI.pointer.up({ pointerId: 40, pointerType: 'touch', clientX: 1000, clientY: 500, target: wrap });
+    UI.lastTap = { uid: u3, t: performance.now() - 2000 };
+    UI.pointer.down({ pointerId: 41, pointerType: 'mouse', button: 0, clientX: 1000, clientY: 500, target: wrap, preventDefault: function () {} });
+    UI.pointer.up({ pointerId: 41, pointerType: 'mouse', clientX: 1000, clientY: 500, target: wrap });
+    assert.strictEqual(e.card(u3).loc.t, 'out', 'two taps far apart are two taps, not a double');
+    flushTimers();
+  }
+  assert.ok(/if \(UI\.tookByTaps && performance\.now\(\) - UI\.tookByTaps < 700\) return;/.test(ui), 'the browser\'s dblclick after two taps is not answered twice');
+  UI.closeAllWindows && UI.closeAllWindows();
+
+  // Toasts stand clear of the tiles (bottom right, over the tools) and of the open Journal; a choice's story toast
+  // gives way to the choice itself.
+  UI.toggleJournal(true);
+  assert.ok(document.body.classList.contains('has-journal'), 'the page knows the Journal is open');
+  UI.toggleJournal(false);
+  assert.ok(!document.body.classList.contains('has-journal'), 'and when it shuts');
+  var spec = (CF.CHOICES || [])[0];
+  if (spec && e.offerChoice) {
+    e.offerChoice(spec);
+    assert.ok(!$('#toasts').children.some(function (t) { return t.dataset && t.dataset.title === spec.title; }), 'no toast lies over the choice it repeats');
+    e.s.choice = null; render(e);
+  }
+  assert.ok(/@media \(min-width: 981px\) and \(min-height: 521px\) \{\n  body\.has-window #hint \{ left: calc\(\(100% - 390px/.test(css), 'a long lesson keeps left of a docked window');
+  assert.ok(/@media \(max-height: 520px\) \{[^@]*\n  #pause-banner \{ top: 8px; bottom: auto; \}/.test(css), 'on a phone on its side the pause banner keeps to the top band, off the hint');
+  assert.ok(/padding-inline: 14px 6px/.test(rule('.side-head')), 'the Journal\'s X sits at the band\'s edge in either direction');
+  assert.ok(/var band = toolBand\(tr2\), yLo = band \? band \+ 20 : 80, yHi = band \? tr2\.height - 20 : tr2\.height - 90;/.test(ui), 'on a phone an edge mark hugs the edge, off the card row');
+
+  // The dossier has one clock line, the live one.
+  var w = e.create('wound');
+  UI.selected = w.uid; render(e);
+  var ph = $('#peek').innerHTML;
+  assert.strictEqual((ph.match(/Knits in /g) || []).length, 1, 'a wound says once when it knits');
+  assert.ok(!/Time left: /.test(ph), 'and not twice in other words');
+  UI.dossierLines(w).concat(UI.dossierLines(cs)).forEach(function (l) { assert.ok(!/^Time left: |^Knits in /.test(l), 'no frozen clock among the notes: ' + l); });
+  UI.selected = null; $('#peek').classList.remove('open', 'pinned'); $('#peek').dataset.uid = '';
+  e.remove(w);
+
+  // The Sketch-book's name stands in its painted band; the verdict's wait never leaves a card unseen.
+  var cam = e.create('camera'); render(e);
+  var camEl = e.cardsOf('camera').map(function (c) { return cardEl(c.uid); }).filter(Boolean)[0];
+  assert.ok(camEl && camEl.classList.contains('band-story') && /top: 73\.5%; bottom: 10%/.test(rule('.card.face-full.banded.band-story .c-body')), 'a story card\'s name sits in its band');
+  assert.ok(/if \(\+k < later && cardEls\[k\]\.classList\.contains\('awaiting'\)\)/.test(ui) && /if \(UI\.verdictWait === wait\) UI\.verdictWait = null;/.test(ui), 'every card waiting under a lifted stamp shows');
+  assert.ok(!/winPos/.test(ui) && !/kind === 'window'/.test(ui), 'no dead window drag: the window is docked');
+  console.log('ui: the table check-up (hover, refusals, pile, fit, finds, toasts, dossier clock, story band)');
 })();
 
 void realSetTimeout;

@@ -184,9 +184,12 @@ html[data-flat] #table { perspective: none; }
 #board .choice .ch-opt .ch-chip.moves.down::after { transform: rotate(90deg); }
 #board .choice .ch-note { margin-top: 8px; text-align: center; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a7a5a; }
 /* The collection pile: a strip of six faint cell outlines (one per card, like the grid's) where new
-   cards land; the player drags it. The strip has no z-index of its own, so it paints above the grid
+   cards land; the player drags it. The strip has no z-index of its own, and it is set by left and top
+   (js/ui.js placePile), never a transform, so it makes no stacking context: it paints above the grid
    and below the cards; the tab hangs off its top-left corner and the painted label (clabel-02, the
-   circle clipped away as on the hint) stands on its top edge, both above the cards. The cell pitch
+   circle clipped away as on the hint) stands on its top edge. The tab is above the cards (z-index 2), so the pile
+   can always be taken by it, even under a full row; the label is under them (z-index 0), so a card in the row
+   above keeps its name in sight and the label shows wherever that row is bare. The cell pitch
    is --cell-px, set by js/screens.js from the card spacing setting. */
 #board .pile-zone { z-index: auto; border: none; border-radius: 6px; cursor: grab; --cell: rgba(240, 200, 90, 0.3);
   background:
@@ -195,7 +198,7 @@ html[data-flat] #table { perspective: none; }
     repeating-linear-gradient(90deg, transparent 0 6px, var(--cell) 6px calc(var(--cell-px, 130px) - 2px), transparent calc(var(--cell-px, 130px) - 2px) var(--cell-px, 130px)) 0 calc(100% - 6px) / 100% 1px no-repeat; }
 #board .pile-zone.dragging { cursor: grabbing; --cell: rgba(240, 200, 90, 0.7); }
 #board .pile-zone .pz-tab { position: absolute; left: 6px; top: -30px; width: 34px; height: 38px; z-index: 2; background: var(--art-ctab-04) center / 100% 100% no-repeat; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
-#board .pile-zone .pz-label { position: absolute; left: -2px; top: -40px; height: 42px; z-index: 2; padding: 0 10px 0 6px; border: solid transparent; border-width: 14px 20px 14px 50px; border-image: var(--art-clabel-02) 28 40 28 100 fill / 14px 20px 14px 50px stretch; clip-path: inset(0 0 0 46px);
+#board .pile-zone .pz-label { position: absolute; left: -2px; top: -40px; height: 42px; z-index: 0; padding: 0 10px 0 6px; border: solid transparent; border-width: 14px 20px 14px 50px; border-image: var(--art-clabel-02) 28 40 28 100 fill / 14px 20px 14px 50px stretch; clip-path: inset(0 0 0 46px);
   font-family: var(--display); font-weight: 700; font-size: 11px; line-height: 14px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; color: #1c1914; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
 /* The grid: one cell per card, drawn as faint paper outlines. */
 #board .grid { z-index: 0; pointer-events: none; opacity: 0.3; will-change: transform;
@@ -239,6 +242,11 @@ html[data-flat] #table { perspective: none; }
 #hint::after { content: ''; position: absolute; inset: 0; z-index: -1; border: solid transparent; border-width: 16px 24px 16px 92px; border-image: var(--art-clabel-06) 32 48 32 184 fill / 16px 24px 16px 92px stretch; clip-path: inset(0 0 0 46px); }
 #hint::before { content: ''; position: absolute; inset-inline-start: 0; top: 50%; width: 46px; height: 40px; margin-top: -20px; background: var(--art-bround-17) 8px center / 28px 28px no-repeat, var(--art-clabel-06) left center / auto 40px no-repeat; }
 #hint.gone { opacity: 0; pointer-events: none; }
+/* A desk with a verb window docked at the right: the hint keeps to the felt left of it, centred there, so a long
+   lesson never runs under the window. (Phones put the window at the foot and have their own hint below.) */
+@media (min-width: 981px) and (min-height: 521px) {
+  body.has-window #hint { left: calc((100% - 390px * var(--ui-scale, 1)) / 2); max-width: calc(100% - 420px * var(--ui-scale, 1)); }
+}
 #hint.go { cursor: pointer; }
 #hint.advice { filter: drop-shadow(0 0 6px rgba(212, 162, 76, 0.55)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55)); }
 #hint.advice::before { filter: drop-shadow(0 0 4px rgba(212, 162, 76, 0.9)); }
@@ -247,7 +255,7 @@ html[data-flat] #table { perspective: none; }
 #journal-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 90%); transform: translateX(105%); visibility: hidden; transition: transform 0.25s ease, visibility 0s linear 0.25s; z-index: 30; border-left: 1px solid var(--line); background: rgba(22, 24, 28, 0.97); display: flex; flex-direction: column; min-height: 0; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5); }
 #journal-drawer.open { transform: translateX(0); visibility: visible; transition: transform 0.25s ease, visibility 0s; }
 /* The drawer's head is the small blue banner (cbar-02); the journal below it is paper. */
-.side-head { display: flex; justify-content: space-between; align-items: center; margin: 6px 10px 0; padding: 2px 6px 2px 14px; border: solid transparent; border-width: 20px 36px; border-image: var(--art-cbar-02) 46 60 fill / 20px 26px stretch; background: none; color: #1c1914; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; }
+.side-head { display: flex; justify-content: space-between; align-items: center; margin: 6px 10px 0; padding-block: 2px; padding-inline: 14px 6px; border: solid transparent; border-width: 20px 36px; border-image: var(--art-cbar-02) 46 60 fill / 20px 26px stretch; background: none; color: #1c1914; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; }
 .side-head button { background: none; border: none; color: #1c1914; font-size: 20px; cursor: pointer; padding: 0 4px; margin: -10px 0; }
 /* The Journal closes with the red roundel X, as the windows do. */
 #journal-close { width: 36px; height: 36px; padding: 0; border-radius: 50%; color: transparent; font-size: 0; background: var(--art-cok-02) center / 100% 100% no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
@@ -271,15 +279,22 @@ html[data-flat] #table { perspective: none; }
 #peek { position: absolute; top: 12px; left: 12px; width: 330px; max-height: calc(100% - 140px); overflow: auto; z-index: 26; padding: 8px 4px 6px 2px; color: var(--paper-ink); background: none;
   border: solid transparent; border-width: 45px 46px 20px 14px; border-image: var(--art-cpanel3-01) 64 66 28 20 fill / 1 stretch;
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55)); font-size: 13px; opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity 0.15s, transform 0.15s; }
-#peek.open { opacity: 1; transform: none; pointer-events: auto; }
+/* Only a pinned dossier (a card tapped, a meter asked about) takes the pointer: the one a mouse resting on a card
+   opens is a picture over the felt, so the press, the drag and the next hover go through it to what lies under. */
+#peek.open { opacity: 1; transform: none; pointer-events: none; }
+#peek.open.pinned { pointer-events: auto; }
+/* Over the card it shows, the dossier stands at the other side of the table (js/ui.js placePeek). */
+#peek.far { left: auto; right: 12px; }
 #peek .peek-close { display: none; }
 #peek-x { display: none; position: absolute; z-index: 27; width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%; background: none; color: transparent; font-size: 0; cursor: pointer; }
-#peek.open + #peek-x { display: block; left: calc(318.4px * var(--ui-scale, 1) - 22px); top: calc(36.5px * var(--ui-scale, 1) - 22px); }
+#peek.open.pinned + #peek-x { display: block; left: calc(318.4px * var(--ui-scale, 1) - 22px); top: calc(36.5px * var(--ui-scale, 1) - 22px); }
+#peek.open.pinned.far + #peek-x { left: auto; right: calc(35.6px * var(--ui-scale, 1) - 22px); }
 #peek-x:hover { box-shadow: 0 0 12px rgba(255, 120, 100, 0.7); }
 /* The panel's painted band carries the kind's seal and the name (the panel's own content starts under it), clear
    of the X; it is drawn beside the panel like the X, and shows while the dossier is open. */
 #peek-head { display: none; position: absolute; z-index: 27; left: 32px; top: 15px; width: 262px; height: 38px; align-items: center; gap: 8px; color: var(--paper); pointer-events: none; overflow: hidden; zoom: var(--ui-scale, 1); }
 #peek.open ~ #peek-head.on { display: flex; }
+#peek.far ~ #peek-head { left: auto; right: 60px; }
 #peek-head .k-icon { flex: none; width: 26px; height: 26px; background: center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
 #peek-head h4 { margin: 0; min-width: 0; font-family: var(--display); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
 /* What a charge needs and has, in icons: each kind of proof with its pips (filled, had; empty, wanted). */
@@ -470,6 +485,10 @@ html[data-calm] .card.gone-burn .c-face, html[data-calm] .card.gone-ink .c-face,
 .card .c-body { position: absolute; left: 7%; right: 7%; top: 64%; bottom: 5%; display: flex; flex-direction: column; overflow: hidden; }
 .card.face-full .c-body { top: auto; bottom: 5%; left: 8%; right: 8%; max-height: 40%; padding: 3px 4px; background: rgba(239, 230, 207, 0.94); border-radius: 3px; box-shadow: 0 0 0 1px rgba(60, 40, 10, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35); }
 .card.face-full.banded .c-body { bottom: 4%; left: 9%; right: 9%; background: none; box-shadow: none; padding: 2px 3px; }
+/* The story cards (cstory: the Sketch-book, an Insight, a Whisper...) paint their band higher, from about three
+   quarters of the way down to a tenth from the foot: the name stands in it, centred, not under it. */
+.card.face-full.banded.band-story .c-body { top: 73.5%; bottom: 10%; max-height: none; justify-content: center; padding: 0 3px; }
+.card.face-full.banded.band-story .c-title { margin-top: 0; }
 .card.face-icon .c-body { top: 80.5%; bottom: 6%; left: 10%; right: 10%; padding: 0 2px; justify-content: center; }
 .card.face-icon .c-title { -webkit-line-clamp: 1; margin-top: 0; }
 .card .c-title { font-family: var(--display); font-size: 10px; line-height: 1.15; font-weight: 700; text-align: center; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; flex: none; letter-spacing: 0.01em; color: #2a2317; }
@@ -604,6 +623,8 @@ html.cf-cover #app { visibility: hidden; }
 .story { color: var(--paper-ink); padding: 2px 0 10px; margin: 0 0 12px; border-bottom: 1px solid rgba(60, 40, 10, 0.25); }
 .story h5 { margin: 0 0 6px; font-family: var(--display); letter-spacing: 0.04em; font-size: 13px; }
 .story p { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.5; }
+/* The words still to type hold their place, unseen (js/ui.js storyBox), so the story never grows under the finds. */
+.story p .ghost { visibility: hidden; }
 .slots { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 12px; }
 .slot { position: relative; width: calc(var(--card-w) * 0.72 + 10px); display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .slot .s-box { width: calc(var(--card-w) * 0.72 + 10px); height: calc(var(--card-h) * 0.72 + 10px); background: rgba(10, 12, 14, 0.55); border: 1.5px dashed rgba(201, 162, 76, 0.45); border-radius: 9px; box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; padding: 4px; }
@@ -743,9 +764,12 @@ html.cf-cover #app { visibility: hidden; }
 
 /* ---------- Toasts ---------- */
 /* Top right, under the bar, clear of the notch; a verb window pushes them left. */
-/* Top-right, below the verb row at the fit view (its labels end about 250px under the bar), so a toast never sits on the hint or the Court token. */
-#toasts { position: fixed; right: calc(12px + var(--sa-r)); top: calc(var(--sa-t) + 260px); left: auto; bottom: auto; display: flex; flex-direction: column; gap: 6px; z-index: 900; width: 380px; max-width: calc(100vw - 24px); pointer-events: none; }
+/* Bottom-right, growing up from just above the table's tools: the verb tiles (twice a card) fill the top of the felt
+   at the fit view, and cards fill rows from the left, so the foot of the right-hand side is the felt left bare. */
+#toasts { position: fixed; right: calc(12px + var(--sa-r)); top: auto; left: auto; bottom: calc(60px + var(--sa-b)); display: flex; flex-direction: column; gap: 6px; z-index: 900; width: 380px; max-width: calc(100vw - 24px); pointer-events: none; }
 body.has-window #toasts { right: calc(390px * var(--ui-scale, 1)); }
+/* The open Journal is a drawer at the right: the toasts stand beside it, not over the Roads at its head. */
+body.has-journal #toasts { right: calc(min(380px, 90vw) + 12px + var(--sa-r)); }
 .toast.leaving { opacity: 0; transform: translateX(20px); transition: opacity 0.3s, transform 0.3s; }
 /* The bar grows with its words: the panel (::after) is nine-sliced and stretches; the circle
    (::before) is painted crisp from the same tile, with the icon in it. */
@@ -1204,6 +1228,8 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
   .card .c-count { font-size: calc(12px * var(--zk, 1)); line-height: calc(24px * var(--zk, 1)); }
   .card .c-ringsvg rect { stroke-width: calc(4px * var(--zk, 1)); }
   .verb .v-status { font-size: calc(13px * var(--zk, 1)); }
+  /* The pile's tab, the one handle that is always above the cards, keeps a finger's size the same way. */
+  #board .pile-zone .pz-tab { width: calc(34px * var(--zk, 1)); height: calc(38px * var(--zk, 1)); top: calc(8px - 38px * var(--zk, 1)); }
   .menu-box { max-width: 600px; }
   #menu .row.column { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   #menu .plate-btn { font-size: 12px; padding: 2px 12px; }
@@ -1247,6 +1273,10 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
 @media (max-width: 980px) and (min-height: 521px) {
   /* A sheet rises from the foot: paused, the banner waits up on the felt, under the hint, clear of the sheet. */
   body.has-window #pause-banner { top: 132px; bottom: auto; }
+  /* Without a sheet the banner keeps the foot: the toasts grow up from above it, never over 'Tap to resume'. */
+  #toasts { bottom: calc(58px + var(--sa-b)); }
+  /* Upright, the open Journal is nearly the width of the screen: the toasts wait (the Journal has the stories). */
+  body.has-journal #toasts { display: none; }
   #hint { left: 8px; right: 8px; top: 62px; width: auto; max-width: none; transform: none; padding-block: 7px; padding-inline: 54px 16px; text-align: start; font-size: 12px; line-height: 1.25; }
 }
 /* A phone on its side (the APK's only way): the verbs fill the top of the felt, so the hint docks at the foot, on the
@@ -1254,8 +1284,9 @@ html[data-calm] .vwin.closing, html[data-calm] .toast.leaving { transform: none;
    what is being read. */
 @media (max-height: 520px) {
   #hint { left: 8px; right: auto; top: auto; bottom: 8px; width: auto; max-width: min(520px, 56%); transform: none; padding-block: 7px; padding-inline: 54px 16px; text-align: start; font-size: 12px; line-height: 1.25; }
-  /* The sheet fills the felt on its side: paused, the banner sits in the strip above it, between the hint and the tools. */
-  body.has-window #pause-banner { top: 8px; bottom: auto; }
+  /* Paused, the banner sits in the strip at the top of the felt, left of the tools: the camera keeps that band free
+     (js/ui.js toolBand), the hint has the foot, and an open sheet fills the rest. */
+  #pause-banner { top: 8px; bottom: auto; }
 }
 /* A narrow phone: the pause menu in one column; the bar's gaps close so the five meters, the badge and the controls fit 360px. */
 @media (max-width: 480px) {

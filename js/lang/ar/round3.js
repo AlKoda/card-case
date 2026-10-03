@@ -2822,5 +2822,15 @@
     "The Bishop's favour +2; Cruelty; a wrong name in the Rolls; an Unanswered case goes": "حظوة الأسقف +2؛ وقسوة؛ واسم خاطئ في السجلات؛ وتذهب قضية بلا جواب",
     "At the Trial of the Pyx the Mint's own coins were weighed against the city's standard before the Council, and every one was light. Not clipped, not worn: struck light, under the city's eagle. The Mint's warden, {victim}, has asked for the Watch, which is brave of a warden. It must be answered before the Emperor hears it from somebody else.": "في امتحان الصندوق وُزنت نقود دار السكّة نفسها بمعيار المدينة أمام المجلس، فإذا كلّها خفيفة. لا مقصوصة ولا بالية: ضُربت خفيفة، تحت نسر المدينة. وقد طلب أمين دار السكّة، {victim}، الحرس، وهذه شجاعة من أمين. ولا بدّ من الجواب قبل أن يسمع الإمبراطور بالأمر من غيرك.",
     "Suspicion rises with searches without a Writ, proof arranged, purses pocketed and questions put with Health. It falls when you enter the Rolls in Attend, and with a friend on the Council.": "تعلو الريبة مع التفتيش بلا صك، والدليل المدبَّر، والصُّرر المدسوسة في الجيب، والاستجواب بالصحة. وتهبط حين تدوّن السجلات في الدوام، وبصديق في المجلس.",
+    // Table check-up: a refused drop says what the verb (or the place) takes.
+    "Attend takes Health or Wit for a day's work, a Case, a watchman, a Petition, a Letter of Service, or the Council's letters.": "يأخذ الدوامُ الصحةَ أو الفطنةَ لعمل يوم، أو قضيةً، أو حارسًا، أو عريضةً، أو كتابَ خدمة، أو كتبَ المجلس.",
+    "Explore takes a Case, an Accused, Instinct or Health, an informer, or someone abroad.": "يأخذ الاستكشافُ قضيةً، أو متهمًا، أو الحدسَ أو الصحةَ، أو مخبرًا، أو طليقًا.",
+    "Study takes raw proof: a token, an Accused, or an unanswered case.": "تأخذ الدراسةُ الدليلَ الخام: أمارةً، أو متهمًا، أو قضيةً بلا جواب.",
+    "Question takes a Witness, an Accused, or the Rival.": "يأخذ الاستجوابُ شاهدًا، أو متهمًا، أو الغريم.",
+    "Rest takes a Case or its tokens, Weariness, Fever, Hunger, Sickness, Stress, a Wound, or an Insight.": "تأخذ الراحةُ قضيةً أو أماراتها، أو الإعياءَ، أو الحمّى، أو الجوعَ، أو المرضَ، أو الكربَ، أو جرحًا، أو بصيرةً.",
+    "The Court takes an Accused, or the Condemned.": "تأخذ المحكمةُ متهمًا، أو المحكومَ.",
+    "{verb} asks for {what}, not this.": "المطلوب في {verb}: {what}، لا هذه.",
+    "{verb} is at work. Wait for its clock to run out.": "{verb} قيد العمل. انتظر حتى ينفد الوقت.",
+    "This place takes {what}.": "هذا الموضع يأخذ: {what}.",
   });
 })(typeof window !== 'undefined' ? window : globalThis);

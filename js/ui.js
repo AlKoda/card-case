@@ -207,7 +207,7 @@
   var RING_LEN = 2 * (240 + 240) - 8 * 20 + 2 * Math.PI * 20;
 
   // The face of a card: {art, fam, tone, gray, banded}.
-  function full(art, tone, gray) { return { art: art, fam: 'full', tone: tone || 'gold', gray: !!gray, banded: /^(cplace3|cstory)-/.test(art) }; }
+  function full(art, tone, gray) { return { art: art, fam: 'full', tone: tone || 'gold', gray: !!gray, banded: /^(cplace3|cstory)-/.test(art), storyBand: /^cstory-/.test(art) }; }
   function icon(art, tone, gray) { return { art: art, fam: 'icon', tone: tone || 'gold', gray: !!gray }; }
   function cardPicture(card) {
     var e = UI.e, def = CF.CARDS[card.def], k = def.kind, tone = PIC_TONE[k] || 'gold';
@@ -246,7 +246,7 @@
   var UI = (CF.UI = {
     e: null, openVerbs: [], selected: null, hover: null, hoverSlot: null,
     speed: 1, paused: false, modal: false, drag: null,
-    view: { x: 16, y: 16, z: 1 }, winPos: {}, lifted: null, spawn: {},
+    view: { x: 16, y: 16, z: 1 }, lifted: null, spawn: {},
     onGameOver: null, onSave: null,
   });
   UI.personArt = personArt;
@@ -290,7 +290,6 @@
     UI.typing = null;
     boundsCache = null;
     UI.spawn = {};
-    UI.winPos = {};
     UI.seenVerbs = {};
     UI.newVerbs = {};
     UI.lastRank = engine.s.rank;
@@ -317,6 +316,7 @@
     UI.dockH = undefined;
     $('#btn-journal').classList.remove('unread');
     $('#journal-drawer').classList.remove('open');
+    if (document.body) document.body.classList.remove('has-journal');
     $('#peek').classList.remove('open');
     cardEls = {}; verbEls = {}; winEls = {}; liveCards = []; UI.verdictWait = null; UI.strainSeen = null;
     engine.on(onEvent);
@@ -695,14 +695,18 @@
       var at = rec.at && rec.at.x !== undefined ? rec.at : el.cfAt;
       var from = e.s.nextUid || 0;
       // What the verdict makes waits under the stamp until the ghost gives it up.
-      UI.verdictWait = trial ? { from: from } : null;
+      var wait = UI.verdictWait = trial ? { from: from } : null;
       setTimeout(function () {
         if (UI.e !== e) { el.remove(); return; } // another game since
-        UI.verdictWait = null;
+        // A later verdict in the same hold keeps its own wait (and its cards) until its stamp lifts.
+        var later = UI.verdictWait && UI.verdictWait !== wait ? UI.verdictWait.from : Infinity;
+        if (UI.verdictWait === wait) UI.verdictWait = null;
         var made = e.tableCards().filter(function (c) { return c.uid >= from && (c.def === 'condemned' || c.def === 'atlarge'); }).sort(function (a, b) { return b.uid - a.uid; })[0];
         var mel = made && cardEls[made.uid];
+        // Every card that waited under the stamp shows now, not only the one the ghost gives up: two verdicts in
+        // one hold, or a Condemned that joined a stack meanwhile, are never left unseen.
+        Object.keys(cardEls).forEach(function (k) { if (+k < later && cardEls[k].classList.contains('awaiting')) cardEls[k].classList.remove('awaiting'); });
         if (mel) {
-          mel.classList.remove('awaiting');
           if (at && !calm()) {
             mel.classList.add('no-anim');
             place(mel, at.x, at.y);
@@ -787,6 +791,9 @@
     }
     if (type === 'choice') {
       CF.Audio.play('start');
+      // The question stands on the table with its words: its story's toast (the Journal keeps it) would only lie
+      // over the answers, at the right of the table where the choice is put.
+      Array.prototype.slice.call($('#toasts').children).forEach(function (t) { if (t.dataset && t.dataset.title === payload.title) t.remove(); });
       if (UI.openVerbs.length) closeAllWindows();
       var sp = UI.e.choiceSpot();
       UI.viewBefore = { x: UI.view.x, y: UI.view.y, z: UI.view.z };
@@ -900,6 +907,7 @@
     var text = entry.kind === 'verb' ? 'Tap to read' : entry.parts ? storyText(entry) : entry.text || '';
     // The medallion is its own element, so a right-to-left bar can be mirrored under it while the icon is not.
     t.innerHTML = '<i class="t-icon"></i><b>' + esc(entry.title) + '</b><span>' + esc(text) + '</span>';
+    t.dataset.title = entry.title || '';
     var stay = TOAST_LONG[entry.kind] ? 9000 : 6000;
     t.addEventListener('click', function () {
       if (entry.verb) openWindow(entry.verb);
@@ -950,6 +958,8 @@
   UI.toggleJournal = function (on) {
     var open = on === undefined ? !$('#journal-drawer').classList.contains('open') : !!on;
     $('#journal-drawer').classList.toggle('open', open);
+    // The toasts stand clear of the open drawer (the stylesheet), not over the Roads at its head.
+    if (document.body) document.body.classList.toggle('has-journal', open);
     $('#btn-journal').classList.toggle('on', open);
     if (open) { UI.journalSeen = UI.e ? UI.e.s.journal.length : 0; $('#btn-journal').classList.remove('unread'); }
   };
@@ -1353,6 +1363,7 @@
     var info = METER_INFO[key]; if (!info) return;
     var box = $('#peek');
     UI.selected = null; UI.hover = null;
+    box.classList.remove('far');
     box.dataset.uid = 'meter:' + key; box.dataset.sig = '';
     peekHead(METER_ICONS[key], info.title);
     var ends = key === 'reputation' && UI.e ? repTarget(UI.e).line : info.ends;
@@ -1562,8 +1573,8 @@
     // What a verdict's stamp looks for once the card has left the state: its case, its kind, its place.
     n.cfCase = card.caseId || (card.data && card.data.caseId) || null; n.cfDef = card.def;
     n.classList.toggle('facedown', !!card.hidden);
-    n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b|\bbanded\b/g, '').trim() +
-      ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (pic.banded ? ' banded' : '') + (count > 1 ? ' stack-' + Math.min(3, count) : '');
+    n.className = n.className.replace(/\b(kind|face|tone)-\S+/g, '').replace(/\bstack-\d\b|\bbanded\b|\bband-story\b/g, '').trim() +
+      ' kind-' + def.kind + ' face-' + pic.fam + ' tone-' + pic.tone + (pic.banded ? ' banded' : '') + (pic.storyBand ? ' band-story' : '') + (count > 1 ? ' stack-' + Math.min(3, count) : '');
     n.innerHTML = '';
     n._time = undefined; n._ring = null; n._urgent = undefined; // the live children are rebuilt below
     for (var i = Math.min(2, count - 1); i > 0; i--) {
@@ -1698,6 +1709,11 @@
     cards.forEach(function (c) { if (c.loc.x >= pile.x && c.loc.x < pile.x + pw && c.loc.y >= pile.y && c.loc.y < pile.y + T.CH) pileEnd = Math.max(pileEnd, c.loc.x + T.CW); });
     if (pileEnd > -Infinity) { x0 = Math.min(x0, pile.x); y0 = Math.min(y0, pile.y - 30); x1 = Math.max(x1, pileEnd); y1 = Math.max(y1, pile.y + T.CH); }
     if (!cards.length) { x0 = 0; y0 = T.TOP; x1 = 4 * (T.CW + T.GAP); y1 = T.TOP + T.CH; }
+    // A choice waiting on the table is part of it: the Fit takes it in whole, its last answer with it.
+    if (e.s.choice && choiceEl && choiceEl.offsetWidth && typeof e.choiceSpot === 'function') {
+      var cs = e.choiceSpot();
+      x0 = Math.min(x0, cs.x); y0 = Math.min(y0, cs.y); x1 = Math.max(x1, cs.x + choiceEl.offsetWidth); y1 = Math.max(y1, cs.y + choiceEl.offsetHeight);
+    }
     return (boundsCache = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
   }
 
@@ -1713,17 +1729,52 @@
     bandCache = { top: r.top, h: h };
     return h;
   }
-  // Fit the whole board into the table area.
+  // Fit the whole board into the table area, as the eye sees it: the table is tilted, so the near rows stand
+  // wider and taller on the screen than on the plane. The fit is measured through the tilt (toPlane), not on the
+  // flat plane, or the near corners would run off the sides while the far side of the felt stood empty.
+  // Lean in when there is little on the table (to 1.25); stand back as far as a pinch can for a full one. A phone
+  // on its side is short for the tiles' row and four rows of cards: the farthest zoom (0.3) still shows them whole
+  // (pure icons, the clocks counter-scaled by --zk), so the Fit can keep its word there too.
+  UI.Z_MIN = 0.3;
   UI.fitView = function () {
     if (!UI.e) return;
+    tiltChanged();
     var r = $('#table').getBoundingClientRect();
     var b = boardBounds();
-    bandCache = null;
     var dockH = toolBand(r);
-    // Fit what is on the table, and lean in when there is little of it.
-    // Upright on a phone the fit may go as far as a pinch can (0.4), so more of each row is in sight.
-    var z = U.clamp(Math.min((r.width - 60) / b.w, (r.height - dockH - 60) / b.h), portraitPhone() ? 0.4 : 0.5, 1.25);
-    UI.view = { x: (r.width - b.w * z) / 2 - b.x * z, y: dockH + Math.max(20, (r.height - dockH - b.h * z) / 2) - b.y * z, z: z };
+    var box = { l: 30, r: r.width - 30, t: dockH + 20, b: r.height - 20 }, cx = r.width / 2;
+    // A phone on its side docks the hint at the foot of the felt: the fit stops above it while it shows.
+    var hint = $('#hint');
+    if (hint && !hint.classList.contains('gone') && hint.textContent && hint.getBoundingClientRect) {
+      var hr = hint.getBoundingClientRect();
+      if (hr.height > 0 && hr.top > r.top + r.height / 2) box.b = Math.min(box.b, hr.top - r.top - 6);
+    }
+    if (box.b - box.t < 40) box = { l: 0, r: r.width, t: dockH, b: r.height };
+    var top = toPlane(cx, box.t).y, bot = toPlane(cx, box.b).y;
+    var sy = function (py) { return fromPlane(0, py).y; };
+    // Where the board stands at zoom z: its far edge on the plane (centred down the screen, or at the top when it
+    // is too tall), and its left edge (centred across the narrower of its far and near rows).
+    function at(z) {
+      var W = b.w * z, H = b.h * z, y0 = top, lo = top, hi = bot - H;
+      var fitsV = hi >= lo;
+      if (fitsV) {
+        for (var i = 0; i < 24; i++) { y0 = (lo + hi) / 2; if (sy(y0) - box.t < box.b - sy(y0 + H)) lo = y0; else hi = y0; }
+        y0 = (lo + hi) / 2;
+      }
+      var ya = sy(y0), yb = Math.min(sy(y0 + H), r.height * 2);
+      var l = Math.max(toPlane(box.l, ya).x, toPlane(box.l, yb).x), rr = Math.min(toPlane(box.r, ya).x, toPlane(box.r, yb).x);
+      return { ok: fitsV && W <= rr - l, x0: (l + rr) / 2 - W / 2, y0: y0 };
+    }
+    var zLo = UI.Z_MIN, zHi = 1.25, z = zHi, best = at(zHi);
+    if (!best.ok) {
+      var low = at(zLo);
+      if (!low.ok) { z = zLo; best = low; }
+      else {
+        for (var k = 0; k < 16; k++) { var zm = (zLo + zHi) / 2, m = at(zm); if (m.ok) { zLo = zm; low = m; } else zHi = zm; }
+        z = zLo; best = low;
+      }
+    }
+    UI.view = { x: best.x0 - b.x * z, y: best.y0 - b.y * z, z: z };
     applyView();
   };
 
@@ -1808,7 +1859,7 @@
 
   function zoomAt(cx, cy, factor, rect) {
     var r = rect || $('#table').getBoundingClientRect();
-    var v = UI.view, z = U.clamp(v.z * factor, 0.4, 1.6);
+    var v = UI.view, z = U.clamp(v.z * factor, UI.Z_MIN, 1.6);
     var pp = toPlane(cx - r.left, cy - r.top), px = pp.x, py = pp.y;
     v.x = px - (px - v.x) * (z / v.z);
     v.y = py - (py - v.y) * (z / v.z);
@@ -1899,8 +1950,13 @@
       pileEl.appendChild(h('span', 'pz-label', 'New cards'));
       board.appendChild(pileEl);
     }
-    if (!(UI.drag && UI.drag.kind === 'pile')) place(pileEl, pile.x - 9, pile.y - 8);
+    if (!(UI.drag && UI.drag.kind === 'pile')) placePile(pileEl, pile.x, pile.y);
   }
+  // The pile is set by left and top, not a transform: a transform would make the strip a stacking context of its
+  // own, and its tab and label (z-index 2 in the stylesheet) would sink under the cards (z-index 1) of the row
+  // above, where a finger or the mouse could no longer take hold of them.
+  function placePile(el, x, y) { el.style.left = Math.round(x - 9) + 'px'; el.style.top = Math.round(y - 8) + 'px'; }
+  UI.placePile = placePile;
   // Glide the camera to a point on the board.
   // A notice: a pulse on something worth a look, or, when it is off the
   // screen, a marker at the table's edge pointing to it. Tapping it goes there.
@@ -1956,7 +2012,11 @@
     // Kept on screen by its own width, measured once it shows: a long label (or an Arabic one) is not cut at the edge.
     if (!n.w) n.w = n.mark.offsetWidth || 0;
     var half = Math.max(24, Math.min(tr2.width / 2, Math.ceil(n.w / 2) + 4));
-    var mx = Math.round(Math.max(half, Math.min(tr2.width - half, cx))), my = Math.round(Math.max(80, Math.min(tr2.height - 90, cy)));
+    // On a desk the foot of the felt has the tools and the pause banner; on a phone the tools take the top band
+    // (toolBand) and a row of cards stands near the foot, so there the mark hugs the very edge and covers no more
+    // than a card's rim.
+    var band = toolBand(tr2), yLo = band ? band + 20 : 80, yHi = band ? tr2.height - 20 : tr2.height - 90;
+    var mx = Math.round(Math.max(half, Math.min(tr2.width - half, cx))), my = Math.round(Math.max(yLo, Math.min(yHi, cy)));
     var ang = Math.round(Math.atan2(cy - my, cx - mx) * 180 / Math.PI);
     if (n.mx !== mx) { n.mx = mx; n.mark.style.left = mx + 'px'; }
     if (n.my !== my) { n.my = my; n.mark.style.top = my + 'px'; }
@@ -2562,7 +2622,7 @@
     // The dossier's clock, and the card pictured in it.
     var peekUid = UI.hover || UI.selected, peekCard = peekUid && e.card(peekUid);
     if (peekCard && peekCard.maxLife) {
-      var pt = $('#peek .i-time'); if (pt) pt.textContent = tr('Time left: {t}', { t: U.fmtTime(peekCard.life) });
+      var pt = $('#peek .i-time'); if (pt) pt.textContent = clockLine(peekCard);
       var pc = $('#peek .i-card .card'); if (pc) updateCardLive(pc, peekCard);
     }
     updateVerbRings();
@@ -3108,7 +3168,11 @@
       typed.add(story);
     } else {
       if (!UI.typing || UI.typing.story !== story) UI.typing = { story: story, t0: performance.now() };
-      UI.typing.el = p;
+      // The words still to come stand unseen after the typed ones, so the story has its full height from the
+      // first frame: the finds under it do not slide down between a player's two taps.
+      var shown = h('span'), ghost = h('span', 'ghost');
+      p.appendChild(shown); p.appendChild(ghost);
+      UI.typing.el = shown; UI.typing.ghost = ghost;
       d.title = tr('Click to show all');
       d.addEventListener('click', function () { typed.add(story); p.textContent = storyText(story); UI.typing = null; });
       advanceTyping();
@@ -3120,8 +3184,9 @@
     if (!t || !t.el) return;
     var n = Math.floor(((performance.now() - t.t0) / 1000) * CF.Settings.typeRate());
     var full = storyText(t.story);
-    if (n >= full.length) { t.el.textContent = full; typed.add(t.story); UI.typing = null; return; }
+    if (n >= full.length) { t.el.textContent = full; if (t.ghost) t.ghost.textContent = ''; typed.add(t.story); UI.typing = null; return; }
     t.el.textContent = full.slice(0, n);
+    if (t.ghost) t.ghost.textContent = full.slice(n);
   }
 
   // A picture of what a slot takes, from its first accepted kind.
@@ -3490,12 +3555,15 @@
       if (harbourArc()) lines.push(tr('{need} in {verb} open the Harbourmaster\'s Books: {n} of {need}', { need: LEAVES_NEED, verb: tr(CF.VERBS[hb ? hb.verb : 'reflect'].label), n: Math.min(LEAVES_NEED, freeOf(card.def).length) }));
     } else if (card.def === 'wound') {
       lines.push('Another blow before this knits will kill you.');
-      lines.push(tr('Knits in {t}', { t: U.fmtTime(card.life) }));
-    } else if (card.maxLife) {
-      lines.push(tr('Time left: {t}', { t: U.fmtTime(card.life) }));
     }
+    // A card's clock is not among the notes: the dossier's live line under them (clockLine) keeps it, ticking.
     return lines.slice(0, k === 'case' ? 8 : k === 'calling' ? 9 : 6);
   }
+  // The dossier's one clock line, written again every frame: a wound knits, anything else runs out.
+  function clockLine(card) {
+    return card.def === 'wound' ? tr('Knits in {t}', { t: U.fmtTime(card.life) }) : tr('Time left: {t}', { t: U.fmtTime(card.life) });
+  }
+  UI.clockLine = clockLine;
   // A list in the reader's own commas (Arabic joins with its own).
   function joinList(xs) { return xs.join(tr(', ')); }
   // Pieces put together with nothing but punctuation between them: each piece is read in the reader's language
@@ -3589,6 +3657,18 @@
     var p = proofRow(card);
     return [UI.e.labelOf(card), dossierDesc(card, rec)].concat(notes).concat(p ? [p.title] : []);
   };
+  // The dossier stands at the top left of the table; over the card it shows (Health at the left of a desk), it
+  // stands at the right instead, so the card stays in sight and in reach. Not with a window open: the window
+  // is docked at the right, and on a phone it is the sheet from the bottom.
+  function placePeek(box, card) {
+    var far = false, el = card.loc && card.loc.t === 'table' ? cardEls[card.uid] : null;
+    if (el && !UI.openVerbs.length && el.getBoundingClientRect) {
+      var r = el.getBoundingClientRect(), t = tableRect(), s = UI.scale(), reach = (12 + 330 + 12) * s;
+      far = t.width >= 2 * reach && r.right > t.left && r.left < t.left + reach;
+    }
+    if (box.classList.contains('far') !== far) box.classList.toggle('far', far);
+  }
+  UI.placePeek = placePeek;
   // The dossier: a card floating at the top right of the table while a card
   // is hovered, pinned while one is selected.
   function renderInspector() {
@@ -3600,6 +3680,7 @@
     if (!card || card.hidden) { box.classList.remove('open'); box.dataset.uid = ''; return; }
     box.classList.add('open');
     box.classList.toggle('pinned', UI.selected === uid);
+    placePeek(box, card);
     if (box.dataset.uid === String(uid) && box.dataset.sig === cardSig(card, 1)) return;
     box.dataset.uid = uid; box.dataset.sig = cardSig(card, 1);
     var def = CF.CARDS[card.def];
@@ -3622,7 +3703,7 @@
     html += '<p>' + esc(dossierDesc(card, rec)) + '</p>';
     html += proofHtml(proofRow(card));
     if (notes.length) html += '<div class="i-lines">' + notes.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') + '</div>';
-    if (card.maxLife) html += '<div class="i-note i-time">' + escText(tr('Time left: {t}', { t: U.fmtTime(card.life) })) + '</div>';
+    if (card.maxLife) html += '<div class="i-note i-time">' + escText(clockLine(card)) + '</div>';
     var why = card.loc && card.loc.t === 'table' && e.unavailableReason(card);
     if (why) html += '<div class="i-note i-unavailable">' + esc(why) + '</div>';
     var canMark = card.loc && (card.loc.t === 'table' || card.loc.t === 'slot');
@@ -3730,7 +3811,15 @@
   // Drags: a card (from the table, a slot, or a verb's output), a verb token,
   // a window, or the table itself (panning). Cards are lifted into a layer
   // above everything, tilt as they move, and settle when dropped.
-  function cardAt(target) { return target.closest && target.closest('.card[data-uid]'); }
+  // The card under the pointer. A find turning over in a window stands edge-on for a moment: the press then lands
+  // on its wrapper (.mini-wrap), which still holds that card.
+  function cardAt(target) {
+    if (!target.closest) return null;
+    var n = target.closest('.card[data-uid]');
+    if (n) return n;
+    var w = target.closest('.mini-wrap');
+    return w && w.querySelector ? w.querySelector('.card[data-uid]') : null;
+  }
 
   function canTake(vid, card) {
     var e = UI.e, v = e.verb(vid);
@@ -3782,12 +3871,11 @@
     }
     if (UI.drag) cancelDrag(); // a second pointer, or a pointerup we never saw
     var t = ev.target;
-    var winHead = t.closest && t.closest('.vw-head');
+    // A window stands docked at the side (positionWindow): a press on it brings it to the front, it never moves.
     var win = t.closest && t.closest('.vwin');
     if (win) {
       var wid = win.dataset.win;
       if (UI.openVerbs[UI.openVerbs.length - 1] !== wid) { openWindow(wid); }
-      void winHead;
     }
     var n = cardAt(t);
     if (n && n.closest('.pk-card')) return; // picker cards are buttons, not cards
@@ -3797,7 +3885,7 @@
       if (!card || !card.loc || card.loc.t === 'held') { select(uid); return; }
       // The number badge is the handle for the whole stack; the card is one card.
       var whole = ev.shiftKey || !!(t.closest && t.closest('.c-count'));
-      var dd = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole };
+      var dd = { kind: 'card', uid: uid, src: n, x0: ev.clientX, y0: ev.clientY, started: false, whole: whole, inWin: !!win };
       UI.drag = dd;
       // A hold on a stacked card, without moving, lifts the whole stack.
       if (!whole && card.loc.t === 'table' && UI.e.stackOf(card).length > 1) {
@@ -3845,7 +3933,7 @@
     if (d.kind === 'pan') applyView();
     else if (d.kind === 'pinch') applyPinch(d);
     else if ((d.kind === 'verb' || d.kind === 'pile') && d.at) {
-      place(d.el, d.kind === 'pile' ? d.at.x - 9 : d.at.x, d.kind === 'pile' ? d.at.y - 8 : d.at.y);
+      if (d.kind === 'pile') placePile(d.el, d.at.x, d.at.y); else place(d.el, d.at.x, d.at.y);
       if (d.kind === 'verb') syncLinksHeld(['v:' + d.verb]);
     }
   }
@@ -3861,7 +3949,7 @@
   function applyPinch(d) {
     var pinch = pinchState();
     if (!pinch) return;
-    var want = U.clamp(d.z0 * (pinch.d / d.d0), 0.4, 1.6);
+    var want = U.clamp(d.z0 * (pinch.d / d.d0), UI.Z_MIN, 1.6);
     zoomAt(pinch.cx, pinch.cy, want / UI.view.z, d.rect);
   }
 
@@ -3885,13 +3973,6 @@
     }
     var dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
     if (!d.started && Math.abs(dx) + Math.abs(dy) < 5) return;
-    if (d.kind === 'window') {
-      var tr = $('#table').getBoundingClientRect();
-      UI.winPos[d.verb] = { x: U.clamp(d.px + dx, 4 - 300, tr.width - 60), y: U.clamp(d.py + dy, 4, tr.height - 40) };
-      d.el.style.left = UI.winPos[d.verb].x + 'px';
-      d.el.style.top = UI.winPos[d.verb].y + 'px';
-      return;
-    }
     if (d.kind === 'pan') {
       if (!d.started) { d.started = true; d.rect = $('#table').getBoundingClientRect(); $('#table').classList.add('panning'); }
       if (d.holdT) { clearTimeout(d.holdT); d.holdT = 0; }
@@ -4179,7 +4260,6 @@
     clearMarks();
     resumeAfterDrag();
     if (d.holdT) clearTimeout(d.holdT);
-    if (d.kind === 'window') return;
     if (d.kind === 'pan') { if (!d.started) select(null); return; }
     if (d.kind === 'pile') {
       d.el.classList.remove('dragging');
@@ -4203,8 +4283,20 @@
     // Card.
     var card = e.card(d.uid);
     if (!d.started) {
-      // A finished verb's card: face down, a tap turns it over; face up, a tap takes it.
-      if (card && card.loc && card.loc.t === 'out' && ev.target.closest('.vwin')) {
+      // A finished verb's card: face down, a tap turns it over; face up, a tap reads it; two taps take it to the
+      // table, face down or up. The second tap is told here, by the pointer, for a finger as for the mouse: the
+      // turn redraws the card under it, and the browser's own dblclick may never come (or come to the wrapper).
+      if (card && card.loc && card.loc.t === 'out' && (d.inWin || ev.target.closest('.vwin'))) {
+        var now = performance.now(), last = UI.lastTap;
+        UI.lastTap = { uid: d.uid, t: now };
+        if (last && last.uid === d.uid && now - last.t < DOUBLE_TAP) {
+          UI.lastTap = null; UI.tookByTaps = now;
+          markSpawn(card.uid, d.src);
+          e.takeOutput(card.loc.verb, card.uid);
+          CF.Audio.play('drop'); UI.haptic(10);
+          e.dirty = true;
+          return;
+        }
         if (card.hidden) flipReveal(card, d.src); else select(d.uid);
         return;
       }
@@ -4236,7 +4328,7 @@
         CF.Audio.play('drop'); UI.haptic('confirm');
         absorb(d, t);
       } else {
-        refused(t);
+        refused(t, card);
         if (card.loc.t === 'table' && d.from === 'out') {
           // It left the verb's output but found no slot: drop it by the pointer.
           UI.spawn[card.uid] = { cx: ev.clientX, cy: ev.clientY, gx: d.gx, gy: d.gy };
@@ -4266,16 +4358,48 @@
 
   // A drop the verb will not take: a dull knock, a short buzz, the tile or slot shakes its head (a red edge under
   // less motion), and the reason, where the rules give one, stands in the hint bar for two seconds.
-  function refused(t) {
+  // A refusal always has its reason: the verb's lock, the work it is at, the rules' own word, else what the verb
+  // (or the slot) takes, so a card of the wrong kind is never sent back without a word.
+  function refused(t, card) {
     var e = UI.e, vid = t.verb;
     CF.Audio.play('refuse'); UI.haptic('reject');
     var node = t.node;
     if (node) { node.classList.remove('refuse'); void node.offsetWidth; node.classList.add('refuse'); setTimeout(function () { node.classList.remove('refuse'); }, 320); }
-    var v = vid ? e.verb(vid) : null, pv = v && v.status === 'idle' && e.preview ? e.preview(vid) : null;
-    var why = vid ? e.lockReason(vid) || (pv && pv.blocked) : null;
-    UI.hintFlash = why ? { text: tr(why), until: performance.now() + 2000 } : null;
+    var why = vid ? refusalReason(vid, t.slot, card) : null;
+    UI.hintFlash = why ? { text: why, until: performance.now() + 2500 } : null;
   }
   UI.refused = refused;
+  // What each verb takes, in a line: the hint bar's answer to a card of the wrong kind on its tile.
+  var VERB_TAKES = {
+    duty: 'Attend takes Health or Wit for a day\'s work, a Case, a watchman, a Petition, a Letter of Service, or the Council\'s letters.',
+    investigate: 'Explore takes a Case, an Accused, Instinct or Health, an informer, or someone abroad.',
+    analyze: 'Study takes raw proof: a token, an Accused, or an unanswered case.',
+    interrogate: 'Question takes a Witness, an Accused, or the Rival.',
+    reflect: 'Rest takes a Case or its tokens, Weariness, Fever, Hunger, Sickness, Stress, a Wound, or an Insight.',
+    arrest: 'The Court takes an Accused, or the Condemned.',
+  };
+  UI.VERB_TAKES = VERB_TAKES;
+  function refusalReason(vid, slotKey, card) {
+    var e = UI.e, v = e.verb(vid), def = CF.VERBS[vid];
+    if (!v || !def) return null;
+    var lock = e.lockReason(vid);
+    if (lock) return tr(lock);
+    if (v.status === 'running') {
+      if (v.ask && !v.ask.filled) return tr('{verb} asks for {what}, not this.', { verb: def.label, what: v.ask.label });
+      return tr('{verb} is at work. Wait for its clock to run out.', { verb: def.label });
+    }
+    if (card && card.loc && card.loc.t === 'table') { var un = e.unavailableReason(card); if (un) return tr(un); }
+    var pv = v.status === 'idle' && e.preview ? e.preview(vid) : null;
+    if (pv && pv.blocked) return tr(pv.blocked);
+    var sl = null;
+    def.slots.forEach(function (x) { if (x.key === slotKey) sl = x; });
+    if (sl && !sl.primary) {
+      var kinds = [];
+      sl.accepts.forEach(function (a) { var w = prettyAspect(a); if (kinds.indexOf(w) < 0) kinds.push(w); });
+      return tr('This place takes {what}.', { what: kinds.slice(0, 4).join(', ') });
+    }
+    return VERB_TAKES[vid] ? tr(VERB_TAKES[vid]) : null;
+  }
   // A card dropped into a slot shrinks into it.
   function absorb(d, t) {
     var el = d.el;
@@ -4292,8 +4416,11 @@
     setTimeout(function () { el.remove(); }, 240);
   }
 
+  // Two taps on a find within this long take it (onPointerUp); the dblclick that follows them is already answered.
+  var DOUBLE_TAP = 450;
   function onDoubleClick(ev) {
     if (UI.modal) return;
+    if (UI.tookByTaps && performance.now() - UI.tookByTaps < 700) return;
     var n = cardAt(ev.target);
     var e = UI.e;
     if (!n) return;
