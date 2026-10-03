@@ -527,7 +527,10 @@
       else zoomAt(r.left + r.width / 2, r.top + r.height / 2, b.dataset.zoom === 'in' ? 1.15 : 1 / 1.15);
     });
     document.addEventListener('keydown', function (ev) {
-      if (UI.modal || ev.target.tagName === 'INPUT') return;
+      if (ev.target.tagName === 'INPUT') return;
+      // Escape over a menu, a screen or a question is Back: the top one is put away, as Android's Back and the
+      // browser's do (UI.back, js/main.js UI.onBack). The title has nothing under it and stays.
+      if (UI.modal) { if (ev.key === 'Escape') { ev.preventDefault(); UI.back(); } return; }
       // Enter on a focused button is that button's click, not Begin.
       if (ev.key === 'Enter' && /^(BUTTON|SELECT|TEXTAREA|A)$/.test(ev.target.tagName)) return;
       if (ev.code === 'Space') { ev.preventDefault(); UI.setPaused(!UI.paused); }

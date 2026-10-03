@@ -97,7 +97,7 @@ var document = {
   getElementById: function (id) { return body.querySelector('#' + id); },
   createElement: function (tag) { return new El(tag); },
   createElementNS: function (ns, tag) { return new El(tag); },
-  addEventListener: function () {}, removeEventListener: function () {},
+  listeners: {}, addEventListener: function (ev, fn) { (this.listeners[ev] = this.listeners[ev] || []).push(fn); }, removeEventListener: function () {},
   elementFromPoint: function () { return null; },
 };
 var timers = [];
@@ -3330,6 +3330,38 @@ function render(e) { e.dirty = true; UI.renderNow(); }
   assert.ok(!/[A-Za-z]/.test(px) && px.indexOf('14') === 0 && pc === '80٪', 'the units in Arabic: ' + px + ' ' + pc);
   assert.strictEqual(CF.T('{n}px', { n: 14 }), '14px', 'and as they were in English');
   console.log('ui: the Arabic check-up (kinds by name, the Court\'s numbers, marks apart, the sheet\'s foot, units, the Rolls\' comma)');
+})();
+
+// ---- Platform check-up: Escape is Back over a menu or a screen, the end paper's Back goes up to the title, and
+// the new edition's toast wears its seal like every other toast.
+(function platformCheckup() {
+  var main = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  var keydown = (document.listeners.keydown || [])[0];
+  assert.ok(keydown, 'the table listens for keys');
+  function key(k, tag) { var prevented = false; keydown({ key: k, code: k === ' ' ? 'Space' : k, target: { tagName: tag || 'BODY' }, preventDefault: function () { prevented = true; } }); return prevented; }
+  var backs = 0, keepBack = UI.onBack, keepModal = UI.modal, keepPaused = UI.paused;
+  UI.onBack = function () { backs++; return true; };
+  // A menu is up: Escape puts it away the way Back does (UI.back, then js/main.js UI.onBack), and nothing else.
+  UI.modal = true;
+  assert.ok(key('Escape'), 'Escape over a menu is taken');
+  assert.strictEqual(backs, 1, 'and is Back for the top window');
+  var pausedBefore = UI.paused;
+  key(' '); key('1'); key('t');
+  assert.strictEqual(backs, 1, 'other keys still do nothing under a menu');
+  assert.strictEqual(UI.paused, pausedBefore, 'Space does not pause the table behind a menu');
+  key('Escape', 'INPUT');
+  assert.strictEqual(backs, 1, 'Escape in a text field is the field\'s');
+  // With nothing up, Escape is still the table's own: the nearest window, never the menu.
+  UI.modal = false;
+  key('Escape');
+  assert.strictEqual(backs, 1, 'on the bare table Escape does not open the menu');
+  UI.onBack = keepBack; UI.modal = keepModal; UI.paused = keepPaused;
+  // The end paper: Back goes up to the title (where a second Back leaves), not nowhere.
+  assert.ok(/if \(open && open\.id === 'end'\) \{ openTitle\(\); return true; \}/.test(main) && !/open\.id === 'end'\) return true;/.test(main), 'Back on the end paper goes to the title');
+  // The update toast has the icon element the toast style paints its seal on (css .toast .t-icon).
+  var upd = main.slice(main.indexOf('CF.onUpdate = function'), main.indexOf('// ---------------------------------------------------------------- Boot'));
+  assert.ok(/<i class="t-icon"><\/i>/.test(upd) && /--icon:var\(--art-bround-16\)/.test(upd), 'the new edition\'s toast has its seal');
+  console.log('ui: the platform check-up (Escape is Back over a menu, the end paper\'s Back, the update toast\'s seal)');
 })();
 
 void realSetTimeout;

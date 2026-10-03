@@ -362,7 +362,8 @@
     var open = document.querySelector('.modal:not(.hidden)');
     if (open && open.id === 'title') return false;
     if (open && (open.id === 'settings' || open.id === 'archive')) { goBack(); return true; }
-    if (open && open.id === 'end') return true;
+    // The end paper: the file is closed, so Back goes up to the title, where a second Back leaves as anywhere else.
+    if (open && open.id === 'end') { openTitle(); return true; }
     if (open) { only(inGame ? null : 'title'); return true; }
     // The table after 'Look at the Table': the file is closed, so Back is the way to the end paper and its choices.
     if (inGame && UI.e && UI.e.s.over) { only('end'); return true; }
@@ -439,9 +440,10 @@
     t.id = 'update-toast';
     t.className = 'toast k-event';
     t.style.cssText = 'position:fixed;right:calc(12px + var(--sa-r));top:calc(var(--sa-t) + 64px);z-index:1400;width:380px;max-width:calc(100vw - 24px);--bar:var(--art-clabel-06);--icon:var(--art-bround-16)';
-    t.innerHTML = '<b></b><span></span>';
-    t.firstChild.textContent = tr('A new edition is ready');
-    t.lastChild.textContent = tr('Tap to reload.');
+    // The seal sits in the round socket at the left, as on every other toast (js/ui.js toast).
+    t.innerHTML = '<i class="t-icon"></i><b></b><span></span>';
+    t.querySelector('b').textContent = tr('A new edition is ready');
+    t.querySelector('span').textContent = tr('Tap to reload.');
     t.addEventListener('click', function () {
       t.remove();
       save();
